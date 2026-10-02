@@ -80,8 +80,24 @@ docs/                                  # เอกสารที่อนุม
 package note
 
 type CreateNoteRequest struct {
-	Title  string `json:"title"  validate:"required,max=100"`
-	Amount int64  `json:"amount" validate:"gte=0"` // เงิน = int64 หน่วยย่อยที่สุด
+	Title  string `json:"title"`
+	Amount int64  `json:"amount"` // เงิน = int64 หน่วยย่อยที่สุด
+}
+
+// Validate ตรวจรูปแบบของ request — utils.ParseBody เรียกให้อัตโนมัติ
+// เขียนเป็น if ธรรมดา ข้อความต้องบอกได้ว่าผิดที่ field ไหน (ไม่ใช้ struct tag ของ validator)
+// ตรวจแค่ "รูปแบบ" — กฎ business (เช่น ยอดพอไหม, มีสิทธิ์ไหม) อยู่ใน service/core
+func (r *CreateNoteRequest) Validate() error {
+	if strings.TrimSpace(r.Title) == "" {
+		return apperr.ErrValidation.WithMessage("กรุณากรอกชื่อ", "Title is required")
+	}
+	if len(r.Title) > 100 {
+		return apperr.ErrValidation.WithMessage("ชื่อยาวเกิน 100 ตัวอักษร", "Title must not exceed 100 characters")
+	}
+	if r.Amount < 0 {
+		return apperr.ErrValidation.WithMessage("จำนวนเงินต้องไม่ติดลบ", "Amount must not be negative")
+	}
+	return nil
 }
 
 type NoteResponse struct {
@@ -239,7 +255,8 @@ DROP TABLE notes;
 
 - `code = 200` คือสำเร็จ อย่างอื่นดู `docs/ERROR_CODES.md`
 - `msg` เลือกภาษาจาก header `X-Lang` (หรือ `Accept-Language`) — `en` ได้อังกฤษ อื่นๆ ได้ไทย
-- `data` มีเสมอ (error = `null`)
+- `data` มีเฉพาะเมื่อมีข้อมูลให้ส่ง — `response.OK(c, nil)` และ error ทุกตัวไม่มี key `data`
+- list ที่ว่างยังมี `data` เสมอ (`data.data = []`) เพราะ `response.Page` ส่งข้อมูล pagination ไปด้วย
 - business error ตอบ HTTP 200 (client อ่าน `code`) ยกเว้น error ระดับ infra (429/500/503) และ route ที่ไม่มีอยู่ (404)
 - error ที่ไม่ได้ประกาศใน apperr → log เต็ม แล้วตอบ `500` โดยไม่หลุดรายละเอียดภายใน
 - list ใช้ `response.Page(...)` เท่านั้น:

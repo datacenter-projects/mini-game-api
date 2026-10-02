@@ -20,7 +20,7 @@ import (
 type Envelope struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
-	Data any    `json:"data"`
+	Data any    `json:"data,omitempty"` // ไม่มีข้อมูล (nil) = ไม่ส่ง key data
 }
 
 // ข้อความตอบกลับเลือกภาษาจาก header X-Lang ก่อน แล้วค่อย Accept-Language — default ไทย
@@ -64,7 +64,7 @@ func Error(c *fiber.Ctx, err error) error {
 			log.Warn("request rejected")
 		}
 	}
-	return c.Status(e.HTTPStatus).JSON(Envelope{Code: e.Code, Msg: message(c, e), Data: nil})
+	return c.Status(e.HTTPStatus).JSON(Envelope{Code: e.Code, Msg: message(c, e)})
 }
 
 // FiberErrorHandler รับ error ที่ไม่ได้ผ่าน response.Error (เช่น 404/405 จาก router, body ใหญ่เกิน)

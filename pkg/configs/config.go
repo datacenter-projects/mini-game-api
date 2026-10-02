@@ -22,8 +22,22 @@ type Config struct {
 
 	DB    DBConfig
 	Redis RedisConfig
+	Auth  AuthConfig
 
 	MigrateOnStart bool
+}
+
+// AuthConfig — ค่าตาม spec docs/modules/agent_auth.md (AUTH-07, AUTH-10, AUTH-11)
+type AuthConfig struct {
+	JWTSecret string
+
+	SessionIdleTimeout     time.Duration
+	SessionAbsoluteTimeout time.Duration
+
+	LoginFailLimit     int
+	LoginFailWindow    time.Duration
+	LoginBlockDuration time.Duration
+	LoginIPLimit       int // ครั้ง/นาที ต่อ IP
 }
 
 type DBConfig struct {
@@ -89,11 +103,27 @@ func Load() error {
 			DB:       getEnvInt("REDIS_DB", 0),
 		},
 
+		Auth: AuthConfig{
+			JWTSecret:              required("JWT_SECRET"),
+			SessionIdleTimeout:     getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
+			SessionAbsoluteTimeout: getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
+			LoginFailLimit:         getEnvInt("LOGIN_FAIL_LIMIT", 5),
+			LoginFailWindow:        getEnvDuration("LOGIN_FAIL_WINDOW", 15*time.Minute),
+			LoginBlockDuration:     getEnvDuration("LOGIN_BLOCK_DURATION", 15*time.Minute),
+			LoginIPLimit:           getEnvInt("LOGIN_IP_LIMIT_PER_MINUTE", 20),
+		},
+
 		MigrateOnStart: getEnvBool("MIGRATE_ON_START", false),
 	}
 
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required env: %s", strings.Join(missing, ", "))
+	}
+	if len(cfg.Auth.JWTSecret) < 32 {
+		return fmt.Errorf("JWT_SECRET must be at least 32 characters")
+	}
+	if cfg.Auth.SessionIdleTimeout > cfg.Auth.SessionAbsoluteTimeout {
+		return fmt.Errorf("SESSION_IDLE_TIMEOUT must not exceed SESSION_ABSOLUTE_TIMEOUT")
 	}
 	Cfg = cfg
 	return nil

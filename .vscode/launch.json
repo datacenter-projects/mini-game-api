@@ -1,0 +1,93 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug API (application.go)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/application.go",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "MIGRATE_ON_START": "false"
+            },
+            "showLog": false
+        },
+        {
+            "name": "Debug API (with Migrate)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/application.go",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "MIGRATE_ON_START": "true"
+            },
+            "showLog": false
+        },
+        {
+            "name": "Migrate",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/scripts/migrate",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "args": ["${input:migrateCommand}"]
+        },
+        {
+            "name": "Create Superadmin",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/scripts/create_superadmin",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "args": ["-username", "${input:superadminUsername}"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Current Go Test Package",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${fileDirname}",
+            "cwd": "${workspaceFolder}",
+            "args": ["-test.v", "-test.count=1"]
+        },
+        {
+            "name": "Debug Current Go Test Package (integration)",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${fileDirname}",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "buildFlags": "-tags=integration",
+            "args": ["-test.v", "-test.count=1"]
+        },
+        {
+            "name": "Attach to Running Process",
+            "type": "go",
+            "request": "attach",
+            "mode": "local",
+            "processId": "${command:pickProcess}"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "migrateCommand",
+            "type": "pickString",
+            "description": "goose command",
+            "options": ["up", "status", "down", "redo", "version"],
+            "default": "status"
+        },
+        {
+            "id": "superadminUsername",
+            "type": "promptString",
+            "description": "username ของ superadmin (a-z, 0-9)"
+        }
+    ]
+}

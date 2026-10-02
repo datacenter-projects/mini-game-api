@@ -19,7 +19,7 @@ Go/Fiber backend ของระบบ mini-game (agent hierarchy, wallet/bet, P
 
 ## Stack
 
-Go 1.25 · Fiber v2 · GORM + PostgreSQL · go-redis v9 · zap · goose (migration) · validator v10
+Go 1.25 · Fiber v2 · GORM + PostgreSQL · go-redis v9 · zap · goose (migration)
 go module ชื่อ `app` (import เป็น `app/app/...`, `app/pkg/...`, `app/platform/...`)
 
 ## โครงสร้าง (สรุป — รายละเอียดและแม่แบบโค้ดดู `docs/ARCHITECTURE.md`)
@@ -75,6 +75,9 @@ database/migrations/      goose .sql
 17. service คืน `(result, error)` ห้ามคืน code เป็นค่าแยก
 18. ทุก response ต้องผ่าน `pkg/response` ห้ามเรียก `c.JSON` เองใน controller
 19. list ต้องใช้ `utils.ParsePage` + `response.Page`
+    - request body/query ต้องผ่าน `utils.ParseBody` / `utils.ParseQuery` และ DTO ต้องมี method `Validate()`
+      ที่เขียนเป็น `if` ธรรมดา **ห้ามใช้ struct tag ของ validator**
+    - ข้อความ error ต้องบอกว่าผิดที่ field ไหน (`apperr.ErrValidation.WithMessage(th, en)`)
 
 ### DB / query
 

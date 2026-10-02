@@ -49,3 +49,7 @@ migrate-status:
 # make migration name=agent_create_tables
 migration:
 	go run ./scripts/migrate create $(name)
+
+# make superadmin username=admin  (พิมพ์รหัสผ่านตอนรัน)
+superadmin:
+	go run ./scripts/create_superadmin -username $(username)

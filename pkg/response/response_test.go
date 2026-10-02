@@ -45,8 +45,19 @@ func TestErrorKnownCode(t *testing.T) {
 	if status != 200 || m["code"].(float64) != 403 || m["msg"] != "ไม่มีสิทธิ์เข้าถึง" {
 		t.Fatalf("got %d %v", status, m)
 	}
+	if _, ok := m["data"]; ok {
+		t.Fatal("error ต้องไม่มี key data")
+	}
+}
+
+func TestOKWithoutData(t *testing.T) {
+	_, m := call(t, func(c *fiber.Ctx) error { return OK(c, nil) }, "")
+	if _, ok := m["data"]; ok {
+		t.Fatalf("ไม่มีข้อมูลต้องไม่ส่ง key data: %v", m)
+	}
+	_, m = call(t, func(c *fiber.Ctx) error { return OK(c, []int{}) }, "")
 	if _, ok := m["data"]; !ok {
-		t.Fatal("ต้องมี key data เสมอ")
+		t.Fatalf("slice ว่างยังต้องส่ง data: []: %v", m)
 	}
 }
 

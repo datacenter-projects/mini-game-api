@@ -44,6 +44,10 @@ out=$(g 'AutoMigrate\(' app pkg platform scripts)
 out=$(g 'fmt\.Print(ln|f)?\(' app pkg platform)
 [ -n "$out" ] && violation "fmt.Print — ใช้ logger.Ctx(ctx) แทน" "$out"
 
+# 8.1 ห้ามใช้ struct tag ของ validator (เขียน Validate() เป็น if ธรรมดาแทน)
+out=$(g 'validate:"' app pkg)
+[ -n "$out" ] && violation "struct tag validate — เขียน method Validate() ใน DTO แทน" "$out"
+
 # 9. ชื่อ module ต้องตรงกันทุก layer: controllers/{x} ต้องมี dto/{x} และ app/service/{x}
 for ctl in app/internals/*/controllers/*/ app/externals/*/controllers/*/; do
   [ -d "$ctl" ] || continue

@@ -29,6 +29,7 @@ jobs:
       DB_NAME: minigame
       DB_SSLMODE: disable
       REDIS_ADDR: localhost:6379
+      JWT_SECRET: ci-only-secret-at-least-32-characters-long
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

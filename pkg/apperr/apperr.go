@@ -57,6 +57,15 @@ func (e *Error) Wrap(cause error) *Error {
 	return &cp
 }
 
+// WithMessage คืนสำเนาที่ใช้ code เดิมแต่เปลี่ยนข้อความ — ใช้กับ ErrValidation เพื่อบอกว่าผิดที่ field ไหน
+//
+//	return apperr.ErrValidation.WithMessage("กรุณากรอก username", "Username is required")
+func (e *Error) WithMessage(msgTH, msgEN string) *Error {
+	cp := *e
+	cp.MsgTH, cp.MsgEN = msgTH, msgEN
+	return &cp
+}
+
 var (
 	mu       sync.RWMutex
 	registry = map[int]*Error{}
