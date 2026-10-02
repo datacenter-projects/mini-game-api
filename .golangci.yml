@@ -1,0 +1,19 @@
+version: "2"
+run:
+  timeout: 5m
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - gosec
+    - errorlint     # บังคับ errors.Is/As แทนการเทียบ error ตรงๆ
+    - sqlclosecheck
+    - rowserrcheck
+formatters:
+  enable:
+    - gofmt
+    - goimports

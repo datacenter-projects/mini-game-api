@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: minigame
+          POSTGRES_PASSWORD: minigame
+          POSTGRES_DB: minigame
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U minigame" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      APP_ENV: local
+      DB_HOST: localhost
+      DB_USER: minigame
+      DB_PASSWORD: minigame
+      DB_NAME: minigame
+      DB_SSLMODE: disable
+      REDIS_ADDR: localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: structure
+        run: bash scripts/check_structure.sh
+      - name: lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+      - name: build
+        run: go build ./...
+      - name: migrate up/down/up
+        run: |
+          go run ./scripts/migrate up
+          go run ./scripts/migrate reset
+          go run ./scripts/migrate up
+      - name: test
+        run: go test -race -count=1 -tags=integration ./...

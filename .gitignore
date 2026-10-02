@@ -1,0 +1,9 @@
+.env
+/build/
+*.exe
+__debug_bin*
+cover.out
+*.log
+.idea/
+.vscode/*
+!.vscode/settings.json
