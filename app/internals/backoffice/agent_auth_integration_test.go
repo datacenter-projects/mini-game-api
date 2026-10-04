@@ -136,7 +136,7 @@ func TestLoginRejects(t *testing.T) { // AUTH-02, AUTH-04, AUTH-05
 		{"LOCKED + รหัสผิด ไม่บอกว่าล็อก", "locked", "wrong", 401, 401201},
 		{"ปู่ LOCKED", "child", password, 403, 401302},
 		{"SUSPENDED login ได้", "suspended", password, 200, 200},
-		{"subaccount ยังไม่เปิด", "dad@staff", password, 401, 401201},
+		{"ไม่มี sub นี้", "dad@staff", password, 401, 401201},
 		{"ไม่กรอกรหัส", "dad", "", 200, 422},
 	}
 	for _, tt := range tests {
@@ -248,7 +248,7 @@ func TestMiddlewareRejects(t *testing.T) { // AUTH-14, AUTH-15
 
 	expect(t, testutil.Call(t, app, "GET", mePath, nil, ""), 401, 401202)
 	expect(t, testutil.Call(t, app, "GET", mePath, nil, "garbage"), 401, 401202)
-	forged, _ := utils.SignSessionToken("another-secret-at-least-32-characters", utils.TokenTypeBackoffice, "sid", a.ID, time.Now(), time.Now().Add(time.Hour))
+	forged, _ := utils.SignSessionToken("another-secret-at-least-32-characters", utils.TokenTypeBackoffice, "sid", utils.SessionSubject{AccountType: "AGENT", AccountID: a.ID}, time.Now(), time.Now().Add(time.Hour))
 	expect(t, testutil.Call(t, app, "GET", mePath, nil, forged), 401, 401202)
 
 	setStatus(t, a.ID, models.AgentStatusLocked)

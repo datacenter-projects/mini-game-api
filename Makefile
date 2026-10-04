@@ -53,3 +53,7 @@ migration:
 # make superadmin username=admin  (พิมพ์รหัสผ่านตอนรัน)
 superadmin:
 	go run ./scripts/create_superadmin -username $(username)
+
+# make admin username=support01  (พิมพ์รหัสผ่านตอนรัน)
+admin:
+	go run ./scripts/create_admin -username $(username)

@@ -2,28 +2,12 @@ package models
 
 import "time"
 
-type AgentRole string
-
-const (
-	AgentRoleSuperAdmin  AgentRole = "SUPERADMIN"
-	AgentRoleAdmin       AgentRole = "ADMIN"
-	AgentRoleCompany     AgentRole = "COMPANY"
-	AgentRoleShareholder AgentRole = "SHAREHOLDER"
-	AgentRoleAgent       AgentRole = "AGENT"
-)
-
-type AgentStatus string
-
-const (
-	AgentStatusActive    AgentStatus = "ACTIVE"
-	AgentStatusSuspended AgentStatus = "SUSPENDED"
-	AgentStatusLocked    AgentStatus = "LOCKED"
-)
-
-type UserAgent struct {
+// Subaccount — บัญชีย่อยที่ agent สร้าง (docs/modules/agent_auth_phase2.md AUTH-17)
+// status ใช้ชุดเดียวกับ agent (AgentStatus)
+type Subaccount struct {
 	ID                    uint        `gorm:"column:id;primaryKey"`
-	ParentID              *uint       `gorm:"column:parent_id"`
-	Username              string      `gorm:"column:username"`
+	AgentID               uint        `gorm:"column:agent_id"` // ผู้สร้าง
+	Username              string      `gorm:"column:username"` // {username ผู้สร้าง}@{name}
 	PasswordHash          string      `gorm:"column:password_hash"`
 	PreviousPasswordHash  *string     `gorm:"column:previous_password_hash"`
 	PasscodeHash          *string     `gorm:"column:passcode_hash"`
@@ -31,7 +15,6 @@ type UserAgent struct {
 	MustChangePasscode    bool        `gorm:"column:must_change_passcode"`
 	TempPasswordExpiresAt *time.Time  `gorm:"column:temp_password_expires_at"`
 	TempPasscodeExpiresAt *time.Time  `gorm:"column:temp_passcode_expires_at"`
-	Role                  AgentRole   `gorm:"column:role"`
 	Status                AgentStatus `gorm:"column:status"`
 	LastLoginAt           *time.Time  `gorm:"column:last_login_at"`
 	LastLoginIP           *string     `gorm:"column:last_login_ip"`
@@ -39,4 +22,4 @@ type UserAgent struct {
 	UpdatedAt             time.Time   `gorm:"column:updated_at"`
 }
 
-func (UserAgent) TableName() string { return "user_agents" }
+func (Subaccount) TableName() string { return "subaccounts" }
