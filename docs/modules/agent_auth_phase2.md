@@ -4,7 +4,7 @@
 - อนุมัติโดย: — · วันที่: —
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
-  ไม่ได้ extract จากโค้ดเก่า · ข้อที่ยังไม่มีคำตอบอยู่ในหัวข้อ 10 (ยังไม่ใช่ rule)
+  ไม่ได้ extract จากโค้ดเก่า
 
 > เอกสารนี้คือ source of truth ของงานระยะ 2 ของ module — โค้ดและ test ต้องตรงกับเอกสารนี้ ถ้าไม่ตรงให้แก้โค้ด
 > หรือแก้เอกสารผ่านการอนุมัติใหม่ ห้ามอ้างเอกสารของโปรเจกต์เก่า
@@ -127,7 +127,7 @@
 — เขียนไว้บรรทัดเดียวกับ route ทุกเส้น
 
 **error ของทุก route ใต้ `/bo/pr` ที่ผ่าน `Authenticated`** (ไม่เขียนซ้ำในแต่ละเส้นด้านล่าง):
-`401202`, `401203`, `401301`, `401302` · logout ไม่ผ่าน `Authenticated` (AUTH-09) ดูหัวข้อ 10 ข้อ 1
+`401202`, `401203`, `401301`, `401302`
 
 ### POST /api/v1/bo/pb/auth/login (เส้นเดิม — รับ sub + field ใหม่)
 
@@ -332,7 +332,7 @@ JWT claims (token ของ Phase 1 ที่ไม่มี `account_type` ถ�
 | `agent_id` | id ของผู้สร้าง — มีเฉพาะเมื่อ `account_type = SUB` |
 
 `Actor` (middleware `Authenticated` สร้าง): ของเดิม + `AccountType`, `SubaccountID`, effective status
-(นิยามดูหัวข้อ 10 ข้อ 3), `MustChangePassword`, `MustChangePasscode`
+, `MustChangePassword`, `MustChangePasscode`
 
 Redis:
 
@@ -455,19 +455,3 @@ Redis:
 4. **บัญชีทดสอบ sub** — integration test insert ลง DB เอง ไม่ทำ script
 5. **role/permission guard เต็มรูปแบบ** แยกเป็นงานอื่น — รอบนี้มีแค่ `RequireRole(ADMIN)` เพื่อให้ route admin
    ระบุสิทธิ์บรรทัดเดียวกับ route ได้ตามกฎข้อ 28
-
-## 10. คำถามถึง lead (ยังไม่ใช่ rule — รอคำตอบก่อน implement ส่วนที่เกี่ยวข้อง)
-
-1. **logout กับ `401301` / `401302`** — feedback ข้อ 0.3 ให้ทุก route ใต้ `/bo/pr` มี `401301` / `401302` แต่ logout
-   ไม่ผ่าน `Authenticated` (AUTH-09: logout ด้วย session ที่หลุดแล้วต้องตอบสำเร็จ) → ยกเว้น logout ได้ไหม
-2. **middleware เช็ค upline LOCKED ทุก request** — ใช้กับ sub อย่างเดียว (AUTH-27) หรือกับ agent ด้วย
-   (ถ้ารวม agent จะแทน Phase 1 หัวข้อ 9 ข้อ 2 ที่ให้คำสั่ง LOCK ลบ session ทั้งสาย)
-3. **effective status ใน `Actor`** — เสนอ: sub = สถานะที่เข้มที่สุดระหว่าง sub กับผู้สร้าง
-   (`LOCKED` > `SUSPENDED` > `ACTIVE`) · agent = สถานะของตัวเอง
-4. **ลำดับเช็คตอน login หลังรหัสถูก** — เสนอ `401301` → `401302` → `401309` → `401310`
-5. **`401310` ตอน login** ใช้กับ passcode ชั่วคราวหมดอายุด้วยไหม (ถ้าใช้ ผู้ใช้จะ login ไม่ได้เลยจนกว่า admin
-   รีเซ็ตใหม่) หรือเฉพาะรหัสผ่านชั่วคราว
-6. **ตัวนับ passcode หลังพ้นบล็อก 1 ชม.** — เริ่ม 0 ใหม่ หรือค้างที่ 5 จนครบ 24 ชม.
-7. **`scripts/reset_credentials`** — ใช้กับ SUPERADMIN / ADMIN อย่างเดียวหรือทุกบัญชี · สุ่มค่าชั่วคราว + บังคับเปลี่ยน
-   + หมดอายุ 24 ชม. แบบเดียวกับ API ไหม · บันทึก `auth_audit_logs` ไหม (ถ้าบันทึก actor เป็นค่าอะไร)
-8. **passcode ชั่วคราวซ้ำกับตัวปัจจุบัน** — สุ่มใหม่ภายในเหมือนรหัสผ่าน (AUTH-48) ไหม
