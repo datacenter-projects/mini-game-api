@@ -268,7 +268,7 @@ DROP TABLE notes;
 | ชนิด | ที่อยู่ | แตะ DB | รัน |
 |---|---|---|---|
 | unit | `app/core/**`, `pkg/**` | ไม่ | `make test` |
-| integration | `app/service/**`, `app/repository/**` ใส่ `//go:build integration` | Postgres/Redis จริงจาก docker-compose | `make dev-up && make test-integration` |
+| integration | `app/service/**`, `app/repository/**` ใส่ `//go:build integration` | Postgres/Redis ของ test env (`docs/TESTING.md`) | `make test-env-up && make test-integration` |
 
 - ไม่ใช้ mock — logic ที่อยากเทสแบบไม่มี DB ให้ย้ายไป `app/core`
 - test case ของ business ต้องมาจาก spec ที่อนุมัติแล้ว (`docs/modules/{module}.md`) ไม่ใช่จากพฤติกรรมของโค้ดเก่า

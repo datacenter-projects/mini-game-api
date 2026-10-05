@@ -1,20 +1,26 @@
 //go:build integration
 
-// Package testutil คือ helper ของ integration test (ต้องมี Postgres + Redis จริง — make dev-up)
+// Package testutil คือ helper ของ integration test (ต้องมี Postgres + Redis จริง — docs/TESTING.md)
 //
 //	func TestX(t *testing.T) {
 //		app := testutil.Setup(t)   // ต่อ DB/Redis, migrate, ล้างข้อมูลหลังจบ test
 //		...
 //	}
+//
+// env มาจาก .env.test ที่ root ของ repo — ถ้า environment มี DB_HOST อยู่แล้ว (เช่น CI) ใช้ environment อย่างเดียว
 package testutil
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -25,39 +31,29 @@ import (
 	"app/platform/database"
 	"app/platform/logger"
 
-	_ "github.com/joho/godotenv/autoload"
-
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var once sync.Once
+var (
+	once     sync.Once
+	setupErr error
+)
 
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
 var tables = []string{"auth_audit_logs", "subaccounts", "user_agents"}
+
+// env ที่ห้ามรัน integration test เด็ดขาด — test ล้างทุกตารางและ FLUSHDB Redis
+var forbiddenEnvs = map[string]bool{"dev": true, "uat": true, "prod": true}
 
 // Setup ต่อ DB/Redis ตาม env (ครั้งเดียวต่อ package), รัน migration, คืน fiber app ที่ประกอบ route จริง
 // และล้างข้อมูลทั้งหมดหลัง test จบ — test ที่ใช้ helper นี้ห้ามรัน t.Parallel()
 func Setup(t *testing.T) *fiber.App {
 	t.Helper()
-	once.Do(func() {
-		if err := configs.Load(); err != nil {
-			t.Fatalf("config: %v", err)
-		}
-		configs.Cfg.Auth.PasswordCost = bcrypt.MinCost // cost 12 + -race ทำ test ช้าจน timeout
-		utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
-		logger.InitLogger(true)
-		ctx := context.Background()
-		if err := database.PostgreSQLConnection(configs.Cfg.DB); err != nil {
-			t.Fatalf("postgres: %v", err)
-		}
-		if err := database.Migrate(ctx, "up"); err != nil {
-			t.Fatalf("migrate: %v", err)
-		}
-		if err := database.RedisConnection(ctx, configs.Cfg.Redis); err != nil {
-			t.Fatalf("redis: %v", err)
-		}
-	})
+	once.Do(func() { setupErr = connect() })
+	if setupErr != nil { // ทุก test ได้ error เดิม ไม่ panic ต่อด้วย nil connection
+		t.Fatalf("testutil: %v", setupErr)
+	}
 
 	original := *configs.Cfg
 	reset(t)
@@ -80,6 +76,52 @@ func NewApp(extra func(a *fiber.App)) *fiber.App {
 	}
 	routes.SetupRoutes(app)
 	return app
+}
+
+func connect() error {
+	if err := loadTestEnv(); err != nil {
+		return err
+	}
+	if err := configs.Load(); err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	if forbiddenEnvs[configs.Cfg.AppEnv] {
+		return fmt.Errorf("APP_ENV=%s: integration test ล้างข้อมูลทั้งหมด ห้ามรันกับ env นี้", configs.Cfg.AppEnv)
+	}
+	configs.Cfg.Auth.PasswordCost = bcrypt.MinCost // cost 12 + -race ทำ test ช้าจน timeout
+	utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
+	logger.InitLogger(true)
+	ctx := context.Background()
+	if err := database.PostgreSQLConnection(configs.Cfg.DB); err != nil {
+		return fmt.Errorf("postgres %s:%d/%s: %w", configs.Cfg.DB.Host, configs.Cfg.DB.Port, configs.Cfg.DB.Name, err)
+	}
+	if err := database.Migrate(ctx, "up"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+	if err := database.RedisConnection(ctx, configs.Cfg.Redis); err != nil {
+		return fmt.Errorf("redis %s: %w", configs.Cfg.Redis.Addr, err)
+	}
+	return nil
+}
+
+// loadTestEnv โหลด .env.test ที่ root ของ repo ตามกติกาของ configs.LoadTestEnvFile
+// go test รันใน directory ของ package จึงต้องหา root เอง (ที่ที่มี go.mod)
+func loadTestEnv() error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return errors.New("หา go.mod ไม่เจอ")
+		}
+		dir = parent
+	}
+	return configs.LoadTestEnvFile(filepath.Join(dir, ".env.test"))
 }
 
 func reset(t *testing.T) {
