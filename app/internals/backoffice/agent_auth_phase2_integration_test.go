@@ -25,6 +25,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+//nolint:gosec // G101: path และค่าทดสอบ ไม่ใช่ credential จริง
 const (
 	gatedPath          = "/api/v1/bo/pr/_test/gated" // route ทั่วไป: Authenticated + PassedGates
 	txPath             = "/api/v1/bo/pr/_test/tx"    // route ที่ต้องยืนยัน passcode
@@ -352,7 +353,8 @@ func TestPasscodeSetup(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	if !(codes[0] == 200 && codes[1] == 401401 || codes[0] == 401401 && codes[1] == 200) {
+	oneWon := codes[0] == 200 && codes[1] == 401401 || codes[0] == 401401 && codes[1] == 200
+	if !oneWon {
 		t.Fatalf("ยิงพร้อมกันต้องสำเร็จ 1 ครั้ง ได้ %v", codes)
 	}
 	expect(t, call(t, app, "POST", passcodeSetupPath, body, tok), 200, 401401)

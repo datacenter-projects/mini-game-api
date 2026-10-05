@@ -36,8 +36,10 @@ type SessionSubject struct {
 func SignSessionToken(secret, tokenType, sessionID string, sub SessionSubject, issuedAt, expiresAt time.Time) (string, error) {
 	claims := SessionClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt:  jwt.NewNumericDate(issuedAt),
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			IssuedAt: jwt.NewNumericDate(issuedAt),
+			// exp เก็บเป็นวินาที (ปัดเศษทิ้ง) — ปัดขึ้นเพื่อไม่ให้ token หมดก่อน session
+			// เวลา absolute ที่แม่นยำเช็คจาก expires_at ของ session ใน Redis
+			ExpiresAt: jwt.NewNumericDate(expiresAt.Add(time.Second - 1).Truncate(time.Second)),
 		},
 		Type:        tokenType,
 		SessionID:   sessionID,

@@ -92,7 +92,8 @@ func TestTempPasswordAlphabet(t *testing.T) { // AUTH-46
 		}
 	}
 	for _, ch := range TempPasswordAlphabet {
-		if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9') {
+		isAlnum := ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9'
+		if !isAlnum {
 			t.Errorf("alphabet ต้องมีแค่ตัวอักษรกับตัวเลข พบ %q", ch)
 		}
 	}

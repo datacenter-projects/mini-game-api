@@ -37,7 +37,8 @@ func CreateBOSessionRepository(ctx context.Context, sid string, s BOSession, idl
 		return err
 	}
 	ptr := keyBOAccountSession(s.AccountType, s.AccountID)
-	old, err := rdb.SetArgs(ctx, ptr, sid, goredis.SetArgs{Get: true, ExpireAt: s.ExpiresAt}).Result()
+	// ใช้ TTL (go-redis ส่งเป็น PX ระดับ ms) ไม่ใช้ ExpireAt ซึ่งส่งเป็น EXAT ระดับวินาที — ปัดเศษทำให้หลุดก่อน absolute ได้ถึง 1 วินาที
+	old, err := rdb.SetArgs(ctx, ptr, sid, goredis.SetArgs{Get: true, TTL: time.Until(s.ExpiresAt)}).Result()
 	if err != nil && !errors.Is(err, goredis.Nil) {
 		rdb.Del(ctx, keyBOSession(sid)) // ไม่ทิ้ง session ที่ไม่มี pointer ชี้ไว้
 		return err
@@ -78,7 +79,8 @@ func GetBOSessionRepository(ctx context.Context, sid string, t models.AccountTyp
 
 // TouchBOSessionRepository ต่ออายุ idle (AUTH-08) — session ที่หายไปแล้วจะไม่ถูกสร้างใหม่
 func TouchBOSessionRepository(ctx context.Context, sid string, ttl time.Duration) error {
-	return database.DBRedis.Expire(ctx, keyBOSession(sid), ttl).Err()
+	// PExpire (ms) — Expire ของ go-redis ปัดเป็นวินาทีเต็ม ทำให้ session หลุดก่อนเวลาได้ถึง 1 วินาที
+	return database.DBRedis.PExpire(ctx, keyBOSession(sid), ttl).Err()
 }
 
 // ลบ session และลบ pointer เฉพาะเมื่อยังชี้ไปที่ session นี้ (กันลบ session ใหม่ที่เพิ่ง login)

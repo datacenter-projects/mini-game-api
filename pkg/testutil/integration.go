@@ -116,7 +116,7 @@ func Call(t *testing.T, app *fiber.App, method, path string, body any, token str
 	if err != nil {
 		t.Fatalf("%s %s: %v", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(resp.Body)
 	out := Response{Status: resp.StatusCode, Header: resp.Header}
 	if err := json.Unmarshal(raw, &out); err != nil {
