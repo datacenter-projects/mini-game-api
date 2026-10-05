@@ -48,16 +48,6 @@ func GetSubaccountCredentialsByIDRepository(db *gorm.DB, id uint) (models.Subacc
 	return s, err
 }
 
-// GetSubaccountProfileRepository — คอลัมน์ของหน้า Profile (account ACC-12) · ไม่พบคืน apperr.ErrNotFound
-func GetSubaccountProfileRepository(db *gorm.DB, id uint) (models.Subaccount, error) {
-	var s models.Subaccount
-	err := db.Select("id", "agent_id", "username", "last_login_at", "last_login_ip", "created_at").Where("id = ?", id).Take(&s).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return s, apperr.ErrNotFound
-	}
-	return s, err
-}
-
 // LockSubaccountCredentialsRepository — SELECT ... FOR UPDATE ก่อนเปลี่ยน/รีเซ็ต (AUTH-42)
 func LockSubaccountCredentialsRepository(db *gorm.DB, id uint) (models.Subaccount, error) {
 	return GetSubaccountCredentialsByIDRepository(db.Clauses(clause.Locking{Strength: "UPDATE"}), id)

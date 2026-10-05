@@ -11,7 +11,6 @@ package backoffice
 
 import (
 	agentAuthCore "app/app/core/agent_auth"
-	accountController "app/app/internals/backoffice/controllers/account"
 	agentAuthController "app/app/internals/backoffice/controllers/agent_auth"
 	mw "app/app/internals/backoffice/middleware"
 	"app/app/models"
@@ -40,7 +39,4 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/auth/password/change", mw.PassedGates(agentAuthCore.GateChangePassword), mw.RequirePasscodeUnlessMustChangePassword(), agentAuthController.ChangePasswordController)
 	pr.Post("/admin/passcode/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasscodeController)
 	pr.Post("/admin/password/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasswordController)
-
-	// account — docs/modules/account.md หัวข้อ 5
-	pr.Get("/account/profile", mw.PassedGates(), accountController.GetProfileController)
 }
