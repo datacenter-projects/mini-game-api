@@ -1,7 +1,7 @@
 # Backoffice Auth (`agent_auth`) ระยะ 2 — Subaccount login · Passcode · Password · Admin reset — Spec
 
-- สถานะ: **DRAFT** (แก้ตาม review ของ lead 2026-10-05 รอส่ง review รอบ 2)
-- อนุมัติโดย: — · วันที่: —
+- สถานะ: **APPROVED** (ยกเว้น `scripts/reset_credentials` ที่ยังคุยอยู่)
+- อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
   ไม่ได้ extract จากโค้ดเก่า
@@ -17,7 +17,7 @@
 - เปลี่ยนรหัสผ่านเอง
 - role `ADMIN`: รีเซ็ต passcode / รหัสผ่านให้ COMPANY / SHAREHOLDER / AGENT / sub ที่จำไม่ได้ + `RequireRole`
 - บังคับเปลี่ยนรหัสผ่าน / passcode หลังถูกรีเซ็ต (ค่าชั่วคราวหมดอายุ 24 ชม.)
-- ตาราง `auth_audit_logs` (บันทึกการรีเซ็ตของ admin)
+- ตาราง `auth_audit_logs` (เหตุการณ์ที่เปลี่ยนข้อมูลบัญชี — AUTH-49)
 - scripts: `create_admin`, `reset_credentials` (สำหรับ SUPERADMIN / ADMIN) และแก้ `create_superadmin` ให้ใช้กติการหัสผ่านกลาง
 - ปรับของ Phase 1 ที่กระทบ: JWT claims, session JSON, logout, middleware `Authenticated`, `Actor`
 
@@ -102,7 +102,11 @@
 | AUTH-46 | ระบบสุ่มค่าชั่วคราวด้วย `crypto/rand` (admin ไม่ได้กรอกเอง) · แสดงใน response ครั้งเดียว เก็บแค่ hash · หมดอายุใน 24 ชม. · response ใส่ `Cache-Control: no-store` · ห้าม log response body · รหัสผ่านชั่วคราว: 12 ตัว ตัวอักษรกับตัวเลขเท่านั้น ไม่ใช้ `0 O o 1 l I` และต้องผ่าน AUTH-36 · passcode ชั่วคราว: ตัวเลข 6 หลัก |
 | AUTH-47 | รีเซ็ต passcode: เป้าหมายที่ยังไม่เคยตั้ง passcode → `401405` · บันทึกค่าชั่วคราว (ถ้าสุ่มได้ซ้ำกับ passcode ปัจจุบันให้สุ่มใหม่ภายใน) · `must_change_passcode = true` · ล้างตัวนับและบล็อก passcode (AUTH-35) ของเป้าหมาย · session ของเป้าหมายถูกลบทันที |
 | AUTH-48 | รีเซ็ตรหัสผ่าน: บันทึกค่าชั่วคราว (ถ้าสุ่มได้ซ้ำกับรหัสปัจจุบันหรือก่อนหน้าให้สุ่มใหม่ภายใน ไม่ตอบ `401402`) · `must_change_password = true` · ล้างบล็อก login (AUTH-10) ของเป้าหมาย · session ของเป้าหมายถูกลบทันที |
-| AUTH-49 | ทุกการรีเซ็ตของ admin บันทึก `auth_audit_logs` ใน transaction เดียวกับการรีเซ็ต · รอบนี้เก็บแค่การรีเซ็ตของ admin |
+| AUTH-49 | `auth_audit_logs` บันทึก**เฉพาะเหตุการณ์ที่เปลี่ยนข้อมูลบัญชี** (ไม่บันทึก login / logout / login ผิดทีละครั้ง — ตารางจะบวม): |
+| | • ผู้ทำคือบัญชีเอง: `PASSCODE_SETUP`, `PASSCODE_CHANGE`, `PASSWORD_CHANGE` — บันทึกใน transaction เดียวกับการเปลี่ยน |
+| | • admin รีเซ็ต: `RESET_PASSCODE`, `RESET_PASSWORD` — ใน transaction เดียวกับการรีเซ็ต |
+| | • ระบบบล็อก (actor = `SYSTEM`): `PASSCODE_BLOCKED` (AUTH-35), `LOGIN_BLOCKED` (AUTH-10/39 · username ที่ไม่มีจริงเก็บแค่ `target_username`) — บันทึกไม่ได้ไม่ทำให้ request ล้ม |
+| | • เก็บ actor, target (type + id + username ณ เวลานั้น), ip, user agent, request_id · ห้ามเก็บรหัสผ่าน, passcode, token หรือค่าชั่วคราว |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → ใช้งานได้ (ไม่ต้อง login ใหม่ระหว่างทาง) |
 | AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ · script ใช้ได้กับ SUPERADMIN / ADMIN **เท่านั้น** · สุ่มค่าชั่วคราว + บังคับเปลี่ยน + หมดอายุ 24 ชม. แบบเดียวกับ AUTH-46–48 · บันทึก `auth_audit_logs` |
 | AUTH-52 | ผู้สร้างรีเซ็ตให้ sub ของตัวเอง **ไม่ได้** (กำหนดทิศทางไว้สำหรับ module subaccount) |
@@ -308,19 +312,32 @@ CREATE TABLE subaccounts (
 );
 CREATE INDEX idx_subaccounts_agent_id ON subaccounts(agent_id);
 
+-- ห้ามเก็บรหัสผ่าน, passcode, token หรือค่าชั่วคราว
 CREATE TABLE auth_audit_logs (
-    id           BIGSERIAL PRIMARY KEY,
-    actor_type   VARCHAR(10) NOT NULL,   -- AGENT / SUB
-    actor_id     BIGINT      NOT NULL,
-    target_type  VARCHAR(10) NOT NULL,   -- AGENT / SUB
-    target_id    BIGINT      NOT NULL,
-    action       VARCHAR(30) NOT NULL,
-    ip           VARCHAR(45),
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_auth_audit_logs_action CHECK (action IN ('RESET_PASSCODE','RESET_PASSWORD'))
+    id              BIGSERIAL    PRIMARY KEY,
+    action          VARCHAR(30)  NOT NULL,
+    actor_type      VARCHAR(10)  NOT NULL,  -- AGENT / SUB / SCRIPT / SYSTEM
+    actor_id        BIGINT,                 -- มีเฉพาะ AGENT / SUB
+    actor_username  VARCHAR(71),            -- ชื่อ ณ เวลานั้น
+    target_type     VARCHAR(10),            -- AGENT / SUB · NULL = ไม่มีบัญชีนี้ในระบบ
+    target_id       BIGINT,
+    target_username VARCHAR(71)  NOT NULL,
+    ip              VARCHAR(45),
+    user_agent      VARCHAR(255),
+    request_id      VARCHAR(64),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT ck_auth_audit_logs_action CHECK (action IN (
+        'PASSCODE_SETUP','PASSCODE_CHANGE','PASSWORD_CHANGE',
+        'RESET_PASSCODE','RESET_PASSWORD','PASSCODE_BLOCKED','LOGIN_BLOCKED')),
+    CONSTRAINT ck_auth_audit_logs_actor_type CHECK (actor_type IN ('AGENT','SUB','SCRIPT','SYSTEM')),
+    CONSTRAINT ck_auth_audit_logs_actor_id CHECK ((actor_type IN ('AGENT','SUB')) = (actor_id IS NOT NULL)),
+    CONSTRAINT ck_auth_audit_logs_target_type CHECK (target_type IS NULL OR target_type IN ('AGENT','SUB')),
+    CONSTRAINT ck_auth_audit_logs_target_id CHECK ((target_type IS NULL) = (target_id IS NULL))
 );
-CREATE INDEX idx_auth_audit_logs_target ON auth_audit_logs(target_type, target_id);
-CREATE INDEX idx_auth_audit_logs_actor ON auth_audit_logs(actor_type, actor_id);
+CREATE INDEX idx_auth_audit_logs_target ON auth_audit_logs(target_type, target_id, created_at);
+CREATE INDEX idx_auth_audit_logs_actor ON auth_audit_logs(actor_type, actor_id, created_at);
+CREATE INDEX idx_auth_audit_logs_action ON auth_audit_logs(action, created_at);
+CREATE INDEX idx_auth_audit_logs_created_at ON auth_audit_logs(created_at);
 ```
 
 - `passcode_hash IS NULL` = `passcode_set = false`
@@ -415,7 +432,12 @@ Redis:
 | AUTH-47 | รีเซ็ต passcode ของบัญชีที่ยังไม่เคยตั้ง | `401405` |
 | AUTH-47 | รีเซ็ต passcode ของ sub ที่ถูกบล็อก passcode และ login อยู่ | token ของ sub ได้ `401203` · login ได้ (บล็อกถูกล้าง) `must_change_passcode = true` |
 | AUTH-48 | รีเซ็ตรหัสผ่านของบัญชีที่ถูกบล็อก login (AUTH-10) | login ด้วยรหัสชั่วคราวได้ทันที `must_change_password = true` |
-| AUTH-49 | รีเซ็ตสำเร็จ | มีแถวใน `auth_audit_logs` (actor, target, action, ip) |
+| AUTH-49 | รีเซ็ตสำเร็จ | มีแถว `RESET_*` (actor, target, username, ip, request_id) |
+| AUTH-49 | ตั้ง passcode / เปลี่ยนรหัสผ่าน | มีแถว `PASSCODE_SETUP` / `PASSWORD_CHANGE` · actor = target = ตัวเอง |
+| AUTH-49 | passcode ผิดครบ 5 | แถว `PASSCODE_BLOCKED` actor = `SYSTEM` |
+| AUTH-49 | login ผิดครบ 5 ด้วย username ที่ไม่มีจริง | แถว `LOGIN_BLOCKED` ไม่มี target_type / target_id · มี target_username |
+| AUTH-49 | login สำเร็จ / logout / login ผิดครั้งเดียว | ไม่มีแถวเพิ่ม |
+| AUTH-49 | รีเซ็ตไม่สำเร็จ | ไม่มีแถว |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เรียก `passcode/change` ก่อน | `401306` |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → เรียก route อื่น | ผ่าน ด้วย token เดิม |
 

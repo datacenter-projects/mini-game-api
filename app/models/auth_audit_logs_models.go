@@ -13,20 +13,39 @@ const (
 type AuthAuditAction string
 
 const (
-	AuthAuditResetPasscode AuthAuditAction = "RESET_PASSCODE"
-	AuthAuditResetPassword AuthAuditAction = "RESET_PASSWORD"
+	AuthAuditPasscodeSetup   AuthAuditAction = "PASSCODE_SETUP"
+	AuthAuditPasscodeChange  AuthAuditAction = "PASSCODE_CHANGE"
+	AuthAuditPasswordChange  AuthAuditAction = "PASSWORD_CHANGE"
+	AuthAuditResetPasscode   AuthAuditAction = "RESET_PASSCODE"
+	AuthAuditResetPassword   AuthAuditAction = "RESET_PASSWORD"
+	AuthAuditPasscodeBlocked AuthAuditAction = "PASSCODE_BLOCKED"
+	AuthAuditLoginBlocked    AuthAuditAction = "LOGIN_BLOCKED"
 )
 
-// AuthAuditLog — บันทึกการรีเซ็ตของ admin (docs/modules/agent_auth_phase2.md AUTH-49)
+// AuthAuditActorType — ผู้ทำ: บัญชี (AGENT / SUB) หรือไม่ใช่บัญชี (SCRIPT / SYSTEM)
+type AuthAuditActorType string
+
+const (
+	AuthAuditActorAgent  AuthAuditActorType = "AGENT"
+	AuthAuditActorSub    AuthAuditActorType = "SUB"
+	AuthAuditActorScript AuthAuditActorType = "SCRIPT" // script บนเซิร์ฟเวอร์
+	AuthAuditActorSystem AuthAuditActorType = "SYSTEM" // ระบบบังคับเอง เช่น บล็อกเพราะใส่ผิดครบ
+)
+
+// AuthAuditLog — เหตุการณ์ที่เปลี่ยนข้อมูลบัญชี (docs/modules/agent_auth_phase2.md AUTH-49)
 type AuthAuditLog struct {
-	ID         uint            `gorm:"column:id;primaryKey"`
-	ActorType  AccountType     `gorm:"column:actor_type"`
-	ActorID    uint            `gorm:"column:actor_id"`
-	TargetType AccountType     `gorm:"column:target_type"`
-	TargetID   uint            `gorm:"column:target_id"`
-	Action     AuthAuditAction `gorm:"column:action"`
-	IP         string          `gorm:"column:ip"`
-	CreatedAt  time.Time       `gorm:"column:created_at"`
+	ID             uint               `gorm:"column:id;primaryKey"`
+	Action         AuthAuditAction    `gorm:"column:action"`
+	ActorType      AuthAuditActorType `gorm:"column:actor_type"`
+	ActorID        *uint              `gorm:"column:actor_id"`
+	ActorUsername  *string            `gorm:"column:actor_username"`
+	TargetType     *AccountType       `gorm:"column:target_type"`
+	TargetID       *uint              `gorm:"column:target_id"`
+	TargetUsername string             `gorm:"column:target_username"`
+	IP             *string            `gorm:"column:ip"`
+	UserAgent      *string            `gorm:"column:user_agent"`
+	RequestID      *string            `gorm:"column:request_id"`
+	CreatedAt      time.Time          `gorm:"column:created_at"`
 }
 
 func (AuthAuditLog) TableName() string { return "auth_audit_logs" }

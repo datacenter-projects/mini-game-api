@@ -39,6 +39,11 @@ func GetActor(c *fiber.Ctx) agentAuthService.Actor {
 	return actor
 }
 
+// RequestMeta — ข้อมูลของ request ที่ service ใช้ (ip, user agent สำหรับ rate limit / audit log)
+func RequestMeta(c *fiber.Ctx) agentAuthService.RequestMeta {
+	return agentAuthService.RequestMeta{IP: c.IP(), UserAgent: c.Get(fiber.HeaderUserAgent)}
+}
+
 // BearerToken อ่าน token จาก header "Authorization: Bearer <token>"
 func BearerToken(c *fiber.Ctx) (string, bool) {
 	scheme, token, found := strings.Cut(c.Get(fiber.HeaderAuthorization), " ")

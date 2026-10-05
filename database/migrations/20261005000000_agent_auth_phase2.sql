@@ -36,22 +36,33 @@ CREATE TABLE subaccounts (
 
 CREATE INDEX idx_subaccounts_agent_id ON subaccounts(agent_id);
 
+-- เหตุการณ์ที่เปลี่ยนข้อมูลบัญชี (AUTH-49) — ห้ามเก็บรหัสผ่าน, passcode, token หรือค่าชั่วคราว
 CREATE TABLE auth_audit_logs (
-    id          BIGSERIAL   PRIMARY KEY,
-    actor_type  VARCHAR(10) NOT NULL,
-    actor_id    BIGINT      NOT NULL,
-    target_type VARCHAR(10) NOT NULL,
-    target_id   BIGINT      NOT NULL,
-    action      VARCHAR(30) NOT NULL,
-    ip          VARCHAR(45),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_auth_audit_logs_actor_type CHECK (actor_type IN ('AGENT', 'SUB')),
-    CONSTRAINT ck_auth_audit_logs_target_type CHECK (target_type IN ('AGENT', 'SUB')),
-    CONSTRAINT ck_auth_audit_logs_action CHECK (action IN ('RESET_PASSCODE', 'RESET_PASSWORD'))
+    id              BIGSERIAL    PRIMARY KEY,
+    action          VARCHAR(30)  NOT NULL,
+    actor_type      VARCHAR(10)  NOT NULL, -- AGENT / SUB = คนทำ · SCRIPT = script บนเซิร์ฟเวอร์ · SYSTEM = ระบบบังคับ (บล็อก)
+    actor_id        BIGINT,
+    actor_username  VARCHAR(71),           -- ชื่อ ณ เวลานั้น (SCRIPT = user ของเครื่องที่รัน)
+    target_type     VARCHAR(10),           -- NULL = ไม่มีบัญชีนี้ในระบบ (เช่น LOGIN_BLOCKED ของ username ที่ไม่มีจริง)
+    target_id       BIGINT,
+    target_username VARCHAR(71)  NOT NULL,
+    ip              VARCHAR(45),
+    user_agent      VARCHAR(255),
+    request_id      VARCHAR(64),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT ck_auth_audit_logs_action CHECK (action IN (
+        'PASSCODE_SETUP', 'PASSCODE_CHANGE', 'PASSWORD_CHANGE',
+        'RESET_PASSCODE', 'RESET_PASSWORD', 'PASSCODE_BLOCKED', 'LOGIN_BLOCKED')),
+    CONSTRAINT ck_auth_audit_logs_actor_type CHECK (actor_type IN ('AGENT', 'SUB', 'SCRIPT', 'SYSTEM')),
+    CONSTRAINT ck_auth_audit_logs_actor_id CHECK ((actor_type IN ('AGENT', 'SUB')) = (actor_id IS NOT NULL)),
+    CONSTRAINT ck_auth_audit_logs_target_type CHECK (target_type IS NULL OR target_type IN ('AGENT', 'SUB')),
+    CONSTRAINT ck_auth_audit_logs_target_id CHECK ((target_type IS NULL) = (target_id IS NULL))
 );
 
-CREATE INDEX idx_auth_audit_logs_target ON auth_audit_logs(target_type, target_id);
-CREATE INDEX idx_auth_audit_logs_actor ON auth_audit_logs(actor_type, actor_id);
+CREATE INDEX idx_auth_audit_logs_target ON auth_audit_logs(target_type, target_id, created_at);
+CREATE INDEX idx_auth_audit_logs_actor ON auth_audit_logs(actor_type, actor_id, created_at);
+CREATE INDEX idx_auth_audit_logs_action ON auth_audit_logs(action, created_at);
+CREATE INDEX idx_auth_audit_logs_created_at ON auth_audit_logs(created_at);
 
 -- +goose Down
 DROP TABLE auth_audit_logs;

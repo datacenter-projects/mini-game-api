@@ -73,5 +73,5 @@ func verifyPasscodeFromBody(c *fiber.Ctx) error {
 	if err := agentAuthDto.ValidatePasscodeField("passcode", body.Passcode); err != nil {
 		return err
 	}
-	return agentAuthService.VerifyPasscodeService(c.UserContext(), GetActor(c), body.Passcode.Value)
+	return agentAuthService.VerifyPasscodeService(c.UserContext(), GetActor(c), body.Passcode.Value, RequestMeta(c))
 }

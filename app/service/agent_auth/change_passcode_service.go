@@ -6,6 +6,7 @@ import (
 
 	agentAuthCore "app/app/core/agent_auth"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
+	"app/app/models"
 	"app/pkg/apperr"
 	"app/pkg/utils"
 	"app/platform/database"
@@ -15,7 +16,7 @@ import (
 
 // ChangePasscodeService — POST /api/v1/bo/pr/auth/passcode/change (AUTH-34, AUTH-35)
 // สำเร็จแล้ว session เดิมใช้ต่อได้
-func ChangePasscodeService(ctx context.Context, actor Actor, req agentAuthDto.ChangePasscodeRequest) error {
+func ChangePasscodeService(ctx context.Context, actor Actor, req agentAuthDto.ChangePasscodeRequest, meta RequestMeta) error {
 	newHash, err := utils.HashPassword(req.NewPasscode.Value)
 	if err != nil {
 		return err
@@ -32,12 +33,15 @@ func ChangePasscodeService(ctx context.Context, actor Actor, req agentAuthDto.Ch
 		if agentAuthCore.IsTempExpired(acc.MustChangePasscode, acc.TempPasscodeExpiresAt, now) {
 			return apperr.ErrTempCredentialExpired
 		}
-		if err := checkPasscode(ctx, acc, req.OldPasscode.Value); err != nil {
+		if err := checkPasscode(ctx, acc, req.OldPasscode.Value, meta); err != nil {
 			return err
 		}
 		if utils.CheckPassword(*acc.PasscodeHash, req.NewPasscode.Value) { // รวมค่าชั่วคราวจาก admin
 			return apperr.ErrPasscodeReused
 		}
-		return updatePasscode(tx, acc, newHash, false, nil, now)
+		if err := updatePasscode(tx, acc, newHash, false, nil, now); err != nil {
+			return err
+		}
+		return writeAudit(ctx, tx, actorEntry(models.AuthAuditPasscodeChange, actor, acc), meta)
 	})
 }

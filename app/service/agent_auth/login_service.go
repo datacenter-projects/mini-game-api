@@ -19,7 +19,8 @@ import (
 )
 
 // LoginService — POST /api/v1/bo/pb/auth/login (agent และ sub ใช้เส้นเดียวกัน — AUTH-18)
-func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, ip string) (agentAuthDto.LoginResponse, error) {
+func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, meta RequestMeta) (agentAuthDto.LoginResponse, error) {
+	ip := meta.IP
 	var res agentAuthDto.LoginResponse
 	cfg := configs.Cfg.Auth
 
@@ -47,7 +48,7 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, ip string)
 	if agentAuthCore.IsSubaccountUsername(username) {
 		if _, _, ok := agentAuthCore.SplitSubaccountUsername(username); !ok {
 			utils.CheckPasswordDummy(req.Password)
-			return res, recordLoginFailure(ctx, username)
+			return res, recordLoginFailure(ctx, username, nil, meta)
 		}
 	}
 
@@ -56,13 +57,13 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, ip string)
 	acc, err := loadAccountForLogin(db, username)
 	if errors.Is(err, apperr.ErrNotFound) {
 		utils.CheckPasswordDummy(req.Password) // AUTH-02, AUTH-18: เวลาตอบเท่ากับกรณีรหัสผิด
-		return res, recordLoginFailure(ctx, username)
+		return res, recordLoginFailure(ctx, username, nil, meta)
 	}
 	if err != nil {
 		return res, err
 	}
 	if !utils.CheckPassword(acc.PasswordHash, req.Password) {
-		return res, recordLoginFailure(ctx, username)
+		return res, recordLoginFailure(ctx, username, &acc, meta)
 	}
 
 	if err := redisRepo.ClearBOLoginFailRepository(ctx, username); err != nil {
@@ -132,13 +133,15 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, ip string)
 
 // recordLoginFailure นับครั้งที่ผิด ครบ limit → ระงับ username ชั่วคราว (AUTH-10)
 // คืน ErrInvalidCredentials เสมอ (ครั้งที่ทำให้ถูกระงับก็ยังบอกแค่ว่ารหัสผิด)
-func recordLoginFailure(ctx context.Context, username string) error {
-	recordPasswordFailure(ctx, username)
+// target = nil เมื่อไม่มีบัญชีนี้ในระบบ
+func recordLoginFailure(ctx context.Context, username string, target *account, meta RequestMeta) error {
+	recordPasswordFailure(ctx, username, target, meta)
 	return apperr.ErrInvalidCredentials
 }
 
 // recordPasswordFailure นับรหัสผ่านผิด (login และ old_password — AUTH-10, AUTH-39) คืน true เมื่อครบแล้วถูกระงับ
-func recordPasswordFailure(ctx context.Context, username string) bool {
+// ตอนถูกระงับบันทึก LOGIN_BLOCKED (AUTH-49) · target = nil เมื่อไม่มีบัญชีนี้ในระบบ
+func recordPasswordFailure(ctx context.Context, username string, target *account, meta RequestMeta) bool {
 	cfg := configs.Cfg.Auth
 	fails, err := redisRepo.IncrBOLoginFailRepository(ctx, username, cfg.LoginFailWindow)
 	if err != nil {
@@ -153,6 +156,8 @@ func recordPasswordFailure(ctx context.Context, username string) bool {
 		return false
 	}
 	logger.Ctx(ctx).Warnw("login temporarily blocked", "username", username, "fails", fails)
+	writeAuditOutsideTx(ctx, auditEntry{Action: models.AuthAuditLoginBlocked, ActorType: models.AuthAuditActorSystem,
+		Target: target, TargetName: username}, meta)
 	return true
 }
 

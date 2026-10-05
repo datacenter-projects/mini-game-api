@@ -17,7 +17,7 @@ import (
 )
 
 // ResetPasswordService — POST /api/v1/bo/pr/admin/password/reset (AUTH-44–AUTH-46, AUTH-48, AUTH-49)
-func ResetPasswordService(ctx context.Context, actor Actor, req agentAuthDto.ResetCredentialRequest, ip string) (agentAuthDto.ResetPasswordResponse, error) {
+func ResetPasswordService(ctx context.Context, actor Actor, req agentAuthDto.ResetCredentialRequest, meta RequestMeta) (agentAuthDto.ResetPasswordResponse, error) {
 	var res agentAuthDto.ResetPasswordResponse
 	target, err := loadResetTarget(ctx, actor, req.Username)
 	if err != nil {
@@ -45,7 +45,7 @@ func ResetPasswordService(ctx context.Context, actor Actor, req agentAuthDto.Res
 		if err := updatePassword(tx, acc, hash, true, &expiresAt, now); err != nil {
 			return err
 		}
-		return writeResetAudit(tx, actor, acc, models.AuthAuditResetPassword, ip, now)
+		return writeAudit(ctx, tx, actorEntry(models.AuthAuditResetPassword, actor, acc), meta)
 	})
 	if err != nil {
 		return res, err

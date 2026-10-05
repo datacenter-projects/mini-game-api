@@ -6,6 +6,7 @@ import (
 
 	agentAuthCore "app/app/core/agent_auth"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
+	"app/app/models"
 	"app/pkg/apperr"
 	"app/pkg/utils"
 	"app/platform/database"
@@ -15,7 +16,7 @@ import (
 
 // ChangePasswordService — POST /api/v1/bo/pr/auth/password/change (AUTH-37–AUTH-41)
 // passcode (ตอนไม่ได้ถูกบังคับ) ตรวจแล้วที่ middleware · สำเร็จแล้ว session เดิมใช้ต่อได้
-func ChangePasswordService(ctx context.Context, actor Actor, req agentAuthDto.ChangePasswordRequest) error {
+func ChangePasswordService(ctx context.Context, actor Actor, req agentAuthDto.ChangePasswordRequest, meta RequestMeta) error {
 	newHash, err := utils.HashPassword(req.NewPassword)
 	if err != nil {
 		return err
@@ -30,7 +31,7 @@ func ChangePasswordService(ctx context.Context, actor Actor, req agentAuthDto.Ch
 			return apperr.ErrTempCredentialExpired
 		}
 		if !utils.CheckPassword(acc.PasswordHash, req.OldPassword) { // AUTH-39
-			if recordPasswordFailure(ctx, acc.Username) {
+			if recordPasswordFailure(ctx, acc.Username, &acc, meta) {
 				endAllSessions(ctx, acc)
 				return apperr.ErrLoginTemporarilyBlocked
 			}
@@ -39,7 +40,10 @@ func ChangePasswordService(ctx context.Context, actor Actor, req agentAuthDto.Ch
 		if isRecentPassword(acc, req.NewPassword) { // AUTH-38
 			return apperr.ErrPasswordReused
 		}
-		return updatePassword(tx, acc, newHash, false, nil, now)
+		if err := updatePassword(tx, acc, newHash, false, nil, now); err != nil {
+			return err
+		}
+		return writeAudit(ctx, tx, actorEntry(models.AuthAuditPasswordChange, actor, acc), meta)
 	})
 }
 

@@ -556,12 +556,73 @@ func TestAdminResetPasscode(t *testing.T) { // AUTH-45–AUTH-47, AUTH-49
 	expect(t, call(t, app, "POST", passcodeChangePath, map[string]string{"old_passcode": d.TempPasscode, "new_passcode": "654321", "confirm_passcode": "654321"}, ld.Token), 200, 200)
 	expect(t, call(t, app, "GET", gatedPath, nil, ld.Token), 200, 200)
 
-	var logs []models.AuthAuditLog
-	database.DBConn.Find(&logs)
-	if len(logs) != 1 || logs[0].ActorID != admin.ID || logs[0].TargetType != models.AccountTypeSub ||
-		logs[0].TargetID != sub.ID || logs[0].Action != models.AuthAuditResetPasscode || logs[0].IP == "" {
+	logs := auditRows(t, models.AuthAuditResetPasscode)
+	if len(logs) != 1 || logs[0].ActorType != models.AuthAuditActorAgent || *logs[0].ActorID != admin.ID ||
+		*logs[0].ActorUsername != "support01" || *logs[0].TargetType != models.AccountTypeSub || *logs[0].TargetID != sub.ID ||
+		logs[0].TargetUsername != "agent01@staff" || logs[0].IP == nil || logs[0].RequestID == nil {
 		t.Fatalf("audit log ไม่ถูกต้อง %+v", logs)
 	}
+	if n := len(auditRows(t, models.AuthAuditPasscodeChange)); n != 1 {
+		t.Fatalf("เปลี่ยน passcode หลังถูกรีเซ็ตต้องมี audit 1 แถว ได้ %d", n)
+	}
+}
+
+func auditRows(t *testing.T, action models.AuthAuditAction) []models.AuthAuditLog {
+	t.Helper()
+	var logs []models.AuthAuditLog
+	if err := database.DBConn.Where("action = ?", action).Order("id").Find(&logs).Error; err != nil {
+		t.Fatal(err)
+	}
+	return logs
+}
+
+func TestAuditLog(t *testing.T) { // AUTH-49: บันทึกเฉพาะเหตุการณ์ที่เปลี่ยนข้อมูลบัญชี
+	app := setup2(t)
+	a := createAgent(t, "agent01", models.AgentStatusActive, nil)
+	tok := loginToken(t, app, "agent01")
+
+	expect(t, call(t, app, "POST", passcodeSetupPath, map[string]string{"passcode": passcode, "confirm_passcode": passcode}, tok), 200, 200)
+	expect(t, call(t, app, "POST", passwordChangePath, map[string]string{"old_password": password, "new_password": newPassword, "confirm_password": newPassword, "passcode": passcode}, tok), 200, 200)
+	for _, action := range []models.AuthAuditAction{models.AuthAuditPasscodeSetup, models.AuthAuditPasswordChange} {
+		logs := auditRows(t, action)
+		if len(logs) != 1 || logs[0].ActorType != models.AuthAuditActorAgent || *logs[0].ActorID != a.ID || *logs[0].TargetID != a.ID {
+			t.Fatalf("%s: audit ไม่ถูกต้อง %+v", action, logs)
+		}
+	}
+
+	t.Run("passcode ผิดครบ → PASSCODE_BLOCKED โดย SYSTEM", func(t *testing.T) {
+		for i := 0; i < 5; i++ {
+			call(t, app, "POST", txPath, map[string]string{"passcode": "000000"}, tok)
+		}
+		logs := auditRows(t, models.AuthAuditPasscodeBlocked)
+		if len(logs) != 1 || logs[0].ActorType != models.AuthAuditActorSystem || logs[0].ActorID != nil || *logs[0].TargetID != a.ID {
+			t.Fatalf("audit ไม่ถูกต้อง %+v", logs)
+		}
+	})
+
+	t.Run("login ผิดครบ username ที่ไม่มีจริง → LOGIN_BLOCKED ไม่มี target", func(t *testing.T) {
+		for i := 0; i < 5; i++ {
+			login(t, app, "ghost", "wrong")
+		}
+		logs := auditRows(t, models.AuthAuditLoginBlocked)
+		if len(logs) != 1 || logs[0].TargetType != nil || logs[0].TargetUsername != "ghost" || logs[0].ActorType != models.AuthAuditActorSystem {
+			t.Fatalf("audit ไม่ถูกต้อง %+v", logs)
+		}
+	})
+
+	t.Run("login / logout / login ผิดทีละครั้งไม่บันทึก", func(t *testing.T) {
+		var n int64
+		database.DBConn.Model(&models.AuthAuditLog{}).Count(&n)
+		createAgent(t, "agent02", models.AgentStatusActive, nil) // agent01 ถูกบล็อก passcode อยู่
+		login(t, app, "agent02", "wrong")
+		tok2 := loginToken(t, app, "agent02")
+		expect(t, call(t, app, "POST", logoutPath, nil, tok2), 200, 200)
+		var after int64
+		database.DBConn.Model(&models.AuthAuditLog{}).Count(&after)
+		if after != n {
+			t.Fatalf("ต้องไม่มีแถวเพิ่ม ได้ %d → %d", n, after)
+		}
+	})
 }
 
 func TestAdminResetPasscodeClearsBlock(t *testing.T) { // AUTH-47

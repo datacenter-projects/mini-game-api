@@ -5,6 +5,7 @@ import (
 	"time"
 
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
+	"app/app/models"
 	"app/pkg/apperr"
 	"app/pkg/utils"
 	"app/platform/database"
@@ -14,7 +15,7 @@ import (
 
 // SetupPasscodeService — POST /api/v1/bo/pr/auth/passcode/setup (AUTH-30, AUTH-32)
 // ใช้ได้ครั้งเดียว: มี passcode แล้วตอบ ErrPasscodeAlreadySet เสมอ
-func SetupPasscodeService(ctx context.Context, actor Actor, req agentAuthDto.SetupPasscodeRequest) error {
+func SetupPasscodeService(ctx context.Context, actor Actor, req agentAuthDto.SetupPasscodeRequest, meta RequestMeta) error {
 	hash, err := utils.HashPassword(req.Passcode.Value)
 	if err != nil {
 		return err
@@ -35,6 +36,6 @@ func SetupPasscodeService(ctx context.Context, actor Actor, req agentAuthDto.Set
 		if !ok {
 			return apperr.ErrPasscodeAlreadySet
 		}
-		return nil
+		return writeAudit(ctx, tx, actorEntry(models.AuthAuditPasscodeSetup, actor, acc), meta)
 	})
 }

@@ -18,7 +18,7 @@ func ResetPasscodeController(c *fiber.Ctx) error {
 	if err := utils.ParseBody(c, &req); err != nil {
 		return response.Error(c, err)
 	}
-	res, err := agentAuthService.ResetPasscodeService(c.UserContext(), middleware.GetActor(c), req, c.IP())
+	res, err := agentAuthService.ResetPasscodeService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c))
 	if err != nil {
 		return response.Error(c, err)
 	}

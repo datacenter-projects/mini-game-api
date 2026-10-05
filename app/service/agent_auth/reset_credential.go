@@ -3,16 +3,12 @@ package agentauth
 import (
 	"context"
 	"errors"
-	"time"
 
 	agentAuthCore "app/app/core/agent_auth"
 	"app/app/models"
-	"app/app/repository/postgres"
 	"app/pkg/apperr"
 	"app/pkg/utils"
 	"app/platform/database"
-
-	"gorm.io/gorm"
 )
 
 // loadResetTarget หาเป้าหมายและตรวจว่า admin รีเซ็ตได้ (AUTH-45)
@@ -61,16 +57,4 @@ func newTempPassword(acc account) (string, error) {
 			return p, nil
 		}
 	}
-}
-
-func writeResetAudit(tx *gorm.DB, actor Actor, target account, action models.AuthAuditAction, ip string, at time.Time) error {
-	return postgres.CreateAuthAuditLogRepository(tx, &models.AuthAuditLog{
-		ActorType:  actor.AccountType,
-		ActorID:    actor.AccountID(),
-		TargetType: target.Type,
-		TargetID:   target.ID,
-		Action:     action,
-		IP:         ip,
-		CreatedAt:  at,
-	})
 }

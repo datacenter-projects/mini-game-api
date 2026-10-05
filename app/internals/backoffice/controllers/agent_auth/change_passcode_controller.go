@@ -16,7 +16,7 @@ func ChangePasscodeController(c *fiber.Ctx) error {
 	if err := utils.ParseBody(c, &req); err != nil {
 		return response.Error(c, err)
 	}
-	if err := agentAuthService.ChangePasscodeService(c.UserContext(), middleware.GetActor(c), req); err != nil {
+	if err := agentAuthService.ChangePasscodeService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)); err != nil {
 		return response.Error(c, err)
 	}
 	return response.OK(c, nil)
