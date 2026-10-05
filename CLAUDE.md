@@ -115,7 +115,7 @@ cp .env.example .env
 make dev-up          # postgres + redis
 make run             # MIGRATE_ON_START=true จะรัน migration ให้
 make test            # unit
-make test-integration
+make test-integration   # ต้องเปิด test env ก่อน (make test-env-up หรือ scripts/testenv.ps1 up) — docs/TESTING.md
 ```
 
 ## Index เอกสาร
@@ -125,5 +125,6 @@ make test-integration
 | `docs/ARCHITECTURE.md` | โครงสร้าง, กฎตั้งชื่อ, แม่แบบโค้ดทุก layer, response contract, test, ส่วนที่ต่างจาก askmelotto-api |
 | `docs/MIGRATION_STATUS.md` | ขั้นตอนการ port และสถานะของแต่ละ module |
 | `docs/ERROR_CODES.md` | error code ทั้งหมดและช่วงที่จองไว้ |
+| `docs/TESTING.md` | test env (Docker / Windows), integration test, load test (k6) |
 | `docs/modules/_TEMPLATE.md` | แม่แบบ spec ของ module |
 | `docs/modules/{module}.md` | spec ที่อนุมัติแล้ว (source of truth ของ business) |

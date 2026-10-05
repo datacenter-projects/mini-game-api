@@ -1,4 +1,4 @@
-.PHONY: run build test test-integration lint check check-structure dev-up dev-down migrate-up migrate-down migrate-status migration
+.PHONY: run build test test-integration lint check check-structure dev-up dev-down test-env-up test-env-down migrate-up migrate-down migrate-status migration
 
 APP_NAME = apiserver
 BUILD_DIR = ./build
@@ -13,7 +13,7 @@ build:
 test:
 	go test -race -count=1 ./...
 
-# integration test — ต้อง make dev-up ก่อน (ใช้ Postgres/Redis จาก docker-compose)
+# integration test — ต้องเปิด test env ก่อน (make test-env-up หรือ scripts/testenv.ps1 up — docs/TESTING.md)
 test-integration:
 	go test -race -count=1 -tags=integration ./...
 
@@ -35,6 +35,13 @@ dev-up:
 
 dev-down:
 	docker compose down
+
+# ---- test env (integration / load test — docs/TESTING.md) ----
+test-env-up:
+	docker compose -f docker-compose.test.yml up -d --wait
+
+test-env-down:
+	docker compose -f docker-compose.test.yml down
 
 # ---- migration (goose) ----
 migrate-up:
