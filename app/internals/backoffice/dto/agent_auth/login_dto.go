@@ -29,10 +29,12 @@ func (r *LoginRequest) Validate() error {
 }
 
 type LoginResponse struct {
-	Token        string    `json:"token"`
-	Username     string    `json:"username"`
-	Role         string    `json:"role"`
-	IsSubaccount bool      `json:"is_subaccount"`
-	PasscodeSet  bool      `json:"passcode_set"` // false เสมอจนกว่าจะทำ module passcode (spec หัวข้อ 9 ข้อ 5)
-	ExpiresAt    time.Time `json:"expires_at"`
+	Token              string    `json:"token"`
+	Username           string    `json:"username"`
+	Role               string    `json:"role"` // sub = role ของผู้สร้าง (AUTH-25)
+	IsSubaccount       bool      `json:"is_subaccount"`
+	PasscodeSet        bool      `json:"passcode_set"`
+	MustChangePassword bool      `json:"must_change_password"` // AUTH-29
+	MustChangePasscode bool      `json:"must_change_passcode"`
+	ExpiresAt          time.Time `json:"expires_at"`
 }

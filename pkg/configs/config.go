@@ -28,6 +28,7 @@ type Config struct {
 }
 
 // AuthConfig — ค่าตาม spec docs/modules/agent_auth.md (AUTH-07, AUTH-10, AUTH-11)
+// และ docs/modules/agent_auth_phase2.md (AUTH-35, AUTH-46)
 type AuthConfig struct {
 	JWTSecret string
 
@@ -38,6 +39,11 @@ type AuthConfig struct {
 	LoginFailWindow    time.Duration
 	LoginBlockDuration time.Duration
 	LoginIPLimit       int // ครั้ง/นาที ต่อ IP
+
+	PasscodeFailLimit     int
+	PasscodeFailWindow    time.Duration
+	PasscodeBlockDuration time.Duration
+	TempCredentialTTL     time.Duration // อายุค่าชั่วคราวจาก admin reset
 }
 
 type DBConfig struct {
@@ -111,6 +117,10 @@ func Load() error {
 			LoginFailWindow:        getEnvDuration("LOGIN_FAIL_WINDOW", 15*time.Minute),
 			LoginBlockDuration:     getEnvDuration("LOGIN_BLOCK_DURATION", 15*time.Minute),
 			LoginIPLimit:           getEnvInt("LOGIN_IP_LIMIT_PER_MINUTE", 20),
+			PasscodeFailLimit:      getEnvInt("PASSCODE_FAIL_LIMIT", 5),
+			PasscodeFailWindow:     getEnvDuration("PASSCODE_FAIL_WINDOW", 24*time.Hour),
+			PasscodeBlockDuration:  getEnvDuration("PASSCODE_BLOCK_DURATION", time.Hour),
+			TempCredentialTTL:      getEnvDuration("TEMP_CREDENTIAL_TTL", 24*time.Hour),
 		},
 
 		MigrateOnStart: getEnvBool("MIGRATE_ON_START", false),

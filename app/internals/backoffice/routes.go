@@ -10,8 +10,10 @@
 package backoffice
 
 import (
+	agentAuthCore "app/app/core/agent_auth"
 	agentAuthController "app/app/internals/backoffice/controllers/agent_auth"
 	mw "app/app/internals/backoffice/middleware"
+	"app/app/models"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -28,6 +30,13 @@ func RegisterRoutes(api fiber.Router) {
 	// (session ที่หลุดไปแล้วต้อง logout สำเร็จได้ — AUTH-09)
 	bo.Post("/pr/auth/logout", agentAuthController.LogoutController)
 
+	// ทุก route ใต้ /pr ต้องมี mw.PassedGates(...) (ด่านหลัง login — AUTH-29) บรรทัดเดียวกับ route
 	pr := bo.Group("/pr", mw.Authenticated())
-	_ = pr
+
+	// agent_auth phase 2 — docs/modules/agent_auth_phase2.md หัวข้อ 5
+	pr.Post("/auth/passcode/setup", mw.PassedGates(agentAuthCore.GateSetupPasscode), agentAuthController.SetupPasscodeController)
+	pr.Post("/auth/passcode/change", mw.PassedGates(agentAuthCore.GateChangePasscode), agentAuthController.ChangePasscodeController)
+	pr.Post("/auth/password/change", mw.PassedGates(agentAuthCore.GateChangePassword), mw.RequirePasscodeUnlessMustChangePassword(), agentAuthController.ChangePasswordController)
+	pr.Post("/admin/passcode/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasscodeController)
+	pr.Post("/admin/password/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasswordController)
 }

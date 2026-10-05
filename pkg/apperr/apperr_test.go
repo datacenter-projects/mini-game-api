@@ -53,5 +53,5 @@ func TestDuplicateCodePanics(t *testing.T) {
 			t.Fatal("ประกาศ code ซ้ำต้อง panic")
 		}
 	}()
-	New(400, "ซ้ำ", "dup")
+	_ = New(400, "ซ้ำ", "dup")
 }

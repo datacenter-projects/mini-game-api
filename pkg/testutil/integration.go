@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
@@ -31,7 +32,7 @@ import (
 var once sync.Once
 
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
-var tables = []string{"user_agents"}
+var tables = []string{"auth_audit_logs", "subaccounts", "user_agents"}
 
 // Setup ต่อ DB/Redis ตาม env (ครั้งเดียวต่อ package), รัน migration, คืน fiber app ที่ประกอบ route จริง
 // และล้างข้อมูลทั้งหมดหลัง test จบ — test ที่ใช้ helper นี้ห้ามรัน t.Parallel()
@@ -92,6 +93,7 @@ func reset(t *testing.T) {
 // Response คือผลของ Call
 type Response struct {
 	Status int
+	Header http.Header     `json:"-"`
 	Code   int             `json:"code"`
 	Msg    string          `json:"msg"`
 	Data   json.RawMessage `json:"data"`
@@ -114,9 +116,9 @@ func Call(t *testing.T, app *fiber.App, method, path string, body any, token str
 	if err != nil {
 		t.Fatalf("%s %s: %v", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(resp.Body)
-	out := Response{Status: resp.StatusCode}
+	out := Response{Status: resp.StatusCode, Header: resp.Header}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatalf("%s %s: invalid json %q", method, path, raw)
 	}

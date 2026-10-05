@@ -2,6 +2,7 @@ package agentauth
 
 import (
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
+	"app/app/internals/backoffice/middleware"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/response"
 	"app/pkg/utils"
@@ -16,7 +17,7 @@ func LoginController(c *fiber.Ctx) error {
 		return response.Error(c, err)
 	}
 
-	res, err := agentAuthService.LoginService(c.UserContext(), req, c.IP())
+	res, err := agentAuthService.LoginService(c.UserContext(), req, middleware.RequestMeta(c))
 	if err != nil {
 		return response.Error(c, err)
 	}

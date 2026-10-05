@@ -6,6 +6,7 @@ type AgentRole string
 
 const (
 	AgentRoleSuperAdmin  AgentRole = "SUPERADMIN"
+	AgentRoleAdmin       AgentRole = "ADMIN"
 	AgentRoleCompany     AgentRole = "COMPANY"
 	AgentRoleShareholder AgentRole = "SHAREHOLDER"
 	AgentRoleAgent       AgentRole = "AGENT"
@@ -20,16 +21,22 @@ const (
 )
 
 type UserAgent struct {
-	ID           uint        `gorm:"column:id;primaryKey"`
-	ParentID     *uint       `gorm:"column:parent_id"`
-	Username     string      `gorm:"column:username"`
-	PasswordHash string      `gorm:"column:password_hash"`
-	Role         AgentRole   `gorm:"column:role"`
-	Status       AgentStatus `gorm:"column:status"`
-	LastLoginAt  *time.Time  `gorm:"column:last_login_at"`
-	LastLoginIP  *string     `gorm:"column:last_login_ip"`
-	CreatedAt    time.Time   `gorm:"column:created_at"`
-	UpdatedAt    time.Time   `gorm:"column:updated_at"`
+	ID                    uint        `gorm:"column:id;primaryKey"`
+	ParentID              *uint       `gorm:"column:parent_id"`
+	Username              string      `gorm:"column:username"`
+	PasswordHash          string      `gorm:"column:password_hash"`
+	PreviousPasswordHash  *string     `gorm:"column:previous_password_hash"`
+	PasscodeHash          *string     `gorm:"column:passcode_hash"`
+	MustChangePassword    bool        `gorm:"column:must_change_password"`
+	MustChangePasscode    bool        `gorm:"column:must_change_passcode"`
+	TempPasswordExpiresAt *time.Time  `gorm:"column:temp_password_expires_at"`
+	TempPasscodeExpiresAt *time.Time  `gorm:"column:temp_passcode_expires_at"`
+	Role                  AgentRole   `gorm:"column:role"`
+	Status                AgentStatus `gorm:"column:status"`
+	LastLoginAt           *time.Time  `gorm:"column:last_login_at"`
+	LastLoginIP           *string     `gorm:"column:last_login_ip"`
+	CreatedAt             time.Time   `gorm:"column:created_at"`
+	UpdatedAt             time.Time   `gorm:"column:updated_at"`
 }
 
 func (UserAgent) TableName() string { return "user_agents" }

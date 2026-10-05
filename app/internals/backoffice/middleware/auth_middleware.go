@@ -14,6 +14,7 @@ import (
 const actorLocalsKey = "bo_actor"
 
 // Authenticated ตรวจ token + session ของทุก route ใต้ /bo/pr — spec: docs/modules/agent_auth.md หัวข้อ 5
+// ไม่ได้เช็คด่านหลัง login — route ต้องใส่ PassedGates เองบรรทัดเดียวกับ route
 func Authenticated() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		token, ok := BearerToken(c)
@@ -36,6 +37,11 @@ func GetActor(c *fiber.Ctx) agentAuthService.Actor {
 		panic("middleware.GetActor called on a route without middleware.Authenticated")
 	}
 	return actor
+}
+
+// RequestMeta — ข้อมูลของ request ที่ service ใช้ (ip, user agent สำหรับ rate limit / audit log)
+func RequestMeta(c *fiber.Ctx) agentAuthService.RequestMeta {
+	return agentAuthService.RequestMeta{IP: c.IP(), UserAgent: c.Get(fiber.HeaderUserAgent)}
 }
 
 // BearerToken อ่าน token จาก header "Authorization: Bearer <token>"

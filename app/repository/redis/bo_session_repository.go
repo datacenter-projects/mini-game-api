@@ -6,23 +6,26 @@ import (
 	"errors"
 	"time"
 
+	"app/app/models"
 	"app/pkg/apperr"
 	"app/platform/database"
 
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// BOSession คือ session หลังบ้าน 1 รายการ — docs/modules/agent_auth.md หัวข้อ 6
+// BOSession คือ session หลังบ้าน 1 รายการ — docs/modules/agent_auth_phase2.md หัวข้อ 6
 type BOSession struct {
-	AgentID   uint      `json:"agent_id"`
-	IP        string    `json:"ip"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"` // absolute deadline
+	AccountType models.AccountType `json:"account_type"`
+	AccountID   uint               `json:"account_id"`
+	AgentID     uint               `json:"agent_id"` // agent เอง หรือผู้สร้างถ้าเป็น sub (AUTH-26)
+	IP          string             `json:"ip"`
+	CreatedAt   time.Time          `json:"created_at"`
+	ExpiresAt   time.Time          `json:"expires_at"` // absolute deadline (AUTH-07)
 }
 
-// CreateBOSessionRepository สร้าง session ใหม่และเตะ session เดิมของ agent ออก (AUTH-06)
+// CreateBOSessionRepository สร้าง session ใหม่และเตะ session เดิมของบัญชีออก (AUTH-06, AUTH-23)
 //
-// ลำดับ: เขียน session ใหม่ → สลับ pointer ของ agent แบบ atomic (SET ... GET) → ลบ session เดิมที่ได้คืนมา
+// ลำดับ: เขียน session ใหม่ → สลับ pointer ของบัญชีแบบ atomic (SET ... GET) → ลบ session เดิมที่ได้คืนมา
 // login พร้อมกันหลายที่ ทุกตัวได้ "ของเดิม" คนละตัวจาก SET GET จึงไม่มี session เก่าตัวไหนหลงเหลือ
 func CreateBOSessionRepository(ctx context.Context, sid string, s BOSession, idleTTL time.Duration) error {
 	payload, err := json.Marshal(s)
@@ -33,7 +36,9 @@ func CreateBOSessionRepository(ctx context.Context, sid string, s BOSession, idl
 	if err := rdb.Set(ctx, keyBOSession(sid), payload, idleTTL).Err(); err != nil {
 		return err
 	}
-	old, err := rdb.SetArgs(ctx, keyBOAgentSession(s.AgentID), sid, goredis.SetArgs{Get: true, ExpireAt: s.ExpiresAt}).Result()
+	ptr := keyBOAccountSession(s.AccountType, s.AccountID)
+	// ใช้ TTL (go-redis ส่งเป็น PX ระดับ ms) ไม่ใช้ ExpireAt ซึ่งส่งเป็น EXAT ระดับวินาที — ปัดเศษทำให้หลุดก่อน absolute ได้ถึง 1 วินาที
+	old, err := rdb.SetArgs(ctx, ptr, sid, goredis.SetArgs{Get: true, TTL: time.Until(s.ExpiresAt)}).Result()
 	if err != nil && !errors.Is(err, goredis.Nil) {
 		rdb.Del(ctx, keyBOSession(sid)) // ไม่ทิ้ง session ที่ไม่มี pointer ชี้ไว้
 		return err
@@ -46,13 +51,13 @@ func CreateBOSessionRepository(ctx context.Context, sid string, s BOSession, idl
 	return nil
 }
 
-// GetBOSessionRepository คืน session ที่ยังเป็น session ปัจจุบันของ agent เท่านั้น
-// ไม่มี / ไม่ใช่ของ agent นี้ / ไม่ใช่ session ล่าสุด → apperr.ErrNotFound
-func GetBOSessionRepository(ctx context.Context, sid string, agentID uint) (BOSession, error) {
+// GetBOSessionRepository คืน session ที่ยังเป็น session ปัจจุบันของบัญชีเท่านั้น
+// ไม่มี / ไม่ใช่ของบัญชีนี้ / ไม่ใช่ session ล่าสุด → apperr.ErrNotFound
+func GetBOSessionRepository(ctx context.Context, sid string, t models.AccountType, id uint) (BOSession, error) {
 	var s BOSession
 	pipe := database.DBRedis.Pipeline()
 	sessCmd := pipe.Get(ctx, keyBOSession(sid))
-	ptrCmd := pipe.Get(ctx, keyBOAgentSession(agentID))
+	ptrCmd := pipe.Get(ctx, keyBOAccountSession(t, id))
 	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, goredis.Nil) {
 		return s, err
 	}
@@ -66,7 +71,7 @@ func GetBOSessionRepository(ctx context.Context, sid string, agentID uint) (BOSe
 	if err := json.Unmarshal(raw, &s); err != nil {
 		return s, err
 	}
-	if s.AgentID != agentID || ptrCmd.Val() != sid {
+	if s.AccountType != t || s.AccountID != id || ptrCmd.Val() != sid {
 		return s, apperr.ErrNotFound
 	}
 	return s, nil
@@ -74,7 +79,8 @@ func GetBOSessionRepository(ctx context.Context, sid string, agentID uint) (BOSe
 
 // TouchBOSessionRepository ต่ออายุ idle (AUTH-08) — session ที่หายไปแล้วจะไม่ถูกสร้างใหม่
 func TouchBOSessionRepository(ctx context.Context, sid string, ttl time.Duration) error {
-	return database.DBRedis.Expire(ctx, keyBOSession(sid), ttl).Err()
+	// PExpire (ms) — Expire ของ go-redis ปัดเป็นวินาทีเต็ม ทำให้ session หลุดก่อนเวลาได้ถึง 1 วินาที
+	return database.DBRedis.PExpire(ctx, keyBOSession(sid), ttl).Err()
 }
 
 // ลบ session และลบ pointer เฉพาะเมื่อยังชี้ไปที่ session นี้ (กันลบ session ใหม่ที่เพิ่ง login)
@@ -86,11 +92,11 @@ end
 return 1`)
 
 // DeleteBOSessionRepository — logout (AUTH-09) · เรียกซ้ำได้
-func DeleteBOSessionRepository(ctx context.Context, sid string, agentID uint) error {
-	return deleteSessionScript.Run(ctx, database.DBRedis, []string{keyBOSession(sid), keyBOAgentSession(agentID)}, sid).Err()
+func DeleteBOSessionRepository(ctx context.Context, sid string, t models.AccountType, id uint) error {
+	return deleteSessionScript.Run(ctx, database.DBRedis, []string{keyBOSession(sid), keyBOAccountSession(t, id)}, sid).Err()
 }
 
-var deleteAgentSessionsScript = goredis.NewScript(`
+var deleteAccountSessionsScript = goredis.NewScript(`
 local sid = redis.call('GET', KEYS[1])
 if sid then
 	redis.call('DEL', ARGV[1] .. sid)
@@ -98,7 +104,7 @@ end
 redis.call('DEL', KEYS[1])
 return 1`)
 
-// DeleteBOSessionsOfAgentRepository ลบทุก session ของ agent — ใช้ตอนบัญชีถูกล็อก (AUTH-15)
-func DeleteBOSessionsOfAgentRepository(ctx context.Context, agentID uint) error {
-	return deleteAgentSessionsScript.Run(ctx, database.DBRedis, []string{keyBOAgentSession(agentID)}, keyBOSession("")).Err()
+// DeleteBOSessionsOfAccountRepository ลบทุก session ของบัญชี — ใช้ตอนถูกล็อก, passcode ผิดครบ, ถูกรีเซ็ต
+func DeleteBOSessionsOfAccountRepository(ctx context.Context, t models.AccountType, id uint) error {
+	return deleteAccountSessionsScript.Run(ctx, database.DBRedis, []string{keyBOAccountSession(t, id)}, keyBOSession("")).Err()
 }
