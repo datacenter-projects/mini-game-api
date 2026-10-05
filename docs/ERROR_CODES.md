@@ -41,6 +41,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | bb | Module | ไฟล์ | Spec |
 |---|---|---|---|
 | 01 | agent_auth (backoffice auth) | `pkg/apperr/agent_auth_errors.go` | `docs/modules/agent_auth.md`, `docs/modules/agent_auth_phase2.md` |
+| 03 | account (บัญชี) | `pkg/apperr/account_errors.go` | `docs/modules/account.md` (DRAFT) · หมายเหตุ: 02 จองให้ agent_management ใน branch `boiledegg/bo/management` |
 
 ## agent_auth (01)
 
@@ -69,3 +70,10 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 401405 | 200 | บัญชีนี้ยังไม่ได้ตั้ง passcode — phase 2 |
 | 401406 | 200 | ไม่สามารถรีเซ็ตบัญชีนี้ได้ — phase 2 |
 | 401407 | 200 | บัญชีเป้าหมายถูกล็อก — phase 2 |
+
+## account (03) — DRAFT
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 403301 | 200 | บัญชีนี้ไม่มีข้อมูลรับรอง API |
+| 403302 | 200 | บัญชีถูกระงับ ทำรายการไม่ได้ |
