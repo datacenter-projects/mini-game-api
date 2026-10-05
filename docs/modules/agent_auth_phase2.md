@@ -1,6 +1,6 @@
 # Backoffice Auth (`agent_auth`) ระยะ 2 — Subaccount login · Passcode · Password · Admin reset — Spec
 
-- สถานะ: **APPROVED** (ยกเว้น `scripts/reset_credentials` ที่ยังคุยอยู่)
+- สถานะ: **APPROVED** (ยกเว้น `scripts/reset_credentials` ที่ยังคุยอยู่) · AUTH-54 เพิ่มจาก review account 2026-10-05 รออนุมัติ
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
@@ -116,6 +116,7 @@
 | ID | Rule |
 |---|---|
 | AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) |
+| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** (review account 2026-10-05 — รออนุมัติ): ตัดสินจาก `EffectiveStatus` · route ที่เปิดให้ SUSPENDED ต้องระบุ middleware ที่อนุญาตไว้บรรทัดเดียวกับ route · route อื่นทั้งหมดปฏิเสธเมื่อ `EffectiveStatus = SUSPENDED` · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 · error code กำหนดตอน implement (จองใน `bb=01`) |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
@@ -390,6 +391,8 @@ Redis:
 | AUTH-27 | upline ของ agent (เช่น Company) ถูก LOCK ระหว่างใช้งาน | request ถัดไปของ agent `401302` และ session ถูกลบ |
 | AUTH-53 | upline ของผู้สร้าง SUSPENDED | `EffectiveStatus` ของ agent และ sub = `SUSPENDED` |
 | AUTH-53 | sub SUSPENDED · ผู้สร้าง ACTIVE | sub = `SUSPENDED` · ผู้สร้าง = `ACTIVE` |
+| AUTH-54 | บัญชีที่ `EffectiveStatus = SUSPENDED` เรียก Profile / Report | สำเร็จ |
+| AUTH-54 | บัญชีที่ `EffectiveStatus = SUSPENDED` เรียก route อื่น (เช่น สร้างบัญชี, Dashboard) | ถูกปฏิเสธ |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสถูก | `401309` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสผิด | `401201` |
 | AUTH-28 | รหัสชั่วคราวเกิน 24 ชม. แล้ว login ด้วยรหัสนั้น | `401310` |
