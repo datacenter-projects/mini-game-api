@@ -1,6 +1,6 @@
 # บัญชี (`account`) — Profile · ข้อมูลรับรอง API — Spec
 
-- สถานะ: **DRAFT** (ACC-01 รอ lead)
+- สถานะ: **DRAFT** (รอ lead review)
 - อนุมัติโดย: — · วันที่: —
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API** · (1.1 ภาพรวม ย้ายไป module Home — Dashboard)
@@ -22,11 +22,14 @@
   เครดิตแยกสกุล (module 5 การชำระเงิน) — เพิ่มเข้า Profile ตอนทำ module นั้น
 - การใช้ Key / IP / ลิงก์ตอนลูกค้าเรียก API (Login, GetBalance, Bet, Settle ฯลฯ) — module provider (`app/externals/provider`)
 
+**ต้องมีก่อน implement 1.3:** ประเภทของ Company (`agent_type` — Transfer / Seamless Reseller / Master / 1 to 1) มาจาก
+module ② User Management · ยังไม่มีในระบบ จึง implement 1.3 ได้หลังคอลัมน์นี้มีแล้ว (Profile ไม่ติด)
+
 ## 2. คำศัพท์
 
 | คำ | ความหมาย |
 |---|---|
-| เจ้าของ Key | บัญชีที่มีข้อมูลรับรอง API ของตัวเอง (ACC-01) |
+| เจ้าของ Key | Company แบบ Seamless (Reseller · Master · 1 to 1) — 1 Key ต่อ Company (ACC-01) |
 | Key | ค่าลับที่ลูกค้าใช้ระบุตัวและคำนวณ `sign` ทุกคำขอ (Seamless API Flow) |
 | ลิงก์ตอบกลับ | URL ของระบบลูกค้าที่ระบบเราเรียก (GetMember, GetBalance, Bet, Settle, Cancel) |
 | IP ที่อนุญาต | IP ของลูกค้าที่เรียก API ของเราได้ |
@@ -35,7 +38,7 @@
 
 | ID | Rule |
 |---|---|
-| ACC-01 | เจ้าของ Key: **รอ lead ยืนยัน** ว่าเป็น Company Seamless หรือชั้นที่สร้าง Member (Share Reseller · Share Master · Company 1 to 1) · บัญชีที่ไม่ใช่เจ้าของเปิดหน้านี้ได้ `403301` |
+| ACC-01 | เจ้าของ Key = **Company แบบ Seamless** (`SEAMLESS_RESELLER` · `SEAMLESS_MASTER` · `SEAMLESS_1TO1`) · **1 Key ต่อ Company** ใช้ร่วมกันทุกเว็บ / Share ใต้ Company นั้น · บัญชีอื่นทั้งหมด (Superadmin, ADMIN, Company Transfer, Share, Agent) เปิดหน้านี้ไม่ได้ (`403301`) |
 | ACC-02 | เปิดหน้า / บันทึกได้: เจ้าของ และ sub ของเจ้าของ (sub ทำงานในนามเจ้าของ — AUTH-26) · ต้องผ่านด่านหลัง login (`PassedGates()`) · บันทึกต้อง `EffectiveStatus = ACTIVE` (`403302`) |
 | ACC-03 | Key สร้างอัตโนมัติ 1 ค่าต่อเจ้าของ: สุ่ม 32 byte ด้วย `crypto/rand` แสดงเป็น hex ตัวพิมพ์เล็ก 64 ตัว · **สร้างใหม่ไม่ได้** · ใช้ทั้งระบุตัวและคำนวณ `sign` |
 | ACC-04 | Key ดูซ้ำได้ (ปุ่มคัดลอก) → เก็บแบบเข้ารหัส AES-256-GCM ที่ถอดกลับได้ (ไม่ใช่ hash) + `sha256(Key)` ไว้ค้นตอนลูกค้าเรียก API · response ใส่ `Cache-Control: no-store` · ห้าม log Key |
@@ -95,7 +98,7 @@ Error codes: error ร่วมของ `/bo/pr` เท่านั้น
 Response `data` (header `Cache-Control: no-store`):
 ```json
 {
-  "username": "shareresel",
+  "username": "seamlessreseller01",
   "key": "cb886b34f28b4e7964ca039335a86c74d04a3dea605e1b2c9d0f7a8b6c5d4e3f",
   "callback_url": "https://api.customer.example/minigame",
   "allowed_ips": ["203.0.113.10/32", "198.51.100.0/24"]
@@ -168,7 +171,8 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 
 | Rule | Input | Expected |
 |---|---|---|
-| ACC-01 | บัญชีที่ไม่ใช่เจ้าของเรียก GET / POST | `403301` |
+| ACC-01 | Company Seamless (Reseller / Master / 1 to 1) เรียก GET | สำเร็จ · ได้ Key ของ Company |
+| ACC-01 | Company Transfer / Share Reseller / Share Master / Agent / Superadmin เรียก GET / POST | `403301` |
 | ACC-02 | sub ของเจ้าของ GET / POST | สำเร็จ · ได้ Key ของเจ้าของ |
 | ACC-02 | เจ้าของ SUSPENDED กดบันทึก | `403302` · GET ยังดูได้ |
 | ACC-03 | เจ้าของ GET ครั้งแรก | Key hex ตัวพิมพ์เล็ก 64 ตัว |
