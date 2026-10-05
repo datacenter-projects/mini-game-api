@@ -61,7 +61,7 @@
 | ACC-24 | การ์ด: สมาชิกที่กำลังใช้งาน · สมาชิกที่สมัครใหม่ · สมาชิกทั้งหมด · ยอดเล่นทั้งหมด · ยอดเล่นที่ถูกรางวัล · ยอดเล่นจริง · ยอดเล่นทั้งหมดตาม PT · ยอดถูกรางวัลตาม PT · ยอดแพ้ / ชนะตาม PT · ทุกการ์ด (ยกเว้นสมาชิกที่กำลังใช้งาน) แสดง % เปลี่ยนแปลงเทียบช่วงก่อนหน้าที่ยาวเท่ากัน |
 | ACC-25 | "ตาม PT" = ยอดคูณ PT ที่**คนที่ login ถือ** (ค่า ณ ตอน bet) · รายได้ของคนที่ login = ได้เสียตาม PT ที่ตัวเองถือ + Commission ที่ได้ − Commission ที่จ่าย |
 | ACC-26 | ตาราง Top 10 สมาชิกในสาย: ยอดเล่นมากสุด · ยอดถูกมากสุด · ยอดเสียมากสุด (ลำดับ, username, จำนวนเงิน) |
-| ACC-27 | เงินเป็น `int64` หน่วยย่อยที่สุดตามสกุล (กฎข้อ 9) · % เปลี่ยนแปลงทศนิยม 2 ตำแหน่ง · ช่วงก่อนหน้าเป็น 0 → แสดง `null` |
+| ACC-27 | ตัวเลขตาม ACC-18: เงินและ % ใน JSON เป็น number (เงินทศนิยมตามสกุล · % ทศนิยม 2 ตำแหน่ง) ภายในเป็นจำนวนเต็ม · ช่วงก่อนหน้าเป็น 0 → `change_pct = null` |
 
 ### Profile (1.2)
 
@@ -70,8 +70,9 @@
 | ACC-11 | ทุกบัญชีหลังบ้านเรียกได้ (SUPERADMIN, ADMIN, Company, Share, Agent และ sub) · ต้องผ่านด่านหลัง login (`PassedGates()`) · เปิดได้แม้ `effective_status = SUSPENDED` (ACC-31) · แสดงข้อมูลของ**ตัวเอง** |
 | ACC-12 | ข้อมูลที่แสดง: username · role · **ประเภทบัญชี** · `status` · `effective_status` · เป็น sub ไหม · username ของผู้สร้าง (เฉพาะ sub) · ตั้ง passcode แล้วหรือยัง · login ล่าสุด (เวลา, IP) · วันที่สร้างบัญชี · **สกุลเงิน** · **ค่าหุ้นส่วน** (ชุดเดียว — ACC-16) · **สิทธิ์** |
 | ACC-15 | sub: role, ประเภทบัญชี, สกุลเงิน และค่าหุ้นส่วน = ของผู้สร้าง (AUTH-25) · สิทธิ์ = ที่ผู้สร้างให้ sub นั้น |
-| ACC-16 | ค่าหุ้นส่วนส่งเป็น key `pt` เดียว เป็น object **ชุดเดียว** (ถือ / ปล่อย / Remain / Force / Commission หน่วย bp) — หน้าบ้านตั้งที่เดียวแล้วระบบใช้ค่านั้นกับทุกเกม (ระบบเก็บต่อเกมตาม module ②) · SUPERADMIN / ADMIN ไม่มีค่าหุ้นส่วน (`pt = null`) |
+| ACC-16 | ค่าหุ้นส่วนส่งเป็น `pt_by_game` แยกตาม**หมวดเกม → รหัสเกม** (เช่น `minigame` → `coin_toss`) ตามที่ระบบเก็บ · แต่ละเกมมี `pt` (ถือ) · `pt_from_parent` (ได้รับจากผู้สร้าง = ถือ + ปล่อย · ปล่อย = `pt_from_parent − pt`) · `force` · `remain_quota` · `commission_percent` · `status_game` (bool: `true` = เปิดใช้งาน · `false` = ปิด — ชั้นบนตั้งให้ module ②) · ตอน**ตั้งค่า**หน้าบ้านส่งชุดเดียวแล้วระบบใช้กับทุกเกม (module ②) · ADMIN ไม่มีค่าหุ้นส่วน (`pt_by_game = {}`) |
 | ACC-17 | Profile มีไว้ให้หน้าบ้านแสดงผล / เช็คเบื้องต้นในฟอร์ม (เช่น สร้างบัญชีชั้นถัดไปที่ PT เกินของตัวเองไม่ได้) · **หลังบ้านต้องเช็คซ้ำทุกครั้ง** ใน module ที่ทำรายการ |
+| ACC-18 | **ตัวเลขใน API vs ภายใน (กฎข้อ 9)**: JSON ใช้ number (เงินเช่น `962056.00` · % เช่น `95.5`) ตามรูปแบบที่หน้าบ้านใช้ · **ภายใน DB และ Go ใช้จำนวนเต็มเสมอ** (เงิน = `int64` หน่วยย่อยที่สุดของสกุล · % = bp ×100) · แปลงที่ขอบระบบเท่านั้น · ตอนรับค่าอ่าน JSON number เป็นข้อความแล้วแปลงเป็นจำนวนเต็มตรง (ไม่ผ่าน float) · ห้ามคำนวณเงิน / % ด้วย float |
 | ACC-13 | อ่านอย่างเดียว · เปลี่ยนรหัสผ่าน / passcode ของตัวเองใช้เส้นเดิม `POST /bo/pr/auth/password/change` และ `/auth/passcode/change` |
 | ACC-14 | login ล่าสุด = ค่าที่บันทึกตอน login (AUTH-12) จึงเป็นเวลาของ session ปัจจุบัน |
 
@@ -118,21 +119,21 @@ Response `data`:
   "updated_at": "2026-10-05T00:47:00+07:00",
   "cards": {
     "active_members":   { "value": 12 },
-    "new_members":      { "value": 3, "change_pct": "50.00" },
-    "total_members":    { "value": 120, "change_pct": "2.56" },
-    "bet_count":        { "value": 5400, "change_pct": "-3.10" },
-    "win_count":        { "value": 2100, "change_pct": "1.20" },
-    "bet_amount":       { "value": 98765400, "change_pct": "4.00" },
-    "bet_amount_pt":    { "value": 9876540, "change_pct": "4.00" },
-    "win_amount_pt":    { "value": 8000000, "change_pct": null },
-    "win_loss_pt":      { "value": 1876540, "change_pct": "12.50" }
+    "new_members":      { "value": 3, "change_pct": 50.0 },
+    "total_members":    { "value": 120, "change_pct": 2.56 },
+    "bet_count":        { "value": 5400, "change_pct": -3.1 },
+    "win_count":        { "value": 2100, "change_pct": 1.2 },
+    "bet_amount":       { "value": 987654.00, "change_pct": 4.0 },
+    "bet_amount_pt":    { "value": 98765.40, "change_pct": 4.0 },
+    "win_amount_pt":    { "value": 80000.00, "change_pct": null },
+    "win_loss_pt":      { "value": 18765.40, "change_pct": 12.5 }
   },
-  "top_bet":  [ { "rank": 1, "username": "m001", "amount": 1500000 } ],
-  "top_win":  [ { "rank": 1, "username": "m007", "amount": 900000 } ],
-  "top_loss": [ { "rank": 1, "username": "m013", "amount": 700000 } ]
+  "top_bet":  [ { "rank": 1, "username": "m001", "amount": 15000.00 } ],
+  "top_win":  [ { "rank": 1, "username": "m007", "amount": 9000.00 } ],
+  "top_loss": [ { "rank": 1, "username": "m013", "amount": 7000.00 } ]
 }
 ```
-จำนวนเงินเป็นหน่วยย่อยที่สุดของสกุล (`int64`) · `change_pct` เป็นข้อความทศนิยม 2 ตำแหน่ง หรือ `null`
+จำนวนเงินและ `change_pct` เป็น JSON number ตาม ACC-18 (ภายในเป็นจำนวนเต็ม) · `change_pct` = `null` เมื่อช่วงก่อนหน้าเป็น 0
 
 ### GET /api/v1/bo/pr/account/profile
 
@@ -151,8 +152,12 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
   "last_login_ip": "203.0.113.10",
   "created_at": "2026-10-01T09:00:00+07:00",
   "currencies": ["THB"],
-  "pt": {
-    "hold_bp": 2000, "release_bp": 7000, "remain_bp": 0, "force_bp": 0, "commission_bp": 50
+  "pt_by_game": {
+    "minigame": {
+      "coin_toss":           { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": true },
+      "rock_paper_scissors": { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": true },
+      "scratch_card":        { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": false }
+    }
   },
   "permissions": ["dashboard.view", "report.view"]
 }
@@ -160,7 +165,9 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
 - `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` ·
   `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT`
 - `owner_username` = `null` เมื่อไม่ใช่ sub · `last_login_*` = `null` ถ้ายังไม่เคยบันทึก
-- หน่วยของค่าหุ้นส่วน, รายการสกุล และชื่อสิทธิ์ ใช้ตามที่ module ② กำหนด (ค่าในตัวอย่างเป็นแค่รูปแบบ)
+- ค่า % (`pt`, `pt_from_parent`, `force`, `remain_quota`, `commission_percent`) เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง — ภายในเก็บเป็นจำนวนเต็ม (ACC-18)
+- รายการหมวด / รหัสเกม, รายการสกุล (27 สกุล) และชื่อสิทธิ์ ใช้ตามที่ module ② กำหนด (ค่าในตัวอย่างเป็นแค่รูปแบบ)
+- `balances` (ยอดเงินแยกสกุล) เพิ่มตอนทำ module การชำระเงิน
 
 Error codes: error ร่วมของ `/bo/pr` เท่านั้น
 
@@ -253,9 +260,11 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-11 | Agent / SUPERADMIN / ADMIN เรียก profile | ข้อมูลของตัวเอง · `is_subaccount = false` · `owner_username = null` |
 | ACC-11 | ยังไม่ตั้ง passcode เรียก profile | `401304` (ด่านหลัง login) |
 | ACC-12 | ผู้สร้างของ sub เป็น SUSPENDED | `status = ACTIVE` · `effective_status = SUSPENDED` |
-| ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt.hold_bp = 0` · `pt.release_bp = 10000` |
+| ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · ทุกเกม `pt = 0` · `pt_from_parent = 100` |
 | ACC-15 | sub ของ Share B2C เรียก profile | `user_type`, `currencies`, `pt` เท่าของผู้สร้าง · `permissions` = ที่ผู้สร้างให้ |
-| ACC-16 | SUPERADMIN เรียก profile | `pt = null` |
+| ACC-16 | ADMIN เรียก profile | `pt_by_game = {}` |
+| ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game = false` ของเกมนั้น · เกมอื่น `true` |
+| ACC-18 | Commission 0.5% | profile ได้ `0.5` · DB เก็บจำนวนเต็ม |
 | ACC-14 | login แล้วเรียก profile | `last_login_at` / `last_login_ip` ตรงกับ login นี้ |
 | ACC-01 | Company Seamless 1 to 1 / Share Master / Share Reseller เรียก GET | สำเร็จ · ได้ Key ของตัวเอง |
 | ACC-01 | Share Reseller 2 บัญชีใต้ Company เดียวกัน | ได้ Key คนละค่า |
@@ -279,7 +288,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 
 - เส้นใหม่ 4 เส้นตามหัวข้อ 5
 - ตัดสินสิทธิ์การเข้าใช้งานจาก `effective_status` (ACC-31) · `status` ใช้แสดงว่าบัญชีนี้ถูกตั้งสถานะเองหรือไม่
-- Profile มี `user_type`, `currencies`, `pt` (object ชุดเดียว ใช้กับทุกเกม), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
+- Profile มี `user_type`, `currencies`, `pt_by_game` (แยกหมวด → เกม · ตั้งค่าชุดเดียวใช้กับทุกเกม), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
 - หน้า 1.3 แสดงเฉพาะ Company Seamless 1 to 1 / Share Master / Share Reseller และ sub ที่ได้รับสิทธิ์
 - เครดิตแยกสกุลยังไม่มีใน Profile — เพิ่มตอนทำ module การชำระเงิน
 
@@ -291,9 +300,11 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 4. **review 2026-10-05:**
    - เจ้าของ Key เปลี่ยนจาก "1 Key ต่อ Company Seamless" เป็น Company Seamless 1 to 1 / Share Master / Share Reseller บัญชีละ Key
    - คง `status` และ `effective_status` แยก 2 field (เหตุผล: แยก "ถูกระงับเอง" กับ "ได้รับผลจากหัวสาย") · การเข้าใช้งานตัดสินจาก `effective_status`
-   - Profile ส่งประเภท, สกุลเงิน, ค่าหุ้นส่วน (key `pt` เดียว ชุดเดียว — หน้าบ้านตั้งที่เดียว ระบบใช้กับทุกเกม) และสิทธิ์
+   - Profile ส่งประเภท, สกุลเงิน, ค่าหุ้นส่วน `pt_by_game` (อ่านแยกต่อเกม · ตั้งค่าชุดเดียวใช้กับทุกเกม) และสิทธิ์
    - ระบบสิทธิ์กำหนดใน module ② ครั้งเดียว · Profile และ 1.3 ใช้ตามนั้น
    - Dashboard กลับมาอยู่ใน module นี้ · spec ตอนนี้ implement หลังมี bet
+   - ตัวเลขใน API เป็น JSON number ตามรูปแบบที่หน้าบ้านใช้ แต่ DB / Go เก็บและคำนวณเป็นจำนวนเต็ม (ACC-18) — ไม่แก้กฎข้อ 9
+   - Profile ใช้ `pt_by_game` (หมวด → เกม) และ `status_game` รายบัญชี · `balances` 27 สกุลเพิ่มตอนทำ module การเงิน
 5. **Error code** (module `account` = `bb=03`) — business error ตอบ HTTP 200
 
 | Code | HTTP | ความหมาย |
