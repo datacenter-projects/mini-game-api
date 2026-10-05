@@ -24,4 +24,4 @@ Makefile, docker-compose, Dockerfile, CI, check_structure.sh, CLAUDE.md, ARCHITE
 |---|---|---|---|---|
 | `agent_auth` | [agent_auth.md](modules/agent_auth.md) | IM | login, logout, middleware `Authenticated`, ตาราง `user_agents` (เฉพาะคอลัมน์ auth), `scripts/create_superadmin` | — |
 | `agent_auth` phase 2 | [agent_auth_phase2.md](modules/agent_auth_phase2.md) | IM | subaccount login, passcode setup/change, `RequirePasscode`, เปลี่ยนรหัสผ่าน, admin reset passcode/password, ด่านหลัง login, `auth_audit_logs`, `scripts/create_admin` | `scripts/reset_credentials` (รอ lead เรื่อง actor ใน audit log), รัน integration test |
-| `account` | [account.md](modules/account.md) | IM (Profile) | Profile (`GET /bo/pr/account/profile`) | 1.3 ข้อมูลรับรอง API (รอคอลัมน์ `agent_type` จาก module ②) · 1.1 ภาพรวม ย้ายไป module Home |
+| `account` | [account.md](modules/account.md) (DRAFT — แก้ตาม review 2026-10-05) | — | — | Profile · 1.3 ข้อมูลรับรอง API (รอ module ②: ประเภท, สกุลเงิน, PT ต่อเกม, สิทธิ์) · Dashboard (รอ module เดิมพัน) |
