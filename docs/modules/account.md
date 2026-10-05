@@ -1,7 +1,7 @@
 # บัญชี (`account`) — Profile · ข้อมูลรับรอง API — Spec
 
-- สถานะ: **DRAFT** (รอ lead review)
-- อนุมัติโดย: — · วันที่: —
+- สถานะ: **APPROVED** · implement ได้: Profile · 1.3 รอคอลัมน์ `agent_type` จาก module ② (หัวข้อ 1)
+- อนุมัติโดย: lead · วันที่: 2026-10-05
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API** · (1.1 ภาพรวม ย้ายไป module Home — Dashboard)
 - ที่มาของ rule: ภาพหน้าจอตัวอย่างที่ user ส่ง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg (2026-10-05) ·
