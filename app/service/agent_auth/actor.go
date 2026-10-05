@@ -19,7 +19,8 @@ type Actor struct {
 	Username     string
 	Role         models.AgentRole   // sub = role ของผู้สร้าง
 	Status       models.AgentStatus // สถานะของบัญชีนี้เอง
-	// EffectiveStatus = สถานะที่ใช้ตัดสินสิทธิ์ (sub = เข้มที่สุดระหว่าง sub กับผู้สร้าง)
+	// EffectiveStatus = สถานะที่ใช้ตัดสินสิทธิ์ = เข้มที่สุดของตัวเอง ผู้สร้าง และ upline ทั้งสาย (AUTH-53)
+	// module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ ไม่ใช่จาก Status
 	EffectiveStatus    models.AgentStatus
 	MustChangePassword bool
 	MustChangePasscode bool

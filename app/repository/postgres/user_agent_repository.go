@@ -55,21 +55,19 @@ func LockUserAgentCredentialsRepository(db *gorm.DB, id uint) (models.UserAgent,
 	return GetUserAgentCredentialsByIDRepository(db.Clauses(clause.Locking{Strength: "UPDATE"}), id)
 }
 
-// HasLockedAncestorRepository — มี upline คนใด (ไม่นับตัวเอง) เป็น LOCKED หรือไม่
-// ไล่สายด้วย recursive CTE ใน query เดียว (ไม่ N+1)
-func HasLockedAncestorRepository(db *gorm.DB, agentID uint) (bool, error) {
-	var found bool
+// ListAncestorStatusesRepository — สถานะ (ไม่ซ้ำ) ของ upline ทุกคน ไม่นับตัวเอง
+// ไล่สายด้วย recursive CTE ใน query เดียว (ไม่ N+1) · ใช้ทุก request ใน middleware (AUTH-27, AUTH-53)
+func ListAncestorStatusesRepository(db *gorm.DB, agentID uint) ([]models.AgentStatus, error) {
+	var statuses []models.AgentStatus
 	err := db.Raw(`
 		WITH RECURSIVE ancestors AS (
 			SELECT parent_id FROM user_agents WHERE id = ?
 			UNION -- ไม่ใช้ UNION ALL: ถ้าข้อมูลสายวนเป็นลูป query จะหยุดเองไม่ค้าง
 			SELECT ua.parent_id FROM user_agents ua JOIN ancestors a ON ua.id = a.parent_id
 		)
-		SELECT EXISTS (
-			SELECT 1 FROM user_agents ua JOIN ancestors a ON ua.id = a.parent_id
-			WHERE ua.status = ?
-		)`, agentID, models.AgentStatusLocked).Scan(&found).Error
-	return found, err
+		SELECT DISTINCT ua.status FROM user_agents ua JOIN ancestors a ON ua.id = a.parent_id`,
+		agentID).Scan(&statuses).Error
+	return statuses, err
 }
 
 func UpdateUserAgentLastLoginRepository(db *gorm.DB, id uint, ip string, at time.Time) error {

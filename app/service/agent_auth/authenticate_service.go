@@ -54,15 +54,13 @@ func AuthenticateService(ctx context.Context, rawToken, ip string) (Actor, error
 		endAllSessions(ctx, acc)
 		return Actor{}, apperr.ErrAccountLocked
 	}
-	if acc.IsSub() { // AUTH-27: ผู้สร้างหรือ upline ของผู้สร้างถูก LOCK
-		locked, err := isLockedByChain(db, acc)
-		if err != nil {
-			return Actor{}, err
-		}
-		if locked {
-			endAllSessions(ctx, acc)
-			return Actor{}, apperr.ErrUplineLocked
-		}
+	// AUTH-27: ผู้สร้าง (กรณี sub) หรือ upline คนใดถูก LOCK → เตะออก (ทั้ง agent และ sub — แทน Phase 1 หัวข้อ 9 ข้อ 2)
+	if acc, err = withUplineStatus(db, acc); err != nil {
+		return Actor{}, err
+	}
+	if acc.UplineLocked() {
+		endAllSessions(ctx, acc)
+		return Actor{}, apperr.ErrUplineLocked
 	}
 
 	if ip != session.IP { // AUTH-16: log อย่างเดียว

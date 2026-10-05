@@ -74,11 +74,10 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, ip string)
 	if acc.Status == models.AgentStatusLocked { // AUTH-04, AUTH-20
 		return res, apperr.ErrAccountLocked
 	}
-	chainLocked, err := isLockedByChain(db, acc) // AUTH-05, AUTH-21
-	if err != nil {
+	if acc, err = withUplineStatus(db, acc); err != nil { // AUTH-05, AUTH-21
 		return res, err
 	}
-	if chainLocked {
+	if acc.UplineLocked() {
 		return res, apperr.ErrUplineLocked
 	}
 	passcodeBlocked, err := redisRepo.IsBOPasscodeBlockedRepository(ctx, acc.Type, acc.ID) // AUTH-28

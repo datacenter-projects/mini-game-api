@@ -41,11 +41,10 @@ func loadResetTarget(ctx context.Context, actor Actor, rawUsername string) (acco
 	if target.Status == models.AgentStatusLocked {
 		return account{}, apperr.ErrResetTargetLocked
 	}
-	chainLocked, err := isLockedByChain(db, target)
-	if err != nil {
+	if target, err = withUplineStatus(db, target); err != nil {
 		return account{}, err
 	}
-	if chainLocked {
+	if target.UplineLocked() {
 		return account{}, apperr.ErrResetTargetLocked
 	}
 	return target, nil

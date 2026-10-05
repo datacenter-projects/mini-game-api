@@ -247,6 +247,57 @@ func TestSubaccountMiddlewareLock(t *testing.T) { // AUTH-27
 	expect(t, call(t, app, "GET", gatedPath, nil, tok), 401, 401203)
 }
 
+func TestAgentUplineLockedMidSession(t *testing.T) { // AUTH-27 (ใช้กับ agent ด้วย)
+	app := setup2(t)
+	company := createAccount(t, "company01", models.AgentRoleCompany, nil)
+	a := createAgent(t, "agent01", models.AgentStatusActive, &company.ID)
+	tok := loginReady(t, app, models.AccountTypeAgent, a.ID, "agent01")
+
+	setStatus(t, company.ID, models.AgentStatusLocked)
+	expect(t, call(t, app, "GET", gatedPath, nil, tok), 403, 401302)
+	setStatus(t, company.ID, models.AgentStatusActive)
+	expect(t, call(t, app, "GET", gatedPath, nil, tok), 401, 401203) // session ถูกลบไปแล้ว
+}
+
+func TestEffectiveStatus(t *testing.T) { // AUTH-53
+	app := setup2(t)
+	company := createAccount(t, "company01", models.AgentRoleCompany, nil)
+	a := createAgent(t, "agent01", models.AgentStatusActive, &company.ID)
+	sub := createSub(t, a, "staff", models.AgentStatusActive)
+	agentTok := loginReady(t, app, models.AccountTypeAgent, a.ID, "agent01")
+	subTok := loginReady(t, app, models.AccountTypeSub, sub.ID, "agent01@staff")
+
+	effective := func(tok string) string {
+		t.Helper()
+		r := call(t, app, "GET", gatedPath, nil, tok)
+		expect(t, r, 200, 200)
+		var d struct {
+			EffectiveStatus string `json:"effective_status"`
+		}
+		_ = json.Unmarshal(r.Data, &d)
+		return d.EffectiveStatus
+	}
+
+	if got := effective(subTok); got != "ACTIVE" {
+		t.Fatalf("ทั้งสาย ACTIVE ได้ %s", got)
+	}
+	setStatus(t, company.ID, models.AgentStatusSuspended) // upline SUSPENDED → ข้างล่างโดนด้วย
+	if got := effective(agentTok); got != "SUSPENDED" {
+		t.Fatalf("agent ที่ upline SUSPENDED ได้ %s", got)
+	}
+	if got := effective(subTok); got != "SUSPENDED" {
+		t.Fatalf("sub ที่ upline ของผู้สร้าง SUSPENDED ได้ %s", got)
+	}
+	setStatus(t, company.ID, models.AgentStatusActive)
+	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusSuspended})
+	if got := effective(subTok); got != "SUSPENDED" {
+		t.Fatalf("sub SUSPENDED ได้ %s", got)
+	}
+	if got := effective(agentTok); got != "ACTIVE" {
+		t.Fatalf("sub SUSPENDED ต้องไม่กระทบผู้สร้าง ได้ %s", got)
+	}
+}
+
 // ---- ด่านหลัง login (AUTH-29) ----
 
 func TestPostLoginGates(t *testing.T) {

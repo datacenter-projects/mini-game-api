@@ -63,20 +63,24 @@ func TestSplitSubaccountUsername(t *testing.T) { // AUTH-18
 	}
 }
 
-func TestEffectiveStatus(t *testing.T) {
+func TestWorstStatus(t *testing.T) { // AUTH-53
 	const a, s, l = models.AgentStatusActive, models.AgentStatusSuspended, models.AgentStatusLocked
-	tests := []struct{ own, creator, want models.AgentStatus }{
-		{a, "", a}, // agent
-		{s, "", s},
-		{a, a, a},
-		{a, s, s},
-		{s, a, s},
-		{a, l, l},
-		{l, s, l},
+	tests := []struct {
+		name string
+		in   []models.AgentStatus
+		want models.AgentStatus
+	}{
+		{"ไม่มี upline", nil, a},
+		{"ตัวเองอย่างเดียว", []models.AgentStatus{s}, s},
+		{"ทั้งสาย ACTIVE", []models.AgentStatus{a, a, a}, a},
+		{"upline SUSPENDED", []models.AgentStatus{a, s, a}, s},
+		{"ตัวเอง SUSPENDED upline ACTIVE", []models.AgentStatus{s, a}, s},
+		{"upline LOCKED", []models.AgentStatus{a, s, l}, l},
+		{"LOCKED ชนะ SUSPENDED", []models.AgentStatus{l, s}, l},
 	}
 	for _, tt := range tests {
-		if got := EffectiveStatus(tt.own, tt.creator); got != tt.want {
-			t.Errorf("EffectiveStatus(%s, %s) = %s, want %s", tt.own, tt.creator, got, tt.want)
+		if got := WorstStatus(tt.in...); got != tt.want {
+			t.Errorf("%s: got %s, want %s", tt.name, got, tt.want)
 		}
 	}
 }

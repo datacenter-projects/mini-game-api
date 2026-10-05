@@ -24,6 +24,9 @@ type account struct {
 	Role     models.AgentRole // sub = role ของผู้สร้าง (AUTH-25)
 
 	CreatorStatus models.AgentStatus // เฉพาะ sub
+	// UplineStatus = สถานะที่เข้มที่สุดของผู้สร้าง (กรณี sub) และ upline ทั้งสาย ไม่นับตัวเอง
+	// มีค่าหลังเรียก withUplineStatus เท่านั้น (AUTH-53)
+	UplineStatus models.AgentStatus
 
 	PasswordHash          string
 	PreviousPasswordHash  *string
@@ -37,8 +40,9 @@ type account struct {
 func (a account) IsSub() bool       { return a.Type == models.AccountTypeSub }
 func (a account) PasscodeSet() bool { return a.PasscodeHash != nil }
 
+// EffectiveStatus — สถานะที่ใช้ตัดสินสิทธิ์ = เข้มที่สุดของตัวเอง ผู้สร้าง และ upline ทั้งสาย (AUTH-53)
 func (a account) EffectiveStatus() models.AgentStatus {
-	return agentAuthCore.EffectiveStatus(a.Status, a.CreatorStatus)
+	return agentAuthCore.WorstStatus(a.Status, a.UplineStatus)
 }
 
 func (a account) Gate() agentAuthCore.Gate {
@@ -138,14 +142,21 @@ func lockAccountCredentials(tx *gorm.DB, t models.AccountType, id uint) (account
 	return fromSubaccount(s, models.UserAgent{}), nil
 }
 
-// isLockedByChain — ผู้สร้าง (กรณี sub) หรือ upline คนใดถูก LOCKED (AUTH-21, AUTH-27, Phase 1 AUTH-05)
-// ไม่นับสถานะของบัญชีนี้เอง
-func isLockedByChain(db *gorm.DB, a account) (bool, error) {
-	if a.IsSub() && a.CreatorStatus == models.AgentStatusLocked {
-		return true, nil
+// withUplineStatus เติม UplineStatus จากผู้สร้าง (กรณี sub) และ upline ทั้งสาย (AUTH-05, AUTH-21, AUTH-27, AUTH-53)
+// ใช้กับ account ที่โหลดด้วย loadAccountForLogin / loadAccountAuth (มีข้อมูลผู้สร้าง)
+func withUplineStatus(db *gorm.DB, a account) (account, error) {
+	statuses, err := postgres.ListAncestorStatusesRepository(db, a.AgentID)
+	if err != nil {
+		return a, err
 	}
-	return postgres.HasLockedAncestorRepository(db, a.AgentID)
+	if a.IsSub() {
+		statuses = append(statuses, a.CreatorStatus)
+	}
+	a.UplineStatus = agentAuthCore.WorstStatus(statuses...)
+	return a, nil
 }
+
+func (a account) UplineLocked() bool { return a.UplineStatus == models.AgentStatusLocked }
 
 func setPasscodeIfEmpty(tx *gorm.DB, a account, hash string, at time.Time) (bool, error) {
 	if a.IsSub() {

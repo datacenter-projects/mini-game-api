@@ -38,14 +38,18 @@ var statusRank = map[models.AgentStatus]int{
 	models.AgentStatusLocked:    2,
 }
 
-// EffectiveStatus — สถานะที่ใช้ตัดสินสิทธิ์ของ sub = สถานะที่เข้มที่สุดระหว่าง sub กับผู้สร้าง
-// (LOCKED > SUSPENDED > ACTIVE) · agent ส่ง creator เป็นค่าว่างแล้วได้สถานะของตัวเอง
-// (นิยามที่เสนอใน review รอบ 2 ยังรอ lead ยืนยัน)
-func EffectiveStatus(own, creator models.AgentStatus) models.AgentStatus {
-	if statusRank[creator] > statusRank[own] {
-		return creator
+// WorstStatus — สถานะที่เข้มที่สุด (LOCKED > SUSPENDED > ACTIVE) · ไม่มีค่า = ACTIVE
+//
+// effective status ของบัญชี = WorstStatus(ตัวเอง, ผู้สร้างถ้าเป็น sub, upline ทั้งสาย)
+// เพราะ upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย (AUTH-53)
+func WorstStatus(statuses ...models.AgentStatus) models.AgentStatus {
+	worst := models.AgentStatusActive
+	for _, s := range statuses {
+		if statusRank[s] > statusRank[worst] {
+			worst = s
+		}
 	}
-	return own
+	return worst
 }
 
 // SessionTTL คืนอายุ idle ที่ควรตั้งให้ session ตอนนี้ — rule: AUTH-07, AUTH-08

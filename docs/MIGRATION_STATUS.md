@@ -23,4 +23,4 @@ Makefile, docker-compose, Dockerfile, CI, check_structure.sh, CLAUDE.md, ARCHITE
 | Module | Spec | สถานะ | ขอบเขตที่ทำแล้ว | ยังไม่ทำ |
 |---|---|---|---|---|
 | `agent_auth` | [agent_auth.md](modules/agent_auth.md) | IM | login, logout, middleware `Authenticated`, ตาราง `user_agents` (เฉพาะคอลัมน์ auth), `scripts/create_superadmin` | — |
-| `agent_auth` phase 2 | [agent_auth_phase2.md](modules/agent_auth_phase2.md) (DRAFT) | IM (spec ยังไม่อนุมัติ) | subaccount login, passcode setup/change, `RequirePasscode`, เปลี่ยนรหัสผ่าน, admin reset passcode/password, ด่านหลัง login, `auth_audit_logs`, `scripts/create_admin` | `scripts/reset_credentials`, ข้อที่รอ lead ตอบ (ลำดับเช็คตอน login, upline check ของ agent, effective status, ตัวนับหลังพ้นบล็อก) |
+| `agent_auth` phase 2 | [agent_auth_phase2.md](modules/agent_auth_phase2.md) (DRAFT) | IM (spec ยังไม่อนุมัติ) | subaccount login, passcode setup/change, `RequirePasscode`, เปลี่ยนรหัสผ่าน, admin reset passcode/password, ด่านหลัง login, `auth_audit_logs`, `scripts/create_admin` | `scripts/reset_credentials` (รอ lead ตอบเรื่อง actor ใน audit log), รัน integration test |

@@ -52,8 +52,8 @@
 | AUTH-24 | AUTH-10/11 ใช้กติกาเดียวกับ agent · ตัวนับคิดตาม username เต็มของ sub |
 | AUTH-25 | response login เหมือน agent · `role` = role ของผู้สร้าง · `is_subaccount = true` · ไม่มี field ข้อมูลผู้สร้าง (frontend ตัดจาก `@` เอง) |
 | AUTH-26 | sub ใช้งานในนามของผู้สร้าง — ขอบเขตข้อมูลเป็นของผู้สร้าง (การจำกัดสิทธิ์อยู่ในงาน permission) |
-| AUTH-27 | middleware (ทุก request ของ sub): sub เป็น `LOCKED` → `401301` · ผู้สร้างหรือ upline ของผู้สร้างเป็น `LOCKED` → `401302` · ทั้งสองกรณีลบ session |
-| AUTH-28 | login (หลังเทียบรหัสผ่านถูกแล้วเท่านั้น): ถูกบล็อกเพราะ passcode ผิด (AUTH-35) → `401309` · ค่าชั่วคราวหมดอายุ → `401310` |
+| AUTH-27 | middleware (ทุก request ทั้ง agent และ sub): บัญชีเป็น `LOCKED` → `401301` · ผู้สร้าง (กรณี sub) หรือ upline คนใดเป็น `LOCKED` → `401302` · ทั้งสองกรณีลบ session · **แทน Phase 1 หัวข้อ 9 ข้อ 2** (เดิม middleware เช็คแค่สถานะตัวเอง) |
+| AUTH-28 | login (หลังเทียบรหัสผ่านถูกแล้วเท่านั้น): ถูกบล็อกเพราะ passcode ผิด (AUTH-35) → `401309` · รหัสผ่านชั่วคราว **หรือ** passcode ชั่วคราวหมดอายุ → `401310` · ลำดับเช็ค `401301` → `401302` → `401309` → `401310` |
 
 ### ด่านหลัง login
 
@@ -73,7 +73,7 @@
 | AUTH-32 | ตั้ง passcode ครั้งแรก: ส่ง `passcode` + `confirm_passcode` ตรงกัน ไม่ต้องกรอกรหัสผ่าน · ใช้ได้ครั้งเดียวตอน `passcode_hash IS NULL` · มี passcode แล้วตอบ `401401` **เสมอ** · เขียนด้วย `UPDATE ... WHERE passcode_hash IS NULL` ถ้าไม่มีแถวถูกอัปเดตตอบ `401401` (กันยิงพร้อมกัน) |
 | AUTH-33 | `RequirePasscode`: รับ `passcode` จาก **body เท่านั้น** · route ที่ใช้ห้ามเป็น GET · แต่ละ module เลือกเองว่า route ไหนต้องใช้ |
 | AUTH-34 | เปลี่ยน passcode เอง: ส่ง `old_passcode`, `new_passcode`, `confirm_passcode` (ไม่ต้องใช้รหัสผ่าน) · agent, sub และ admin เปลี่ยนของตัวเองได้ · passcode ใหม่ห้ามซ้ำกับตัวปัจจุบัน รวมถึงค่าชั่วคราว (`401403`) · สำเร็จ → **session เดิมใช้ต่อได้** · `must_change_passcode = false` และล้างวันหมดอายุค่าชั่วคราว · ถูกบังคับเปลี่ยน: `old_passcode` = ค่าชั่วคราว · หมดอายุแล้วตอบ `401310` |
-| AUTH-35 | **ตัวนับ passcode ผิด** — ตัวนับเดียวระดับบัญชี (INCR แบบ atomic, TTL 24 ชม. นับจากครั้งแรกที่ผิด) · นับจาก `RequirePasscode` และ `old_passcode` · ผิดครั้งที่ 1–4 → `401204` msg บอกจำนวนครั้งที่เหลือ (เช่น "passcode ไม่ถูกต้อง (เหลือ 2 ครั้ง)") · ผิดครั้งที่ 5 → ลบ session, บล็อก 1 ชม., ตอบ `401205` · status บัญชีไม่เปลี่ยน · ใส่ถูก → ตัวนับเป็น 0 · ระหว่างถูกบล็อก login ได้ `401309` |
+| AUTH-35 | **ตัวนับ passcode ผิด** — ตัวนับเดียวระดับบัญชี (INCR แบบ atomic, TTL 24 ชม. นับจากครั้งแรกที่ผิด) · นับจาก `RequirePasscode` และ `old_passcode` · ผิดครั้งที่ 1–4 → `401204` msg บอกจำนวนครั้งที่เหลือ (เช่น "passcode ไม่ถูกต้อง (เหลือ 2 ครั้ง)") · ผิดครั้งที่ 5 → ลบ session, บล็อก 1 ชม., ตอบ `401205` · status บัญชีไม่เปลี่ยน · ตอนบล็อกตัวนับเริ่ม 0 ใหม่ · ใส่ถูก → ตัวนับเป็น 0 · ระหว่างถูกบล็อก login ได้ `401309` |
 
 ### รหัสผ่าน
 
@@ -100,12 +100,18 @@
 | AUTH-44 | route ของ admin ใช้ได้เฉพาะ role `ADMIN` (`RequireRole(ADMIN)`) — role อื่นรวม SUPERADMIN ตอบ `401308` · ต้องส่ง `passcode` ของ admin เองใน body (`RequirePasscode`) |
 | AUTH-45 | ระบุเป้าหมายด้วย `username` (ตาม AUTH-18 · ผ่าน AUTH-01) · ไม่พบ → `401404` · เป้าหมายได้เฉพาะ COMPANY / SHAREHOLDER / AGENT และ sub · SUPERADMIN, ADMIN และตัวเอง → `401406` · เป้าหมาย `LOCKED` (รวม sub ที่ผู้สร้างหรือ upline ล็อก) → `401407` |
 | AUTH-46 | ระบบสุ่มค่าชั่วคราวด้วย `crypto/rand` (admin ไม่ได้กรอกเอง) · แสดงใน response ครั้งเดียว เก็บแค่ hash · หมดอายุใน 24 ชม. · response ใส่ `Cache-Control: no-store` · ห้าม log response body · รหัสผ่านชั่วคราว: 12 ตัว ตัวอักษรกับตัวเลขเท่านั้น ไม่ใช้ `0 O o 1 l I` และต้องผ่าน AUTH-36 · passcode ชั่วคราว: ตัวเลข 6 หลัก |
-| AUTH-47 | รีเซ็ต passcode: เป้าหมายที่ยังไม่เคยตั้ง passcode → `401405` · บันทึกค่าชั่วคราว · `must_change_passcode = true` · ล้างตัวนับและบล็อก passcode (AUTH-35) ของเป้าหมาย · session ของเป้าหมายถูกลบทันที |
+| AUTH-47 | รีเซ็ต passcode: เป้าหมายที่ยังไม่เคยตั้ง passcode → `401405` · บันทึกค่าชั่วคราว (ถ้าสุ่มได้ซ้ำกับ passcode ปัจจุบันให้สุ่มใหม่ภายใน) · `must_change_passcode = true` · ล้างตัวนับและบล็อก passcode (AUTH-35) ของเป้าหมาย · session ของเป้าหมายถูกลบทันที |
 | AUTH-48 | รีเซ็ตรหัสผ่าน: บันทึกค่าชั่วคราว (ถ้าสุ่มได้ซ้ำกับรหัสปัจจุบันหรือก่อนหน้าให้สุ่มใหม่ภายใน ไม่ตอบ `401402`) · `must_change_password = true` · ล้างบล็อก login (AUTH-10) ของเป้าหมาย · session ของเป้าหมายถูกลบทันที |
 | AUTH-49 | ทุกการรีเซ็ตของ admin บันทึก `auth_audit_logs` ใน transaction เดียวกับการรีเซ็ต · รอบนี้เก็บแค่การรีเซ็ตของ admin |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → ใช้งานได้ (ไม่ต้อง login ใหม่ระหว่างทาง) |
-| AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ |
+| AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ · script ใช้ได้กับ SUPERADMIN / ADMIN **เท่านั้น** · สุ่มค่าชั่วคราว + บังคับเปลี่ยน + หมดอายุ 24 ชม. แบบเดียวกับ AUTH-46–48 · บันทึก `auth_audit_logs` |
 | AUTH-52 | ผู้สร้างรีเซ็ตให้ sub ของตัวเอง **ไม่ได้** (กำหนดทิศทางไว้สำหรับ module subaccount) |
+
+### Effective status
+
+| ID | Rule |
+|---|---|
+| AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
@@ -127,7 +133,7 @@
 — เขียนไว้บรรทัดเดียวกับ route ทุกเส้น
 
 **error ของทุก route ใต้ `/bo/pr` ที่ผ่าน `Authenticated`** (ไม่เขียนซ้ำในแต่ละเส้นด้านล่าง):
-`401202`, `401203`, `401301`, `401302`
+`401202`, `401203`, `401301`, `401302` · logout ไม่ผ่าน `Authenticated` (AUTH-09) จึงตอบแค่ `401202`
 
 ### POST /api/v1/bo/pb/auth/login (เส้นเดิม — รับ sub + field ใหม่)
 
@@ -331,8 +337,8 @@ JWT claims (token ของ Phase 1 ที่ไม่มี `account_type` ถ�
 | `account_id` | id ของบัญชี (`user_agents.id` หรือ `subaccounts.id`) |
 | `agent_id` | id ของผู้สร้าง — มีเฉพาะเมื่อ `account_type = SUB` |
 
-`Actor` (middleware `Authenticated` สร้าง): ของเดิม + `AccountType`, `SubaccountID`, effective status
-, `MustChangePassword`, `MustChangePasscode`
+`Actor` (middleware `Authenticated` สร้าง): ของเดิม + `AccountType`, `SubaccountID`, `EffectiveStatus` (AUTH-53),
+`MustChangePassword`, `MustChangePasscode`
 
 Redis:
 
@@ -364,6 +370,9 @@ Redis:
 | AUTH-25 | sub ของ Agent | `role = AGENT`, `is_subaccount = true` |
 | AUTH-27 | sub ถูก LOCK ระหว่างใช้งาน | request ถัดไป `401301` และ session ถูกลบ |
 | AUTH-27 | ผู้สร้างถูก LOCK ระหว่างที่ sub ใช้งาน | request ถัดไปของ sub `401302` และ session ถูกลบ |
+| AUTH-27 | upline ของ agent (เช่น Company) ถูก LOCK ระหว่างใช้งาน | request ถัดไปของ agent `401302` และ session ถูกลบ |
+| AUTH-53 | upline ของผู้สร้าง SUSPENDED | `EffectiveStatus` ของ agent และ sub = `SUSPENDED` |
+| AUTH-53 | sub SUSPENDED · ผู้สร้าง ACTIVE | sub = `SUSPENDED` · ผู้สร้าง = `ACTIVE` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสถูก | `401309` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสผิด | `401201` |
 | AUTH-28 | รหัสชั่วคราวเกิน 24 ชม. แล้ว login ด้วยรหัสนั้น | `401310` |
@@ -428,6 +437,9 @@ Redis:
 
 1. **ไม่มีการยืนยัน passcode หลัง login** (lead 2026-10-05) — passcode ใช้แค่ `RequirePasscode` และตอนเปลี่ยน passcode
 2. **ตัวนับ passcode ผิดอยู่ระดับบัญชี** (lead 2026-10-05) — แทนแบบนับต่อ session ของ draft แรก
+   ตอนถูกบล็อกตัวนับเริ่ม 0 ใหม่
+2.1 **middleware เช็ค upline ทุก request ทั้ง agent และ sub** (lead 2026-10-05) — แทน Phase 1 หัวข้อ 9 ข้อ 2
+   ส่วน upline SUSPEND ไม่เตะออก แต่ทำให้ effective status ของคนข้างล่างเป็น SUSPENDED (AUTH-53)
 3. **Error code** (module `agent_auth` = `bb=01`)
 
 | Code | HTTP | ความหมาย |
