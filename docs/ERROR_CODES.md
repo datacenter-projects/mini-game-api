@@ -41,6 +41,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | bb | Module | ไฟล์ | Spec |
 |---|---|---|---|
 | 01 | agent_auth (backoffice auth) | `pkg/apperr/agent_auth_errors.go` | `docs/modules/agent_auth.md`, `docs/modules/agent_auth_phase2.md` |
+| 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` (DRAFT) |
 
 ## agent_auth (01)
 
@@ -69,3 +70,19 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 401405 | 200 | บัญชีนี้ยังไม่ได้ตั้ง passcode — phase 2 |
 | 401406 | 200 | ไม่สามารถรีเซ็ตบัญชีนี้ได้ — phase 2 |
 | 401407 | 200 | บัญชีเป้าหมายถูกล็อก — phase 2 |
+
+## agent_management (02) — DRAFT
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 402301 | 200 | สร้างบัญชีประเภทนี้ไม่ได้ |
+| 402302 | 200 | บัญชีของคุณถูกระงับ ทำรายการไม่ได้ |
+| 402303 | 200 | บัญชีย่อยยังทำรายการนี้ไม่ได้ |
+| 402304 | 200 | ไม่มีสิทธิ์แก้ไขบัญชีนี้ |
+| 402305 | 200 | PT เกินกว่าที่ได้รับ |
+| 402306 | 200 | PT ต่ำกว่าที่บัญชีนี้ปล่อยให้ชั้นล่างไปแล้ว |
+| 402307 | 200 | Company Seamless Master ต้องปล่อย PT ทั้งหมด |
+| 402308 | 200 | ตั้ง Force ให้ Share Master ไม่ได้ |
+| 402309 | 200 | Force / Remain เกิน PT ที่ปล่อย |
+| 402401 | 200 | username นี้ถูกใช้แล้ว |
+| 402402 | 200 | ไม่พบบัญชีในสายของคุณ |
