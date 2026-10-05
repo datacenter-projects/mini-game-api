@@ -1,9 +1,9 @@
-# บัญชี (`account`) — 1.3 ข้อมูลรับรอง API — Spec
+# บัญชี (`account`) — Profile · ข้อมูลรับรอง API — Spec
 
 - สถานะ: **DRAFT** (ACC-01 รอ lead)
 - อนุมัติโดย: — · วันที่: —
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
-- เมนู: 1.1 ภาพรวม · 1.2 ประวัติของฉัน · **1.3 ข้อมูลรับรอง API** (รอบนี้ทำ 1.3 อย่างเดียว)
+- เมนู: **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API** · (1.1 ภาพรวม ย้ายไป module Home — Dashboard)
 - ที่มาของ rule: ภาพหน้าจอตัวอย่างที่ user ส่ง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg (2026-10-05) ·
   ไม่ได้ extract จากโค้ดเก่า
 
@@ -12,12 +12,14 @@
 
 ## 1. หน้าที่ของ module
 
-หน้าข้อมูลบัญชีของผู้ใช้หลังบ้าน · รอบนี้: **1.3 ข้อมูลรับรอง API** — Key, ลิงก์ตอบกลับ และ IP ที่อนุญาต ที่ลูกค้า
-แบบ Seamless ใช้เชื่อมระบบกับเรา (Seamless API Flow)
+หน้าข้อมูลบัญชีของผู้ใช้หลังบ้าน · รอบนี้:
+- **Profile (1.2)** — ข้อมูลบัญชีของตัวเอง + ปุ่มเปลี่ยนรหัสผ่าน / passcode (ใช้ endpoint ของ `agent_auth`)
+- **1.3 ข้อมูลรับรอง API** — Key, ลิงก์ตอบกลับ และ IP ที่อนุญาต ที่ลูกค้าแบบ Seamless ใช้เชื่อมระบบกับเรา (Seamless API Flow)
 
 **ไม่อยู่ในรอบนี้:**
-- 1.1 ภาพรวม — รอ module เดิมพัน (ข้อมูลมาจาก bet)
-- 1.2 ประวัติของฉัน — ค่า PT ต่อเกมมาจาก module 2 · เครดิตแยกสกุลรอ module 5 การชำระเงิน
+- 1.1 ภาพรวม — ย้ายไป module Home (Dashboard) · ข้อมูลมาจาก bet
+- ใน Profile: ชื่อแสดง / ประเภท / สกุลเงิน (คอลัมน์มาจาก module 2) · ค่า PT / Force / Remain / Commission ต่อเกม (module 2) ·
+  เครดิตแยกสกุล (module 5 การชำระเงิน) — เพิ่มเข้า Profile ตอนทำ module นั้น
 - การใช้ Key / IP / ลิงก์ตอนลูกค้าเรียก API (Login, GetBalance, Bet, Settle ฯลฯ) — module provider (`app/externals/provider`)
 
 ## 2. คำศัพท์
@@ -44,6 +46,15 @@
 | ACC-09 | ทุกการบันทึกเก็บประวัติ `api_credential_logs` (ผู้แก้, ลิงก์เก่า → ใหม่, IP เก่า → ใหม่, ip, request_id, เวลา) ใน tx เดียวกัน · ห้ามเก็บ Key ในประวัติ |
 | ACC-10 | ชื่อผู้ใช้ในหน้านี้ = username ของเจ้าของ (อ่านอย่างเดียว) |
 
+### Profile
+
+| ID | Rule |
+|---|---|
+| ACC-11 | ทุกบัญชีหลังบ้านเรียกได้ (SUPERADMIN, ADMIN, Company, Share, Agent และ sub) · ต้องผ่านด่านหลัง login (`PassedGates()`) · แสดงข้อมูลของ**ตัวเอง**เท่านั้น (sub เห็นของ sub) |
+| ACC-12 | ข้อมูลที่แสดง: username · role (sub = role ของผู้สร้าง — AUTH-25) · สถานะของตัวเอง · effective status (AUTH-53) · เป็น sub ไหม · username ของผู้สร้าง (เฉพาะ sub) · ตั้ง passcode แล้วหรือยัง · login ล่าสุด (เวลา, IP) · วันที่สร้างบัญชี |
+| ACC-13 | อ่านอย่างเดียว · เปลี่ยนรหัสผ่าน / passcode ของตัวเองใช้เส้นเดิม `POST /bo/pr/auth/password/change` และ `/auth/passcode/change` (agent_auth) |
+| ACC-14 | login ล่าสุด = ค่าที่บันทึกตอน login (AUTH-12) จึงเป็นเวลาของ session ปัจจุบัน |
+
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
 ไม่มี — ไม่ได้ extract จากโค้ดเก่า
@@ -56,6 +67,28 @@
 |---|---|---|
 | GET | `/api/v1/bo/pr/account/api-credential` | — |
 | POST | `/api/v1/bo/pr/account/api-credential` | `RequirePasscode` |
+| GET | `/api/v1/bo/pr/account/profile` | — |
+
+### GET /api/v1/bo/pr/account/profile
+
+Response `data`:
+```json
+{
+  "username": "agent01@staff",
+  "role": "AGENT",
+  "status": "ACTIVE",
+  "effective_status": "SUSPENDED",
+  "is_subaccount": true,
+  "owner_username": "agent01",
+  "passcode_set": true,
+  "last_login_at": "2026-10-05T10:00:00+07:00",
+  "last_login_ip": "203.0.113.10",
+  "created_at": "2026-10-01T09:00:00+07:00"
+}
+```
+`owner_username` = `null` เมื่อไม่ใช่ sub · `last_login_*` = `null` ถ้ายังไม่เคยบันทึก
+
+Error codes: error ร่วมของ `/bo/pr` เท่านั้น
 
 ### GET /api/v1/bo/pr/account/api-credential
 
@@ -149,10 +182,16 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-08 | ไม่ส่ง `passcode` / ผิด | `422` / `401204` |
 | ACC-08 | บันทึกรายการใหม่ | IP เดิมที่ไม่อยู่ในรายการใหม่ถูกลบ |
 | ACC-09 | บันทึกสำเร็จ | มีแถว `api_credential_logs` ค่าเก่า / ใหม่ถูกต้อง · ไม่มี Key |
+| ACC-11 | Agent / SUPERADMIN / ADMIN เรียก profile | ได้ข้อมูลของตัวเอง · `is_subaccount = false` · `owner_username = null` |
+| ACC-11 | sub เรียก profile | username ของ sub · `owner_username` = ผู้สร้าง |
+| ACC-11 | ยังไม่ตั้ง passcode เรียก profile | `401304` (ด่านหลัง login) |
+| ACC-12 | ผู้สร้างของ sub เป็น SUSPENDED | `status = ACTIVE` · `effective_status = SUSPENDED` |
+| ACC-14 | login แล้วเรียก profile | `last_login_at` / `last_login_ip` ตรงกับ login นี้ |
 
 ## 8. Contract changes (แจ้ง frontend)
 
-- เส้นใหม่ 2 เส้นตามหัวข้อ 5 · หน้า 1.3 แสดงเฉพาะเจ้าของ Key และ sub ของเจ้าของ
+- เส้นใหม่ 3 เส้นตามหัวข้อ 5 · หน้า 1.3 แสดงเฉพาะเจ้าของ Key และ sub ของเจ้าของ
+- Profile รอบนี้ยังไม่มีชื่อแสดง / ประเภท / สกุลเงิน / ค่า PT ต่อเกม / เครดิต — field จะเพิ่มตอนทำ module 2 และ 5
 
 ## 9. การตัดสินใจ (2026-10-05)
 
