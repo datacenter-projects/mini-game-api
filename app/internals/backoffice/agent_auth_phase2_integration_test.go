@@ -29,6 +29,7 @@ import (
 const (
 	gatedPath          = "/api/v1/bo/pr/_test/gated" // route ทั่วไป: Authenticated + PassedGates
 	txPath             = "/api/v1/bo/pr/_test/tx"    // route ที่ต้องยืนยัน passcode
+	viewPath           = "/api/v1/bo/pr/_test/view"  // route ที่บัญชีถูกระงับเข้าได้ (AUTH-54): PassedGatesAllowSuspended
 	passcodeSetupPath  = "/api/v1/bo/pr/auth/passcode/setup"
 	passcodeChangePath = "/api/v1/bo/pr/auth/passcode/change"
 	passwordChangePath = "/api/v1/bo/pr/auth/password/change"
@@ -49,6 +50,9 @@ func setup2(t *testing.T) *fiber.App {
 		})
 		a.Post(txPath, mw.Authenticated(), mw.PassedGates(), mw.RequirePasscode(), func(c *fiber.Ctx) error {
 			return response.OK(c, nil)
+		})
+		a.Get(viewPath, mw.Authenticated(), mw.PassedGatesAllowSuspended(), func(c *fiber.Ctx) error {
+			return response.OK(c, fiber.Map{"effective_status": mw.GetActor(c).EffectiveStatus})
 		})
 	})
 }
@@ -270,7 +274,7 @@ func TestEffectiveStatus(t *testing.T) { // AUTH-53
 
 	effective := func(tok string) string {
 		t.Helper()
-		r := call(t, app, "GET", gatedPath, nil, tok)
+		r := call(t, app, "GET", viewPath, nil, tok)
 		expect(t, r, 200, 200)
 		var d struct {
 			EffectiveStatus string `json:"effective_status"`
@@ -297,6 +301,63 @@ func TestEffectiveStatus(t *testing.T) { // AUTH-53
 	if got := effective(agentTok); got != "ACTIVE" {
 		t.Fatalf("sub SUSPENDED ต้องไม่กระทบผู้สร้าง ได้ %s", got)
 	}
+}
+
+// ---- บัญชีถูกระงับ (AUTH-54) ----
+
+func TestSuspendedAccess(t *testing.T) { // AUTH-54
+	app := setup2(t)
+	company := createAccount(t, "company01", models.AgentRoleCompany, nil)
+	a := createAgent(t, "agent01", models.AgentStatusActive, &company.ID)
+	sub := createSub(t, a, "staff", models.AgentStatusActive)
+	agentTok := loginReady(t, app, models.AccountTypeAgent, a.ID, "agent01")
+	subTok := loginReady(t, app, models.AccountTypeSub, sub.ID, "agent01@staff")
+
+	// route ที่บัญชีถูกระงับใช้ไม่ได้: route ทั่วไป, route ที่ยืนยัน passcode, เปลี่ยน passcode / รหัสผ่านของตัวเอง
+	denied := func(t *testing.T, tok string) {
+		t.Helper()
+		expect(t, call(t, app, "GET", gatedPath, nil, tok), 403, 401311)
+		expect(t, call(t, app, "POST", txPath, map[string]any{"passcode": passcode}, tok), 403, 401311)
+		expect(t, call(t, app, "POST", passcodeChangePath, map[string]any{
+			"old_passcode": passcode, "new_passcode": "654321", "confirm_passcode": "654321",
+		}, tok), 403, 401311)
+		expect(t, call(t, app, "POST", passwordChangePath, map[string]any{
+			"old_password": password, "new_password": newPassword, "confirm_password": newPassword, "passcode": passcode,
+		}, tok), 403, 401311)
+	}
+
+	t.Run("upline SUSPENDED: agent และ sub ดูได้อย่างเดียว", func(t *testing.T) {
+		setStatus(t, company.ID, models.AgentStatusSuspended)
+		t.Cleanup(func() { setStatus(t, company.ID, models.AgentStatusActive) })
+		for _, tok := range []string{agentTok, subTok} {
+			expect(t, call(t, app, "GET", viewPath, nil, tok), 200, 200)
+			denied(t, tok)
+		}
+	})
+
+	t.Run("sub SUSPENDED: ผู้สร้างไม่กระทบ", func(t *testing.T) {
+		setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusSuspended})
+		t.Cleanup(func() {
+			setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusActive})
+		})
+		expect(t, call(t, app, "GET", viewPath, nil, subTok), 200, 200)
+		denied(t, subTok)
+		expect(t, call(t, app, "GET", gatedPath, nil, agentTok), 200, 200)
+	})
+
+	t.Run("ปลดระงับแล้วใช้งานได้ปกติ", func(t *testing.T) {
+		expect(t, call(t, app, "GET", gatedPath, nil, agentTok), 200, 200)
+		expect(t, call(t, app, "GET", gatedPath, nil, subTok), 200, 200)
+	})
+
+	t.Run("ยังไม่ตั้ง passcode: ตั้งไม่ได้ และหน้าดูยังติดด่านหลัง login", func(t *testing.T) {
+		createAgent(t, "agent02", models.AgentStatusSuspended, &company.ID)
+		tok := loginAs(t, app, "agent02", password).Token
+		expect(t, call(t, app, "POST", passcodeSetupPath, map[string]any{
+			"passcode": passcode, "confirm_passcode": passcode,
+		}, tok), 403, 401311)
+		expect(t, call(t, app, "GET", viewPath, nil, tok), 403, 401304)
+	})
 }
 
 // ---- ด่านหลัง login (AUTH-29) ----

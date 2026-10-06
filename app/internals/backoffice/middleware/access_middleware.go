@@ -15,10 +15,28 @@ import (
 // middleware ในไฟล์นี้ต้องอยู่หลัง Authenticated เสมอ — spec: docs/modules/agent_auth_phase2.md หัวข้อ 5
 
 // PassedGates — ด่านหลัง login (AUTH-29) ต้องผ่านครบ ยกเว้นด่านที่ route นี้เป็นทางผ่าน
+// และปฏิเสธบัญชีที่ถูกระงับ (AUTH-54) — route ที่ให้บัญชีถูกระงับเข้าได้ใช้ PassedGatesAllowSuspended แทน
 //
 //	pr.Get("/x", mw.PassedGates(), ...)                                     // route ทั่วไป
 //	pr.Post("/auth/passcode/setup", mw.PassedGates(agentAuthCore.GateSetupPasscode), ...)
 func PassedGates(allow ...agentAuthCore.Gate) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		actor := GetActor(c)
+		if err := agentAuthService.CheckNotSuspendedService(actor); err != nil {
+			return response.Error(c, err)
+		}
+		if err := agentAuthService.CheckGateService(actor, allow...); err != nil {
+			return response.Error(c, err)
+		}
+		return c.Next()
+	}
+}
+
+// PassedGatesAllowSuspended — เหมือน PassedGates แต่บัญชีที่ถูกระงับเข้าได้ (AUTH-54)
+// ใช้เฉพาะ route ดูข้อมูลของหน้า Profile และ Report เท่านั้น
+//
+//	pr.Get("/account/profile", mw.PassedGatesAllowSuspended(), ...)
+func PassedGatesAllowSuspended(allow ...agentAuthCore.Gate) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		if err := agentAuthService.CheckGateService(GetActor(c), allow...); err != nil {
 			return response.Error(c, err)

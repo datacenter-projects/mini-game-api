@@ -30,7 +30,8 @@ func RegisterRoutes(api fiber.Router) {
 	// (session ที่หลุดไปแล้วต้อง logout สำเร็จได้ — AUTH-09)
 	bo.Post("/pr/auth/logout", agentAuthController.LogoutController)
 
-	// ทุก route ใต้ /pr ต้องมี mw.PassedGates(...) (ด่านหลัง login — AUTH-29) บรรทัดเดียวกับ route
+	// ทุก route ใต้ /pr ต้องมี mw.PassedGates(...) (ด่านหลัง login — AUTH-29 · ปฏิเสธบัญชีถูกระงับ — AUTH-54) บรรทัดเดียวกับ route
+	// route ดูข้อมูลของ Profile / Report ที่บัญชีถูกระงับเข้าได้ใช้ mw.PassedGatesAllowSuspended(...) แทน
 	pr := bo.Group("/pr", mw.Authenticated())
 
 	// agent_auth phase 2 — docs/modules/agent_auth_phase2.md หัวข้อ 5

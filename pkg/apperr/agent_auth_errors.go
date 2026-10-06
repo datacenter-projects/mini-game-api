@@ -22,6 +22,7 @@ var (
 	ErrAdminOnly             = NewWithStatus(http.StatusForbidden, 401308, "ไม่มีสิทธิ์ใช้งานส่วนของ admin", "Admin access required")
 	ErrPasscodeBlocked       = NewWithStatus(http.StatusForbidden, 401309, "ระงับการเข้าสู่ระบบชั่วคราวเพราะใส่ passcode ผิดหลายครั้ง", "Login is temporarily blocked due to too many incorrect passcodes")
 	ErrTempCredentialExpired = NewWithStatus(http.StatusForbidden, 401310, "รหัสชั่วคราวหมดอายุแล้ว กรุณาติดต่อ admin", "Temporary credential has expired, please contact admin")
+	ErrAccountSuspended      = NewWithStatus(http.StatusForbidden, 401311, "บัญชีถูกระงับ ใช้งานได้เฉพาะหน้าประวัติของฉันและรายงาน", "This account is suspended, only Profile and Report are available")
 
 	ErrPasscodeAlreadySet    = New(401401, "ตั้ง passcode ไว้แล้ว", "Passcode is already set")
 	ErrPasswordReused        = New(401402, "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านที่เคยใช้", "New password must not match a recently used password")
