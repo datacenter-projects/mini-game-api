@@ -35,7 +35,7 @@
 | คำ | ความหมาย |
 |---|---|
 | ประเภทบัญชี (`user_type`) | role + ประเภทย่อยตาม Company Hierarchy เช่น Company Transfer, Share B2C, Agent |
-| ค่าหุ้นส่วน | PT ถือ · PT ปล่อย · Remain (เอาส่วนที่เหลือ) · Force (บังคับถือสู้) · Commission — ระบบเก็บต่อเกม แต่หน้าบ้านตั้ง**ชุดเดียว**แล้วใช้กับทุกเกม (module ②) |
+| ค่าหุ้นส่วน | PT ที่ได้รับ (ผู้สร้างตั้งให้ลูกแต่ละคน) · PT ถือจาก Member ใต้ตัวเอง (ตั้งเอง) · Remain (เอาส่วนที่เหลือ) · Force (บังคับถือสู้) · Commission — ระบบเก็บต่อเกม แต่หน้าบ้านตั้ง**ชุดเดียว**แล้วใช้กับทุกเกม (module ②) |
 | สิทธิ์ | รายการสิ่งที่บัญชีทำได้ (กำหนดใน module ② ครั้งเดียว) · บัญชีหลักได้ตามประเภท · sub ได้ตามที่ผู้สร้างให้ |
 | เจ้าของ Key | Company Seamless 1 to 1 · Share Master · Share Reseller — บัญชีละ 1 Key (ACC-01) |
 | Key | ค่าลับที่ลูกค้าใช้ระบุตัวและคำนวณ `sign` ทุกคำขอ (Seamless API Flow) |
@@ -74,7 +74,7 @@
 | ACC-11 | ทุกบัญชีหลังบ้านเรียกได้ (SUPERADMIN, ADMIN, Company, Share, Agent และ sub) · ต้องผ่านด่านหลัง login (`PassedGates()`) · เปิดได้แม้ `status = SUSPENDED` (ACC-31) · แสดงข้อมูลของ**ตัวเอง** |
 | ACC-12 | ข้อมูลที่แสดง: username · role · **ประเภทบัญชี** · `status` (key เดียว — ACC-30) · เป็น sub ไหม · username ของผู้สร้าง (เฉพาะ sub) · ตั้ง passcode แล้วหรือยัง · login ล่าสุด (เวลา, IP) · วันที่สร้างบัญชี · **สกุลเงิน** · **ยอดเงินแยกสกุล** (ACC-19) · **ค่าหุ้นส่วน** (ACC-16) · **สิทธิ์** |
 | ACC-15 | sub: role, ประเภทบัญชี, สกุลเงิน, ยอดเงิน และค่าหุ้นส่วน = ของผู้สร้าง (AUTH-25) · สิทธิ์ = ที่ผู้สร้างให้ sub นั้น |
-| ACC-16 | ค่าหุ้นส่วนส่ง**ชุดเดียวต่อกลุ่ม PT** (รูปแบบเดียวกับตอนสร้าง / แก้ใน module ② MGMT-16): `pt` → กลุ่ม (ตอนนี้ `game`) → `pt` (ถือ — ส่วนที่บัญชีนี้เก็บเอง) · `pt_from_parent` (ได้รับ — ส่วนที่ผู้สร้างปล่อยให้ · ปล่อยให้ลูก = ได้รับ − ถือ) · `force` · `remain_quota` · `commission_percent` (request ตอนสร้าง / แก้ไม่ส่ง `pt_from_parent`) · `status_game` → รหัสเกม → bool (`true` = เปิด · `false` = ปิด — ชั้นบนตั้งให้) · ระบบเก็บแยกต่อเกม แต่ค่าในกลุ่มเท่ากันทุกเกม API จึงส่งชุดเดียว · SUPERADMIN = ค่าตั้งของตัวเอง (`pt_from_parent` = 100 — module ② MGMT-22) · ADMIN ไม่มีค่าหุ้นส่วน (`pt = {}`, `status_game = {}`) |
+| ACC-16 | ค่าหุ้นส่วนส่ง**ชุดเดียวต่อกลุ่ม PT** (รูปแบบเดียวกับตอนสร้าง / แก้ใน module ② MGMT-16): `pt` → กลุ่ม (ตอนนี้ `game`) → `pt_from_parent` (ได้รับ — ผู้สร้างตั้งให้บัญชีนี้) · `pt` (ถือจาก Member ใต้ตัวเองตรงๆ — บัญชีนี้ตั้งเอง ผ่าน module ② `PUT /agents/me/pt`) · `force` · `remain_quota` · `commission_percent` · `status` (เปิด / ปิดทั้งกลุ่ม) · `status_game` → รหัสเกม → bool (เปิด / ปิดทีละเกม · แยกจาก `pt`) · ผู้สร้างตั้งค่าที่ให้ลูกแต่ละคนแยกกัน (module ② MGMT-22) · ระบบเก็บแยกต่อเกม แต่ค่าในกลุ่มเท่ากันทุกเกม API จึงส่งชุดเดียว · SUPERADMIN = ค่าตั้งของตัวเอง (`pt_from_parent` = 100 — module ② MGMT-22) · ADMIN ไม่มีค่าหุ้นส่วน (`pt = {}`, `status_game = {}`) |
 | ACC-19 | ยอดเงินแยกสกุล `balances`: 1 รายการต่อสกุลที่บัญชีมี (`currencies`) · `amount` เป็น JSON number ทศนิยม 2 ตำแหน่ง (ACC-18) · อ่านจาก module การชำระเงิน (ระหว่างยังไม่มี module นั้นส่ง `0`) · บัญชีฝั่ง Seamless ไม่มียอดเงิน ส่ง `0` (module ② MGMT-15) · cache ห้ามเป็นที่มาของยอด (กฎข้อ 14) |
 | ACC-17 | Profile มีไว้ให้หน้าบ้านแสดงผล / เช็คเบื้องต้นในฟอร์ม (เช่น สร้างบัญชีชั้นถัดไปที่ PT เกินของตัวเองไม่ได้) · **หลังบ้านต้องเช็คซ้ำทุกครั้ง** ใน module ที่ทำรายการ |
 | ACC-18 | **ตัวเลขใน API vs ภายใน (กฎข้อ 9)**: JSON ใช้ number (เงินเช่น `962056.00` · % เช่น `95.5`) ตามรูปแบบที่หน้าบ้านใช้ · **ภายใน DB และ Go ใช้จำนวนเต็มเสมอ** (เงิน = `int64` หน่วยย่อยที่สุดของสกุล — **ทุกสกุลทศนิยม 2 ตำแหน่ง** หน่วยย่อย = 1/100 · % = bp ×100) · แปลงที่ขอบระบบเท่านั้น · ตอนรับค่าอ่าน JSON number เป็นข้อความแล้วแปลงเป็นจำนวนเต็มตรง (ไม่ผ่าน float) · ห้ามคำนวณเงิน / % ด้วย float |
@@ -174,14 +174,14 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
     { "currency": "THB", "amount": 962056.00 }
   ],
   "pt": {
-    "game": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5 }
+    "game": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": ["dashboard.view", "report.view"]
 }
 ```
 - `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้ผู้สร้าง (`share01`) ถูกระงับ sub จึงได้ `SUSPENDED`
-- `pt.game`: ได้รับ 90 (`pt_from_parent`) · ถือ 20 (`pt`) · ปล่อยให้ลูก 70 · `status_game` แยกจาก `pt` ต่อเกม
+- `pt.game`: ได้รับ 90 (`pt_from_parent` — ผู้สร้างตั้ง) · ถือจาก Member ของตัวเอง 20 (`pt` — ตั้งเอง) · `status = true` เปิดทั้งกลุ่ม · `status_game` เปิด / ปิดทีละเกม
 - `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` ·
   `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT`
 - `owner_username` = `null` เมื่อไม่ใช่ sub · `last_login_*` = `null` ถ้ายังไม่เคยบันทึก
@@ -285,10 +285,10 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-11 | Agent / SUPERADMIN / ADMIN เรียก profile | ข้อมูลของตัวเอง · `is_subaccount = false` · `owner_username = null` |
 | ACC-11 | ยังไม่ตั้ง passcode เรียก profile | `401304` (ด่านหลัง login) |
 | ACC-12 | ผู้สร้างของ sub เป็น SUSPENDED | sub ได้ `status = SUSPENDED` · ไม่มี field `effective_status` |
-| ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt.game.pt = 0` · `pt.game.pt_from_parent` = ค่าที่ได้รับจาก Superadmin |
+| ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt.game.pt = 0` (ล็อก — module ② MGMT-19) · `pt.game.pt_from_parent` = ค่าที่ Superadmin ให้ |
 | ACC-15 | sub ของ Share B2C เรียก profile | `user_type`, `currencies`, `balances`, `pt` เท่าของผู้สร้าง · `permissions` = ที่ผู้สร้างให้ |
 | ACC-16 | ADMIN เรียก profile | `pt = {}` · `status_game = {}` |
-| ACC-16 | SUPERADMIN เรียก profile | `pt.game.pt_from_parent = 100` · `pt.game.pt` = ค่าถือของตัวเอง |
+| ACC-16 | SUPERADMIN เรียก profile | `pt.game.pt_from_parent = 100` · `pt.game.pt = 0` (ไม่มี Member ตรง) |
 | ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game.scratch_card = false` · เกมอื่น `true` · `pt` ยังเป็นชุดเดียว |
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
@@ -342,6 +342,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
    - Dashboard: เพิ่มการ์ดรายได้และ Commission · `month` ไม่บังคับ · ระบุ error และชนิดของการ์ด · `currency` ต้องเป็นสกุลที่บัญชีมี
    - ตัด `403302` — middleware กลาง (AUTH-54) กันก่อนถึง logic เสมอ · error สิทธิ์ของ sub ใช้ `402303`
    - `callback_url` ว่าง: รับ `null` / `""` เก็บเป็น `NULL`
+   - (คุยกับ lead 2026-10-06) `pt_from_parent` อยู่ในกลุ่ม `pt` · เพิ่ม `status` ของกลุ่ม · ผู้สร้างตั้งค่าที่ให้ลูกแต่ละคนแยกกัน และบัญชีตั้งค่าถือ `pt` ของตัวเอง (module ② MGMT-22)
 6. **Error code** (module `account` = `bb=03`) — business error ตอบ HTTP 200
 
 | Code | HTTP | ความหมาย |
