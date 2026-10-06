@@ -1,6 +1,6 @@
 # Backoffice Auth (`agent_auth`) ระยะ 2 — Subaccount login · Passcode · Password · Admin reset — Spec
 
-- สถานะ: **APPROVED** (ยกเว้น `scripts/reset_credentials` ที่ยังคุยอยู่) · AUTH-54 เพิ่มจาก review account 2026-10-05 รออนุมัติ
+- สถานะ: **APPROVED** (ยกเว้น `scripts/reset_credentials` ที่ยังคุยอยู่) · AUTH-54 อนุมัติ 2026-10-06
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
@@ -116,7 +116,7 @@
 | ID | Rule |
 |---|---|
 | AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) |
-| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** (review account 2026-10-05 — รออนุมัติ): ตัดสินจาก `EffectiveStatus` · route ที่เปิดให้ SUSPENDED ต้องระบุ middleware ที่อนุญาตไว้บรรทัดเดียวกับ route · route อื่นทั้งหมดปฏิเสธเมื่อ `EffectiveStatus = SUSPENDED` · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 · error code กำหนดตอน implement (จองใน `bb=01`) |
+| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** (review account 2026-10-05 — อนุมัติ 2026-10-06): ตัดสินจาก `EffectiveStatus` · route ที่เปิดให้ SUSPENDED ต้องระบุ middleware ที่อนุญาตไว้บรรทัดเดียวกับ route · route อื่นทั้งหมดปฏิเสธเมื่อ `EffectiveStatus = SUSPENDED` · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 · error code กำหนดตอน implement (จองใน `bb=01`) |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
