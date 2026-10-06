@@ -31,7 +31,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | ผู้สร้าง | บัญชีที่สร้างบัญชีนั้น (`parent_id` / `agent_id` ของ member) — ลูกตรง = บัญชีที่ตัวเองสร้าง |
 | สายล่าง | ทุกบัญชีใต้ตัวเองทุกชั้น ไม่นับตัวเอง |
 | `user_type` | ประเภทบัญชี (MGMT-01) — ตรงกับ account ACC-12 |
-| กลุ่ม PT | ชุดค่าหุ้นส่วนแยกตามระบบที่มีเรื่อง PT (`game` = เกมของเรา · เพิ่มกลุ่มได้โดยไม่เปลี่ยนโครงสร้าง) |
+| กลุ่ม PT | ชุดค่าหุ้นส่วนที่รับตอนสร้าง / แก้ แยกตามระบบที่มีเรื่อง PT (`game` = ทุกเกมในหมวด `minigame` · เพิ่มกลุ่มได้โดยไม่เปลี่ยนโครงสร้าง) · ระบบเก็บต่อเกม |
 | ได้รับ / ถือ / ปล่อย | ได้รับ = PT ที่ผู้สร้างปล่อยให้ · ถือ = ส่วนที่เก็บเอง · ปล่อย = ได้รับ − ถือ (ให้ลูกตรง) |
 | bp | % × 100 เป็นจำนวนเต็ม เช่น 95.50% = `9550` — ใช้ภายใน DB / Go เท่านั้น · API ส่ง % เป็น JSON number (ACC-18) |
 | `status` / `effective_status` | ตั้งที่บัญชีเอง / รวมผลจากหัวสาย (ACC-30, AUTH-53) |
@@ -84,18 +84,22 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 
 | ID | Rule |
 |---|---|
-| MGMT-16 | ค่าหุ้นส่วนแยกตาม**กลุ่ม PT** · แต่ละกลุ่มมี 4 ค่า: `pt` (ถือ) · `force` · `remain_quota` · `commission_percent` · ตอนนี้มีกลุ่ม `game` กลุ่มเดียว (ใช้กับทุกเกม · `provider` ฯลฯ เพิ่มเมื่อมีระบบนั้น) · รายการกลุ่มกำหนดใน `app/core` เพิ่มกลุ่มได้โดยไม่เปลี่ยน API / ตาราง |
+| MGMT-16 | **รับค่าชุดเดียวต่อกลุ่ม · เก็บและแสดงต่อเกม**: |
+| | • สร้าง / แก้: ส่งเป็น object `pt` แยกตาม**กลุ่ม PT** · แต่ละกลุ่มมี 4 ค่า: `pt` (ถือ) · `force` · `remain_quota` · `commission_percent` · ระบบ**กระจายค่าชุดนั้นลงทุกเกมในกลุ่ม** แล้วเก็บทีละเกม (`agent_game_settings`) |
+| | • ตอนนี้มีกลุ่ม `game` กลุ่มเดียว = ทุกเกมในหมวด `minigame` (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · `provider` ฯลฯ เพิ่มเมื่อมีระบบนั้น · การจับคู่กลุ่ม → หมวด → เกม กำหนดใน `app/core` เพิ่มได้โดยไม่เปลี่ยน API / ตาราง |
+| | • แสดง: รายละเอียดบัญชี (MGMT-29) และ Profile (account ACC-16) ส่งเป็น `pt_by_game` (หมวด → เกม) · รายชื่อดาวน์ไลน์ (MGMT-28) และ copy-sources ส่งเป็น object `pt` แบบกลุ่ม (ค่าของเกมในกลุ่มเท่ากันเสมอ) |
+| | • เกมใหม่ที่เพิ่มเข้าหมวดภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
 | MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง (เช่น `30`, `0.5`) · ภายใน DB / Go เป็นจำนวนเต็ม bp (ACC-18) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ถือ: 0 ถึงค่าที่ได้รับ · ทีละ 0.5% · Commission: 0–1% ทีละ 0.1% · Force / Remain: 0 ถึงค่าที่ได้รับ ทีละ 0.5% · Commission ของลูกตั้ง**เกินของผู้สร้างได้** (เช่น ผู้สร้างได้ 0.5% ตั้งให้ลูก 0.6% ได้) แต่ไม่เกิน 1% |
 | MGMT-19 | Company Seamless Master: ถือ 0 · ปล่อยทั้งหมด · Force และ Remain = 0 · แก้ได้แค่ Commission |
 | MGMT-20 | เปิด / ปิดเกมรายบัญชี: `status_game` ต่อเกม (bool) · ผู้สร้างตั้งให้ · ปิดแล้ว Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `effective_status`) |
-| MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) |
+| MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`member_game_settings`) |
 | MGMT-22 | ได้รับของลูก = ค่าปล่อยของผู้สร้าง (ลูกตรงทุกคนได้รับเท่ากัน) · Superadmin ได้รับ 100% · Superadmin ถือได้ มีค่าตั้งของตัวเองชุดเดียว แก้ผ่านเส้นแก้ PT ของตัวเอง · ทุก Company ได้รับ = ค่าปล่อยของ Superadmin · Agent ที่มี Agent ลูกปล่อยลงได้เหมือนชั้นอื่น |
 | MGMT-23 | แก้ได้เฉพาะ**ผู้สร้างโดยตรง** (sub ตามสิทธิ์ — MGMT-50) · แก้เฉพาะกลุ่มที่ส่ง · ในกลุ่มที่ส่งต้องครบ 4 ค่า · มีผลกับ bet ใหม่ (bet เก็บค่า ณ ตอน bet — module เดิมพัน) |
 | MGMT-24 | **ค่าปล่อยของบัญชี X เปลี่ยน** (ผู้สร้างของ X แก้ค่าถือของ X — ต่อกลุ่ม): |
 | | • ปล่อยลด: ลูกตรงทุกคนของ X ลดค่าถือลงเท่ากัน · ค่าปล่อยของลูกและชั้นล่างไม่เปลี่ยน · ค่าปล่อยใหม่ของ X ต้อง ≥ ค่าปล่อยที่มากที่สุดของลูกตรง ไม่งั้นปฏิเสธทั้งคำสั่ง (`402306` msg บอกค่าปล่อยต่ำสุดที่ตั้งได้) |
 | | • ปล่อยเพิ่ม: ลูกตรงทุกคนของ X ถือเพิ่มเท่ากัน · ค่าปล่อยของลูกไม่เปลี่ยน |
-| | • ปรับค่าของลูกใน tx เดียวกัน · lock แถว X และลูกตรงเรียงตาม id · ทุกแถวที่เปลี่ยนเก็บประวัติ (MGMT-60) |
+| | • ปรับค่าของลูกใน tx เดียวกัน · lock แถว X และลูกตรงเรียงตาม id · ปรับทุกเกมในกลุ่มพร้อมกัน · ทุกบัญชีที่เปลี่ยนเก็บประวัติ (MGMT-60) |
 | MGMT-25 | หลัง MGMT-24 ถ้า Force / Remain ของลูกเกินค่าที่ได้รับใหม่ → ลดลงให้เท่าค่าที่ได้รับใหม่อัตโนมัติใน tx เดียวกัน และเก็บประวัติ (MGMT-60) |
 
 ตัวอย่าง MGMT-24 (กลุ่ม `game`): Superadmin แก้ Company จากถือ 10 ปล่อย 80 เป็นถือ 14 ปล่อย 76
@@ -116,7 +120,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-26 | เส้นรายชื่อเส้นเดียว: แสดง**ลูกตรง**ของบัญชีที่ระบุ (ไม่ระบุ = ตัวเอง) ทั้งฝั่ง agent และ Member ปนกัน · ไล่ลงทีละชั้นได้ถึง Member · ระบุได้เฉพาะตัวเองหรือบัญชีในสายล่าง (`402402`) · ADMIN ไม่อยู่ในรายการใด (AUTH-43) |
 | MGMT-27 | ตัวกรองมีแค่ `page` / `limit` และค้นหา username บางส่วน (ไม่สนตัวพิมพ์) · เรียง username A→Z · `limit` ค่าเริ่มต้น 20 สูงสุด 100 (`utils.ParsePage`) |
 | MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` · `effective_status` · `pt` (ตาม MGMT-51) · `balances` (module การชำระเงิน) |
-| MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `pt` · `pt_from_parent` ต่อกลุ่ม · `status_game` · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
+| MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `pt_by_game` (หมวด → เกม แบบเดียวกับ account ACC-16 — มี `pt`, `pt_from_parent`, `force`, `remain_quota`, `commission_percent`, `status_game` ต่อเกม · Member มีแค่ `commission_percent`) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
 
 ### สถานะ
 
@@ -241,8 +245,19 @@ Error codes: `402402`
 
 ### GET /api/v1/bo/pr/agents/:id · /members/:id
 
-Response `data`: field ของแถวรายชื่อ + `currencies` · `pt_from_parent` ต่อกลุ่ม (`{"game": 80}`) · `status_game` (เฉพาะ agent) ·
+Response `data`: field ของแถวรายชื่อ + `currencies` · `pt_by_game` แทน `pt` (MGMT-29) ·
 `parent_username` · `created_at` · `last_login_at` · `last_login_ip` · `passcode_set` (เฉพาะ agent)
+
+ตัวอย่าง `pt_by_game` (หลังสร้างด้วย `"pt": { "game": { "pt": 20, ... } }` และปิด `scratch_card`):
+```json
+"pt_by_game": {
+  "minigame": {
+    "coin_toss":           { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": true },
+    "rock_paper_scissors": { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": true },
+    "scratch_card":        { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": false }
+  }
+}
+```
 Error codes: `402402`
 
 ### PUT /api/v1/bo/pr/agents/:id/info · /members/:id/info
@@ -301,24 +316,19 @@ CREATE TABLE agent_currencies (
     PRIMARY KEY (agent_id, currency)
 );
 
-CREATE TABLE agent_pt_settings (                 -- ค่าหุ้นส่วนต่อกลุ่ม (MGMT-16)
+CREATE TABLE agent_game_settings (               -- ค่าหุ้นส่วน + เปิด/ปิด ต่อเกม (MGMT-16, MGMT-20)
     agent_id          BIGINT      NOT NULL REFERENCES user_agents(id),
-    pt_group          VARCHAR(30) NOT NULL,      -- 'game', ...
+    category          VARCHAR(30) NOT NULL,      -- 'minigame', ...
+    game_code         VARCHAR(50) NOT NULL,      -- 'coin_toss', ...
     pt_from_parent_bp INT         NOT NULL CHECK (pt_from_parent_bp BETWEEN 0 AND 10000),
     pt_bp             INT         NOT NULL CHECK (pt_bp BETWEEN 0 AND 10000),
     force_bp          INT         NOT NULL DEFAULT 0 CHECK (force_bp BETWEEN 0 AND 10000),
     remain_bp         INT         NOT NULL DEFAULT 0 CHECK (remain_bp BETWEEN 0 AND 10000),
     commission_bp     INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
+    status_game       BOOLEAN     NOT NULL DEFAULT true,
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (agent_id, pt_group),
+    PRIMARY KEY (agent_id, game_code),
     CHECK (pt_bp <= pt_from_parent_bp)
-);
-
-CREATE TABLE agent_game_status (                 -- เปิด / ปิดเกม (MGMT-20)
-    agent_id    BIGINT      NOT NULL REFERENCES user_agents(id),
-    game_code   VARCHAR(50) NOT NULL,
-    status_game BOOLEAN     NOT NULL,
-    PRIMARY KEY (agent_id, game_code)
 );
 
 CREATE TABLE members (
@@ -341,12 +351,13 @@ CREATE TABLE members (
 CREATE INDEX idx_members_agent_username ON members(agent_id, username);
 CREATE UNIQUE INDEX uq_members_phone ON members(phone) WHERE phone IS NOT NULL;
 
-CREATE TABLE member_pt_settings (               -- Member มีแค่ Commission ต่อกลุ่ม (MGMT-21)
+CREATE TABLE member_game_settings (             -- Member มีแค่ Commission ต่อเกม (MGMT-21)
     member_id     BIGINT      NOT NULL REFERENCES members(id),
-    pt_group      VARCHAR(30) NOT NULL,
+    category      VARCHAR(30) NOT NULL,
+    game_code     VARCHAR(50) NOT NULL,
     commission_bp INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (member_id, pt_group)
+    PRIMARY KEY (member_id, game_code)
 );
 
 ALTER TABLE subaccounts
@@ -373,7 +384,7 @@ CREATE TABLE account_change_logs (               -- MGMT-60
 CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, target_id, created_at);
 ```
 
-- Superadmin มีแถว `agent_pt_settings` ของตัวเอง (`pt_from_parent_bp = 10000` — MGMT-22) · ADMIN ไม่มี
+- Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent_bp = 10000` — MGMT-22) · ADMIN ไม่มี
 - สายล่างใช้ recursive CTE ตาม `parent_id` (แบบ `ListAncestorStatusesRepository`) · `idx_user_agents_parent_id` มีแล้ว
 - รายการสกุล 27 สกุล · กลุ่ม PT · รหัสเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · เมนูสิทธิ์ เป็นค่าคงที่ใน `app/core`
 
@@ -405,6 +416,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-26 | Agent ที่มีทั้ง Agent และ Member เป็นลูก | ได้ทั้งสองแบบ `role` ถูกต้อง เรียง A→Z |
 | MGMT-27 | `q=ab` | ได้เฉพาะ username ที่มี `ab` |
 | MGMT-29 | ดูรายละเอียด | ไม่มี field รหัสผ่าน / passcode / hash |
+| MGMT-16 | สร้างด้วย `pt.game.pt = 20` | `agent_game_settings` มี 3 แถว (ทุกเกมใน `minigame`) ค่า `pt_bp = 2000` · รายละเอียดแสดง `pt_by_game` ครบ 3 เกม · รายชื่อแสดง `pt.game.pt = 20` |
 | MGMT-30 | Share แก้สถานะ Agent ของ Agent ลูก (ไม่ใช่ผู้สร้างโดยตรง) | `402304` |
 | MGMT-30 | LOCKED → ACTIVE โดยผู้สร้าง | สำเร็จ |
 | MGMT-31 | Company ระงับ Share | Agent ใต้ Share `status = ACTIVE` · `effective_status = SUSPENDED` |
@@ -431,7 +443,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 - เส้นทั้งหมดในหัวข้อ 5 เป็นเส้นใหม่
 - ค่า % ส่งเป็น JSON number (ACC-18) อยู่ใน object `pt` แยกกลุ่ม · ห้าม `null` · ไม่ตั้ง = `0`
 - สิทธิ์ของ sub ส่งเป็น object `{ "menu": "NONE" | "VIEW" | "EDIT" }`
-- ผลกับ account: ACC-16 `pt_by_game` → `pt` แบบกลุ่ม (field `pt`, `pt_from_parent`, `force`, `remain_quota`, `commission_percent`) · `status_game` แยกเป็น object ต่อเกม — ต้องแก้ spec account และขออนุมัติใหม่
+- account ไม่ต้องแก้: Profile คง `pt_by_game` ตาม ACC-16 · ข้อมูลอ่านจาก `agent_game_settings` ที่ module นี้เก็บ
 
 ## 9. Error codes (`bb=02`) — business error ตอบ HTTP 200
 
