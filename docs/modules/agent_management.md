@@ -34,7 +34,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | กลุ่ม PT | ชุดค่าหุ้นส่วนที่รับตอนสร้าง / แก้ แยกตามระบบที่มีเรื่อง PT (`game` = ทุกเกมในหมวด `minigame` · เพิ่มกลุ่มได้โดยไม่เปลี่ยนโครงสร้าง) · ระบบเก็บต่อเกม |
 | ได้รับ / ถือ / ปล่อย | ได้รับ = PT ที่ผู้สร้างปล่อยให้ · ถือ = ส่วนที่เก็บเอง · ปล่อย = ได้รับ − ถือ (ให้ลูกตรง) |
 | bp | % × 100 เป็นจำนวนเต็ม เช่น 95.50% = `9550` — ใช้ภายใน DB / Go เท่านั้น · API ส่ง % เป็น JSON number (ACC-18) |
-| `status` / `effective_status` | ตั้งที่บัญชีเอง / รวมผลจากหัวสาย (ACC-30, AUTH-53) |
+| `status` | สถานะที่ใช้งานจริง key เดียว (account ACC-30) = เข้มที่สุดของสถานะที่ตั้งกับบัญชีเอง, ผู้สร้าง (sub) และหัวสายทุกชั้น (AUTH-53) · DB เก็บสถานะที่ตั้งกับบัญชีเองแยกไว้ |
 
 ## 3. Business rules
 
@@ -52,7 +52,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | | • Share B2B → Agent |
 | | • Agent → Agent (ซ้อนได้ไม่จำกัดชั้น) หรือ Member |
 | | ADMIN สร้างไม่ได้ (AUTH-43) · ประเภทการเดิมพัน (Transfer / Seamless) ตามผู้สร้าง เลือกไม่ได้ |
-| MGMT-03 | ผู้สร้างต้อง `effective_status = ACTIVE` (AUTH-54 บังคับที่ middleware) · บัญชีใหม่ `status = ACTIVE` |
+| MGMT-03 | ผู้สร้างต้อง `status = ACTIVE` (AUTH-54 บังคับที่ middleware) · บัญชีใหม่ `status = ACTIVE` |
 | MGMT-04 | สร้าง Company Seamless 1 to 1 · Share Reseller · Share Master → สร้าง Key ของ account 1.3 ใน tx เดียวกัน (ACC-05) |
 
 ### ข้อมูลบัญชี
@@ -87,12 +87,12 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-16 | **รับค่าชุดเดียวต่อกลุ่ม · เก็บและแสดงต่อเกม**: |
 | | • สร้าง / แก้: ส่งเป็น object `pt` แยกตาม**กลุ่ม PT** · แต่ละกลุ่มมี 4 ค่า: `pt` (ถือ) · `force` · `remain_quota` · `commission_percent` · ระบบ**กระจายค่าชุดนั้นลงทุกเกมในกลุ่ม** แล้วเก็บทีละเกม (`agent_game_settings`) |
 | | • ตอนนี้มีกลุ่ม `game` กลุ่มเดียว = ทุกเกมในหมวด `minigame` (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · `provider` ฯลฯ เพิ่มเมื่อมีระบบนั้น · การจับคู่กลุ่ม → หมวด → เกม กำหนดใน `app/core` เพิ่มได้โดยไม่เปลี่ยน API / ตาราง |
-| | • แสดง: รายละเอียดบัญชี (MGMT-29) และ Profile (account ACC-16) ส่งเป็น `pt_by_game` (หมวด → เกม) · รายชื่อดาวน์ไลน์ (MGMT-28) และ copy-sources ส่งเป็น object `pt` แบบกลุ่ม (ค่าของเกมในกลุ่มเท่ากันเสมอ) |
+| | • แสดง: ทุกเส้นส่งเป็น object `pt` ชุดเดียวต่อกลุ่ม (ค่าของเกมในกลุ่มเท่ากันเสมอ) · รายละเอียดบัญชี (MGMT-29) และ Profile (account ACC-16) ส่ง `pt_from_parent` ต่อกลุ่ม และ `status_game` ต่อเกม เพิ่ม |
 | | • เกมใหม่ที่เพิ่มเข้าหมวดภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
 | MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง (เช่น `30`, `0.5`) · ภายใน DB / Go เป็นจำนวนเต็ม bp (ACC-18) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ถือ: 0 ถึงค่าที่ได้รับ · ทีละ 0.5% · Commission: 0–1% ทีละ 0.1% · Force / Remain: 0 ถึงค่าที่ได้รับ ทีละ 0.5% · Commission ของลูกตั้ง**เกินของผู้สร้างได้** (เช่น ผู้สร้างได้ 0.5% ตั้งให้ลูก 0.6% ได้) แต่ไม่เกิน 1% |
 | MGMT-19 | Company Seamless Master: ถือ 0 · ปล่อยทั้งหมด · Force และ Remain = 0 · แก้ได้แค่ Commission |
-| MGMT-20 | เปิด / ปิดเกมรายบัญชี: `status_game` ต่อเกม (bool) · ผู้สร้างตั้งให้ · ปิดแล้ว Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `effective_status`) |
+| MGMT-20 | เปิด / ปิดเกมรายบัญชี: `status_game` ต่อเกม (bool) · ผู้สร้างตั้งให้ · ปิดแล้ว Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
 | MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`member_game_settings`) |
 | MGMT-22 | ได้รับของลูก = ค่าปล่อยของผู้สร้าง (ลูกตรงทุกคนได้รับเท่ากัน) · Superadmin ได้รับ 100% · Superadmin ถือได้ มีค่าตั้งของตัวเองชุดเดียว แก้ผ่านเส้นแก้ PT ของตัวเอง · ทุก Company ได้รับ = ค่าปล่อยของ Superadmin · Agent ที่มี Agent ลูกปล่อยลงได้เหมือนชั้นอื่น |
 | MGMT-23 | แก้ได้เฉพาะ**ผู้สร้างโดยตรง** (sub ตามสิทธิ์ — MGMT-50) · แก้เฉพาะกลุ่มที่ส่ง · ในกลุ่มที่ส่งต้องครบ 4 ค่า · มีผลกับ bet ใหม่ (bet เก็บค่า ณ ตอน bet — module เดิมพัน) |
@@ -119,15 +119,15 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 |---|---|
 | MGMT-26 | เส้นรายชื่อเส้นเดียว: แสดง**ลูกตรง**ของบัญชีที่ระบุ (ไม่ระบุ = ตัวเอง) ทั้งฝั่ง agent และ Member ปนกัน · ไล่ลงทีละชั้นได้ถึง Member · ระบุได้เฉพาะตัวเองหรือบัญชีในสายล่าง (`402402`) · ADMIN ไม่อยู่ในรายการใด (AUTH-43) |
 | MGMT-27 | ตัวกรองมีแค่ `page` / `limit` และค้นหา username บางส่วน (ไม่สนตัวพิมพ์) · เรียง username A→Z · `limit` ค่าเริ่มต้น 20 สูงสุด 100 (`utils.ParsePage`) |
-| MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` · `effective_status` · `pt` (ตาม MGMT-51) · `balances` (module การชำระเงิน) |
-| MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `pt_by_game` (หมวด → เกม แบบเดียวกับ account ACC-16 — มี `pt`, `pt_from_parent`, `force`, `remain_quota`, `commission_percent`, `status_game` ต่อเกม · Member มีแค่ `commission_percent`) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
+| MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` (ACC-30) · `pt` (ตาม MGMT-51) · `balances` (ยอดแยกสกุลตาม account ACC-19 — ระหว่างยังไม่มี module การชำระเงินส่ง `0`) |
+| MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม + `pt_from_parent` ต่อกลุ่ม + `status_game` ต่อเกม (รูปแบบเดียวกับ account ACC-16 · Member มีแค่ `pt` → `commission_percent`) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
 
 ### สถานะ
 
 | ID | Rule |
 |---|---|
-| MGMT-30 | ค่า `ACTIVE` / `SUSPENDED` / `LOCKED` · แก้ได้เฉพาะ**ผู้สร้างโดยตรง** · เปลี่ยนกลับเป็น `ACTIVE` ได้ · แก้ของตัวเองไม่ได้ · ไม่ต้อง passcode · เส้นแยก agent / Member |
-| MGMT-31 | ผลต่อสายล่างผ่าน `effective_status` (AUTH-53) ไม่แก้แถวของชั้นล่าง · `LOCKED` = เข้าใช้ไม่ได้ (AUTH-27) · `SUSPENDED` = เข้าได้เฉพาะ Profile และ Report ดูอย่างเดียว (AUTH-54) · Member ใต้บัญชีที่ไม่ ACTIVE เดิมพันไม่ได้ (module เดิมพัน) |
+| MGMT-30 | ค่า `ACTIVE` / `SUSPENDED` / `LOCKED` · แก้ได้เฉพาะ**ผู้สร้างโดยตรง** · เปลี่ยนกลับเป็น `ACTIVE` ได้ · แก้ของตัวเองไม่ได้ · ไม่ต้อง passcode · เส้นแยก agent / Member · ค่าที่แก้ = สถานะที่ตั้งกับบัญชีนั้นเอง · response ทุกเส้นแสดง `status` ที่ใช้งานจริง (ACC-30) — ถ้าหัวสายถูกระงับ ปลดที่ลูกแล้วลูกยังเป็น `SUSPENDED` จนกว่าหัวสายจะปลด |
+| MGMT-31 | ผลต่อสายล่างผ่าน `status` ที่ใช้งานจริง (ACC-30 · AUTH-53) ไม่แก้แถวของชั้นล่าง · สถานะของลูกไม่ส่งผลขึ้นไปที่หัวสาย · `LOCKED` = เข้าใช้ไม่ได้ (AUTH-27) · `SUSPENDED` = เข้าได้เฉพาะ Profile และ Report ดูอย่างเดียว (AUTH-54) · Member ใต้บัญชีที่ไม่ ACTIVE เดิมพันไม่ได้ (module เดิมพัน) |
 
 ### คัดลอกการตั้งค่า
 
@@ -142,7 +142,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-40 | สร้างได้: บัญชีหลักฝั่ง agent (ADMIN ไม่ได้ — AUTH-43 · Superadmin สร้างได้ — Company Hierarchy: ทุกประเภทสร้าง sub ได้) · sub สร้าง / แก้ / ลบ / ดูรายชื่อ sub ไม่ได้ (`402311`) |
 | MGMT-41 | username = `{username เจ้าของ}@{ชื่อ}` · ส่วนหลัง `@` ตาม AUTH-18 (`^[a-z0-9]{3,20}$`) · รหัสผ่านตาม AUTH-36 · ชื่อเล่น: บังคับ 3–32 ตัว `A-Z` `a-z` `0-9` · เบอร์โทรตาม MGMT-08 |
 | MGMT-42 | แก้ได้: ชื่อเล่น · เบอร์โทร · สิทธิ์ · แก้ username ไม่ได้ · รหัสผ่านใช้ระบบ reset ของ agent_auth (AUTH-52) |
-| MGMT-43 | `status` ของ sub = `ACTIVE` เสมอ ไม่มีเส้นเปลี่ยน · ได้รับผลจากเจ้าของและหัวสายผ่าน `effective_status` (AUTH-53) |
+| MGMT-43 | `status` ของ sub = `ACTIVE` เสมอ ไม่มีเส้นเปลี่ยน · ได้รับผลจากเจ้าของและหัวสายผ่าน `status` ที่ใช้งานจริง (ACC-30 · AUTH-53) |
 | MGMT-44 | ลบ = **ลบแถวจริง** · username นำกลับมาใช้ได้ · session ของ sub นั้นถูกลบทันที (request ถัดไป `401203`) · ประวัติใน `auth_audit_logs` ยังอ่านได้ (เก็บ username ณ เวลานั้น · ไม่มี FK) · ไม่ต้อง passcode |
 | MGMT-45 | แก้ / ลบได้เฉพาะเจ้าของ · ชั้นบนดูรายชื่อ sub ของบัญชีในสายล่างได้อย่างเดียว |
 | MGMT-46 | รายชื่อ sub: ระบุเจ้าของ (ไม่ระบุ = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · ค้นหา username บางส่วน · เรียง A→Z · `page` / `limit` · แต่ละแถว: `id` · username · ชื่อเล่น · เบอร์โทร · สิทธิ์ · วันที่สร้าง · login ล่าสุด (เวลา, IP) |
@@ -233,31 +233,48 @@ Response `data` (`response.Page`) แต่ละแถว:
   "username": "share01",
   "name": "share01",
   "phone": "0812345678",
-  "status": "ACTIVE",
-  "effective_status": "SUSPENDED",
+  "status": "SUSPENDED",
   "pt": {
     "game": { "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5 }
-  }
+  },
+  "balances": [ { "currency": "THB", "amount": 0.00 } ]
 }
 ```
-แถว Member: `role = "MEMBER"` · `pt` มีแค่ `commission_percent` · `phone` = `null` เมื่อไม่ได้ตั้ง · `balances` เพิ่มใน module การชำระเงิน
+- `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้หัวสายของ share01 ถูกระงับ
+- แถว Member: `role = "MEMBER"` · `pt` มีแค่ `commission_percent` · `phone` = `null` เมื่อไม่ได้ตั้ง
+- `balances` ตาม account ACC-19 (`amount = 0` จนกว่าจะมี module การชำระเงิน · บัญชี Seamless = `0`)
+
 Error codes: `402402`
 
 ### GET /api/v1/bo/pr/agents/:id · /members/:id
 
-Response `data`: field ของแถวรายชื่อ + `currencies` · `pt_by_game` แทน `pt` (MGMT-29) ·
-`parent_username` · `created_at` · `last_login_at` · `last_login_ip` · `passcode_set` (เฉพาะ agent)
-
-ตัวอย่าง `pt_by_game` (หลังสร้างด้วย `"pt": { "game": { "pt": 20, ... } }` และปิด `scratch_card`):
+Response `data` (ตัวอย่างฝั่ง agent — หลังสร้างด้วย `pt.game.pt = 20` และปิด `scratch_card`):
 ```json
-"pt_by_game": {
-  "minigame": {
-    "coin_toss":           { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": true },
-    "rock_paper_scissors": { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": true },
-    "scratch_card":        { "pt": 20, "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status_game": false }
-  }
+{
+  "id": 12,
+  "role": "SHAREHOLDER",
+  "user_type": "SHARE_B2C",
+  "username": "share01",
+  "name": "share01",
+  "phone": "0812345678",
+  "status": "ACTIVE",
+  "parent_username": "comp01",
+  "currencies": ["THB"],
+  "balances": [ { "currency": "THB", "amount": 0.00 } ],
+  "pt": {
+    "game": { "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5 }
+  },
+  "pt_from_parent": { "game": 90 },
+  "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
+  "passcode_set": true,
+  "last_login_at": "2026-10-05T10:00:00+07:00",
+  "last_login_ip": "203.0.113.10",
+  "created_at": "2026-10-01T09:00:00+07:00"
 }
 ```
+- รูปแบบ `pt`, `pt_from_parent`, `status_game` เหมือน Profile (account ACC-16) — ไม่มี `pt_by_game`
+- Member: ไม่มี `pt_from_parent`, `status_game`, `passcode_set` · `pt.game` มีแค่ `commission_percent`
+
 Error codes: `402402`
 
 ### PUT /api/v1/bo/pr/agents/:id/info · /members/:id/info
@@ -416,10 +433,12 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-26 | Agent ที่มีทั้ง Agent และ Member เป็นลูก | ได้ทั้งสองแบบ `role` ถูกต้อง เรียง A→Z |
 | MGMT-27 | `q=ab` | ได้เฉพาะ username ที่มี `ab` |
 | MGMT-29 | ดูรายละเอียด | ไม่มี field รหัสผ่าน / passcode / hash |
-| MGMT-16 | สร้างด้วย `pt.game.pt = 20` | `agent_game_settings` มี 3 แถว (ทุกเกมใน `minigame`) ค่า `pt_bp = 2000` · รายละเอียดแสดง `pt_by_game` ครบ 3 เกม · รายชื่อแสดง `pt.game.pt = 20` |
+| MGMT-16 | สร้างด้วย `pt.game.pt = 20` | `agent_game_settings` มี 3 แถว (ทุกเกมใน `minigame`) ค่า `pt_bp = 2000` · รายละเอียดแสดง `pt.game.pt = 20` และ `status_game` ครบ 3 เกม · รายชื่อแสดง `pt.game.pt = 20` |
 | MGMT-30 | Share แก้สถานะ Agent ของ Agent ลูก (ไม่ใช่ผู้สร้างโดยตรง) | `402304` |
 | MGMT-30 | LOCKED → ACTIVE โดยผู้สร้าง | สำเร็จ |
-| MGMT-31 | Company ระงับ Share | Agent ใต้ Share `status = ACTIVE` · `effective_status = SUSPENDED` |
+| MGMT-31 | Company ระงับ Share | Share และ Agent ใต้ Share `status = SUSPENDED` · Company `status = ACTIVE` |
+| MGMT-30 | Share ล็อก Agent ลูก (Share ACTIVE) | Agent `status = LOCKED` · Share ยังใช้งานได้ |
+| MGMT-30 | หัวสายของ Agent ถูกระงับ · ผู้สร้างตั้ง Agent เป็น ACTIVE | สำเร็จ · Agent ยังแสดง `status = SUSPENDED` |
 | MGMT-44 | ลบ sub ที่ login อยู่ | request ถัดไปของ sub `401203` · สร้าง sub ชื่อเดิมได้ |
 | MGMT-45 | ชั้นบนลบ sub ของบัญชีในสายล่าง | `402404` |
 | MGMT-40 | sub เรียก `POST /subaccounts` | `402311` |
@@ -443,7 +462,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 - เส้นทั้งหมดในหัวข้อ 5 เป็นเส้นใหม่
 - ค่า % ส่งเป็น JSON number (ACC-18) อยู่ใน object `pt` แยกกลุ่ม · ห้าม `null` · ไม่ตั้ง = `0`
 - สิทธิ์ของ sub ส่งเป็น object `{ "menu": "NONE" | "VIEW" | "EDIT" }`
-- account ไม่ต้องแก้: Profile คง `pt_by_game` ตาม ACC-16 · ข้อมูลอ่านจาก `agent_game_settings` ที่ module นี้เก็บ
+- account (review รอบ 2): Profile ส่ง `pt` ชุดเดียว + `pt_from_parent` + `status_game` และ `status` key เดียว — ตรงกับ module นี้ · ข้อมูลอ่านจาก `agent_game_settings`
 
 ## 9. Error codes (`bb=02`) — business error ตอบ HTTP 200
 
