@@ -87,7 +87,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-16 | **รับค่าชุดเดียวต่อกลุ่ม · เก็บและแสดงต่อเกม**: |
 | | • สร้าง / แก้: ส่งเป็น object `pt` แยกตาม**กลุ่ม PT** · แต่ละกลุ่มมี 4 ค่า: `pt` (ถือ) · `force` · `remain_quota` · `commission_percent` · ระบบ**กระจายค่าชุดนั้นลงทุกเกมในกลุ่ม** แล้วเก็บทีละเกม (`agent_game_settings`) |
 | | • ตอนนี้มีกลุ่ม `game` กลุ่มเดียว = ทุกเกมในหมวด `minigame` (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · `provider` ฯลฯ เพิ่มเมื่อมีระบบนั้น · การจับคู่กลุ่ม → หมวด → เกม กำหนดใน `app/core` เพิ่มได้โดยไม่เปลี่ยน API / ตาราง |
-| | • แสดง: ทุกเส้นส่งเป็น object `pt` ชุดเดียวต่อกลุ่ม (ค่าของเกมในกลุ่มเท่ากันเสมอ) · รายละเอียดบัญชี (MGMT-29) และ Profile (account ACC-16) ส่ง `pt_from_parent` ต่อกลุ่ม และ `status_game` ต่อเกม เพิ่ม |
+| | • แสดง (response ทุกเส้น): object `pt` ชุดเดียวต่อกลุ่ม แต่ละกลุ่มมี 5 ค่า — `pt_from_parent` (ได้รับจากผู้สร้าง) · `pt` (ถือ · ปล่อย = ได้รับ − ถือ) · `force` · `remain_quota` · `commission_percent` (ค่าของเกมในกลุ่มเท่ากันเสมอ) · request ส่ง 4 ค่า ไม่ส่ง `pt_from_parent` (ระบบคิดจากค่าปล่อยของผู้สร้าง) · รายละเอียดบัญชี (MGMT-29) และ Profile (account ACC-16) ส่ง `status_game` ต่อเกมเพิ่ม (แยกจาก `pt`) |
 | | • เกมใหม่ที่เพิ่มเข้าหมวดภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
 | MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง (เช่น `30`, `0.5`) · ภายใน DB / Go เป็นจำนวนเต็ม bp (ACC-18) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ถือ: 0 ถึงค่าที่ได้รับ · ทีละ 0.5% · Commission: 0–1% ทีละ 0.1% · Force / Remain: 0 ถึงค่าที่ได้รับ ทีละ 0.5% · Commission ของลูกตั้ง**เกินของผู้สร้างได้** (เช่น ผู้สร้างได้ 0.5% ตั้งให้ลูก 0.6% ได้) แต่ไม่เกิน 1% |
@@ -120,7 +120,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-26 | เส้นรายชื่อเส้นเดียว: แสดง**ลูกตรง**ของบัญชีที่ระบุ (ไม่ระบุ = ตัวเอง) ทั้งฝั่ง agent และ Member ปนกัน · ไล่ลงทีละชั้นได้ถึง Member · ระบุได้เฉพาะตัวเองหรือบัญชีในสายล่าง (`402402`) · ADMIN ไม่อยู่ในรายการใด (AUTH-43) |
 | MGMT-27 | ตัวกรองมีแค่ `page` / `limit` และค้นหา username บางส่วน (ไม่สนตัวพิมพ์) · เรียง username A→Z · `limit` ค่าเริ่มต้น 20 สูงสุด 100 (`utils.ParsePage`) |
 | MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` (ACC-30) · `pt` (ตาม MGMT-51) · `balances` (ยอดแยกสกุลตาม account ACC-19 — ระหว่างยังไม่มี module การชำระเงินส่ง `0`) |
-| MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม + `pt_from_parent` ต่อกลุ่ม + `status_game` ต่อเกม (รูปแบบเดียวกับ account ACC-16 · Member มีแค่ `pt` → `commission_percent`) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
+| MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม (รวม `pt_from_parent` ในกลุ่ม — MGMT-16) + `status_game` ต่อเกม (รูปแบบเดียวกับ account ACC-16 · Member มีแค่ `pt` → `commission_percent`) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
 
 ### สถานะ
 
@@ -154,7 +154,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-50 | สิทธิ์ต่อเมนู ระดับ `NONE` / `VIEW` / `EDIT` (`EDIT` รวม `VIEW`) · บัญชีหลักได้ `EDIT` ทุกเมนูที่ประเภทนั้นมี · sub ได้ตามที่เจ้าของให้ (ค่าเริ่มต้น `NONE`) · เปลี่ยนรหัสผ่าน / passcode ของตัวเองทำได้เสมอ |
 | MGMT-51 | เมนูและการเช็ค (middleware `RequirePermission(menu, level)` บรรทัดเดียวกับ route — กฎข้อ 28): |
 | | `dashboard` (NONE / VIEW) — account 1.1 · `account` — account 1.2 Profile, 1.3 API · `member` — ดูรายชื่อ / รายละเอียด (VIEW) · แก้ข้อมูล / สถานะ (EDIT) · `pt` — เห็นค่า `pt` ใน response (VIEW) · แก้ PT / เปิดปิดเกม (EDIT) · `report` (NONE / VIEW) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` |
-| | ไม่มี `pt` ≥ VIEW → response ไม่มี field `pt`, `pt_from_parent`, `status_game` · **สร้างบัญชี ต้องมี `member` = EDIT และ `pt` = EDIT** |
+| | ไม่มี `pt` ≥ VIEW → response ไม่มี field `pt` และ `status_game` · **สร้างบัญชี ต้องมี `member` = EDIT และ `pt` = EDIT** |
 | MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): Superadmin = 8 เมนู (ไม่มี `announcement`) · Company · Share · Agent = ครบ 9 เมนู |
 | MGMT-53 | Profile (account ACC-12) ส่งสิทธิ์เป็น `["{menu}.view", "{menu}.edit"]` · `EDIT` ส่งทั้งสองค่า |
 
@@ -235,7 +235,7 @@ Response `data` (`response.Page`) แต่ละแถว:
   "phone": "0812345678",
   "status": "SUSPENDED",
   "pt": {
-    "game": { "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5 }
+    "game": { "pt_from_parent": 80, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5 }
   },
   "balances": [ { "currency": "THB", "amount": 0.00 } ]
 }
@@ -262,9 +262,8 @@ Response `data` (ตัวอย่างฝั่ง agent — หลังส�
   "currencies": ["THB"],
   "balances": [ { "currency": "THB", "amount": 0.00 } ],
   "pt": {
-    "game": { "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5 }
+    "game": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5 }
   },
-  "pt_from_parent": { "game": 90 },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "passcode_set": true,
   "last_login_at": "2026-10-05T10:00:00+07:00",
@@ -272,8 +271,8 @@ Response `data` (ตัวอย่างฝั่ง agent — หลังส�
   "created_at": "2026-10-01T09:00:00+07:00"
 }
 ```
-- รูปแบบ `pt`, `pt_from_parent`, `status_game` เหมือน Profile (account ACC-16) — ไม่มี `pt_by_game`
-- Member: ไม่มี `pt_from_parent`, `status_game`, `passcode_set` · `pt.game` มีแค่ `commission_percent`
+- รูปแบบ `pt` (รวม `pt_from_parent` ในกลุ่ม) และ `status_game` (แยกจาก `pt` · ต่อเกม) เหมือน Profile (account ACC-16) · ตัวอย่างนี้ ได้รับ 90 ถือ 20 ปล่อยให้ลูก 70
+- Member: ไม่มี `status_game`, `passcode_set` · `pt.game` มีแค่ `commission_percent`
 
 Error codes: `402402`
 
@@ -462,7 +461,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 - เส้นทั้งหมดในหัวข้อ 5 เป็นเส้นใหม่
 - ค่า % ส่งเป็น JSON number (ACC-18) อยู่ใน object `pt` แยกกลุ่ม · ห้าม `null` · ไม่ตั้ง = `0`
 - สิทธิ์ของ sub ส่งเป็น object `{ "menu": "NONE" | "VIEW" | "EDIT" }`
-- account (review รอบ 2): Profile ส่ง `pt` ชุดเดียว + `pt_from_parent` + `status_game` และ `status` key เดียว — ตรงกับ module นี้ · ข้อมูลอ่านจาก `agent_game_settings`
+- account (review รอบ 2): Profile ส่ง `pt` ชุดเดียว (รวม `pt_from_parent` ในกลุ่ม) + `status_game` แยก และ `status` key เดียว — ตรงกับ module นี้ · ข้อมูลอ่านจาก `agent_game_settings`
 
 ## 9. Error codes (`bb=02`) — business error ตอบ HTTP 200
 
