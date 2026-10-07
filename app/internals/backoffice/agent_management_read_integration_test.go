@@ -5,7 +5,6 @@ package backoffice_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"app/app/models"
@@ -15,8 +14,10 @@ import (
 )
 
 const (
-	downlinesPath   = "/api/v1/bo/pr/manage/downlines"
-	copySourcesPath = "/api/v1/bo/pr/manage/agents/copy-sources"
+	downlinesPath    = "/api/v1/bo/pr/manage/downlines"
+	agentDetailPath  = "/api/v1/bo/pr/manage/agents/detail"
+	memberDetailPath = "/api/v1/bo/pr/manage/members/detail"
+	copySourcesPath  = "/api/v1/bo/pr/manage/agents/copy-sources"
 )
 
 type downlineRow struct {
@@ -45,9 +46,9 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("amember", 0.2), c.agentTok), 200, 200)
 	setBalance(t, c.agent.ID, "THB", 5000)
 
-	get := func(tok, q string) downlinePage {
+	get := func(tok string, body map[string]any, query string) downlinePage {
 		t.Helper()
-		r := call(t, app, "GET", downlinesPath+q, nil, tok)
+		r := call(t, app, "POST", downlinesPath+query, body, tok)
 		expect(t, r, 200, 200)
 		var p downlinePage
 		if err := json.Unmarshal(r.Data, &p); err != nil {
@@ -57,7 +58,7 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	}
 
 	// ไม่ระบุ = ลูกตรงของตัวเอง
-	p := get(c.shareTok, "")
+	p := get(c.shareTok, map[string]any{}, "")
 	if p.Total != 1 || p.Items[0].Username != "agent01" || p.Items[0].UserType != "AGENT" || p.Items[0].Status != "ACTIVE" {
 		t.Fatalf("share downlines %+v", p)
 	}
@@ -66,7 +67,7 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	}
 
 	// ไล่ลงทีละชั้น: Agent + Member ปนกัน เรียง A→Z · role ถูกต้อง
-	p = get(c.comTok, fmt.Sprintf("?parent_id=%d", c.agent.ID))
+	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID}, "")
 	got := ""
 	for _, it := range p.Items {
 		got += it.Username + ":" + it.Role + " "
@@ -86,30 +87,30 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	}
 
 	// q บางส่วน ไม่สนตัวพิมพ์ · limit / page
-	p = get(c.comTok, fmt.Sprintf("?parent_id=%d&q=MEM", c.agent.ID))
+	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID, "q": "MEM"}, "")
 	if p.Total != 2 {
 		t.Fatalf("q=MEM total %d", p.Total)
 	}
-	p = get(c.comTok, fmt.Sprintf("?parent_id=%d&limit=1&page=2", c.agent.ID))
+	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID, "limit": 1, "page": 2}, "")
 	if p.Total != 3 || len(p.Items) != 1 || p.Items[0].Username != "bmember" {
 		t.Fatalf("page 2 %+v", p)
 	}
-	p = get(c.comTok, fmt.Sprintf("?parent_id=%d&q=%%25", c.agent.ID)) // % ไม่ใช่ wildcard
+	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID, "q": "%"}, "") // % ไม่ใช่ wildcard
 	if p.Total != 0 {
 		t.Fatalf("q=%% total %d", p.Total)
 	}
 
 	// บัญชีสายอื่น / สายบน / ไม่มีอยู่ = 402402
 	_, otherTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_TRANSFER", "othercom", nil, childPT(50, 0, 0, 0)))
-	expect(t, call(t, app, "GET", downlinesPath+fmt.Sprintf("?parent_id=%d", c.agent.ID), nil, otherTok), 200, 402402)
-	expect(t, call(t, app, "GET", downlinesPath+fmt.Sprintf("?parent_id=%d", c.com.ID), nil, c.shareTok), 200, 402402)
-	expect(t, call(t, app, "GET", downlinesPath+"?parent_id=99999", nil, c.comTok), 200, 402402)
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{"parent_id": c.agent.ID}, otherTok), 200, 402402)
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{"parent_id": c.com.ID}, c.shareTok), 200, 402402)
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{"parent_id": 99999}, c.comTok), 200, 402402)
 
 	// ADMIN ไม่อยู่ในรายการ (AUTH-43): DB กันไว้แล้ว — ADMIN มี parent ไม่ได้ (ck_user_agents_admin_no_parent) · query ก็กรองซ้ำ
 
 	// status ที่ใช้งานจริง: หัวสายถูกระงับ → ลูกแสดง SUSPENDED (ACC-30)
 	setStatus(t, c.share.ID, models.AgentStatusSuspended)
-	p = get(c.comTok, fmt.Sprintf("?parent_id=%d", c.share.ID))
+	p = get(c.comTok, map[string]any{"parent_id": c.share.ID}, "")
 	if p.Items[0].Status != "SUSPENDED" {
 		t.Fatalf("status %s, want SUSPENDED", p.Items[0].Status)
 	}
@@ -126,7 +127,7 @@ func TestDownlinesPTPermission(t *testing.T) { // MGMT-51
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
 
-	r := call(t, app, "GET", downlinesPath, nil, tok)
+	r := call(t, app, "POST", downlinesPath, map[string]any{}, tok)
 	expect(t, r, 200, 200)
 	var raw struct {
 		Items []map[string]json.RawMessage `json:"data"`
@@ -138,7 +139,7 @@ func TestDownlinesPTPermission(t *testing.T) { // MGMT-51
 	if _, ok := raw.Items[0]["pt"]; ok {
 		t.Fatal("ไม่มีสิทธิ์ pt ต้องไม่มี field pt")
 	}
-	r = call(t, app, "GET", fmt.Sprintf("/api/v1/bo/pr/manage/agents/%d", c.share.ID), nil, tok)
+	r = call(t, app, "POST", agentDetailPath, map[string]any{"id": c.share.ID}, tok)
 	expect(t, r, 200, 200)
 	var d map[string]json.RawMessage
 	_ = json.Unmarshal(r.Data, &d)
@@ -148,7 +149,7 @@ func TestDownlinesPTPermission(t *testing.T) { // MGMT-51
 	expect(t, call(t, app, "GET", copySourcesPath, nil, tok), 200, 402303)
 
 	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"pt":"view"}`})
-	expect(t, call(t, app, "GET", downlinesPath, nil, tok), 200, 402303) // member off
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, tok), 200, 402303) // member off
 	expect(t, call(t, app, "GET", copySourcesPath, nil, tok), 200, 200)
 }
 
@@ -157,7 +158,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	c := buildChain(t, app)
 	setPhone := "0812345678"
 	setCols(t, models.AccountTypeAgent, c.agent.ID, map[string]any{"phone": setPhone})
-	r := call(t, app, "GET", fmt.Sprintf("/api/v1/bo/pr/manage/agents/%d", c.agent.ID), nil, c.comTok)
+	r := call(t, app, "POST", agentDetailPath, map[string]any{"id": c.agent.ID}, c.comTok)
 	expect(t, r, 200, 200)
 	var raw map[string]json.RawMessage
 	_ = json.Unmarshal(r.Data, &raw)
@@ -188,9 +189,9 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	}
 
 	// ตัวเอง / สายบน / สายอื่น = 402402 · id ผิดรูปแบบ = 422
-	expect(t, call(t, app, "GET", fmt.Sprintf("/api/v1/bo/pr/manage/agents/%d", c.agent.ID), nil, c.agentTok), 200, 402402)
-	expect(t, call(t, app, "GET", fmt.Sprintf("/api/v1/bo/pr/manage/agents/%d", c.com.ID), nil, c.agentTok), 200, 402402)
-	expect(t, call(t, app, "GET", "/api/v1/bo/pr/manage/agents/abc", nil, c.comTok), 200, 422)
+	expect(t, call(t, app, "POST", agentDetailPath, map[string]any{"id": c.agent.ID}, c.agentTok), 200, 402402)
+	expect(t, call(t, app, "POST", agentDetailPath, map[string]any{"id": c.com.ID}, c.agentTok), 200, 402402)
+	expect(t, call(t, app, "POST", agentDetailPath, map[string]any{"id": 0}, c.comTok), 200, 422)
 
 	// Member: ผู้สร้างเอง และชั้นบนดูได้ · ไม่มี status_game / passcode_set
 	r = call(t, app, "POST", createMemberPath, memberBody("mem01", 0.3), c.agentTok)
@@ -198,7 +199,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	var m created
 	_ = json.Unmarshal(r.Data, &m)
 	for _, tok := range []string{c.agentTok, c.comTok, c.saTok} {
-		r = call(t, app, "GET", fmt.Sprintf("/api/v1/bo/pr/manage/members/%d", m.ID), nil, tok)
+		r = call(t, app, "POST", memberDetailPath, map[string]any{"id": m.ID}, tok)
 		expect(t, r, 200, 200)
 	}
 	raw = map[string]json.RawMessage{}
@@ -210,8 +211,8 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 		t.Fatalf("member detail %s", r.Data)
 	}
 	_, otherTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_TRANSFER", "othercom", nil, childPT(50, 0, 0, 0)))
-	expect(t, call(t, app, "GET", fmt.Sprintf("/api/v1/bo/pr/manage/members/%d", m.ID), nil, otherTok), 200, 402402)
-	expect(t, call(t, app, "GET", "/api/v1/bo/pr/manage/members/99999", nil, c.comTok), 200, 402402)
+	expect(t, call(t, app, "POST", memberDetailPath, map[string]any{"id": m.ID}, otherTok), 200, 402402)
+	expect(t, call(t, app, "POST", memberDetailPath, map[string]any{"id": 99999}, c.comTok), 200, 402402)
 }
 
 func TestCopySources(t *testing.T) { // MGMT-35

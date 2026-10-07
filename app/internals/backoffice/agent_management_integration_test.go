@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	createAgentPath  = "/api/v1/bo/pr/manage/agents"
-	createMemberPath = "/api/v1/bo/pr/manage/members"
+	createAgentPath  = "/api/v1/bo/pr/manage/agents/create"
+	createMemberPath = "/api/v1/bo/pr/manage/members/create"
 	mgPassword       = "aA4b4c4d4e4f" // ผ่าน AUTH-36
 )
 

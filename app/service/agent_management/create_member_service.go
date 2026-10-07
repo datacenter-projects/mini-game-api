@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// CreateMemberService — POST /api/v1/bo/pr/manage/members (MGMT-02, MGMT-05 – MGMT-15A, MGMT-21, MGMT-60)
+// CreateMemberService — POST /api/v1/bo/pr/manage/members/create (MGMT-02, MGMT-05 – MGMT-15A, MGMT-21, MGMT-60)
 func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.CreateMemberRequest,
 	meta agentAuthService.RequestMeta) (agentManagementDto.CreateMemberResponse, error) {
 	var res agentManagementDto.CreateMemberResponse

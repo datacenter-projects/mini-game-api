@@ -21,7 +21,7 @@ const (
 	targetMember = "MEMBER"
 )
 
-// CreateAgentService — POST /api/v1/bo/pr/manage/agents (MGMT-02 – MGMT-25, MGMT-60)
+// CreateAgentService — POST /api/v1/bo/pr/manage/agents/create (MGMT-02 – MGMT-25, MGMT-60)
 // สิทธิ์ member / pt = edit ตรวจที่ route · payment = edit ตรวจที่นี่เมื่อส่ง balance (MGMT-51)
 // Key ของ account 1.3 (MGMT-04) เพิ่มใน phase 6
 func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.CreateAgentRequest,

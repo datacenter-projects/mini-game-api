@@ -42,7 +42,8 @@ func loadCreator(db *gorm.DB, actor agentAuthService.Actor) (creator, error) {
 	if c.currencies, err = postgres.ListAgentCurrenciesRepository(db, a.ID); err != nil {
 		return c, err
 	}
-	settings, err := postgres.ListAgentGameSettingsRepository(db, a.ID)
+	// FOR SHARE: กันชั้นบนลดค่าที่ให้ผู้สร้างระหว่างสร้างลูก (MGMT-24)
+	settings, err := postgres.LockAgentGameSettingsRepository(db, []uint{a.ID}, "SHARE")
 	if err != nil {
 		return c, err
 	}

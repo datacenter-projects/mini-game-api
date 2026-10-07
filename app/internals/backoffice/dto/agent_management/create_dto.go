@@ -32,7 +32,7 @@ type MemberPTRequest struct {
 	CommissionBP int `json:"-"` // bp หลัง Validate
 }
 
-// CreateAgentRequest — POST /api/v1/bo/pr/manage/agents
+// CreateAgentRequest — POST /api/v1/bo/pr/manage/agents/create
 type CreateAgentRequest struct {
 	RequestID  string                    `json:"request_id"`
 	UserType   string                    `json:"user_type"`
@@ -48,7 +48,7 @@ type CreateAgentRequest struct {
 	BalanceMinor map[string]int64 `json:"-"` // หน่วยย่อย 1/100 หลัง Validate
 }
 
-// CreateMemberRequest — POST /api/v1/bo/pr/manage/members
+// CreateMemberRequest — POST /api/v1/bo/pr/manage/members/create
 type CreateMemberRequest struct {
 	RequestID string                     `json:"request_id"`
 	Username  string                     `json:"username"`
@@ -173,21 +173,8 @@ func (r *CreateAgentRequest) Validate() error {
 		return err
 	}
 	for g, v := range r.PT {
-		p := "pt." + g + "."
-		if v.Parsed.PTFromParentBP, err = percentBP(p+"pt_from_parent", v.PTFromParent); err != nil {
+		if err := parseChildPT("pt."+g+".", &v); err != nil {
 			return err
-		}
-		if v.Parsed.ForceBP, err = percentBP(p+"force", v.Force); err != nil {
-			return err
-		}
-		if v.Parsed.RemainBP, err = percentBP(p+"remain_quota", v.RemainQuota); err != nil {
-			return err
-		}
-		if v.Parsed.CommissionBP, err = percentBP(p+"commission_percent", v.CommissionPercent); err != nil {
-			return err
-		}
-		if v.Status == nil {
-			return invalid(p+"status", "ต้องส่ง", "is required")
 		}
 		r.PT[g] = v
 	}
@@ -215,6 +202,27 @@ func (r *CreateMemberRequest) Validate() error {
 			return err
 		}
 		r.PT[g] = v
+	}
+	return nil
+}
+
+// parseChildPT — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม ต้องครบ 5 ค่า → bp ใน v.Parsed (MGMT-16, MGMT-17)
+func parseChildPT(prefix string, v *ChildPTRequest) error {
+	var err error
+	if v.Parsed.PTFromParentBP, err = percentBP(prefix+"pt_from_parent", v.PTFromParent); err != nil {
+		return err
+	}
+	if v.Parsed.ForceBP, err = percentBP(prefix+"force", v.Force); err != nil {
+		return err
+	}
+	if v.Parsed.RemainBP, err = percentBP(prefix+"remain_quota", v.RemainQuota); err != nil {
+		return err
+	}
+	if v.Parsed.CommissionBP, err = percentBP(prefix+"commission_percent", v.CommissionPercent); err != nil {
+		return err
+	}
+	if v.Status == nil {
+		return invalid(prefix+"status", "ต้องส่ง", "is required")
 	}
 	return nil
 }

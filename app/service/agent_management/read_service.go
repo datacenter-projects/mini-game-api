@@ -17,9 +17,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// ListDownlinesService — GET /api/v1/bo/pr/manage/downlines (MGMT-26 – MGMT-28)
+// ListDownlinesService — POST /api/v1/bo/pr/manage/downlines (MGMT-26 – MGMT-28)
 // parent_id ไม่ส่ง = ตัวเอง · อื่นต้องเป็นบัญชีฝั่ง agent ในสายล่าง (402402) · ข้อมูลประกอบอ่านทีละหน้าแบบ batch
-func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q agentManagementDto.DownlinesQuery,
+func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q agentManagementDto.DownlinesRequest,
 	page utils.Page) ([]agentManagementDto.DownlineRow, int64, error) {
 	db := database.DBConn.WithContext(ctx)
 	parentID := actor.AgentID
@@ -142,7 +142,7 @@ func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
 	return e, nil
 }
 
-// GetAgentDetailService — GET /api/v1/bo/pr/manage/agents/:id (MGMT-29) · เฉพาะบัญชีในสายล่าง (402402)
+// GetAgentDetailService — POST /api/v1/bo/pr/manage/agents/detail (MGMT-29) · เฉพาะบัญชีในสายล่าง (402402)
 func GetAgentDetailService(ctx context.Context, actor agentAuthService.Actor, id uint) (agentManagementDto.AgentDetailResponse, error) {
 	var res agentManagementDto.AgentDetailResponse
 	db := database.DBConn.WithContext(ctx)
@@ -187,7 +187,7 @@ func GetAgentDetailService(ctx context.Context, actor agentAuthService.Actor, id
 	return res, nil
 }
 
-// GetMemberDetailService — GET /api/v1/bo/pr/manage/members/:id (MGMT-29) · ผู้สร้างต้องเป็นตัวเองหรืออยู่ในสายล่าง
+// GetMemberDetailService — POST /api/v1/bo/pr/manage/members/detail (MGMT-29) · ผู้สร้างต้องเป็นตัวเองหรืออยู่ในสายล่าง
 func GetMemberDetailService(ctx context.Context, actor agentAuthService.Actor, id uint) (agentManagementDto.MemberDetailResponse, error) {
 	var res agentManagementDto.MemberDetailResponse
 	db := database.DBConn.WithContext(ctx)

@@ -91,16 +91,26 @@ type CopySource struct {
 	StatusGame map[string]bool        `json:"status_game"`
 }
 
-// DownlinesQuery — GET /manage/downlines?parent_id=&q=&page=&limit= (MGMT-26, MGMT-27)
-type DownlinesQuery struct {
-	ParentID uint   `query:"parent_id"` // 0 = ตัวเอง
-	Q        string `query:"q"`
+// DownlinesRequest — POST /manage/downlines (MGMT-26, MGMT-27) · ทุกค่าไม่บังคับ — ไม่กรองให้ส่ง {}
+// page / limit อยู่ใน body ปรับด้วย utils.NewPage (ค่าเริ่มต้น 20 · สูงสุด 100)
+type DownlinesRequest struct {
+	ParentID uint   `json:"parent_id"` // 0 = ตัวเอง
+	Q        string `json:"q"`
+	Page     int    `json:"page"`
+	Limit    int    `json:"limit"`
 }
 
-func (q *DownlinesQuery) Validate() error {
+func (q *DownlinesRequest) Validate() error {
 	q.Q = strings.ToLower(strings.TrimSpace(q.Q))
 	if len(q.Q) > 32 {
 		return apperr.ErrValidation.WithMessage("q ยาวเกิน 32 ตัวอักษร", "q must not exceed 32 characters")
 	}
 	return nil
 }
+
+// DetailRequest — POST /manage/agents/detail · /manage/members/detail (MGMT-29) · ผู้ดูมาจาก token
+type DetailRequest struct {
+	ID uint `json:"id"`
+}
+
+func (r *DetailRequest) Validate() error { return checkID(r.ID) }

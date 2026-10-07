@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// CreateAgentController — POST /api/v1/bo/pr/manage/agents
+// CreateAgentController — POST /api/v1/bo/pr/manage/agents/create
 func CreateAgentController(c *fiber.Ctx) error {
 	var req agentManagementDto.CreateAgentRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
