@@ -7,10 +7,11 @@ ALTER TABLE user_agents
     ADD COLUMN agent_type VARCHAR(20),
     ADD CONSTRAINT ck_user_agents_phone CHECK (phone IS NULL OR phone ~ '^[0-9]{8,15}$');
 -- NOT VALID: บัญชี Company / Share ที่มีอยู่ก่อน migration นี้ยังไม่มี agent_type · แถวใหม่ทุกแถวถูกตรวจ
-ALTER TABLE user_agents ADD CONSTRAINT ck_user_agents_agent_type CHECK (
+-- COALESCE: agent_type = NULL ทำให้ IN ได้ NULL ซึ่ง CHECK นับว่าผ่าน — แปลงเป็น false ให้ปฏิเสธ
+ALTER TABLE user_agents ADD CONSTRAINT ck_user_agents_agent_type CHECK (COALESCE(
     (role = 'COMPANY' AND agent_type IN ('TRANSFER', 'SEAMLESS_RESELLER', 'SEAMLESS_MASTER', 'SEAMLESS_1TO1')) OR
     (role = 'SHAREHOLDER' AND agent_type IN ('B2B', 'B2C', 'RESELLER', 'MASTER')) OR
-    (role NOT IN ('COMPANY', 'SHAREHOLDER') AND agent_type IS NULL)) NOT VALID;
+    (role NOT IN ('COMPANY', 'SHAREHOLDER') AND agent_type IS NULL), false)) NOT VALID;
 CREATE UNIQUE INDEX uq_user_agents_phone ON user_agents(phone) WHERE phone IS NOT NULL;
 CREATE INDEX idx_user_agents_parent_username ON user_agents(parent_id, username);  -- รายชื่อลูกตรง เรียง A→Z
 
