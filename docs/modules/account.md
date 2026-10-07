@@ -27,6 +27,21 @@
 | 1.3 | ประเภทบัญชี (หาเจ้าของ Key) · ระบบสิทธิ์ (สิทธิ์ดู / แก้ไขของ sub) | module ② User Management |
 | Dashboard | bet, ผลได้เสียตาม PT, Commission | module เดิมพัน / Settle |
 
+> **หมายเหตุ — ค่าชั่วคราวระหว่างรอ module ② (2026-10-07):** เส้น Profile เปิดใช้แล้ว (`f5a1ebe`, `285b307`)
+> โดย field ที่ต้องใช้ตารางของ module ② ส่งค่าชั่วคราว **รูปแบบ (key และชนิด) ตรง spec · ค่ายังไม่ตรง spec** —
+> แก้เป็นค่าจริงเมื่อ module ② มีตารางแล้ว และอัปเดต `docs/frontend/account.md` ใน PR เดียวกัน
+>
+> | field | ค่าชั่วคราวตอนนี้ | ค่าตาม spec |
+> |---|---|---|
+> | `user_type` ของ Company / Share | `""` | ประเภทย่อย เช่น `COMPANY_TRANSFER` (ACC-12) |
+> | `currencies` | ครบ 27 สกุลทุกบัญชี | เฉพาะสกุลของบัญชี (ACC-12) |
+> | `balances` | 27 รายการ `amount: 0.00` | ยอดจริงจาก `agent_balances` (ACC-19) |
+> | `pt` · `status_game` | `{}` | ค่าหุ้นส่วนต่อกลุ่ม และเปิด / ปิดทีละเกม (ACC-16) |
+> | `permissions` | ทุกเมนูของประเภทเป็น `off` | บัญชีหลัก `edit` ทุกเมนู · sub ตามที่เจ้าของให้ (ACC-12) |
+> | ADMIN | `currencies` / `balances` = `[]` · `permissions` = `{}` | เหมือนเดิม |
+>
+> 1.3 ข้อมูลรับรอง API: มี config, migration, เข้ารหัส Key, validation, repository และ DTO แล้ว · service / route รอ `agent_type` ของ module ② (ACC-01)
+
 **ไม่อยู่ใน module นี้:** การเก็บและย้ายยอดเงิน (module การชำระเงิน — Profile แค่อ่านยอดมาแสดง ACC-19) ·
 การใช้ Key / IP / ลิงก์ตอนลูกค้าเรียก API (module provider `app/externals/provider`)
 
