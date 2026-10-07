@@ -92,3 +92,13 @@ func CreateSubaccountRepository(db *gorm.DB, s *models.Subaccount) error {
 	}
 	return err
 }
+
+// GetSubaccountPermissionsRepository — สิทธิ์ของ sub เป็น JSON (MGMT-50) · ไม่พบคืน apperr.ErrNotFound
+func GetSubaccountPermissionsRepository(db *gorm.DB, id uint) (string, error) {
+	var s models.Subaccount
+	err := db.Select("id", "permissions").Where("id = ?", id).Take(&s).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", apperr.ErrNotFound
+	}
+	return s.Permissions, err
+}
