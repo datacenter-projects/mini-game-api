@@ -64,7 +64,7 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 |---|---|
 | image | `ghcr.io/datacenter-projects/minigame-api:<tag>` |
 | entrypoint | `/app/apiserver` (ค่า default ของ image) |
-| port | `8181` (HTTP) |
+| port | `8181` (HTTP API), `9090` (Prometheus `/metrics` ภายใน cluster — ดู [Monitoring](#monitoring-prometheus)) |
 | user | non-root uid `10001` — ตั้ง `securityContext.runAsNonRoot: true`, `runAsUser: 10001`, `allowPrivilegeEscalation: false` (เปิด `readOnlyRootFilesystem: true` ได้ เพราะ app ไม่เขียนไฟล์) |
 | liveness probe | `GET /health/live` :8181 — เช็คแค่ว่า process ตอบได้ |
 | readiness probe | `GET /health/ready` :8181 — ping Postgres + Redis ไม่พร้อมได้ 503 |
@@ -81,6 +81,7 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 |---|---|
 | `APP_ENV` | `dev` / `prod` |
 | `SERVER_ADDR` | `:8181` |
+| `METRICS_ADDR` | `:9090` (default) — ค่าว่าง = ปิด metrics ต้องไม่ซ้ำกับ `SERVER_ADDR` |
 | `TRUSTED_PROXIES` | CIDR ของ ingress/LB คั่นด้วย `,` — ว่าง = ไม่เชื่อ `X-Forwarded-For` (IP ที่ log และ rate limit จะเป็น IP ของ proxy) |
 | `CORS_ALLOW_ORIGINS` | domain ของหน้าเว็บ ห้ามใช้ `*` บน prod |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME` | required |
@@ -96,6 +97,59 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 | `MIGRATE_ON_START` | **`false`** (default เมื่อไม่ตั้ง) — migration รันแยกตามข้อถัดไป |
 
 key ที่ required ถ้าขาด app จะไม่ boot (log `missing required env: ...`)
+
+### Monitoring (Prometheus)
+
+app เปิด `/metrics` บน **พอร์ตแยก `9090`** (`METRICS_ADDR`) ไม่ได้อยู่บนพอร์ต API — พอร์ตนี้ไม่มี auth จึงต้องเปิดแค่ภายใน cluster
+
+- k8s Service เพิ่ม port `9090` (ชื่อเช่น `metrics`) ให้ Prometheus scrape ได้
+- **ห้าม** route `9090` ผ่าน Ingress / LoadBalancer — Ingress ชี้ไปพอร์ต `8181` เท่านั้น
+- ตั้ง `METRICS_ADDR` เป็นค่าว่าง = ปิด metrics ทั้งหมด (ไม่เปิดพอร์ต ไม่นับ request)
+
+เลือกวิธี scrape อย่างใดอย่างหนึ่ง
+
+ServiceMonitor (Prometheus Operator)
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: minigame-api
+spec:
+  selector:
+    matchLabels:
+      app: minigame-api
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+```
+
+หรือ annotation บน Pod (Prometheus ที่ใช้ kubernetes_sd + relabel ตาม annotation)
+
+```yaml
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+```
+
+metric ที่มี
+
+| metric | label | หมายเหตุ |
+|---|---|---|
+| `mini_game_api_http_requests_total` (counter) | `method`, `path`, `status` | ชื่อและ label เดียวกับ v1 — dashboard/alert เดิมใช้ต่อได้ |
+| `mini_game_api_http_request_duration_seconds` (histogram) | `method`, `path`, `status` | bucket = Prometheus default |
+| `go_*`, `process_*` | — | Go runtime + process (CPU, memory, fd) |
+| `go_sql_*` | `db_name` = `write` / `read` | stat ของ Postgres pool (`read` มีเมื่อตั้ง `DB_READ_HOST`) |
+| `mini_game_api_redis_pool_{hits,misses,timeouts}_total`, `..._{total,idle}_conns` | — | stat ของ Redis pool |
+
+ข้อควรรู้เรื่อง label ของ HTTP
+
+- `path` เป็น route pattern เช่น `/api/v1/bo/pb/agents/:id` ไม่ใช่ path จริง — path ที่ไม่ตรง route ไหนเป็น `unmatched`, request ที่ middleware ของ group ตอบเอง (เช่น 401) เป็น prefix ของ group
+- `/health/*` ไม่ถูกนับ
+- `status` คือ HTTP status — error ทาง business ตอบ HTTP 200 (ผลอยู่ใน field `code` ของ body) จึงเห็นเป็น 200 ตั้ง alert error rate ด้วย `status=~"5.."`
 
 ### Migration
 

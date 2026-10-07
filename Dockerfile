@@ -13,6 +13,6 @@ ENV TZ=Asia/Bangkok
 WORKDIR /app
 COPY --from=builder /out/ /app/
 USER app
-EXPOSE 8181
+EXPOSE 8181 9090
 HEALTHCHECK --interval=15s --timeout=3s --retries=3 CMD wget -qO- http://127.0.0.1:8181/health/live || exit 1
 ENTRYPOINT ["/app/apiserver"]

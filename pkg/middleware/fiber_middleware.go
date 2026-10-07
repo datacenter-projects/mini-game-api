@@ -16,6 +16,9 @@ import (
 // FiberMiddleware คือ middleware ระดับทั้งระบบ — middleware ของแต่ละ context (auth/สิทธิ์)
 // อยู่ที่ app/internals/{context}/middleware
 func FiberMiddleware(a *fiber.App) {
+	if configs.Cfg.MetricsAddr != "" {
+		a.Use(HTTPMetrics) // ตัวแรกเสมอ (ดู HTTPMetrics)
+	}
 	a.Use(
 		cors.New(cors.Config{AllowOrigins: configs.Cfg.CORSAllowOrigins}),
 		requestid.New(),
@@ -43,6 +46,7 @@ func requestContext(c *fiber.Ctx) error {
 // NotFoundRoute ลงทะเบียนเป็นตัวสุดท้ายเสมอ
 func NotFoundRoute(a *fiber.App) {
 	a.Use(func(c *fiber.Ctx) error {
+		c.Locals(localsUnmatched, true) // ให้ HTTPMetrics ใช้ label path = "unmatched"
 		return response.Error(c, apperr.ErrRouteNotFound)
 	})
 }
