@@ -1,9 +1,8 @@
 name: ci
 
+# push เข้า dev/main ไม่รัน ci — release tag (release.yml) เป็นตัว check ก่อน build image ให้รันรอบเดียวต่อ release
 on:
   pull_request:
-  push:
-    branches: [dev, main]
   workflow_call: # release.yml เรียกก่อน build image — check ไม่ผ่าน = ไม่ push image
 
 permissions:
@@ -34,6 +33,7 @@ jobs:
       DB_SSLMODE: disable
       REDIS_ADDR: localhost:6379
       JWT_SECRET: ci-only-secret-at-least-32-characters-long
+      PASSWORD_COST: "4" # bcrypt MinCost — cost 12 + -race ทำ test เกิน 10 นาที
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -53,4 +53,4 @@ jobs:
           go run ./scripts/migrate reset
           go run ./scripts/migrate up
       - name: test
-        run: go test -race -count=1 -tags=integration ./...
+        run: go test -race -count=1 -timeout 20m -tags=integration ./...

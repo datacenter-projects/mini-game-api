@@ -21,12 +21,14 @@ import (
 	"app/pkg/configs"
 	"app/pkg/middleware"
 	"app/pkg/routes"
+	"app/pkg/utils"
 	"app/platform/database"
 	"app/platform/logger"
 
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var once sync.Once
@@ -42,6 +44,8 @@ func Setup(t *testing.T) *fiber.App {
 		if err := configs.Load(); err != nil {
 			t.Fatalf("config: %v", err)
 		}
+		configs.Cfg.Auth.PasswordCost = bcrypt.MinCost // cost 12 + -race ทำ test ช้าจน timeout
+		utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
 		logger.InitLogger(true)
 		ctx := context.Background()
 		if err := database.PostgreSQLConnection(configs.Cfg.DB); err != nil {

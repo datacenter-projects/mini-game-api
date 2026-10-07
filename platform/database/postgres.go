@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"time"
 
 	"app/pkg/configs"
 
@@ -25,13 +28,22 @@ func dsn(c configs.DBConfig, host string) string {
 }
 
 func PostgreSQLConnection(c configs.DBConfig) error {
+	// log SQL ทุก query เฉพาะ local — env อื่น log แค่ error/slow query และไม่ใส่ค่า parameter
+	// (กัน password_hash, token ฯลฯ หลุดลง log — CLAUDE.md ข้อ 26)
+	local := configs.Cfg.AppEnv == "local"
 	logLevel := gormlogger.Warn
-	if !configs.Cfg.IsProd() {
+	if local {
 		logLevel = gormlogger.Info
 	}
+	gormLog := gormlogger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), gormlogger.Config{
+		SlowThreshold:        200 * time.Millisecond,
+		LogLevel:             logLevel,
+		ParameterizedQueries: !local,
+		Colorful:             local,
+	})
 
 	db, err := gorm.Open(postgres.Open(dsn(c, c.Host)), &gorm.Config{
-		Logger:                 gormlogger.Default.LogMode(logLevel),
+		Logger:                 gormLog,
 		SkipDefaultTransaction: true, // เปิด tx เองที่ service เท่านั้น
 		TranslateError:         true, // ได้ gorm.ErrDuplicatedKey ฯลฯ แทน error string ของ driver
 	})
