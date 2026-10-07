@@ -1,7 +1,7 @@
 # การจัดการสมาชิก (`agent_management`) — Spec
 
-- สถานะ: **DRAFT** (เขียนใหม่ทั้งฉบับ 2026-10-06 ตาม review ของ lead + กฎที่เก็บจากภาพหน้าจอ)
-- อนุมัติโดย: — · วันที่: —
+- สถานะ: **APPROVED**
+- อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
