@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -21,6 +22,9 @@ import (
 // กฎ: repository ห้ามอ้าง DBConn ตรงๆ — รับ db *gorm.DB เป็น param แรกเสมอ
 // service เป็นคนเลือกว่าจะส่ง database.DBConn (อ่านธรรมดา) หรือ tx (ใน Transaction)
 var DBConn *gorm.DB
+
+// readSQL คือ pool ของ read replica (nil เมื่อไม่ตั้ง DB_READ_HOST) — เก็บไว้ให้ SQLPools ส่งไปทำ metrics
+var readSQL *sql.DB
 
 func dsn(c configs.DBConfig, host string) string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=Asia/Bangkok",
@@ -52,11 +56,15 @@ func PostgreSQLConnection(c configs.DBConfig) error {
 	}
 
 	if c.ReadHost != "" {
-		if err := db.Use(dbresolver.Register(dbresolver.Config{
+		resolver := dbresolver.Register(dbresolver.Config{
 			Replicas: []gorm.Dialector{postgres.Open(dsn(c, c.ReadHost))},
 			Policy:   dbresolver.RandomPolicy{},
-		})); err != nil {
+		})
+		if err := db.Use(resolver); err != nil {
 			return fmt.Errorf("register read replica: %w", err)
+		}
+		if readSQL, err = replicaPool(db, resolver); err != nil {
+			return err
 		}
 	}
 
@@ -95,4 +103,39 @@ func ClosePostgreSQL() error {
 		return err
 	}
 	return sqlDB.Close()
+}
+
+// replicaPool หา *sql.DB ของ replica จาก resolver (Call วน source ก่อนแล้วตามด้วย replica)
+func replicaPool(db *gorm.DB, resolver *dbresolver.DBResolver) (*sql.DB, error) {
+	writeSQL, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	var replica *sql.DB
+	_ = resolver.Call(func(p gorm.ConnPool) error {
+		if s, ok := p.(*sql.DB); ok && s != writeSQL {
+			replica = s
+		}
+		return nil
+	})
+	if replica == nil {
+		return nil, errors.New("read replica pool not found")
+	}
+	return replica, nil
+}
+
+// SQLPools คืน connection pool ทั้งหมด (key = ชื่อที่ใช้เป็น label db_name ใน metrics)
+func SQLPools() (map[string]*sql.DB, error) {
+	if DBConn == nil {
+		return nil, errors.New("postgres not connected")
+	}
+	writeSQL, err := DBConn.DB()
+	if err != nil {
+		return nil, err
+	}
+	pools := map[string]*sql.DB{"write": writeSQL}
+	if readSQL != nil {
+		pools["read"] = readSQL
+	}
+	return pools, nil
 }

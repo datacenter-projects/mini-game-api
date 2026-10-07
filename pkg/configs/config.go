@@ -20,6 +20,9 @@ type Config struct {
 	TrustedProxies     []string
 	CORSAllowOrigins   string
 
+	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
+	MetricsAddr string
+
 	DB    DBConfig
 	Redis RedisConfig
 	Auth  AuthConfig
@@ -93,6 +96,7 @@ func Load() error {
 		ShutdownTimeout:    getEnvDuration("SHUTDOWN_TIMEOUT", 30*time.Second),
 		TrustedProxies:     getEnvList("TRUSTED_PROXIES"),
 		CORSAllowOrigins:   getEnv("CORS_ALLOW_ORIGINS", "*"),
+		MetricsAddr:        getEnvOrEmpty("METRICS_ADDR", ":9090"),
 
 		DB: DBConfig{
 			Host:            required("DB_HOST"),
@@ -139,6 +143,9 @@ func Load() error {
 	if cfg.Auth.PasswordCost < 4 || cfg.Auth.PasswordCost > 14 {
 		return fmt.Errorf("PASSWORD_COST must be between 4 and 14")
 	}
+	if cfg.MetricsAddr != "" && cfg.MetricsAddr == cfg.ServerAddr {
+		return fmt.Errorf("METRICS_ADDR must differ from SERVER_ADDR")
+	}
 	if cfg.Auth.SessionIdleTimeout > cfg.Auth.SessionAbsoluteTimeout {
 		return fmt.Errorf("SESSION_IDLE_TIMEOUT must not exceed SESSION_ABSOLUTE_TIMEOUT")
 	}
@@ -150,6 +157,14 @@ func (c *Config) IsProd() bool { return c.AppEnv == "prod" }
 
 func getEnv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// ต่างจาก getEnv ตรงที่ตั้งเป็นค่าว่างได้ (ไม่ตั้ง key = default, ตั้งเป็นว่าง = ว่าง)
+func getEnvOrEmpty(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
 	return def

@@ -9,7 +9,7 @@
 
 ```
 HTTP request
-  → pkg/middleware (global: cors, requestid, recover, logger)
+  → pkg/middleware (global: metrics, cors, requestid, recover, logger)
   → app/internals/{context}/routes.go  (group + middleware ต่อ route)
   → app/internals/{context}/controllers/{module}/xxx_controller.go
   → app/service/{module}/xxx_service.go        ← business logic + transaction
@@ -50,7 +50,8 @@ pkg/
 └── utils/                             # ParseBody, ParsePage, ...
 platform/
 ├── database/                          # DBConn (postgres), DBRedis, Migrate
-└── logger/                            # zap + logger.Ctx(ctx)
+├── logger/                            # zap + logger.Ctx(ctx)
+└── metrics/                           # Prometheus registry + server /metrics (METRICS_ADDR) — metric ทุกตัวลงทะเบียนที่นี่
 database/migrations/                   # goose .sql
 scripts/                               # migrate, check_structure.sh, งาน ops
 docs/                                  # เอกสารที่อนุมัติแล้วเท่านั้น
