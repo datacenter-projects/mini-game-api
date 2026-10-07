@@ -53,6 +53,7 @@
 | | • บัญชีตัวเองถูกล็อก · หัวสาย ACTIVE → ลูก `status = LOCKED` เข้าใช้งานไม่ได้ · **หัวสายใช้งานได้ปกติ** (สถานะของลูกไม่ส่งผลขึ้นไปข้างบน) |
 | | • Company ระงับ Share → Share และ Agent / Member ใต้ Share `status = SUSPENDED` · Company ยัง `ACTIVE` |
 | ACC-31 | การเข้าใช้งานตัดสินจาก `status` (ACC-30): `ACTIVE` ใช้งานได้ปกติ · `SUSPENDED` เข้าได้**เฉพาะหน้า Profile และ Report** และดูได้อย่างเดียว · `LOCKED` เข้าใช้งานไม่ได้เลย (AUTH-27) — บังคับทุก module ที่ middleware กลาง (AUTH-54) |
+| ACC-32 | **ไม่มี `null` ใน API (ใช้ทุก module)**: response — ข้อความที่ไม่มีค่า = `""` · ตัวเลขที่ไม่มีค่า = `0` · รายการว่าง = `[]` · object ว่าง = `{}` · request — ห้ามส่ง `null` (ส่ง = `422` msg บอก field) · ข้อความที่จะเว้นว่างส่ง `""` · ใน DB เก็บ `NULL` ได้ตามปกติ แปลงที่ขอบระบบ |
 
 ### Dashboard (1.1)
 
@@ -65,7 +66,7 @@
 | ACC-24 | การ์ด (ชนิดของค่าในวงเล็บ — **จำนวน** = จำนวนเต็ม · **เงิน** = จำนวนเงินในสกุลที่เลือก): สมาชิกที่กำลังใช้งาน (จำนวนคน) · สมาชิกที่สมัครใหม่ (จำนวนคน) · สมาชิกทั้งหมด (จำนวนคน) · ยอดเล่นทั้งหมด (จำนวนครั้ง) · ยอดเล่นที่ถูกรางวัล (จำนวนครั้ง) · ยอดเล่นจริง (เงิน) · ยอดเล่นทั้งหมดตาม PT (เงิน) · ยอดถูกรางวัลตาม PT (เงิน) · ยอดแพ้ / ชนะตาม PT (เงิน) · Commission ที่ได้ (เงิน) · Commission ที่จ่าย (เงิน) · รายได้ (เงิน) · ทุกการ์ด (ยกเว้นสมาชิกที่กำลังใช้งาน) แสดง % เปลี่ยนแปลงเทียบช่วงก่อนหน้าที่ยาวเท่ากัน |
 | ACC-25 | "ตาม PT" = ยอดคูณ PT ที่**คนที่ login ถือ** (ค่า ณ ตอน bet) · **รายได้** = ยอดแพ้ / ชนะตาม PT + Commission ที่ได้ − Commission ที่จ่าย (สูตร Commission ตามเอกสาร PT Commission ของ lead) |
 | ACC-26 | ตาราง Top 10 สมาชิกในสาย: ยอดเล่นมากสุด · ยอดถูกมากสุด · ยอดเสียมากสุด (ลำดับ, username, จำนวนเงิน) |
-| ACC-27 | ตัวเลขตาม ACC-18: เงินและ % ใน JSON เป็น number (เงินทศนิยม 2 ตำแหน่ง · % ทศนิยม 2 ตำแหน่ง) ภายในเป็นจำนวนเต็ม · ช่วงก่อนหน้าเป็น 0 → `change_pct = null` |
+| ACC-27 | ตัวเลขตาม ACC-18: เงินและ % ใน JSON เป็น number (เงินทศนิยม 2 ตำแหน่ง · % ทศนิยม 2 ตำแหน่ง) ภายในเป็นจำนวนเต็ม · ช่วงก่อนหน้าเป็น 0 → `change_pct = 0` |
 
 ### Profile (1.2)
 
@@ -90,7 +91,7 @@
 | ACC-03 | Key สร้างอัตโนมัติ 1 ค่าต่อเจ้าของ: สุ่ม 32 byte ด้วย `crypto/rand` แสดงเป็น hex ตัวพิมพ์เล็ก 64 ตัว · **สร้างใหม่ไม่ได้** · ใช้ทั้งระบุตัวและคำนวณ `sign` |
 | ACC-04 | Key ดูซ้ำได้ (ปุ่มคัดลอก) → เก็บแบบเข้ารหัส AES-256-GCM ที่ถอดกลับได้ (ไม่ใช่ hash) + `sha256(Key)` ไว้ค้นตอนลูกค้าเรียก API · response ใส่ `Cache-Control: no-store` · ห้าม log Key |
 | ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่ยังไม่มี Key สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
-| ACC-06 | ลิงก์ตอบกลับ: ต้องเป็น URL `https://` ที่มี host · ยาวไม่เกิน 500 ตัว · เว้นว่างได้ (= ยังไม่ตั้ง): ส่ง `null` หรือ `""` (ตัดช่องว่างแล้วว่าง) → เก็บเป็น `NULL` · response ส่ง `null` · ไม่ส่ง field = `422` (บันทึกแทนทั้งชุด — ACC-08) |
+| ACC-06 | ลิงก์ตอบกลับ: ต้องเป็น URL `https://` ที่มี host · ยาวไม่เกิน 500 ตัว · เว้นว่างได้ (= ยังไม่ตั้ง): ส่ง `""` (ตัดช่องว่างแล้วว่าง) → เก็บเป็น `NULL` · response ส่ง `""` · ส่ง `null` = `422` (ACC-32) · ไม่ส่ง field = `422` (บันทึกแทนทั้งชุด — ACC-08) |
 | ACC-07 | IP ที่อนุญาต: IPv4 หรือช่วง CIDR ของ IPv4 (IP เดี่ยวเก็บเป็น `/32`) · ไม่เกิน **50** รายการ · ห้ามซ้ำ · **ไม่มีเลย = ลูกค้าเรียก API ของเราไม่ได้** |
 | ACC-08 | บันทึก = แทนทั้งชุด (ลิงก์ + รายการ IP) · ต้องส่ง `passcode` ของผู้กด (`RequirePasscode`) · tx + `SELECT ... FOR UPDATE` แถว credential |
 | ACC-09 | ทุกการบันทึกเก็บประวัติ `api_credential_logs` (ผู้แก้, ลิงก์เก่า → ใหม่, IP เก่า → ใหม่, ip, request_id, เวลา) ใน tx เดียวกัน · ห้ามเก็บ Key ในประวัติ |
@@ -130,7 +131,7 @@ Response `data`:
     "win_count":        { "value": 2100, "change_pct": 1.2 },
     "bet_amount":       { "value": 987654.00, "change_pct": 4.0 },
     "bet_amount_pt":    { "value": 98765.40, "change_pct": 4.0 },
-    "win_amount_pt":    { "value": 80000.00, "change_pct": null },
+    "win_amount_pt":    { "value": 80000.00, "change_pct": 0 },
     "win_loss_pt":      { "value": 18765.40, "change_pct": 12.5 },
     "commission_received": { "value": 1200.00, "change_pct": 3.0 },
     "commission_paid":     { "value": 800.00, "change_pct": -1.0 },
@@ -149,7 +150,7 @@ Response `data`:
 | `bet_amount_pt` · `win_amount_pt` · `win_loss_pt` | ยอดเล่นทั้งหมด / ถูกรางวัล / แพ้ชนะ ตาม PT | เงิน |
 | `commission_received` · `commission_paid` · `income` | Commission ที่ได้ · ที่จ่าย · รายได้ (ACC-25) | เงิน |
 
-- จำนวนเงินและ `change_pct` เป็น JSON number ตาม ACC-18 (ภายในเป็นจำนวนเต็ม) · `change_pct` = `null` เมื่อช่วงก่อนหน้าเป็น 0
+- จำนวนเงินและ `change_pct` เป็น JSON number ตาม ACC-18 (ภายในเป็นจำนวนเต็ม) · `change_pct` = `0` เมื่อช่วงก่อนหน้าเป็น 0 (ไม่มี `null` — ACC-32)
 - `period`: ส่ง `month` = เดือนนั้น · ไม่ส่ง = 1 ม.ค. – 31 ธ.ค. ของ `year`
 
 Error codes: `422` (`year` / `month` ผิดรูปแบบ · ไม่ส่ง `currency` หรือเป็นสกุลที่บัญชีไม่มี · `game` ไม่มีในระบบ — msg บอก field) · `402303` (sub ไม่มีสิทธิ์)
@@ -187,7 +188,7 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
 - `pt.game`: ได้รับ 90 (`pt_from_parent` — ผู้สร้างตั้ง) · ถือจาก Member ของตัวเอง 20 (`pt` — ตั้งเอง) · `status = true` เปิดทั้งกลุ่ม · `status_game` เปิด / ปิดทีละเกม
 - `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` ·
   `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT`
-- `owner_username` = `null` เมื่อไม่ใช่ sub · `last_login_*` = `null` ถ้ายังไม่เคยบันทึก
+- `owner_username` = `""` เมื่อไม่ใช่ sub · `last_login_*` = `""` ถ้ายังไม่เคยบันทึก (ACC-32)
 - ค่า % (`pt`, `pt_from_parent`, `force`, `remain_quota`, `commission_percent`) เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง — ภายในเก็บเป็นจำนวนเต็ม (ACC-18)
 - กลุ่ม PT, รหัสเกม, รายการสกุล (27 สกุล) และชื่อสิทธิ์ ใช้ตามที่ module ② กำหนด (ค่าในตัวอย่างเป็นแค่รูปแบบ)
 - `balances` ตาม ACC-19 (ยอดจริงจาก `agent_balances`)
@@ -206,7 +207,7 @@ Response `data` (header `Cache-Control: no-store`):
   "allowed_ips": ["203.0.113.10/32", "198.51.100.0/24"]
 }
 ```
-`callback_url` = `null` เมื่อยังไม่ตั้ง · `allowed_ips` = `[]` เมื่อยังไม่มี
+`callback_url` = `""` เมื่อยังไม่ตั้ง · `allowed_ips` = `[]` เมื่อยังไม่มี
 
 Error codes: `403301` · `402303` (sub ไม่มีสิทธิ์)
 
@@ -222,7 +223,7 @@ Request:
 ```
 Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`)
 
-- `callback_url`: `null` หรือ `""` = ไม่ตั้ง (ACC-06)
+- `callback_url`: `""` = ไม่ตั้ง · ส่ง `null` = `422` (ACC-06 · ACC-32)
 
 Error codes: `422` (ไม่ส่ง field · ลิงก์ไม่ใช่ https / ยาวเกิน · IP ผิดรูปแบบ · เกิน 50 รายการ · IP ซ้ำ — msg บอก field และรายการ),
 `403301`, `401204`, `401205` · `402303` (sub ไม่มีสิทธิ์)
@@ -283,10 +284,10 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-21 | Company A ดู dashboard | นับเฉพาะ Member ในสาย A |
 | ACC-22 | `currency` ที่บัญชีไม่มี / ไม่ส่ง · `month = 13` · ไม่ส่ง `year` | `422` |
 | ACC-22 | ไม่ส่ง `month` | `period` = ทั้งปีของ `year` |
-| ACC-24 | ช่วงก่อนหน้ามียอด 0 | `change_pct = null` |
+| ACC-24 | ช่วงก่อนหน้ามียอด 0 | `change_pct = 0` |
 | ACC-25 | Member แพ้ 1,000 · คนที่ login ถือ 20% | `win_loss_pt` บวก 200 · `income` = `win_loss_pt` + `commission_received` − `commission_paid` |
 | ACC-26 | Member ในสาย 15 คน | Top 10 แต่ละตารางมี 10 แถว เรียงจากมากไปน้อย |
-| ACC-11 | Agent / SUPERADMIN / ADMIN เรียก profile | ข้อมูลของตัวเอง · `is_subaccount = false` · `owner_username = null` |
+| ACC-11 | Agent / SUPERADMIN / ADMIN เรียก profile | ข้อมูลของตัวเอง · `is_subaccount = false` · `owner_username = ""` |
 | ACC-11 | ยังไม่ตั้ง passcode เรียก profile | `401304` (ด่านหลัง login) |
 | ACC-12 | ผู้สร้างของ sub เป็น SUSPENDED | sub ได้ `status = SUSPENDED` · ไม่มี field `effective_status` |
 | ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt.game.pt = 0` (ล็อก — module ② MGMT-19) · `pt.game.pt_from_parent` = ค่าที่ Superadmin ให้ |
@@ -311,7 +312,8 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-04 | GET ซ้ำ | Key เดิม · header `Cache-Control: no-store` · DB ไม่มี Key แบบ plain |
 | ACC-05 | GET พร้อมกัน 2 คำขอครั้งแรก | ได้ Key เดียวกันทั้งคู่ · มี credential 1 แถว |
 | ACC-06 | `http://...` / `ftp://...` / `https://` ไม่มี host / ยาว 501 | `422` |
-| ACC-06 | `callback_url` = `null` / `""` / `"   "` | สำเร็จ · GET ได้ `null` |
+| ACC-06 | `callback_url` = `""` / `"   "` | สำเร็จ · GET ได้ `""` |
+| ACC-32 | `callback_url` = `null` | `422` |
 | ACC-06 | ไม่ส่ง field `callback_url` | `422` |
 | ACC-07 | `2001:db8::1` / `300.1.1.1` / `1.2.3.4/33` | `422` |
 | ACC-07 | 51 รายการ / IP ซ้ำ (`1.2.3.4` กับ `1.2.3.4/32`) | `422` |
@@ -324,9 +326,10 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 
 - เส้นใหม่ 4 เส้นตามหัวข้อ 5
 - สถานะส่ง key เดียว `status` = สถานะที่ใช้งานจริง (ACC-30) · ไม่มี `effective_status`
+- **ไม่มี `null` ใน API** (ACC-32): ข้อความว่าง = `""` · ตัวเลขว่าง = `0` · request ส่ง `null` = `422`
 - Profile มี `user_type`, `currencies`, `balances`, `pt` (ชุดเดียวต่อกลุ่ม — รวม `pt_from_parent` ในกลุ่ม), `status_game` (ต่อเกม แยกจาก `pt`), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
 - Dashboard: `month` ไม่บังคับ (ไม่ส่ง = ทั้งปี) · เพิ่มการ์ด `commission_received`, `commission_paid`, `income`
-- หน้า 1.3 แสดงเฉพาะ Company Seamless 1 to 1 / Share Master / Share Reseller และ sub ที่ได้รับสิทธิ์ · `callback_url` ว่างส่ง `null` หรือ `""`
+- หน้า 1.3 แสดงเฉพาะ Company Seamless 1 to 1 / Share Master / Share Reseller และ sub ที่ได้รับสิทธิ์ · `callback_url` ว่างส่ง `""`
 - `balances` ส่งยอดจริงจาก `agent_balances` · `permissions` เป็น object `{ menu: off | view | edit }`
 
 ## 9. การตัดสินใจ (2026-10-05)
@@ -348,7 +351,8 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
    - รวม `status` / `effective_status` เป็น key เดียว `status` = สถานะที่ใช้งานจริง (ACC-30) · ใช้ทั้งระบบรวม module ②
    - Dashboard: เพิ่มการ์ดรายได้และ Commission · `month` ไม่บังคับ · ระบุ error และชนิดของการ์ด · `currency` ต้องเป็นสกุลที่บัญชีมี
    - ตัด `403302` — middleware กลาง (AUTH-54) กันก่อนถึง logic เสมอ · error สิทธิ์ของ sub ใช้ `402303`
-   - `callback_url` ว่าง: รับ `null` / `""` เก็บเป็น `NULL`
+   - `callback_url` ว่าง: ส่ง `""` เก็บเป็น `NULL`
+   - (2026-10-07) ไม่มี `null` ใน API ทั้งระบบ (ACC-32) · `change_pct` ไม่มีช่วงก่อนหน้า = `0`
    - (review module ② 2026-10-07) `permissions` เป็น object `{ menu: off | view | edit }` · `balances` ส่งยอดจริงจาก `agent_balances` (module ② MGMT-15A)
    - (คุยกับ lead 2026-10-06) `pt_from_parent` อยู่ในกลุ่ม `pt` · เพิ่ม `status` ของกลุ่ม · ผู้สร้างตั้งค่าที่ให้ลูกแต่ละคนแยกกัน และบัญชีตั้งค่าถือ `pt` ของตัวเอง (module ② MGMT-22)
 6. **Error code** (module `account` = `bb=03`) — business error ตอบ HTTP 200
