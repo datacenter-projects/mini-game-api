@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"app/pkg/response"
 	"app/platform/database"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,4 +34,10 @@ func ReadyController(c *fiber.Ctx) error {
 		status = fiber.StatusServiceUnavailable
 	}
 	return c.Status(status).JSON(fiber.Map{"ready": ready, "checks": checks})
+}
+
+// RootController — GET/HEAD / ให้ load balancer / uptime check และคนเปิด domain ได้ 200
+// ห้ามใส่ version, commit, env หรือ hostname ใน body · k8s probe ยังใช้ /health/live และ /health/ready
+func RootController(c *fiber.Ctx) error {
+	return response.OK(c, nil)
 }
