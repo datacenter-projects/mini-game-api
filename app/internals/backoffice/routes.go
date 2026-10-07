@@ -11,7 +11,9 @@ package backoffice
 
 import (
 	agentAuthCore "app/app/core/agent_auth"
+	agentManagementCore "app/app/core/agent_management"
 	agentAuthController "app/app/internals/backoffice/controllers/agent_auth"
+	agentManagementController "app/app/internals/backoffice/controllers/agent_management"
 	mw "app/app/internals/backoffice/middleware"
 	"app/app/models"
 
@@ -39,4 +41,10 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/auth/password/change", mw.PassedGates(agentAuthCore.GateChangePassword), mw.RequirePasscodeUnlessMustChangePassword(), agentAuthController.ChangePasswordController)
 	pr.Post("/admin/passcode/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasscodeController)
 	pr.Post("/admin/password/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasswordController)
+
+	// agent_management — docs/modules/agent_management.md หัวข้อ 5 · payment = edit เมื่อส่ง balance ตรวจใน service (MGMT-51)
+	memberEdit := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelEdit)
+	ptEdit := mw.RequirePermission(agentManagementCore.MenuPT, agentManagementCore.LevelEdit)
+	pr.Post("/manage/agents", mw.PassedGates(), memberEdit, ptEdit, agentManagementController.CreateAgentController)
+	pr.Post("/manage/members", mw.PassedGates(), memberEdit, ptEdit, agentManagementController.CreateMemberController)
 }

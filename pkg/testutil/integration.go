@@ -32,7 +32,9 @@ import (
 var once sync.Once
 
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
-var tables = []string{"auth_audit_logs", "subaccounts", "user_agents"}
+var tables = []string{"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests",
+	"member_balances", "member_game_settings", "members", "agent_balances", "agent_game_settings", "agent_currencies",
+	"subaccounts", "user_agents"}
 
 // Setup ต่อ DB/Redis ตาม env (ครั้งเดียวต่อ package), รัน migration, คืน fiber app ที่ประกอบ route จริง
 // และล้างข้อมูลทั้งหมดหลัง test จบ — test ที่ใช้ helper นี้ห้ามรัน t.Parallel()
