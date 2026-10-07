@@ -62,7 +62,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-05 | username (ฝั่ง agent และ Member): 3–32 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่แล้วแปลงเป็นเล็ก — AUTH-01) · **ห้ามซ้ำทั้งระบบ** ข้ามตาราง `user_agents` และ `members` (เช็คใน service ภายใน tx พร้อม `pg_advisory_xact_lock` ของ username กันสร้างพร้อมกัน) · แก้ไม่ได้ (AUTH-19) |
 | MGMT-06 | รหัสผ่านตาม AUTH-36 · ฝั่ง agent ตั้ง passcode ตอน login ครั้งแรก (AUTH-29) |
 | MGMT-07 | ชื่อ: บังคับ · 3–32 ตัว `A-Z` `a-z` `0-9` |
-| MGMT-08 | เบอร์โทร: ไม่บังคับ · 8–15 ตัว ตัวเลขเท่านั้น (ห้าม `+`) · ห้ามซ้ำภายในตารางเดียวกัน (unique index ต่อตาราง) |
+| MGMT-08 | เบอร์โทร: ไม่บังคับ (ไม่กรอกส่ง `""` · ห้าม `null` — account ACC-32) · 8–15 ตัว ตัวเลขเท่านั้น (ห้าม `+`) · ห้ามซ้ำภายในตารางเดียวกัน (unique index ต่อตาราง) |
 | MGMT-09 | แก้ได้: ชื่อ · เบอร์โทร · สถานะ (MGMT-30) · ค่าหุ้นส่วนและเปิด / ปิดเกม (MGMT-20) · แก้ไม่ได้: username · ประเภท · สกุลเงิน · ไม่มีการลบบัญชีฝั่ง agent และ Member |
 | MGMT-09A | แก้ไข Member ได้: ชื่อ · เบอร์โทร · สถานะ · Commission (แต่ละอย่างใช้เส้นของตัวเอง — หัวข้อ 5) |
 
@@ -267,7 +267,7 @@ Response `data` (`response.Page`) แต่ละแถว:
 }
 ```
 - `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้หัวสายของ share01 ถูกระงับ
-- แถว Member: `role = "MEMBER"` · `pt` มีแค่ `commission_percent` · `phone` = `null` เมื่อไม่ได้ตั้ง
+- แถว Member: `role = "MEMBER"` · `pt` มีแค่ `commission_percent` · `phone` = `""` เมื่อไม่ได้ตั้ง (ไม่มี `null` — account ACC-32)
 - `balances` อ่านจาก `agent_balances` / `member_balances` (MGMT-15A · account ACC-19) · สกุลที่ไม่มียอด และบัญชี Seamless = `0`
 
 Error codes: `402402`
@@ -304,7 +304,7 @@ Error codes: `402402`
 
 ### POST /api/v1/bo/pr/manage/agents/:id/info · /manage/members/:id/info
 
-Request: `{ "name": "share01", "phone": null }` · Response: ไม่มี `data` · Error codes: `422`, `402304`, `402402`, `402403`
+Request: `{ "name": "share01", "phone": "" }` (`""` = ไม่ตั้ง · ส่ง `null` = `422`) · Response: ไม่มี `data` · Error codes: `422`, `402304`, `402402`, `402403`
 
 ### POST /api/v1/bo/pr/manage/agents/:id/status · /manage/members/:id/status
 
@@ -350,15 +350,15 @@ Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", 
   "id": 30,
   "username": "comp01@staff",
   "name": "staff01",
-  "phone": null,
+  "phone": "",
   "status": "ACTIVE",
   "permissions": {
     "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
     "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
   },
   "created_at": "2026-10-06T12:26:43+07:00",
-  "last_login_at": null,
-  "last_login_ip": null
+  "last_login_at": "",
+  "last_login_ip": ""
 }
 ```
 
@@ -368,7 +368,7 @@ Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", 
   "name_suffix": "Staff",
   "password": "••••••••",
   "name": "staff01",
-  "phone": null,
+  "phone": "",
   "permissions": { "dashboard": "view", "member": "edit", "pt": "view", "report": "view" }
 }
 ```
@@ -536,6 +536,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-12 | Share B2B ไม่ส่งสกุล · Share B2C ส่ง 2 สกุล | `422` |
 | MGMT-14 | Agent ใต้ Share B2B (THB, USD) เลือก JPY | `402310` |
 | MGMT-17 | ส่ง `"force": null` | `422` |
+| ACC-32 | ส่ง `"phone": null` · รายละเอียดของบัญชีที่ไม่มีเบอร์ / ไม่เคย login | `422` · response `"phone": ""` · `"last_login_at": ""` |
 | MGMT-18 | ถือ `30.25` (ไม่ลง 0.5%) · commission `1.01` · ถือ `30.123` (ทศนิยมเกิน 2) | `422` |
 | MGMT-18 | ได้รับ 80 · ให้ลูก `80.5` · ตั้ง `pt` ของตัวเอง `80.5` | `402305` |
 | MGMT-18 | ผู้สร้างมี commission 0.5% ตั้งให้ลูก 0.6% | สำเร็จ |
@@ -589,6 +590,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 
 - เส้นทั้งหมดในหัวข้อ 5 เป็นเส้นใหม่
 - ค่า % ส่งเป็น JSON number (ACC-18) อยู่ใน object `pt` แยกกลุ่ม · ห้าม `null` · ไม่ตั้ง = `0`
+- **ไม่มี `null` ใน API** (account ACC-32): ข้อความว่าง = `""` · ตัวเลขว่าง = `0` · request ส่ง `null` = `422`
 - สิทธิ์ของ sub ส่งเป็น object `{ "{menu}": "off" | "view" | "edit" }` (รวม Profile — account ACC-12)
 - ใช้แค่ method `GET` และ `POST` · ไม่มีเส้นลบ sub (ใช้สถานะ `INACTIVE`)
 - เส้นสร้างรับ `request_id` (บังคับ) และ `balance` (ไม่บังคับ — ยอดเงินตั้งต้น)
