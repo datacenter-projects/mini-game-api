@@ -79,11 +79,11 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-13 | Agent ที่ Share B2B สร้าง: 1 สกุล · Agent ที่ Share B2C / Reseller / Master หรือ Agent สร้าง และ Member: ใช้สกุลของผู้สร้าง (ไม่ต้องส่ง) |
 | MGMT-14 | สกุลที่เลือกต้องอยู่ในสกุลของผู้สร้าง · เปลี่ยนหลังสร้างไม่ได้ |
 | MGMT-15 | บัญชีฝั่ง Seamless ทุกชั้น (Company Seamless ทุกประเภท และสายล่าง) ไม่มียอดเงิน · ส่ง `balance` ตอนสร้าง = `422` |
-| MGMT-15A | **ยอดเงินตั้งต้นตอนสร้าง** (`balance` ในเส้นสร้าง · ไม่บังคับ · บัญชีฝั่ง Transfer เท่านั้น): ต่อสกุล · ต้องเป็นสกุลของบัญชีใหม่ · มากกว่า 0 · ทศนิยมไม่เกิน 2 ตำแหน่ง · **โอนจากยอดของผู้สร้าง** ในสกุลเดียวกัน (ผู้สร้างลด · บัญชีใหม่เพิ่ม) · ยอดผู้สร้างไม่พอ = ปฏิเสธทั้งคำสั่ง (`402312`) || | • ทำตามกฎเงิน: สร้างบัญชี + โอนใน **transaction เดียวกัน** · lock แถวยอดของผู้สร้างก่อนอ่าน (`FOR UPDATE` เรียงตาม id) · ledger ทั้งสองฝั่งใน tx เดียวกัน (กฎข้อ 10–11) || | • กันยิงซ้ำ: ส่ง `request_id` จากหน้าบ้าน (unique ใน DB) · ส่งซ้ำด้วย `request_id` เดิม = ได้ผลเดิม ไม่สร้างซ้ำ ไม่โอนซ้ำ (กฎข้อ 12) || | • ❓ passcode: lead บอกว่ารายการเกี่ยวกับเงินต้องยืนยัน passcode แต่การสร้างบัญชีไม่ต้อง — ส่ง `balance` แล้วต้องส่ง `passcode` ด้วยไหม || | • ❓ ยอดของ Superadmin มาจากไหน (เติมเอง / ไม่จำกัด) || | • ตารางยอดเงินและ ledger เป็นของ module การชำระเงิน — ออกแบบขั้นต่ำไว้ในหัวข้อ 6 ให้ module นั้นใช้ต่อ |
+| MGMT-15A | **ยอดเงินตั้งต้นตอนสร้าง** (`balance` ในเส้นสร้าง · ไม่บังคับ · บัญชีฝั่ง Transfer เท่านั้น): ต่อสกุล · ต้องเป็นสกุลของบัญชีใหม่ · มากกว่า 0 · ทศนิยมไม่เกิน 2 ตำแหน่ง · **โอนจากยอดของผู้สร้าง** ในสกุลเดียวกัน (ผู้สร้างลด · บัญชีใหม่เพิ่ม) · ยอดผู้สร้างไม่พอ = ปฏิเสธทั้งคำสั่ง (`402312`) |
 | | • ทำตามกฎเงิน: สร้างบัญชี + โอนใน **transaction เดียวกัน** · lock แถวยอดของผู้สร้างก่อนอ่าน (`FOR UPDATE` เรียงตาม id) · ledger ทั้งสองฝั่งใน tx เดียวกัน (กฎข้อ 10–11) |
 | | • กันยิงซ้ำ: ส่ง `request_id` จากหน้าบ้าน (unique ใน DB) · ส่งซ้ำด้วย `request_id` เดิม = ได้ผลเดิม ไม่สร้างซ้ำ ไม่โอนซ้ำ (กฎข้อ 12) |
 | | • **ไม่ต้องยืนยัน passcode** แม้ส่ง `balance` (ตัดสิน 2026-10-07) |
-| | • ❓ ยอดของ Superadmin มาจากไหน (เติมเอง / ไม่จำกัด) |
+| | • **Superadmin วงเงินไม่จำกัด** (ยืนยัน 2026-10-07): ให้ยอดเงินตั้งต้นกับ Company ได้เท่าไรก็ได้ · ไม่มียอดของตัวเองให้หัก ไม่มีเส้นเติมเงิน · ledger บันทึกเฉพาะฝั่งที่ได้รับ (`reason = INITIAL_FROM_SUPERADMIN`) · Profile ของ Superadmin `balances` ส่ง `0` (ไม่มีแถวยอด — account ACC-19) |
 | | • ตารางยอดเงินและ ledger เป็นของ module การชำระเงิน — ออกแบบขั้นต่ำไว้ในหัวข้อ 6 ให้ module นั้นใช้ต่อ |
 
 ### ค่าหุ้นส่วน (PT · Force · Remain · Commission)
@@ -171,9 +171,9 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 |---|---|
 | MGMT-50 | สิทธิ์ต่อเมนู ระดับ `off` (เข้าไม่ได้) / `view` (ดูอย่างเดียว) / `edit` (ดูและแก้) · **ไม่ติ๊ก = `off`** · บัญชีหลักได้ `edit` ทุกเมนูที่ประเภทนั้นมี · sub ได้ตามที่เจ้าของให้ · รูปแบบใน API เป็น object `{ "{menu}": "off" \| "view" \| "edit" }` ทั้ง request และ response (รวม Profile — account ACC-12) |
 | MGMT-51 | เช็คด้วย middleware แยก `RequirePermission(menu, level)` บรรทัดเดียวกับ route (กฎข้อ 28) · route ของ admin ใช้ middleware แยก `RequireRole(ADMIN)` (AUTH-44) · เมนู: |
-| | `dashboard` (off / view) — account 1.1 · `account` — account 1.2 Profile, 1.3 API · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` |
+| | `dashboard` (off / view) — account 1.1 · `account` — account 1.2 Profile, 1.3 API · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` · `rate` (อัตราแพ้ชนะ — เฉพาะ Superadmin) |
 | | ไม่มี `pt` ≥ view → response ไม่มี field `pt` · **สร้างบัญชี ต้องมี `member` = edit และ `pt` = edit** (ถ้าส่ง `balance` ต้องมี `payment` = edit ด้วย — MGMT-15A) · เปลี่ยนรหัสผ่าน / passcode ของตัวเองไม่ต้องใช้สิทธิ์ (แต่ถูก AUTH-54 กันตอนถูกระงับ) |
-| MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): Superadmin = 8 เมนู (ไม่มี `announcement`) · Company · Share · Agent = ครบ 9 เมนู |
+| MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 9 เมนู — `dashboard` · `account` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · **Company · Share · Agent** = 9 เมนูเดียวกัน — `dashboard` · `account` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` (ไม่มี `rate` — ยืนยัน 2026-10-07) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
 | MGMT-53 | Profile (account ACC-12) ส่ง `permissions` เป็น object รูปแบบเดียวกับ MGMT-50 · บัญชีหลักได้ `edit` ทุกเมนูของประเภทตัวเอง |
 
 ### ประวัติ
@@ -479,7 +479,7 @@ CREATE TABLE balance_ledger (                    -- ทุกการเปล�
     currency      VARCHAR(4)  NOT NULL,
     amount        BIGINT      NOT NULL,          -- + เข้า / − ออก
     balance_after BIGINT      NOT NULL,
-    reason        VARCHAR(30) NOT NULL,          -- INITIAL_TRANSFER_OUT / INITIAL_TRANSFER_IN / ...
+    reason        VARCHAR(30) NOT NULL,          -- INITIAL_TRANSFER_OUT / INITIAL_TRANSFER_IN / INITIAL_FROM_SUPERADMIN / ...
     ref_type      VARCHAR(10),                   -- อีกฝั่งของการโอน
     ref_id        BIGINT,
     request_id    VARCHAR(64) NOT NULL,
@@ -567,6 +567,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-41 | สร้าง sub `name_suffix = "Staff"` · login `Comp01@STAFF` | เก็บ `comp01@staff` · login สำเร็จ |
 | MGMT-15A | Company Transfer มี THB 50,000 สร้าง Share พร้อม `balance` THB 10,000 | Company เหลือ 40,000 · Share มี 10,000 · ledger 2 แถว (ออก / เข้า) |
 | MGMT-15A | ยอดของผู้สร้างไม่พอ | `402312` · ไม่สร้างบัญชี · ยอดไม่เปลี่ยน |
+| MGMT-15A | Superadmin สร้าง Company Transfer พร้อม `balance` THB 1,000,000 | สำเร็จเสมอ · Company มี 1,000,000 · ledger ฝั่ง Company 1 แถว · ไม่มีแถวยอดของ Superadmin |
 | MGMT-15A | ส่งซ้ำด้วย `request_id` เดิม | ได้ `id` เดิม · ไม่สร้างซ้ำ · ไม่โอนซ้ำ |
 | MGMT-15A | ส่ง `balance` ให้บัญชีฝั่ง Seamless · สกุลที่บัญชีใหม่ไม่มี · ค่า 0 หรือติดลบ | `422` |
 | MGMT-15A | สร้างพร้อมกัน 2 คำขอ ยอดพอแค่คำขอเดียว | สำเร็จ 1 · อีกอัน `402312` · ยอดไม่ติดลบ |
@@ -580,6 +581,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-23 | ผู้สร้างแก้ `pt` ของลูก · ลูกแก้ `pt_from_parent` ของตัวเอง | `422` (field ไม่อยู่ในเส้นนั้น) |
 | MGMT-20 | ผู้สร้างตั้ง `pt.game.status = false` | ทุกเกมในกลุ่มเล่นไม่ได้ แม้ `status_game` ของเกมเป็น `true` |
 | MGMT-52 | sub ของ Superadmin ได้สิทธิ์ `announcement` | `422` |
+| MGMT-52 | Superadmin ให้ sub `rate` = `edit` · Company ให้ sub `rate` | สำเร็จ · `422` |
 
 ### 7.1 ลำดับเช็ค (เส้นสร้าง)
 
