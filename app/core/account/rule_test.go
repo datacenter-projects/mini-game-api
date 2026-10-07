@@ -59,3 +59,42 @@ func TestOptionalString(t *testing.T) { // ACC-32
 		}
 	}
 }
+
+func TestCurrencies(t *testing.T) { // ACC-18
+	if len(Currencies) != 27 {
+		t.Fatalf("ต้องมี 27 สกุล ได้ %d", len(Currencies))
+	}
+	seen := map[string]bool{}
+	for _, c := range Currencies {
+		if seen[c] {
+			t.Fatalf("สกุลซ้ำ %s", c)
+		}
+		seen[c] = true
+	}
+}
+
+func TestPlaceholderPermissions(t *testing.T) { // MGMT-52
+	tests := []struct {
+		role       models.AgentRole
+		count      int
+		has, hasnt string
+	}{
+		{models.AgentRoleSuperAdmin, 9, "rate", "announcement"},
+		{models.AgentRoleCompany, 9, "announcement", "rate"},
+		{models.AgentRoleShareholder, 9, "announcement", "rate"},
+		{models.AgentRoleAgent, 9, "announcement", "rate"},
+		{models.AgentRoleAdmin, 0, "", "dashboard"},
+	}
+	for _, tt := range tests {
+		p := PlaceholderPermissions(tt.role)
+		if len(p) != tt.count {
+			t.Fatalf("%s: ได้ %d เมนู want %d", tt.role, len(p), tt.count)
+		}
+		if tt.has != "" && p[tt.has] != PermissionOff {
+			t.Fatalf("%s: เมนู %s ต้องเป็น off", tt.role, tt.has)
+		}
+		if _, ok := p[tt.hasnt]; ok {
+			t.Fatalf("%s: ต้องไม่มีเมนู %s", tt.role, tt.hasnt)
+		}
+	}
+}

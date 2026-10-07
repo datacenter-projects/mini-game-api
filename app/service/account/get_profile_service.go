@@ -17,7 +17,8 @@ import (
 
 // GetProfileService — GET /api/v1/bo/pr/account/profile · rule: ACC-11, ACC-12, ACC-14, ACC-15, ACC-30, ACC-32
 // สถานะ / role / passcode มาจาก Actor ที่ middleware โหลดแล้ว ส่วนที่เหลืออ่านจากแถวของบัญชีตัวเอง
-// ประเภทย่อย, สกุลเงิน, ยอดเงิน, ค่าหุ้นส่วน และสิทธิ์ ต้องใช้ตารางของ module ② — ส่งค่าว่างไปก่อน
+// ประเภทย่อย, สกุลเงิน, ยอดเงิน, ค่าหุ้นส่วน และสิทธิ์ ต้องใช้ตารางของ module ② — ระหว่างนี้: สกุลครบ 27 ยอด 0.00 ·
+// สิทธิ์ทุกเมนูของประเภทเป็น off · ค่าหุ้นส่วน {} · ADMIN ไม่มีสกุล ยอด และสิทธิ์
 func GetProfileService(ctx context.Context, actor agentAuthService.Actor) (accountDto.ProfileResponse, error) {
 	res := accountDto.ProfileResponse{
 		Username:     actor.Username,
@@ -26,12 +27,11 @@ func GetProfileService(ctx context.Context, actor agentAuthService.Actor) (accou
 		Status:       string(actor.EffectiveStatus),
 		IsSubaccount: actor.AccountType == models.AccountTypeSub,
 		PasscodeSet:  actor.PasscodeSet,
-		Currencies:   []string{},
-		Balances:     []accountDto.ProfileBalance{},
 		PT:           map[string]any{},
 		StatusGame:   map[string]bool{},
-		Permissions:  map[string]string{},
+		Permissions:  accountCore.PlaceholderPermissions(actor.Role),
 	}
+	res.Currencies, res.Balances = placeholderCurrencies(actor.Role)
 	db := database.DBConn.WithContext(ctx)
 
 	if res.IsSubaccount {
@@ -68,4 +68,17 @@ func notFoundAsSessionEnded(err error) error {
 		return apperr.ErrSessionEnded
 	}
 	return err
+}
+
+// placeholderCurrencies — ระหว่างยังไม่มีตารางสกุล / ยอดของ module ②: ครบ 27 สกุล ยอด 0.00 · ADMIN ไม่มี
+func placeholderCurrencies(role models.AgentRole) ([]string, []accountDto.ProfileBalance) {
+	if role == models.AgentRoleAdmin {
+		return []string{}, []accountDto.ProfileBalance{}
+	}
+	currencies := append([]string{}, accountCore.Currencies...)
+	balances := make([]accountDto.ProfileBalance, len(currencies))
+	for i, c := range currencies {
+		balances[i] = accountDto.ProfileBalance{Currency: c}
+	}
+	return currencies, balances
 }

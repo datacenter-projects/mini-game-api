@@ -48,17 +48,34 @@ func getProfile(t *testing.T, app *fiber.App, tok string) (profileData, map[stri
 	return d, raw
 }
 
-// ACC-32: ไม่มี null ใน response · field ของ module ② ยังเป็นค่าว่าง
-func assertNoNull(t *testing.T, raw map[string]json.RawMessage) {
+// ACC-32: ไม่มี null ใน response · ส่วนของ module ② ใช้ค่าชั่วคราว (สกุลครบ 27 ยอด 0.00 · สิทธิ์ off)
+func assertNoNull(t *testing.T, raw map[string]json.RawMessage, d profileData) {
 	t.Helper()
 	for k, v := range raw {
 		if string(v) == "null" {
 			t.Fatalf("field %s เป็น null", k)
 		}
 	}
-	for k, want := range map[string]string{"currencies": "[]", "balances": "[]", "pt": "{}", "status_game": "{}", "permissions": "{}"} {
+	for k, want := range map[string]string{"pt": "{}", "status_game": "{}"} {
 		if string(raw[k]) != want {
 			t.Fatalf("field %s = %s, want %s", k, raw[k], want)
+		}
+	}
+	if d.Role == "ADMIN" {
+		if len(d.Currencies) != 0 || len(d.Balances) != 0 || len(d.Permissions) != 0 {
+			t.Fatalf("ADMIN ต้องไม่มีสกุล ยอด และสิทธิ์ %+v", d)
+		}
+	} else {
+		if len(d.Currencies) != 27 || len(d.Balances) != 27 || string(d.Balances[0]) != `{"currency":"ARS","amount":0.00}` {
+			t.Fatalf("ต้องมี 27 สกุล ยอด 0.00 ได้ %v %s", d.Currencies, d.Balances[0])
+		}
+		if len(d.Permissions) != 9 {
+			t.Fatalf("ต้องมีสิทธิ์ 9 เมนู ได้ %v", d.Permissions)
+		}
+		for m, lv := range d.Permissions {
+			if lv != "off" {
+				t.Fatalf("เมนู %s ต้องเป็น off ได้ %s", m, lv)
+			}
 		}
 	}
 	if _, ok := raw["effective_status"]; ok {
@@ -92,7 +109,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-32
 		if err != nil || time.Since(at) > time.Minute || d.LastLoginIP == "" || d.CreatedAt == "" {
 			t.Fatalf("%s: login ล่าสุด / วันที่สร้างต้องมีค่า %+v", acc.user, d)
 		}
-		assertNoNull(t, raw)
+		assertNoNull(t, raw, d)
 	}
 }
 
@@ -106,7 +123,7 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 	if d.Username != "agent01@staff" || !d.IsSubaccount || d.OwnerUsername != "agent01" || d.Role != "AGENT" || d.UserType != "AGENT" {
 		t.Fatalf("unexpected %+v", d)
 	}
-	assertNoNull(t, raw)
+	assertNoNull(t, raw, d)
 
 	// ผู้สร้างถูกระงับ → status ของ sub = สถานะที่ใช้งานจริง และยังเปิด Profile ได้ (ACC-31 / AUTH-54)
 	setStatus(t, owner.ID, models.AgentStatusSuspended)
