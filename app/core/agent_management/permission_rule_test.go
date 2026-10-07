@@ -51,7 +51,7 @@ func TestMenusForRole(t *testing.T) { // MGMT-52
 
 func TestFullPermissions(t *testing.T) { // MGMT-53
 	p := FullPermissions(models.AgentRoleCompany)
-	if len(p) != 9 || p[MenuMember] != LevelEdit || p[MenuDashboard] != LevelView || p[MenuReport] != LevelView {
+	if len(p) != 9 || p[MenuMember] != LevelEdit || p[MenuDashboard] != LevelEdit || p[MenuReport] != LevelEdit {
 		t.Errorf("FullPermissions(COMPANY) = %v", p)
 	}
 }

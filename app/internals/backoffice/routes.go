@@ -47,4 +47,10 @@ func RegisterRoutes(api fiber.Router) {
 	ptEdit := mw.RequirePermission(agentManagementCore.MenuPT, agentManagementCore.LevelEdit)
 	pr.Post("/manage/agents", mw.PassedGates(), memberEdit, ptEdit, agentManagementController.CreateAgentController)
 	pr.Post("/manage/members", mw.PassedGates(), memberEdit, ptEdit, agentManagementController.CreateMemberController)
+	memberView := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelView)
+	ptView := mw.RequirePermission(agentManagementCore.MenuPT, agentManagementCore.LevelView)
+	pr.Get("/manage/downlines", mw.PassedGates(), memberView, agentManagementController.ListDownlinesController)
+	pr.Get("/manage/agents/copy-sources", mw.PassedGates(), ptView, agentManagementController.ListCopySourcesController) // ก่อน /agents/:id
+	pr.Get("/manage/agents/:id", mw.PassedGates(), memberView, agentManagementController.GetAgentDetailController)
+	pr.Get("/manage/members/:id", mw.PassedGates(), memberView, agentManagementController.GetMemberDetailController)
 }

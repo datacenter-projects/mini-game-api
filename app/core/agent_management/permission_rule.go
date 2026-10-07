@@ -72,11 +72,12 @@ func MenusForRole(role models.AgentRole) []Menu {
 	return nil
 }
 
-// FullPermissions — บัญชีหลักได้ระดับสูงสุดทุกเมนูของตัวเอง (MGMT-50, MGMT-53)
+// FullPermissions — บัญชีหลักได้ edit ทุกเมนูของตัวเอง (MGMT-50, MGMT-53 · account ACC-12) · edit รวม view
+// MaxLevel ใช้จำกัดสิทธิ์ที่เจ้าของให้ sub เท่านั้น
 func FullPermissions(role models.AgentRole) map[Menu]Level {
 	out := map[Menu]Level{}
 	for _, m := range MenusForRole(role) {
-		out[m] = MaxLevel(m)
+		out[m] = LevelEdit
 	}
 	return out
 }
