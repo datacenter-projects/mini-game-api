@@ -79,7 +79,7 @@ func subOwner(db *gorm.DB, actor agentAuthService.Actor, ownerID uint, notFound 
 	return owner, chain, err
 }
 
-// ListSubaccountsService — POST /manage/subaccounts (MGMT-46)
+// ListSubaccountsService — POST /manage/subaccounts/list (MGMT-46)
 func ListSubaccountsService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.SubListRequest,
 	page utils.Page) ([]agentManagementDto.SubView, int64, error) {
 	db := database.DBConn.WithContext(ctx)

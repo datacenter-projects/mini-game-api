@@ -56,7 +56,7 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/manage/members/create", mw.PassedGates(), memberEdit, ptEdit, agentManagementController.CreateMemberController)
 	memberView := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelView)
 	ptView := mw.RequirePermission(agentManagementCore.MenuPT, agentManagementCore.LevelView)
-	pr.Post("/manage/downlines", mw.PassedGates(), memberView, agentManagementController.ListDownlinesController)
+	pr.Post("/manage/downlines/list", mw.PassedGates(), memberView, agentManagementController.ListDownlinesController)
 	pr.Get("/manage/agents/copy-sources", mw.PassedGates(), ptView, agentManagementController.ListCopySourcesController)
 	pr.Post("/manage/agents/detail", mw.PassedGates(), memberView, agentManagementController.GetAgentDetailController)
 	pr.Post("/manage/members/detail", mw.PassedGates(), memberView, agentManagementController.GetMemberDetailController)
@@ -68,7 +68,7 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/manage/members/update-commission", mw.PassedGates(), ptEdit, agentManagementController.UpdateMemberCommissionController)
 	pr.Post("/manage/agents/update-hold", mw.PassedGates(), ptEdit, agentManagementController.UpdateOwnHoldController)
 	// sub: เฉพาะบัญชีหลัก (sub เรียก = 402311 — MGMT-40) · ไม่ใช้สิทธิ์เมนู
-	pr.Post("/manage/subaccounts", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.ListSubaccountsController)
+	pr.Post("/manage/subaccounts/list", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.ListSubaccountsController)
 	pr.Post("/manage/subaccounts/detail", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.GetSubaccountController)
 	pr.Post("/manage/subaccounts/create", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.CreateSubaccountController)
 	pr.Post("/manage/subaccounts/update-info", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.UpdateSubaccountController)

@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ListDownlinesService — POST /api/v1/bo/pr/manage/downlines (MGMT-26 – MGMT-28)
+// ListDownlinesService — POST /api/v1/bo/pr/manage/downlines/list (MGMT-26 – MGMT-28)
 // parent_id ไม่ส่ง = ตัวเอง · อื่นต้องเป็นบัญชีฝั่ง agent ในสายล่าง (402402) · ข้อมูลประกอบอ่านทีละหน้าแบบ batch
 func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q agentManagementDto.DownlinesRequest,
 	page utils.Page) ([]agentManagementDto.DownlineRow, int64, error) {

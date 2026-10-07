@@ -30,7 +30,7 @@ type BalanceView struct {
 	Amount   utils.Money `json:"amount"`
 }
 
-// DownlineRow — 1 แถวของ GET /manage/downlines (MGMT-28)
+// DownlineRow — 1 แถวของ POST /manage/downlines/list (MGMT-28)
 // PT = nil เมื่อผู้เรียกไม่มีสิทธิ์ pt ≥ view → ไม่มี field pt (MGMT-51)
 type DownlineRow struct {
 	ID       uint          `json:"id"`
@@ -91,7 +91,7 @@ type CopySource struct {
 	StatusGame map[string]bool        `json:"status_game"`
 }
 
-// DownlinesRequest — POST /manage/downlines (MGMT-26, MGMT-27) · ทุกค่าไม่บังคับ — ไม่กรองให้ส่ง {}
+// DownlinesRequest — POST /manage/downlines/list (MGMT-26, MGMT-27) · ทุกค่าไม่บังคับ — ไม่กรองให้ส่ง {}
 // page / limit อยู่ใน body ปรับด้วย utils.NewPage (ค่าเริ่มต้น 20 · สูงสุด 100)
 type DownlinesRequest struct {
 	ParentID uint   `json:"parent_id"` // 0 = ตัวเอง

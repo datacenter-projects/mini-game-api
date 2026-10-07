@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ / รายละเอียดเป็น `POST` · `page` / `limit` ใน body · sub: `/manage/subaccounts` (รายชื่อ) `/detail` `/create` `/update-info` `/update-status`
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status`
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
@@ -197,7 +197,7 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 |---|---|---|---|
 | POST | `/api/v1/bo/pr/manage/agents/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Company / Share / Agent |
 | POST | `/api/v1/bo/pr/manage/members/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Member |
-| POST | `/api/v1/bo/pr/manage/downlines` | `member` view | รายชื่อลูกตรง (agent + Member) |
+| POST | `/api/v1/bo/pr/manage/downlines/list` | `member` view | รายชื่อลูกตรง (agent + Member) |
 | POST | `/api/v1/bo/pr/manage/agents/detail` | `member` view | รายละเอียดฝั่ง agent |
 | POST | `/api/v1/bo/pr/manage/members/detail` | `member` view | รายละเอียด Member |
 | POST | `/api/v1/bo/pr/manage/agents/update-info` · `/manage/members/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
@@ -206,11 +206,23 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
 | POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดทีละเกม — ❓ รอ lead: จะย้ายไป module อื่นและให้ใครใช้ |
 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
-| POST | `/api/v1/bo/pr/manage/subaccounts` | บัญชีหลัก (`RequireMainAccount`) | รายชื่อ sub |
+| POST | `/api/v1/bo/pr/manage/subaccounts/list` | บัญชีหลัก (`RequireMainAccount`) | รายชื่อ sub |
 | POST | `/api/v1/bo/pr/manage/subaccounts/detail` | บัญชีหลัก | รายละเอียด sub |
 | POST | `/api/v1/bo/pr/manage/subaccounts/create` | บัญชีหลัก | สร้าง sub |
 | POST | `/api/v1/bo/pr/manage/subaccounts/update-info` | บัญชีหลัก (เจ้าของ) | แก้ชื่อเล่น · เบอร์โทร · สิทธิ์ |
 | POST | `/api/v1/bo/pr/manage/subaccounts/update-status` | บัญชีหลัก (เจ้าของ) | `ACTIVE` / `INACTIVE` (MGMT-43) |
+
+ทุกตัวอย่างใช้ข้อมูลชุดเดียวกัน: `comp01` (id 10, Company Transfer) → `share01` (id 12, Share B2C · THB) → `agent01` (id 15) →
+`mem01` (Member id 501) · sub ของ comp01 = `comp01@staff` (id 30)
+
+ทุก response มีรูปแบบ `{ "code", "msg", "data" }` · สำเร็จ `code = 200` · เส้นที่ไม่มีข้อมูลตอบกลับไม่มี key `data` ·
+business error ตอบ HTTP 200 พร้อม `code` ของ error · ตัวอย่าง error:
+```json
+{ "code": 402306, "msg": "pt.game.pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด 60" }
+```
+```json
+{ "code": 422, "msg": "pt.game.force ห้ามเป็น null" }
+```
 
 ### POST /api/v1/bo/pr/manage/agents/create
 
@@ -220,7 +232,7 @@ Request:
   "request_id": "6f1c2a1e-3b7d-4c55-9a40-0f7f3c2d8e11",
   "user_type": "SHARE_B2C",
   "username": "Share01",
-  "password": "••••••••",
+  "password": "aA4b4c4d4e4f",
   "name": "share01",
   "phone": "0812345678",
   "currencies": ["THB"],
@@ -231,157 +243,438 @@ Request:
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
 }
 ```
-- `request_id` บังคับ (UUID จากหน้าบ้าน — กันกดซ้ำ MGMT-15A) · ส่งซ้ำด้วยค่าเดิม = ได้ผลเดิม
-- `user_type` = ประเภทของบัญชีใหม่ (MGMT-02) · ใต้ Company Seamless Reseller / Master ส่ง `SHARE_B2C` ระบบเก็บเป็น `SHARE_RESELLER` / `SHARE_MASTER`
+Response:
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": { "id": 12, "username": "share01", "user_type": "SHARE_B2C" }
+}
+```
+- `request_id` บังคับ (UUID ใหม่ทุกครั้งที่กดสร้าง — กันกดซ้ำ MGMT-15A) · ส่งซ้ำด้วยค่าเดิม = ได้ response เดิม ไม่สร้าง / ไม่โอนซ้ำ
+- `user_type` = ประเภทของบัญชีใหม่ (MGMT-02) · ใต้ Company Seamless Reseller / Master ส่ง `SHARE_B2C` ระบบเก็บเป็น `SHARE_RESELLER` / `SHARE_MASTER` (response ตอบประเภทที่เก็บจริง)
 - `username` รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก (`Share01` → `share01`)
-- `currencies` ตาม MGMT-10 ถึง 13 (ไม่ต้องส่ง = ใช้ตามกฎ · ส่งเกิน / ผิด = `422` หรือ `402310`)
+- `currencies` ตาม MGMT-10 ถึง 13 (ประเภทที่ไม่ต้องส่ง ห้ามส่ง · ส่งผิดจำนวน = `422` · ไม่อยู่ในสกุลของผู้สร้าง = `402310`)
 - `balance` ไม่บังคับ · ยอดเงินตั้งต้นต่อสกุล โอนจากยอดของผู้สร้าง (MGMT-15A) · บัญชีฝั่ง Seamless ห้ามส่ง
-- `phone` ไม่บังคับ · `status_game` ไม่ส่ง = เปิดทุกเกม (❓ รอ lead — อาจย้ายไป module อื่น)
+- `phone` ไม่ตั้งให้ส่ง `""` · `pt` ต้องส่งครบทุกกลุ่ม ครบ 5 ค่า · `status_game` ไม่บังคับ · เกมที่ไม่ส่ง = `true` (เปิด) · ไม่ส่งทั้ง field = เปิดทุกเกม (❓ รอ lead — อาจย้ายไป module อื่น)
 
-Response `data`: `{ "id": 12, "username": "share01", "user_type": "SHARE_B2C" }`
-
-Error codes: `422`, `402301`, `402305`, `402307`, `402308`, `402309`, `402310`, `402312`, `402401`, `402403`
+Error codes: `422`, `402301`, `402303`, `402305`, `402307`, `402308`, `402309`, `402310`, `402312`, `402401`, `402403`
 
 ### POST /api/v1/bo/pr/manage/members/create
 
-Request: `request_id`, `username` (รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก), `password`, `name`, `phone`, `balance` (ไม่บังคับ — MGMT-15A), `pt` (กลุ่มละ `commission_percent` เท่านั้น — MGMT-21) · สกุลเงินตามผู้สร้าง
-Response `data`: `{ "id": 501, "username": "mem01" }`
-Error codes: `422`, `402301`, `402309`, `402312`, `402401`, `402403`
-
-### POST /api/v1/bo/pr/manage/downlines
-
-Request (ทุกค่าไม่บังคับ · ไม่กรองให้ส่ง `{}`): `{ "parent_id": 12, "q": "ab", "page": 1, "limit": 20 }` · `parent_id` ไม่ส่ง = ตัวเอง · ต้องเป็นบัญชีฝั่ง agent ในสายล่าง
-Response `data` (`response.Page`) แต่ละแถว:
+Request:
 ```json
 {
-  "id": 12,
-  "role": "SHAREHOLDER",
-  "user_type": "SHARE_B2C",
-  "username": "share01",
-  "name": "share01",
-  "phone": "0812345678",
-  "status": "SUSPENDED",
-  "pt": {
-    "game": { "pt_from_parent": 80, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
-  },
-  "balances": [ { "currency": "THB", "amount": 0.00 } ]
+  "request_id": "0b9c5a77-2d1e-4f3a-8c61-5e4d3c2b1a09",
+  "username": "Mem01",
+  "password": "aA4b4c4d4e4f",
+  "name": "ใจดี",
+  "phone": "",
+  "balance": { "THB": 100.00 },
+  "pt": { "game": { "commission_percent": 0.3 } }
 }
 ```
-- `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้หัวสายของ share01 ถูกระงับ
-- แถว Member: `role = "MEMBER"` · `pt` มีแค่ `commission_percent` · `phone` = `""` เมื่อไม่ได้ตั้ง (ไม่มี `null` — account ACC-32)
-- `balances` อ่านจาก `agent_balances` / `member_balances` (MGMT-15A · account ACC-19) · สกุลที่ไม่มียอด และบัญชี Seamless = `0`
-
-Error codes: `402402`
-
-### POST /api/v1/bo/pr/manage/agents/detail · /manage/members/detail
-
-Request: `{ "id": 12 }` (บัญชีในสายล่างที่จะดู · ผู้ดูมาจาก token)
-
-Response `data` (ตัวอย่างฝั่ง agent — หลังสร้างด้วย `pt.game.pt = 20` และปิด `scratch_card`):
+Response:
 ```json
 {
-  "id": 12,
-  "role": "SHAREHOLDER",
-  "user_type": "SHARE_B2C",
-  "username": "share01",
-  "name": "share01",
-  "phone": "0812345678",
-  "status": "ACTIVE",
-  "parent_username": "comp01",
-  "currencies": ["THB"],
-  "balances": [ { "currency": "THB", "amount": 0.00 } ],
-  "pt": {
-    "game": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
-  },
-  "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
-  "passcode_set": true,
-  "last_login_at": "2026-10-05T10:00:00+07:00",
-  "last_login_ip": "203.0.113.10",
-  "created_at": "2026-10-01T09:00:00+07:00"
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": { "id": 501, "username": "mem01" }
 }
 ```
-- รูปแบบ `pt` (รวม `pt_from_parent` และ `status` ในกลุ่ม) และ `status_game` (แยกจาก `pt` · ต่อเกม) เหมือน Profile (account ACC-16) · ตัวอย่างนี้ ได้รับ 90 · ถือจาก Member ของตัวเอง 20
-- Member: ไม่มี `status_game`, `passcode_set` · `pt.game` มีแค่ `commission_percent`
+- ไม่มี `user_type` · `currencies` · `status_game` · สกุลเงิน = สกุลของผู้สร้าง (MGMT-13)
+- `pt` กลุ่มละ `commission_percent` เท่านั้น (MGMT-21)
 
-Error codes: `402402`
+Error codes: `422`, `402301`, `402303`, `402309`, `402312`, `402401`, `402403`
 
-### POST /api/v1/bo/pr/manage/agents/update-info · /manage/members/update-info
+### POST /api/v1/bo/pr/manage/downlines/list (รายชื่อลูกตรง)
 
-Request: `{ "id": 12, "name": "share01", "phone": "" }` (`id` = บัญชีที่จะแก้ · ผู้แก้มาจาก token · `phone` `""` = ไม่ตั้ง · ส่ง `null` = `422`) · Response: ไม่มี `data` · Error codes: `422`, `402304`, `402402`, `402403`
-
-### POST /api/v1/bo/pr/manage/agents/update-status · /manage/members/update-status
-
-Request: `{ "id": 12, "status": "SUSPENDED" }` · Response: ไม่มี `data` · Error codes: `422`, `402304`, `402402`
-
-### POST /api/v1/bo/pr/manage/agents/update-pt · /manage/members/update-commission (ผู้สร้างตั้งให้ลูก)
-
-Request (ส่งเฉพาะกลุ่มที่จะแก้ · ในกลุ่มต้องครบ 5 ค่า · ห้าม `null`):
+Request (ทุกค่าไม่บังคับ · ไม่กรองให้ส่ง `{}`):
 ```json
-{ "id": 12, "pt": { "game": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true } } }
+{ "parent_id": 12, "q": "", "page": 1, "limit": 20 }
 ```
-- `pt_from_parent` = ค่าที่ให้ลูกคนนี้ · ผู้สร้างถือในสายนี้ = ค่าที่ผู้สร้างได้รับ − ค่านี้ (MGMT-22)
-- `status` = เปิด / ปิดทั้งกลุ่ม (MGMT-20)
-- Member (`/members/update-commission`): `{ "id": 501, "pt": { "game": { "commission_percent": 0.3 } } }` · field อื่น = `422`
-
-Response: ไม่มี `data` · Error codes: `422`, `402304`, `402305`, `402306`, `402307`, `402308`, `402309`, `402402`
-
-### POST /api/v1/bo/pr/manage/agents/update-hold (บัญชีตั้งค่าถือของตัวเอง — ไม่ส่ง id ใช้บัญชีของ token)
-
-Request (ส่งเฉพาะกลุ่มที่จะแก้):
+Response (ตัวอย่าง: ลูกตรงของ share01 · หัวสาย comp01 ถูกระงับ):
 ```json
-{ "pt": { "game": { "pt": 40 } } }
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "current_page": 1,
+    "total_page": 1,
+    "total_count": 2,
+    "limit": 20,
+    "has_next": false,
+    "has_prev": false,
+    "data": [
+      {
+        "id": 15,
+        "role": "AGENT",
+        "user_type": "AGENT",
+        "username": "agent01",
+        "name": "agent01",
+        "phone": "0898765432",
+        "status": "SUSPENDED",
+        "pt": {
+          "game": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+        },
+        "balances": [ { "currency": "THB", "amount": 5000.00 } ]
+      },
+      {
+        "id": 501,
+        "role": "MEMBER",
+        "user_type": "MEMBER",
+        "username": "mem01",
+        "name": "ใจดี",
+        "phone": "",
+        "status": "SUSPENDED",
+        "pt": { "game": { "commission_percent": 0.3 } },
+        "balances": [ { "currency": "THB", "amount": 100.00 } ]
+      }
+    ]
+  }
+}
 ```
-- `pt` = ถือจาก Member ใต้ตัวเองตรงๆ · ไม่เกินค่าที่ตัวเองได้รับ · ส่วนที่เหลือผ่าน Force / Remain แล้วคืน Superadmin
-- Company Seamless Master แก้ไม่ได้ (ล็อก 0 — MGMT-19) · sub แก้ให้เจ้าของได้ตามสิทธิ์ `pt` = edit
+- `parent_id` ไม่ส่ง = ลูกตรงของตัวเอง · ต้องเป็นบัญชีฝั่ง agent ในสายล่าง (`402402`)
+- `q` ค้น username บางส่วน ไม่สนตัวพิมพ์ · เรียง username A→Z · `limit` ค่าเริ่มต้น 20 สูงสุด 100
+- `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้หัวสายถูกระงับ ทุกแถวจึง `SUSPENDED`
+- แถว `role = "MEMBER"` ไม่มีลูก · `pt` มีแค่ `commission_percent` · ไม่มีสิทธิ์ `pt` ≥ view = ไม่มี field `pt` (MGMT-51)
+- `balances` 1 รายการต่อสกุลของบัญชี (MGMT-15A · account ACC-19) · ยังไม่มียอด และบัญชี Seamless = `0.00`
 
-Response: ไม่มี `data` · Error codes: `422`, `402305`, `402307`
+Error codes: `402303`, `402402`
 
-### POST /api/v1/bo/pr/manage/agents/update-games
+### POST /api/v1/bo/pr/manage/agents/detail
 
-Request: `{ "id": 12, "status_game": { "scratch_card": false } }` (ส่งเฉพาะเกมที่จะเปลี่ยน) · Response: ไม่มี `data` ·
-Error codes: `422`, `402304`, `402402`
+Request:
+```json
+{ "id": 12 }
+```
+Response:
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "id": 12,
+    "role": "SHAREHOLDER",
+    "user_type": "SHARE_B2C",
+    "username": "share01",
+    "name": "share01",
+    "phone": "0812345678",
+    "status": "ACTIVE",
+    "parent_username": "comp01",
+    "currencies": ["THB"],
+    "balances": [ { "currency": "THB", "amount": 10000.00 } ],
+    "pt": {
+      "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+    },
+    "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
+    "passcode_set": true,
+    "last_login_at": "2026-10-05T10:00:00+07:00",
+    "last_login_ip": "203.0.113.10",
+    "created_at": "2026-10-01T09:00:00+07:00"
+  }
+}
+```
+- `id` = บัญชีในสายล่างที่จะดู (ตัวเอง / สายบน / นอกสาย = `402402`) · ข้อมูลของตัวเองดูที่ account Profile
+- รูปแบบ `pt` และ `status_game` เหมือน Profile (account ACC-16) · ตัวอย่างนี้ ได้รับ 70 · ถือจาก Member ของตัวเอง 30
+- ไม่มีสิทธิ์ `pt` ≥ view = ไม่มี field `pt` · ยังไม่เคย login = `last_login_at` / `last_login_ip` เป็น `""`
+
+Error codes: `422`, `402303`, `402402`
+
+### POST /api/v1/bo/pr/manage/members/detail
+
+Request:
+```json
+{ "id": 501 }
+```
+Response:
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "id": 501,
+    "role": "MEMBER",
+    "user_type": "MEMBER",
+    "username": "mem01",
+    "name": "ใจดี",
+    "phone": "",
+    "status": "ACTIVE",
+    "parent_username": "agent01",
+    "currencies": ["THB"],
+    "balances": [ { "currency": "THB", "amount": 100.00 } ],
+    "pt": { "game": { "commission_percent": 0.3 } },
+    "last_login_at": "",
+    "last_login_ip": "",
+    "created_at": "2026-10-02T14:30:00+07:00"
+  }
+}
+```
+- ดูได้: ผู้สร้าง Member และชั้นบนในสาย · ไม่มี `status_game` / `passcode_set`
+
+Error codes: `422`, `402303`, `402402`
 
 ### GET /api/v1/bo/pr/manage/agents/copy-sources
 
-Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", "pt": {...}, "status_game": {...} }]` (ลูกตรงฝั่ง agent ทั้งหมด เรียง A→Z)
+Request: ไม่มี body (ลูกตรงฝั่ง agent ของบัญชีใน token)
 
-### Sub
-
-`POST /manage/subaccounts` body `{ "owner_id", "q", "page", "limit" }` (ทุกค่าไม่บังคับ · `owner_id` ไม่ส่ง = ตัวเอง) — แต่ละแถว และ `POST /manage/subaccounts/detail` body `{ "id" }`:
+Response (ตัวอย่างของ comp01):
 ```json
 {
-  "id": 30,
-  "username": "comp01@staff",
-  "name": "staff01",
-  "phone": "",
-  "status": "ACTIVE",
-  "permissions": {
-    "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
-    "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
-  },
-  "created_at": "2026-10-06T12:26:43+07:00",
-  "last_login_at": "",
-  "last_login_ip": ""
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": [
+    {
+      "id": 12,
+      "username": "share01",
+      "user_type": "SHARE_B2C",
+      "pt": {
+        "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+      },
+      "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
+    },
+    {
+      "id": 13,
+      "username": "share02",
+      "user_type": "SHARE_B2B",
+      "pt": {
+        "game": { "pt_from_parent": 50, "pt": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true }
+      },
+      "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true }
+    }
+  ]
 }
 ```
+- ลูกตรงฝั่ง agent ทั้งหมด เรียง A→Z (ไม่แบ่งหน้า) · ไม่มีลูก = `"data": []` · หน้าบ้านเติมค่าลงฟอร์มเอง (MGMT-35)
 
-`POST /manage/subaccounts/create` (สร้าง):
+Error codes: `402303`
+
+### POST /api/v1/bo/pr/manage/agents/update-info · /manage/members/update-info
+
+Request (แทนทั้งชุด — ต้องส่งครบ):
+```json
+{ "id": 12, "name": "share01", "phone": "" }
+```
+Response:
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+- `id` = บัญชีที่จะแก้ (ลูกตรงเท่านั้น) · ผู้แก้มาจาก token · `phone` `""` = ไม่ตั้ง · ส่ง `null` หรือไม่ส่ง field = `422`
+- เส้น Member ใช้ body รูปแบบเดียวกัน (`"id": 501`)
+
+Error codes: `422`, `402303`, `402304`, `402402`, `402403`
+
+### POST /api/v1/bo/pr/manage/agents/update-status · /manage/members/update-status
+
+Request:
+```json
+{ "id": 12, "status": "SUSPENDED" }
+```
+Response:
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+- `status`: `ACTIVE` / `SUSPENDED` / `LOCKED` · ตั้งกลับ `ACTIVE` ได้ · ไม่ต้อง passcode (MGMT-30)
+
+Error codes: `422`, `402303`, `402304`, `402402`
+
+### POST /api/v1/bo/pr/manage/agents/update-pt (ผู้สร้างตั้งให้ลูก)
+
+Request (ส่งเฉพาะกลุ่มที่จะแก้ · ในกลุ่มต้องครบ 5 ค่า · ห้าม `null`):
+```json
+{
+  "id": 12,
+  "pt": {
+    "game": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+  }
+}
+```
+Response:
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+- `pt_from_parent` = ค่าที่ให้ลูกคนนี้ · ผู้สร้างถือในสายนี้ = ค่าที่ผู้สร้างได้รับ − ค่านี้ (MGMT-22) · `status` = เปิด / ปิดทั้งกลุ่ม (MGMT-20)
+- ลดได้ไม่ต่ำกว่าที่ลูกใช้อยู่ (MGMT-24) — ตัวอย่าง: share01 ถือ 30 และให้ agent01 60 → ตั้งต่ำสุด 60 · ตั้ง 55 = `402306`
+- ส่ง `pt` (ค่าถือที่ลูกตั้งเอง) มา = `422`
+
+Error codes: `422`, `402303`, `402304`, `402305`, `402306`, `402307`, `402308`, `402309`, `402402`
+
+### POST /api/v1/bo/pr/manage/members/update-commission
+
+Request:
+```json
+{ "id": 501, "pt": { "game": { "commission_percent": 0.3 } } }
+```
+Response:
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+- Member มีแค่ `commission_percent` (MGMT-21) · ส่ง field อื่นในกลุ่ม = `422`
+
+Error codes: `422`, `402303`, `402304`, `402309`, `402402`
+
+### POST /api/v1/bo/pr/manage/agents/update-hold (บัญชีตั้งค่าถือของตัวเอง)
+
+Request (ไม่ส่ง `id` — แก้บัญชีใน token · ส่งเฉพาะกลุ่มที่จะแก้):
+```json
+{ "pt": { "game": { "pt": 40 } } }
+```
+Response:
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+- `pt` = ถือจาก Member ใต้ตัวเองตรงๆ · ไม่เกินค่าที่ตัวเองได้รับ (`402305`) · ส่วนที่เหลือผ่าน Force / Remain แล้วคืน Superadmin
+- Company Seamless Master ตั้งได้แค่ `0` (`402307` — MGMT-19) · sub แก้ให้เจ้าของได้ตามสิทธิ์ `pt` = edit
+- ส่งค่าที่ผู้สร้างเป็นคนตั้ง (`pt_from_parent` ฯลฯ) มา = `422`
+
+Error codes: `422`, `402303`, `402305`, `402307`
+
+### POST /api/v1/bo/pr/manage/agents/update-games (❓ รอ lead — ยังไม่เปิดใช้)
+
+Request (ส่งเฉพาะเกมที่จะเปลี่ยน):
+```json
+{ "id": 12, "status_game": { "scratch_card": false } }
+```
+Response:
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+
+Error codes: `422`, `402303`, `402304`, `402402`
+
+### POST /api/v1/bo/pr/manage/subaccounts/list (รายชื่อ sub)
+
+Request (ทุกค่าไม่บังคับ · ไม่กรองให้ส่ง `{}`):
+```json
+{ "owner_id": 10, "q": "", "page": 1, "limit": 20 }
+```
+Response:
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "current_page": 1,
+    "total_page": 1,
+    "total_count": 1,
+    "limit": 20,
+    "has_next": false,
+    "has_prev": false,
+    "data": [
+      {
+        "id": 30,
+        "username": "comp01@staff",
+        "name": "staff01",
+        "phone": "",
+        "status": "ACTIVE",
+        "permissions": {
+          "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
+          "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
+        },
+        "created_at": "2026-10-06T12:26:43+07:00",
+        "last_login_at": "",
+        "last_login_ip": ""
+      }
+    ]
+  }
+}
+```
+- `owner_id` ไม่ส่ง = sub ของตัวเอง · ชั้นบนดู sub ของบัญชีในสายล่างได้ · นอกสาย = `402402`
+- `status`: `ACTIVE` / `INACTIVE` · ถ้าเจ้าของ / หัวสายถูกระงับหรือล็อก แสดงสถานะนั้น (MGMT-43)
+- `permissions` ครบทุกเมนูของประเภทเจ้าของ (Superadmin มี `rate` แทน `announcement`)
+
+Error codes: `402311`, `402402`
+
+### POST /api/v1/bo/pr/manage/subaccounts/detail
+
+Request:
+```json
+{ "id": 30 }
+```
+Response:
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "id": 30,
+    "username": "comp01@staff",
+    "name": "staff01",
+    "phone": "",
+    "status": "ACTIVE",
+    "permissions": {
+      "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
+      "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
+    },
+    "created_at": "2026-10-06T12:26:43+07:00",
+    "last_login_at": "2026-10-07T09:15:00+07:00",
+    "last_login_ip": "203.0.113.20"
+  }
+}
+```
+- ดูได้: เจ้าของ และชั้นบนในสาย · อื่น = `402404`
+
+Error codes: `422`, `402311`, `402404`
+
+### POST /api/v1/bo/pr/manage/subaccounts/create
+
+Request:
 ```json
 {
   "name_suffix": "Staff",
-  "password": "••••••••",
+  "password": "aA4b4c4d4e4f",
   "name": "staff01",
   "phone": "",
   "permissions": { "dashboard": "view", "member": "edit", "pt": "view", "report": "view" }
 }
 ```
-→ `data`: `{ "id": 30, "username": "comp01@staff" }` · `name_suffix` รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก · เมนูที่ไม่ส่ง = `off`
+Response:
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": { "id": 30, "username": "comp01@staff" }
+}
+```
+- username = `{username เจ้าของ}@{name_suffix}` · `name_suffix` รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก
+- เมนูที่ไม่ส่ง = `off` · ระดับ `off` / `view` / `edit` (`dashboard` / `report` สูงสุด `view`) · เมนูที่ประเภทเจ้าของไม่มี = `422`
+- เบอร์โทรของ sub ซ้ำได้ (MGMT-41)
 
-`POST /manage/subaccounts/update-info` (แก้): `{ "id", "name", "phone", "permissions" }` (แทนทั้งชุด · ต้องส่งครบ — ไม่ให้สิทธิ์ใดส่ง `{}`)
+Error codes: `422`, `402301`, `402311`, `402401`
 
-`POST /manage/subaccounts/update-status`: `{ "id", "status": "INACTIVE" }` (`ACTIVE` / `INACTIVE`)
+### POST /api/v1/bo/pr/manage/subaccounts/update-info
 
-Error codes: `422`, `402301` (ADMIN สร้าง sub), `402311` (sub เรียก), `402401` (username ซ้ำ), `402402` (`owner_id` นอกสาย), `402404` (sub ไม่ใช่ของตัวเอง / นอกสาย)
+Request (แทนทั้งชุด — ต้องส่งครบ · ไม่ให้สิทธิ์ใดส่ง `"permissions": {}`):
+```json
+{
+  "id": 30,
+  "name": "staff01",
+  "phone": "0811111111",
+  "permissions": { "member": "view", "report": "view" }
+}
+```
+Response:
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+- แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`)
+
+Error codes: `422`, `402311`, `402404`
+
+### POST /api/v1/bo/pr/manage/subaccounts/update-status
+
+Request:
+```json
+{ "id": 30, "status": "INACTIVE" }
+```
+Response:
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+- `status`: `ACTIVE` / `INACTIVE` · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ (เก็บเป็น `SUSPENDED`) · ไม่มีการลบ sub (MGMT-44)
+- แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`)
+
+Error codes: `422`, `402311`, `402404`
 
 ## 6. Schema
 
@@ -563,7 +856,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-30 | หัวสายของ Agent ถูกระงับ · ผู้สร้างตั้ง Agent เป็น ACTIVE | สำเร็จ · Agent ยังแสดง `status = SUSPENDED` |
 | MGMT-43 | เจ้าของตั้ง sub เป็น `INACTIVE` | sub login ได้ · เรียก route อื่นนอก Profile / Report ได้ `401311` · รายชื่อ sub แสดง `INACTIVE` · ตั้งกลับ `ACTIVE` แล้วใช้งานได้ |
 | MGMT-45 | ชั้นบนแก้หรือเปลี่ยนสถานะ sub ของบัญชีในสายล่าง | `402404` · ดูรายชื่อ / รายละเอียดได้ |
-| MGMT-40 | sub เรียก `POST /manage/subaccounts/create` หรือ `/manage/subaccounts` | `402311` |
+| MGMT-40 | sub เรียก `POST /manage/subaccounts/create` หรือ `/manage/subaccounts/list` | `402311` |
 | MGMT-51 | sub มี `member` edit · `pt` off สร้างบัญชี | `402303` |
 | MGMT-51 | sub มี `member` view · `pt` off ดูรายชื่อ | สำเร็จ · ไม่มี field `pt` |
 | MGMT-51 | sub มี `pt` edit · `member` off แก้ PT | สำเร็จ |

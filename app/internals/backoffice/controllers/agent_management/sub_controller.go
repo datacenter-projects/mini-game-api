@@ -12,7 +12,7 @@ import (
 
 // เส้น sub (phase 5) — id ของ sub อยู่ใน body · ผู้เรียกมาจาก token
 
-// ListSubaccountsController — POST /api/v1/bo/pr/manage/subaccounts (page / limit ใน body)
+// ListSubaccountsController — POST /api/v1/bo/pr/manage/subaccounts/list (page / limit ใน body)
 func ListSubaccountsController(c *fiber.Ctx) error {
 	var req agentManagementDto.SubListRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {

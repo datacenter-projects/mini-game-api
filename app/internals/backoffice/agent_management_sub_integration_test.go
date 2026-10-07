@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	subListPath   = "/api/v1/bo/pr/manage/subaccounts"
+	subListPath   = "/api/v1/bo/pr/manage/subaccounts/list"
 	subDetailPath = "/api/v1/bo/pr/manage/subaccounts/detail"
 	subCreatePath = "/api/v1/bo/pr/manage/subaccounts/create"
 	subUpdatePath = "/api/v1/bo/pr/manage/subaccounts/update-info"
