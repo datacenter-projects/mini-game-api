@@ -4,6 +4,10 @@ on:
   pull_request:
   push:
     branches: [dev, main]
+  workflow_call: # release.yml เรียกก่อน build image — check ไม่ผ่าน = ไม่ push image
+
+permissions:
+  contents: read
 
 jobs:
   check:
