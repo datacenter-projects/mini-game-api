@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status`
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status`
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
@@ -138,6 +138,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 |---|---|
 | MGMT-26 | เส้นรายชื่อเส้นเดียว: แสดง**ลูกตรง**ของบัญชีที่ระบุ (ไม่ระบุ = ตัวเอง) ทั้งฝั่ง agent และ Member ปนกัน · ไล่ลงทีละชั้นได้ถึง Member · ระบุได้เฉพาะตัวเองหรือบัญชีในสายล่าง (`402402`) · ADMIN ไม่อยู่ในรายการใด (AUTH-43) |
 | MGMT-27 | ตัวกรองมีแค่ `page` / `limit` และค้นหา username บางส่วน (ไม่สนตัวพิมพ์) · เรียง username A→Z · `page` / `limit` อยู่ใน body (แก้ 2026-10-08) · `limit` ค่าเริ่มต้น 20 สูงสุด 100 (`utils.NewPage`) |
+| MGMT-27A | **ค้นหาทั้งสาย** (`/manage/downlines/search` — เพิ่ม 2026-10-08): ค้น username บางส่วน (ไม่สนตัวพิมพ์) ในบัญชี**ทุกชั้นใต้ตัวเอง** ทั้งฝั่ง agent และ Member · ไม่รวมตัวเอง ชั้นบน และสายข้างเคียง (ขอบเขตจาก token — กฎข้อ 22) · `q` บังคับ 2–32 ตัว (`422`) · เรียง username A→Z · `page` / `limit` เหมือน MGMT-27 · แต่ละแถวเหมือน MGMT-28 + `parent_username` (ผู้สร้างตรง) · `status` = สถานะที่ใช้งานจริง · ADMIN ไม่อยู่ในผล |
 | MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` (ACC-30) · `pt` (ตาม MGMT-51) · `balances` (ยอดแยกสกุลตาม account ACC-19 — ระหว่างยังไม่มี module การชำระเงินส่ง `0`) |
 | MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม (รวม `pt_from_parent` ในกลุ่ม — MGMT-16) + `status_game` ต่อเกม (รูปแบบเดียวกับ account ACC-16 · Member มีแค่ `pt` → `commission_percent`) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
 
@@ -198,6 +199,7 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 | POST | `/api/v1/bo/pr/manage/agents/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Company / Share / Agent |
 | POST | `/api/v1/bo/pr/manage/members/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Member |
 | POST | `/api/v1/bo/pr/manage/downlines/list` | `member` view | รายชื่อลูกตรง (agent + Member) |
+| POST | `/api/v1/bo/pr/manage/downlines/search` | `member` view | ค้นหาทั้งสายใต้ตัวเอง (MGMT-27A) |
 | POST | `/api/v1/bo/pr/manage/agents/detail` | `member` view | รายละเอียดฝั่ง agent |
 | POST | `/api/v1/bo/pr/manage/members/detail` | `member` view | รายละเอียด Member |
 | POST | `/api/v1/bo/pr/manage/agents/update-info` · `/manage/members/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
@@ -341,6 +343,78 @@ Response (ตัวอย่าง: ลูกตรงของ share01 · ห�
 - `balances` 1 รายการต่อสกุลของบัญชี (MGMT-15A · account ACC-19) · ยังไม่มียอด และบัญชี Seamless = `0.00`
 
 Error codes: `402303`, `402402`
+
+### POST /api/v1/bo/pr/manage/downlines/search (ค้นหาทั้งสายใต้ตัวเอง)
+
+Request:
+```json
+{ "q": "sh", "page": 1, "limit": 20 }
+```
+Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ในชั้นต่างกัน):
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "current_page": 1,
+    "total_page": 1,
+    "total_count": 3,
+    "limit": 20,
+    "has_next": false,
+    "has_prev": false,
+    "data": [
+      {
+        "id": 12,
+        "role": "SHAREHOLDER",
+        "user_type": "SHARE_B2C",
+        "username": "sh1",
+        "name": "sh1",
+        "phone": "",
+        "status": "ACTIVE",
+        "parent_username": "comp01",
+        "pt": {
+          "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+        },
+        "balances": [ { "currency": "THB", "amount": 10000.00 } ]
+      },
+      {
+        "id": 13,
+        "role": "SHAREHOLDER",
+        "user_type": "SHARE_B2B",
+        "username": "sh2",
+        "name": "sh2",
+        "phone": "",
+        "status": "ACTIVE",
+        "parent_username": "comp01",
+        "pt": {
+          "game": { "pt_from_parent": 50, "pt": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true }
+        },
+        "balances": [ { "currency": "THB", "amount": 0.00 }, { "currency": "USD", "amount": 0.00 } ]
+      },
+      {
+        "id": 21,
+        "role": "AGENT",
+        "user_type": "AGENT",
+        "username": "sh3agent",
+        "name": "sh3agent",
+        "phone": "",
+        "status": "SUSPENDED",
+        "parent_username": "sh1",
+        "pt": {
+          "game": { "pt_from_parent": 40, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+        },
+        "balances": [ { "currency": "THB", "amount": 500.00 } ]
+      }
+    ]
+  }
+}
+```
+- ค้น username บางส่วน (ไม่สนตัวพิมพ์) ในบัญชี**ทุกชั้นใต้ตัวเอง** ทั้งฝั่ง agent และ Member (MGMT-27A) · ไม่รวมตัวเอง ชั้นบน และสายข้างเคียง
+- `q` บังคับ อย่างน้อย 2 ตัว ไม่เกิน 32 ตัว (`422`) · เรียง username A→Z · `page` / `limit` เหมือน `/list`
+- แต่ละแถวเหมือน `/list` + `parent_username` = username ของผู้สร้างตรง (บอกว่าแถวนั้นอยู่ใต้ใคร)
+- `status` = สถานะที่ใช้งานจริง รวมผลจากทุกชั้นด้านบน (ตัวอย่าง: sh1 ปกติ แต่ sh3agent ถูกระงับเอง)
+
+Error codes: `422`, `402303`
 
 ### POST /api/v1/bo/pr/manage/agents/detail
 
@@ -847,6 +921,9 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-26 | `parent_id` เป็นบัญชีสายอื่น | `402402` |
 | MGMT-26 | Agent ที่มีทั้ง Agent และ Member เป็นลูก | ได้ทั้งสองแบบ `role` ถูกต้อง เรียง A→Z |
 | MGMT-27 | `"q": "ab"` | ได้เฉพาะ username ที่มี `ab` |
+| MGMT-27A | comp01 ค้น `"q": "sh"` (sh1 sh2 ลูกตรง · sh3agent อยู่ใต้ sh1) | ได้ทั้ง 3 แถวพร้อม `parent_username` · ไม่เห็นตัวเอง ชั้นบน และสายอื่น |
+| MGMT-27A | share ค้นด้วยคำที่ตรงกับ Company ของตัวเอง หรือ share สายข้าง | ไม่พบ (`total_count = 0`) |
+| MGMT-27A | `"q": "s"` (1 ตัว) · ไม่ส่ง `q` | `422` |
 | MGMT-29 | ดูรายละเอียด | ไม่มี field รหัสผ่าน / passcode / hash |
 | MGMT-16 | สร้างด้วย `pt.game.pt_from_parent = 70` | `agent_game_settings` มี 3 แถว (ทุกเกมใน `minigame`) ค่า `pt_from_parent_bp = 7000` · `pt_bp = 7000` (เริ่มถือทั้งหมด — MGMT-22) · รายละเอียดแสดง `pt.game.pt_from_parent = 70` · `pt = 70` และ `status_game` ครบ 3 เกม · รายชื่อแสดง `pt.game.pt = 20` |
 | MGMT-30 | Share แก้สถานะ Agent ของ Agent ลูก (ไม่ใช่ผู้สร้างโดยตรง) | `402304` |

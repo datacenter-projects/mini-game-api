@@ -301,3 +301,62 @@ func ListMemberGameSettingsByIDsRepository(db *gorm.DB, ids []uint) ([]models.Me
 	err := db.Where("member_id IN ?", ids).Order("member_id, game_code").Find(&out).Error
 	return out, err
 }
+
+// DownlineSearchRow — ผลค้นทั้งสาย (MGMT-27A) = แถวรายชื่อ + ผู้สร้างตรง + สถานะที่ใช้งานจริง
+type DownlineSearchRow struct {
+	DownlineRow
+	ParentUsername  string
+	EffectiveStatus models.AgentStatus
+}
+
+// downlineSearchSQL — ทุกบัญชีใต้ @root ทุกชั้น (ไม่รวม root · ไม่รวม ADMIN) ที่ username ตรง @like
+// tree เก็บสถานะที่ใช้งานจริงสะสมจากบนลงล่าง (rank: ACTIVE 0 · SUSPENDED 1 · LOCKED 2) จึงไม่ต้อง query หัวสายทีละแถว
+const downlineSearchSQL = `
+	WITH RECURSIVE tree AS (
+		SELECT id, username, CASE @root_status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END AS rnk
+		FROM user_agents WHERE id = @root
+		UNION -- ไม่ใช้ UNION ALL: ถ้าข้อมูลสายวนเป็นลูป query จะหยุดเองไม่ค้าง
+		SELECT u.id, u.username,
+			GREATEST(t.rnk, CASE u.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END)
+		FROM user_agents u JOIN tree t ON u.parent_id = t.id
+		WHERE u.role <> 'ADMIN'
+	), hits AS (
+		SELECT u.id, false AS is_member, u.role, u.agent_type, u.username, u.name, u.phone, u.status, NULL AS currency,
+			p.username AS parent_username, GREATEST(p.rnk, CASE u.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END) AS rnk
+		FROM user_agents u JOIN tree p ON u.parent_id = p.id
+		WHERE u.role <> 'ADMIN' AND u.username LIKE @like ESCAPE '\'
+		UNION ALL
+		SELECT m.id, true, 'MEMBER', NULL, m.username, m.name, m.phone, m.status, m.currency,
+			p.username, GREATEST(p.rnk, CASE m.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END)
+		FROM members m JOIN tree p ON m.agent_id = p.id
+		WHERE m.username LIKE @like ESCAPE '\'
+	)`
+
+// SearchDownlinesRepository — ค้นทั้งสายใต้ rootID เรียง username A→Z แบ่งหน้า + จำนวนทั้งหมด (MGMT-27A)
+// rootStatus = สถานะที่ใช้งานจริงของ root (รวมหัวสายของ root แล้ว) · q ตัวเล็กแล้ว
+func SearchDownlinesRepository(db *gorm.DB, rootID uint, rootStatus models.AgentStatus, q string, offset, limit int) ([]DownlineSearchRow, int64, error) {
+	args := map[string]any{"root": rootID, "root_status": string(rootStatus), "like": "%" + likeEscaper.Replace(q) + "%"}
+	var total int64
+	if err := db.Raw(downlineSearchSQL+" SELECT count(*) FROM hits", args).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []struct {
+		DownlineRow
+		ParentUsername string
+		Rnk            int
+	}
+	args["offset"], args["limit"] = offset, limit
+	err := db.Raw(downlineSearchSQL+" SELECT * FROM hits ORDER BY username LIMIT @limit OFFSET @offset", args).Scan(&rows).Error
+	out := make([]DownlineSearchRow, len(rows))
+	for i, r := range rows {
+		status := models.AgentStatusActive
+		switch r.Rnk {
+		case 1:
+			status = models.AgentStatusSuspended
+		case 2:
+			status = models.AgentStatusLocked
+		}
+		out[i] = DownlineSearchRow{DownlineRow: r.DownlineRow, ParentUsername: r.ParentUsername, EffectiveStatus: status}
+	}
+	return out, total, err
+}

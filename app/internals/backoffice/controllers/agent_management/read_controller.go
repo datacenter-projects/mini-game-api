@@ -26,6 +26,20 @@ func ListDownlinesController(c *fiber.Ctx) error {
 	return response.Page(c, rows, page, total)
 }
 
+// SearchDownlinesController — POST /api/v1/bo/pr/manage/downlines/search (page / limit ใน body)
+func SearchDownlinesController(c *fiber.Ctx) error {
+	var req agentManagementDto.DownlineSearchRequest
+	if err := utils.ParseBodyNoNull(c, &req); err != nil {
+		return response.Error(c, err)
+	}
+	page := utils.NewPage(req.Page, req.Limit)
+	rows, total, err := agentManagementService.SearchDownlinesService(c.UserContext(), middleware.GetActor(c), req, page)
+	if err != nil {
+		return response.Error(c, err)
+	}
+	return response.Page(c, rows, page, total)
+}
+
 // GetAgentDetailController — POST /api/v1/bo/pr/manage/agents/detail
 func GetAgentDetailController(c *fiber.Ctx) error {
 	var req agentManagementDto.DetailRequest

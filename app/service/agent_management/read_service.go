@@ -50,7 +50,57 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q a
 	if err != nil {
 		return nil, 0, err
 	}
-	var agentIDs, memberIDs []uint
+	agentIDs, memberIDs := splitIDs(rows)
+	extra, err := loadRowExtras(db, agentIDs, memberIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]agentManagementDto.DownlineRow, len(rows))
+	for i, r := range rows {
+		out[i] = downlineRow(r, agentAuthCore.WorstStatus(parentStatus, r.Status), extra, showPT)
+	}
+	return out, total, nil
+}
+
+// SearchDownlinesService — POST /api/v1/bo/pr/manage/downlines/search (MGMT-27A) · ทุกชั้นใต้บัญชีใน token
+func SearchDownlinesService(ctx context.Context, actor agentAuthService.Actor, q agentManagementDto.DownlineSearchRequest,
+	page utils.Page) ([]agentManagementDto.DownlineSearchRow, int64, error) {
+	db := database.DBConn.WithContext(ctx)
+	root, err := postgres.GetAgentProfileRepository(db, actor.AgentID)
+	if err != nil {
+		return nil, 0, err
+	}
+	rootStatus, err := chainStatus(db, root.ID, root.Status)
+	if err != nil {
+		return nil, 0, err
+	}
+	showPT, err := canSeePT(ctx, actor)
+	if err != nil {
+		return nil, 0, err
+	}
+	hits, total, err := postgres.SearchDownlinesRepository(db, root.ID, rootStatus, q.Q, page.Offset(), page.Limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows := make([]postgres.DownlineRow, len(hits))
+	for i, h := range hits {
+		rows[i] = h.DownlineRow
+	}
+	agentIDs, memberIDs := splitIDs(rows)
+	extra, err := loadRowExtras(db, agentIDs, memberIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]agentManagementDto.DownlineSearchRow, len(hits))
+	for i, h := range hits {
+		out[i] = agentManagementDto.DownlineSearchRow{DownlineRow: downlineRow(h.DownlineRow, h.EffectiveStatus, extra, showPT),
+			ParentUsername: h.ParentUsername}
+	}
+	return out, total, nil
+}
+
+// splitIDs — แยก id ฝั่ง agent / Member ของแถวในหน้า
+func splitIDs(rows []postgres.DownlineRow) (agentIDs, memberIDs []uint) {
 	for _, r := range rows {
 		if r.IsMember {
 			memberIDs = append(memberIDs, r.ID)
@@ -58,32 +108,28 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q a
 			agentIDs = append(agentIDs, r.ID)
 		}
 	}
-	extra, err := loadRowExtras(db, agentIDs, memberIDs)
-	if err != nil {
-		return nil, 0, err
-	}
+	return agentIDs, memberIDs
+}
 
-	out := make([]agentManagementDto.DownlineRow, len(rows))
-	for i, r := range rows {
-		row := agentManagementDto.DownlineRow{ID: r.ID, Username: r.Username, Name: stringOrEmpty(r.Name), Phone: stringOrEmpty(r.Phone),
-			Status: string(agentAuthCore.WorstStatus(parentStatus, r.Status))}
-		if r.IsMember {
-			row.Role, row.UserType = string(agentManagementCore.UserTypeMember), string(agentManagementCore.UserTypeMember)
-			row.Balances = BalanceViews([]string{stringOrEmpty(r.Currency)}, extra.memberBalance[r.ID])
-			if showPT {
-				row.PT = MemberPTViews(extra.memberSettings[r.ID])
-			}
-		} else {
-			row.Role, row.UserType = string(r.Role), string(agentManagementCore.UserTypeOf(r.Role, r.AgentType))
-			row.Balances = BalanceViews(extra.agentCurrencies[r.ID], extra.agentBalance[r.ID])
-			if showPT {
-				pt, _ := AgentPTViews(extra.agentSettings[r.ID])
-				row.PT = pt
-			}
+// downlineRow — 1 แถวของรายชื่อ / ผลค้น (MGMT-28) · status = สถานะที่ใช้งานจริง · ไม่มีสิทธิ์ pt = ไม่มี field pt
+func downlineRow(r postgres.DownlineRow, status models.AgentStatus, extra rowExtras, showPT bool) agentManagementDto.DownlineRow {
+	row := agentManagementDto.DownlineRow{ID: r.ID, Username: r.Username, Name: stringOrEmpty(r.Name), Phone: stringOrEmpty(r.Phone),
+		Status: string(status)}
+	if r.IsMember {
+		row.Role, row.UserType = string(agentManagementCore.UserTypeMember), string(agentManagementCore.UserTypeMember)
+		row.Balances = BalanceViews([]string{stringOrEmpty(r.Currency)}, extra.memberBalance[r.ID])
+		if showPT {
+			row.PT = MemberPTViews(extra.memberSettings[r.ID])
 		}
-		out[i] = row
+		return row
 	}
-	return out, total, nil
+	row.Role, row.UserType = string(r.Role), string(agentManagementCore.UserTypeOf(r.Role, r.AgentType))
+	row.Balances = BalanceViews(extra.agentCurrencies[r.ID], extra.agentBalance[r.ID])
+	if showPT {
+		pt, _ := AgentPTViews(extra.agentSettings[r.ID])
+		row.PT = pt
+	}
+	return row
 }
 
 // rowExtras — สกุล ยอด และค่าหุ้นส่วนของทุกแถวในหน้า (query ละครั้ง ไม่ N+1 — กฎข้อ 23)

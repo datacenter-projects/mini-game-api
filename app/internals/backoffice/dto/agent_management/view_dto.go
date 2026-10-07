@@ -114,3 +114,24 @@ type DetailRequest struct {
 }
 
 func (r *DetailRequest) Validate() error { return checkID(r.ID) }
+
+// DownlineSearchRequest — POST /manage/downlines/search (MGMT-27A) · ค้นทุกชั้นใต้ตัวเอง
+type DownlineSearchRequest struct {
+	Q     string `json:"q"` // บังคับ 2–32 ตัว
+	Page  int    `json:"page"`
+	Limit int    `json:"limit"`
+}
+
+func (r *DownlineSearchRequest) Validate() error {
+	r.Q = strings.ToLower(strings.TrimSpace(r.Q))
+	if n := len([]rune(r.Q)); n < 2 || n > 32 {
+		return apperr.ErrValidation.WithMessage("q ต้องยาว 2–32 ตัว", "q must be 2–32 characters")
+	}
+	return nil
+}
+
+// DownlineSearchRow — 1 แถวของผลค้นทั้งสาย = แถวรายชื่อ + ผู้สร้างตรง (MGMT-27A)
+type DownlineSearchRow struct {
+	DownlineRow
+	ParentUsername string `json:"parent_username"`
+}

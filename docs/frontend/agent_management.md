@@ -87,6 +87,7 @@ sub ของ comp01 = `comp01@staff` (id 30)
 | 3.1 | POST | `/api/v1/bo/pr/manage/agents/create` | สร้าง Company / Share / Agent | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) |
 | 3.2 | POST | `/api/v1/bo/pr/manage/members/create` | สร้าง Member | เหมือน 3.1 |
 | 3.3 | POST | `/api/v1/bo/pr/manage/downlines/list` | รายชื่อลูกตรง (กรองด้วย `q` ได้) | `member` view |
+| 3.3A | POST | `/api/v1/bo/pr/manage/downlines/search` | ค้นหาทั้งสายใต้ตัวเอง (username) | `member` view |
 | 3.4 | POST | `/api/v1/bo/pr/manage/agents/detail` | รายละเอียดบัญชีฝั่ง agent | `member` view |
 | 3.5 | POST | `/api/v1/bo/pr/manage/members/detail` | รายละเอียด Member | `member` view |
 | 3.6 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | ลูกตรง + ค่า PT สำหรับ "คัดลอกการตั้งค่าจาก" | `pt` view |
@@ -253,6 +254,85 @@ Response `data` (ลูกตรงของ share01 · หัวสาย comp0
 | `balances` | 1 รายการต่อสกุลของบัญชี · ยังไม่มียอด / บัญชี Seamless = `0.00` |
 
 เรียง username A→Z · Error: `402303`, `402402`
+
+### 3.3A POST /api/v1/bo/pr/manage/downlines/search
+
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/downlines/search" \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d '{"q":"sh","page":1,"limit":20}'
+```
+
+Request:
+```json
+{ "q": "sh", "page": 1, "limit": 20 }
+```
+
+Response `data` (comp01 ค้น `sh`):
+```json
+{
+  "current_page": 1,
+  "total_page": 1,
+  "total_count": 3,
+  "limit": 20,
+  "has_next": false,
+  "has_prev": false,
+  "data": [
+    {
+      "id": 12,
+      "role": "SHAREHOLDER",
+      "user_type": "SHARE_B2C",
+      "username": "sh1",
+      "name": "sh1",
+      "phone": "",
+      "status": "ACTIVE",
+      "parent_username": "comp01",
+      "pt": {
+        "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+      },
+      "balances": [ { "currency": "THB", "amount": 10000.00 } ]
+    },
+    {
+      "id": 13,
+      "role": "SHAREHOLDER",
+      "user_type": "SHARE_B2B",
+      "username": "sh2",
+      "name": "sh2",
+      "phone": "",
+      "status": "ACTIVE",
+      "parent_username": "comp01",
+      "pt": {
+        "game": { "pt_from_parent": 50, "pt": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true }
+      },
+      "balances": [ { "currency": "THB", "amount": 0.00 }, { "currency": "USD", "amount": 0.00 } ]
+    },
+    {
+      "id": 21,
+      "role": "AGENT",
+      "user_type": "AGENT",
+      "username": "sh3agent",
+      "name": "sh3agent",
+      "phone": "",
+      "status": "SUSPENDED",
+      "parent_username": "sh1",
+      "pt": {
+        "game": { "pt_from_parent": 40, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+      },
+      "balances": [ { "currency": "THB", "amount": 500.00 } ]
+    }
+  ]
+}
+```
+
+| field | ความหมาย |
+|---|---|
+| `q` | บังคับ · username บางส่วน 2–32 ตัว ไม่สนตัวพิมพ์ |
+| ขอบเขต | **ทุกชั้นใต้ตัวเอง** (ทั้งฝั่ง agent และ Member) · ไม่เห็นตัวเอง ชั้นบน และสายข้างเคียง |
+| `parent_username` | ผู้สร้างตรงของแถวนั้น (บอกว่าอยู่ใต้ใคร) |
+| อื่นๆ | เหมือนแถวของ 3.3 |
+
+ต่างจาก 3.3: 3.3 ดูทีละชั้น (ลูกตรงของ `parent_id`) · 3.3A ค้นรวดเดียวทุกชั้น · Error: `422`, `402303`
 
 ### 3.4 POST /api/v1/bo/pr/manage/agents/detail
 
