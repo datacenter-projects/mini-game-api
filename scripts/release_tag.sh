@@ -15,7 +15,8 @@ esac
 
 git fetch --quiet origin "$BRANCH" --tags
 
-if ! git cat-file -e "origin/$BRANCH:.github/workflows/release.yml" 2>/dev/null; then
+# ใช้ ls-tree แทน `git cat-file -e <rev>:<path>` เพราะ Git Bash บน Windows แปลง arg ที่มี ':' + '/' เป็น path Windows
+if [ -z "$(git ls-tree --name-only "origin/$BRANCH" .github/workflows/release.yml)" ]; then
   echo "❌ origin/$BRANCH ยังไม่มี .github/workflows/release.yml — tag ไปก็ไม่มี workflow รัน"
   exit 1
 fi
