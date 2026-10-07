@@ -16,10 +16,10 @@ const localsUnmatched = "metrics_unmatched"
 // unmatchedPath คือ label path ของ request ที่ไม่ตรง route ไหนเลย (404) — ไม่ใช้ path จริงกัน cardinality ระเบิด
 const unmatchedPath = "unmatched"
 
-// HTTPMetrics นับ request และเวลาตอบ (label method, path = route pattern, status) — ไม่นับ /health/*
+// HTTPMetrics นับ request และเวลาตอบ (label method, path = route pattern, status) — ไม่นับ / และ /health/* (LB poll)
 // ต้องเป็น middleware ตัวแรก เวลาที่วัดจะได้ครอบทุก middleware
 func HTTPMetrics(c *fiber.Ctx) error {
-	if strings.HasPrefix(c.Path(), "/health/") {
+	if p := c.Path(); p == "/" || strings.HasPrefix(p, "/health/") {
 		return c.Next()
 	}
 

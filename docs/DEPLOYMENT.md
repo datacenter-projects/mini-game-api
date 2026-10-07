@@ -68,6 +68,7 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 | user | non-root uid `10001` — ตั้ง `securityContext.runAsNonRoot: true`, `runAsUser: 10001`, `allowPrivilegeEscalation: false` (เปิด `readOnlyRootFilesystem: true` ได้ เพราะ app ไม่เขียนไฟล์) |
 | liveness probe | `GET /health/live` :8181 — เช็คแค่ว่า process ตอบได้ |
 | readiness probe | `GET /health/ready` :8181 — ping Postgres + Redis ไม่พร้อมได้ 503 |
+| root `/` | `GET` / `HEAD /` :8181 ตอบ 200 เสมอ (ไม่เช็ค dependency) ไว้ให้ load balancer / uptime check และคนเปิด domain — **ไม่ใช้เป็น k8s probe** probe ต้องใช้ `/health/live` และ `/health/ready` |
 | shutdown | รับ SIGTERM แล้วปิดภายใน `SHUTDOWN_TIMEOUT` (default 30s) — `terminationGracePeriodSeconds` ต้องมากกว่าค่านี้ |
 | timezone | image ตั้ง `TZ=Asia/Bangkok` ไว้แล้ว |
 
@@ -148,7 +149,7 @@ metric ที่มี
 ข้อควรรู้เรื่อง label ของ HTTP
 
 - `path` เป็น route pattern เช่น `/api/v1/bo/pb/agents/:id` ไม่ใช่ path จริง — path ที่ไม่ตรง route ไหนเป็น `unmatched`, request ที่ middleware ของ group ตอบเอง (เช่น 401) เป็น prefix ของ group
-- `/health/*` ไม่ถูกนับ
+- `/` และ `/health/*` ไม่ถูกนับ (LB poll)
 - `status` คือ HTTP status — error ทาง business ตอบ HTTP 200 (ผลอยู่ใน field `code` ของ body) จึงเห็นเป็น 200 ตั้ง alert error rate ด้วย `status=~"5.."`
 
 ### Migration

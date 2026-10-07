@@ -16,6 +16,7 @@ import (
 func newMetricsApp() *fiber.App {
 	a := fiber.New(fiber.Config{ErrorHandler: response.FiberErrorHandler})
 	a.Use(HTTPMetrics)
+	a.Get("/", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
 	a.Get("/health/live", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
 	a.Get("/items/:id", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
 	a.Post("/items/:id", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusCreated) })
@@ -67,15 +68,16 @@ func TestHTTPMetricsLabels(t *testing.T) {
 	do(t, a, "GET", "/items/1")
 	do(t, a, "POST", "/items/2")
 	// request ถัดๆ ไปใช้ buffer ของ fasthttp ซ้ำ — ถ้าไม่ clone label ของ 2 request แรกจะเพี้ยน
-	for _, p := range []string{"/items/333333", "/nope/aaaaaaaaaaaa", "/health/live", "/health/ready", "/fail", "/private/secret/9"} {
+	for _, p := range []string{"/items/333333", "/nope/aaaaaaaaaaaa", "/health/live", "/health/ready", "/", "/fail", "/private/secret/9"} {
 		do(t, a, "DELETE", p)
 		do(t, a, "GET", p)
 	}
+	do(t, a, "HEAD", "/") // LB บางตัวใช้ HEAD — ไม่นับเหมือน GET /
 
 	want := map[string]float64{
 		"GET /items/:id 200":   2, // /items/1 + /items/333333
 		"POST /items/:id 201":  1,
-		"DELETE unmatched 404": 3, // ไม่มี route DELETE (/health/* ไม่นับ ทั้งที่ match และไม่ match)
+		"DELETE unmatched 404": 3, // ไม่มี route DELETE (/health/* และ / ไม่นับ ทั้งที่ match และไม่ match)
 		"DELETE /private 401":  1,
 		"GET unmatched 404":    1, // /nope/...
 		"GET /fail 500":        1, // error จาก handler → status ตาม ErrorHandler
