@@ -1,7 +1,7 @@
 # อัตราแลกเปลี่ยน (`currency_rate`) — Spec
 
-- สถานะ: **DRAFT**
-- อนุมัติโดย: — · วันที่: —
+- สถานะ: **APPROVED**
+- อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
 - ชื่อ module ในโค้ด: `currency_rate` (`service/currency_rate`, `core/currency_rate`, `repository/redis`)
 - ที่มาของ rule: คำตอบของ boiledegg (2026-10-07) + ผลการยิงเส้นจริงบน `https://dev-api.amblotto.net` (2026-10-07) ·
   ไม่ได้ extract จากโค้ดเก่า

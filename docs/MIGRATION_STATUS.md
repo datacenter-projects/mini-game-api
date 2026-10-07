@@ -24,4 +24,4 @@ Makefile, docker-compose, Dockerfile, CI, check_structure.sh, CLAUDE.md, ARCHITE
 |---|---|---|---|---|
 | `agent_auth` | [agent_auth.md](modules/agent_auth.md) | IM | login, logout, middleware `Authenticated`, ตาราง `user_agents` (เฉพาะคอลัมน์ auth), `scripts/create_superadmin` | — |
 | `agent_auth` phase 2 | [agent_auth_phase2.md](modules/agent_auth_phase2.md) | IM | subaccount login, passcode setup/change, `RequirePasscode`, เปลี่ยนรหัสผ่าน, admin reset passcode/password, ด่านหลัง login, `auth_audit_logs`, `scripts/create_admin` | `scripts/reset_credentials` (รอ lead เรื่อง actor ใน audit log), รัน integration test |
-| `currency_rate` | [currency_rate.md](modules/currency_rate.md) (DRAFT) | — | — | worker ดึงเรท USDT ทุก 15 นาที + Redis lock · ฟังก์ชันแปลงยอดข้ามสกุลเพื่อแสดงผล |
+| `currency_rate` | [currency_rate.md](modules/currency_rate.md) (APPROVED 2026-10-07) | IM | worker ดึงเรท USDT ทุก 15 นาที (ดึงทันทีตอนเริ่ม) + Redis lock · `ConvertAmountService` แปลงยอดข้ามสกุลเพื่อแสดงผล · config `IS_CURRENCY_RATE_SYNC`, `CURRENCY_RATE_API_BASE_URL` | ใช้ใน Dashboard / รายงาน (ตอนทำหน้านั้น) |
