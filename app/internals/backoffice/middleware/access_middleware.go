@@ -41,7 +41,7 @@ func RequireRole(role models.AgentRole) fiber.Handler {
 
 // RequirePermission — สิทธิ์ต่อเมนูของบัญชีหลัก / sub (MGMT-50, MGMT-51) · ไม่พอ = 402303
 //
-//	pr.Get("/manage/downlines", mw.PassedGates(), mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelView), ...)
+//	pr.Post("/manage/downlines/list", mw.PassedGates(), mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelView), ...)
 func RequirePermission(menu agentManagementCore.Menu, need agentManagementCore.Level) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		if err := agentManagementService.CheckPermissionService(c.UserContext(), GetActor(c), menu, need); err != nil {

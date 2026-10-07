@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	downlinesPath    = "/api/v1/bo/pr/manage/downlines"
+	downlinesPath    = "/api/v1/bo/pr/manage/downlines/list"
 	agentDetailPath  = "/api/v1/bo/pr/manage/agents/detail"
 	memberDetailPath = "/api/v1/bo/pr/manage/members/detail"
 	copySourcesPath  = "/api/v1/bo/pr/manage/agents/copy-sources"

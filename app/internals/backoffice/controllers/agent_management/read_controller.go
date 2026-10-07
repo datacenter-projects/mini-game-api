@@ -12,7 +12,7 @@ import (
 
 // เส้นอ่านที่ต้องระบุบัญชีใช้ POST + id ใน body (ผู้ดูมาจาก token) — copy-sources ไม่ระบุบัญชีจึงเป็น GET
 
-// ListDownlinesController — POST /api/v1/bo/pr/manage/downlines (page / limit ใน body)
+// ListDownlinesController — POST /api/v1/bo/pr/manage/downlines/list (page / limit ใน body)
 func ListDownlinesController(c *fiber.Ctx) error {
 	var req agentManagementDto.DownlinesRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {

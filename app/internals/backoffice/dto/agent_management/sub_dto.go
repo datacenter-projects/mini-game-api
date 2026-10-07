@@ -28,7 +28,7 @@ type SubView struct {
 	LastLoginIP string            `json:"last_login_ip"`
 }
 
-// SubListRequest — POST /manage/subaccounts · ทุกค่าไม่บังคับ — ไม่กรองให้ส่ง {}
+// SubListRequest — POST /manage/subaccounts/list · ทุกค่าไม่บังคับ — ไม่กรองให้ส่ง {}
 type SubListRequest struct {
 	OwnerID uint   `json:"owner_id"` // 0 = ตัวเอง · อื่นต้องอยู่ในสายล่าง
 	Q       string `json:"q"`
