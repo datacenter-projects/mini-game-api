@@ -75,29 +75,32 @@ login → must_change_password? → password/change
 
 **error ที่เกิดได้กับทุกเส้นใต้ `/pr`** (ไม่เขียนซ้ำในแต่ละเส้น): `401202`, `401203`, `401301`, `401302` → พาไปหน้า login
 
-### ตั้งค่า curl
+### ตั้งค่า Postman (ตัวแปร `{{MG_URL}}` และ `{{TOKEN}}`)
 
-ทุกตัวอย่างใช้ตัวแปร 2 ตัว — ตั้งครั้งเดียวแล้วคัดลอกคำสั่งไปรันได้เลย (เครื่อง local ใช้พอร์ต `8181` ตาม `.env.example`)
+ทุกตัวอย่างใช้ตัวแปร Postman 2 ตัว — คัดลอก curl ไป **Import** ใน Postman ได้เลย (Postman แทนค่า `{{...}}` ให้)
 
-```bash
-BASE=http://localhost:8181/api/v1/bo
-TOKEN=<token จาก login>
-```
+| ตัวแปร | ค่า | ตั้งที่ |
+|---|---|---|
+| `MG_URL` | `http://localhost:8181` (dev ในเครื่อง) · `http://localhost:8282` (test env) | ตัวแปรของ collection หรือ environment |
+| `TOKEN` | token จาก login (ตั้งอัตโนมัติด้วย script ด้านล่าง) | ตัวแปรของ collection |
 
-ดึง token จาก login มาใส่ตัวแปรอัตโนมัติ (ต้องมี `jq`):
+ทุก path ต้องมี `/api/v1/bo` ต่อจาก `{{MG_URL}}` เช่น `{{MG_URL}}/api/v1/bo/pr/account/profile`
 
-```bash
-TOKEN=$(curl -s -X POST "$BASE/pb/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"agent01","password":"Zx9!kq2m"}' | jq -r '.data.token')
-```
+1. เส้น **Login** → แท็บ **Scripts** → **Post-response**:
+   ```javascript
+   const data = pm.response.json().data;
+   if (data && data.token) pm.collectionVariables.set("TOKEN", data.token);
+   ```
+2. เส้นอื่น → แท็บ **Authorization** → **Bearer Token** → `{{TOKEN}}`
+   (ตั้งที่ folder ครั้งเดียวแล้วให้เส้นข้างในเลือก **Inherit auth from parent** · เส้น Login ตั้ง **No Auth**)
+3. กด Login ครั้งเดียว แล้วเรียกเส้นอื่นได้เลย · ได้ `401202` = ยังไม่มี token หรือหมดอายุ → Login ใหม่
 
 ขอข้อความ error เป็นภาษาอังกฤษ: เพิ่ม `-H "X-Lang: en"`
 
 ### 3.1 POST /api/v1/bo/pb/auth/login
 
-```bash
-curl -X POST "$BASE/pb/auth/login" \
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pb/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"agent01","password":"Zx9!kq2m"}'
 ```
@@ -133,9 +136,9 @@ Error: `422`, `401201`, `401301`, `401302`, `401303`, `401309`, `401310`, `429`,
 
 ### 3.2 POST /api/v1/bo/pr/auth/logout
 
-```bash
-curl -X POST "$BASE/pr/auth/logout" \
-  -H "Authorization: Bearer $TOKEN"
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/auth/logout" \
+  -H "Authorization: Bearer {{TOKEN}}"
 ```
 
 Header `Authorization: Bearer <token>` · ไม่มี body · Response: `{ "code": 200, "msg": "สำเร็จ" }`
@@ -145,9 +148,9 @@ Header `Authorization: Bearer <token>` · ไม่มี body · Response: `{ "
 
 ### 3.3 POST /api/v1/bo/pr/auth/passcode/setup
 
-```bash
-curl -X POST "$BASE/pr/auth/passcode/setup" \
-  -H "Authorization: Bearer $TOKEN" \
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/auth/passcode/setup" \
+  -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"passcode":"123456","confirm_passcode":"123456"}'
 ```
@@ -162,9 +165,9 @@ Error: `422`, `401401` (ตั้งไว้แล้ว), `401306`, `401307`
 
 ### 3.4 POST /api/v1/bo/pr/auth/passcode/change
 
-```bash
-curl -X POST "$BASE/pr/auth/passcode/change" \
-  -H "Authorization: Bearer $TOKEN" \
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/auth/passcode/change" \
+  -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"old_passcode":"123456","new_passcode":"654321","confirm_passcode":"654321"}'
 ```
@@ -181,16 +184,16 @@ Error: `422`, `401204`, `401205`, `401403`, `401310`, `401304`, `401306`
 
 ### 3.5 POST /api/v1/bo/pr/auth/password/change
 
-```bash
+```
 # ปกติ
-curl -X POST "$BASE/pr/auth/password/change" \
-  -H "Authorization: Bearer $TOKEN" \
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/auth/password/change" \
+  -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"old_password":"Zx9!kq2m","new_password":"Nw8@pq3r","confirm_password":"Nw8@pq3r","passcode":"123456"}'
 
 # ถูกบังคับเปลี่ยน (ไม่ต้องส่ง passcode)
-curl -X POST "$BASE/pr/auth/password/change" \
-  -H "Authorization: Bearer $TOKEN" \
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/auth/password/change" \
+  -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"old_password":"Xk7mPq4RtW9z","new_password":"Nw8@pq3r","confirm_password":"Nw8@pq3r"}'
 ```
@@ -214,9 +217,9 @@ Error: `422`, `401204`, `401205`, `401206`, `401303`, `401402`, `401310`, `40130
 
 ### 3.6 POST /api/v1/bo/pr/admin/passcode/reset (เฉพาะ ADMIN)
 
-```bash
-curl -X POST "$BASE/pr/admin/passcode/reset" \
-  -H "Authorization: Bearer $TOKEN" \
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/admin/passcode/reset" \
+  -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"username":"agent01@staff","passcode":"123456"}'
 ```
@@ -233,9 +236,9 @@ Error: `422`, `401308`, `401404`, `401405`, `401406`, `401407`, `401204`, `40120
 
 ### 3.7 POST /api/v1/bo/pr/admin/password/reset (เฉพาะ ADMIN)
 
-```bash
-curl -X POST "$BASE/pr/admin/password/reset" \
-  -H "Authorization: Bearer $TOKEN" \
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/admin/password/reset" \
+  -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"username":"agent01","passcode":"123456"}'
 ```

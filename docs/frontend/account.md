@@ -44,21 +44,32 @@ key เดียว = สถานะที่ใช้งานจริง (�
 
 ตัวอย่าง: หัวสายถูกระงับ → บัญชีนี้ได้ `status = SUSPENDED` แม้บัญชีตัวเองไม่ได้ถูกระงับ
 
-### 1.4 ตั้งค่า curl
+### 1.4 ตั้งค่า Postman (ตัวแปร `{{MG_URL}}` และ `{{TOKEN}}`)
 
-```bash
-BASE=http://localhost:8181/api/v1/bo
-TOKEN=$(curl -s -X POST "$BASE/pb/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"agent01","password":"Zx9!kq2m"}' | jq -r '.data.token')
-```
+ทุกตัวอย่างใช้ตัวแปร Postman 2 ตัว — คัดลอก curl ไป **Import** ใน Postman ได้เลย (Postman แทนค่า `{{...}}` ให้)
+
+| ตัวแปร | ค่า | ตั้งที่ |
+|---|---|---|
+| `MG_URL` | `http://localhost:8181` (dev ในเครื่อง) · `http://localhost:8282` (test env) | ตัวแปรของ collection หรือ environment |
+| `TOKEN` | token จาก login (ตั้งอัตโนมัติด้วย script ด้านล่าง) | ตัวแปรของ collection |
+
+ทุก path ต้องมี `/api/v1/bo` ต่อจาก `{{MG_URL}}` เช่น `{{MG_URL}}/api/v1/bo/pr/account/profile`
+
+1. เส้น **Login** → แท็บ **Scripts** → **Post-response**:
+   ```javascript
+   const data = pm.response.json().data;
+   if (data && data.token) pm.collectionVariables.set("TOKEN", data.token);
+   ```
+2. เส้นอื่น → แท็บ **Authorization** → **Bearer Token** → `{{TOKEN}}`
+   (ตั้งที่ folder ครั้งเดียวแล้วให้เส้นข้างในเลือก **Inherit auth from parent** · เส้น Login ตั้ง **No Auth**)
+3. กด Login ครั้งเดียว แล้วเรียกเส้นอื่นได้เลย · ได้ `401202` = ยังไม่มี token หรือหมดอายุ → Login ใหม่
 
 ## 2. Profile — `GET /api/v1/bo/pr/account/profile` (✅ ใช้ได้)
 
 ข้อมูลบัญชีของคนที่ login (หน้า 1.2 ประวัติของฉัน) · เปิดได้แม้ `status = SUSPENDED`
 
-```bash
-curl "$BASE/pr/account/profile" -H "Authorization: Bearer $TOKEN"
+```
+curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN}}"
 ```
 
 ### 2.1 Response `data`
@@ -166,8 +177,8 @@ curl "$BASE/pr/account/profile" -H "Authorization: Bearer $TOKEN"
 
 ### 3.1 ดู — `GET /api/v1/bo/pr/account/api-credential`
 
-```bash
-curl "$BASE/pr/account/api-credential" -H "Authorization: Bearer $TOKEN"
+```
+curl "{{MG_URL}}/api/v1/bo/pr/account/api-credential" -H "Authorization: Bearer {{TOKEN}}"
 ```
 
 ```json
@@ -186,9 +197,9 @@ curl "$BASE/pr/account/api-credential" -H "Authorization: Bearer $TOKEN"
 
 ### 3.2 อัปเดต — `POST /api/v1/bo/pr/account/update-credential`
 
-```bash
-curl -X POST "$BASE/pr/account/update-credential" \
-  -H "Authorization: Bearer $TOKEN" \
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/account/update-credential" \
+  -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"callback_url":"https://api.customer.example/minigame","allowed_ips":["203.0.113.10","198.51.100.0/24"],"passcode":"123456"}'
 ```
