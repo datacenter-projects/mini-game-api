@@ -28,7 +28,17 @@ label: `org.opencontainers.image.source` (ลิงก์ repo), `org.opencontai
 
 ### วิธีออก tag
 
-ตั้งชื่อด้วยเวลา `YYYYMMDDHHmm` (เวลาไทย)
+```bash
+make release env=dev    # tag dev-<YYYYMMDDHHmm> ที่ปลาย origin/dev
+make release env=prod   # tag prod-<YYYYMMDDHHmm> ที่ปลาย origin/main (ต้องพิมพ์ yes ยืนยัน)
+```
+
+`scripts/release_tag.sh` ทำให้
+- `git fetch` แล้ว tag ที่ปลาย `origin/<branch>` เสมอ ไม่ใช้ HEAD ในเครื่อง (อยู่ branch ไหนก็ได้ มี commit ค้างก็ไม่ติดไปด้วย)
+- ตั้งชื่อด้วยเวลาไทย และ fail ถ้า branch นั้นยังไม่มี `release.yml`
+- push ไม่ผ่าน (เช่นชื่อซ้ำในนาทีเดียวกัน) จะลบ tag ในเครื่องทิ้ง
+
+ทำมือก็ได้ แต่ต้อง tag ที่ `origin/<branch>` ไม่ใช่ HEAD
 
 ```bash
 git fetch origin
@@ -36,7 +46,6 @@ git tag dev-202610071530 origin/dev
 git push origin dev-202610071530
 ```
 
-prod ใช้ `prod-<เวลา>` จาก `origin/main` เหมือนกัน
 tag ที่ไม่ได้อยู่บน branch ที่กำหนด workflow จะ fail และไม่ push image
 
 ### ครั้งแรกที่ push image
