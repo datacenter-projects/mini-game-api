@@ -163,7 +163,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · **ผู้สร้าง sub เป็นคนเปลี่ยน** · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ เหมือน `SUSPENDED` (AUTH-54 · ภายในเก็บเป็น `SUSPENDED` ในตาราง `subaccounts` · API แสดง `INACTIVE`) · เปลี่ยนกลับเป็น `ACTIVE` ได้ · ไม่ต้อง passcode · ถ้าเจ้าของหรือหัวสายถูกระงับ / ล็อก sub ได้ผลตาม `status` ที่ใช้งานจริง (ACC-30 · AUTH-53) |
 | MGMT-44 | **ไม่มีการลบ sub** — เลิกใช้ให้เปลี่ยนเป็น `INACTIVE` |
 | MGMT-45 | แก้ / เปลี่ยนสถานะได้เฉพาะเจ้าของ · ชั้นบนดูรายชื่อและรายละเอียด sub ของบัญชีในสายล่างได้อย่างเดียว |
-| MGMT-46 | รายชื่อ sub: ระบุเจ้าของ (ไม่ระบุ = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · ค้นหา username บางส่วน · เรียง A→Z · `page` / `limit` · แต่ละแถว: `id` · username · ชื่อเล่น · เบอร์โทร · `status` · สิทธิ์ · วันที่สร้าง · login ล่าสุด (เวลา, IP) · รายละเอียด sub (`GET /subaccounts/:id`) ส่ง field ชุดเดียวกัน |
+| MGMT-46 | รายชื่อ sub: ระบุเจ้าของ (ไม่ระบุ = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · ค้นหา username บางส่วน · เรียง A→Z · `page` / `limit` · แต่ละแถว: `id` · username · ชื่อเล่น · เบอร์โทร · `status` · สิทธิ์ · วันที่สร้าง · login ล่าสุด (เวลา, IP) · รายละเอียด sub (`GET /manage/subaccounts/:id`) ส่ง field ชุดเดียวกัน |
 
 ### สิทธิ์ (ใช้ทั้งหลังบ้าน)
 
@@ -194,24 +194,24 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 
 | Method | Path | สิทธิ์ (sub) | หมายเหตุ |
 |---|---|---|---|
-| POST | `/api/v1/bo/pr/agents` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Company / Share / Agent |
-| POST | `/api/v1/bo/pr/members` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Member |
-| GET | `/api/v1/bo/pr/downlines` | `member` view | รายชื่อลูกตรง (agent + Member) |
-| GET | `/api/v1/bo/pr/agents/:id` | `member` view | รายละเอียดฝั่ง agent |
-| GET | `/api/v1/bo/pr/members/:id` | `member` view | รายละเอียด Member |
-| POST | `/api/v1/bo/pr/agents/:id/info` · `/members/:id/info` | `member` edit | แก้ชื่อ · เบอร์โทร |
-| POST | `/api/v1/bo/pr/agents/:id/status` · `/members/:id/status` | `member` edit | แก้สถานะ |
-| POST | `/api/v1/bo/pr/agents/:id/pt` · `/members/:id/pt` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
-| POST | `/api/v1/bo/pr/agents/me/pt` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
-| POST | `/api/v1/bo/pr/agents/:id/games` | `pt` edit | เปิด / ปิดทีละเกม — ❓ รอ lead: จะย้ายไป module อื่นและให้ใครใช้ |
-| GET | `/api/v1/bo/pr/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
-| GET | `/api/v1/bo/pr/subaccounts` | บัญชีหลัก | รายชื่อ sub |
-| GET | `/api/v1/bo/pr/subaccounts/:id` | บัญชีหลัก | รายละเอียด sub |
-| POST | `/api/v1/bo/pr/subaccounts` | บัญชีหลัก | สร้าง sub |
-| POST | `/api/v1/bo/pr/subaccounts/:id` | บัญชีหลัก (เจ้าของ) | แก้ชื่อเล่น · เบอร์โทร · สิทธิ์ |
-| POST | `/api/v1/bo/pr/subaccounts/:id/status` | บัญชีหลัก (เจ้าของ) | `ACTIVE` / `INACTIVE` (MGMT-43) |
+| POST | `/api/v1/bo/pr/manage/agents` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Company / Share / Agent |
+| POST | `/api/v1/bo/pr/manage/members` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Member |
+| GET | `/api/v1/bo/pr/manage/downlines` | `member` view | รายชื่อลูกตรง (agent + Member) |
+| GET | `/api/v1/bo/pr/manage/agents/:id` | `member` view | รายละเอียดฝั่ง agent |
+| GET | `/api/v1/bo/pr/manage/members/:id` | `member` view | รายละเอียด Member |
+| POST | `/api/v1/bo/pr/manage/agents/:id/info` · `/manage/members/:id/info` | `member` edit | แก้ชื่อ · เบอร์โทร |
+| POST | `/api/v1/bo/pr/manage/agents/:id/status` · `/manage/members/:id/status` | `member` edit | แก้สถานะ |
+| POST | `/api/v1/bo/pr/manage/agents/:id/pt` · `/manage/members/:id/pt` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
+| POST | `/api/v1/bo/pr/manage/agents/me/pt` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
+| POST | `/api/v1/bo/pr/manage/agents/:id/games` | `pt` edit | เปิด / ปิดทีละเกม — ❓ รอ lead: จะย้ายไป module อื่นและให้ใครใช้ |
+| GET | `/api/v1/bo/pr/manage/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
+| GET | `/api/v1/bo/pr/manage/subaccounts` | บัญชีหลัก | รายชื่อ sub |
+| GET | `/api/v1/bo/pr/manage/subaccounts/:id` | บัญชีหลัก | รายละเอียด sub |
+| POST | `/api/v1/bo/pr/manage/subaccounts` | บัญชีหลัก | สร้าง sub |
+| POST | `/api/v1/bo/pr/manage/subaccounts/:id` | บัญชีหลัก (เจ้าของ) | แก้ชื่อเล่น · เบอร์โทร · สิทธิ์ |
+| POST | `/api/v1/bo/pr/manage/subaccounts/:id/status` | บัญชีหลัก (เจ้าของ) | `ACTIVE` / `INACTIVE` (MGMT-43) |
 
-### POST /api/v1/bo/pr/agents
+### POST /api/v1/bo/pr/manage/agents
 
 Request:
 ```json
@@ -241,13 +241,13 @@ Response `data`: `{ "id": 12, "username": "share01", "user_type": "SHARE_B2C" }`
 
 Error codes: `422`, `402301`, `402305`, `402307`, `402308`, `402309`, `402310`, `402312`, `402401`, `402403`
 
-### POST /api/v1/bo/pr/members
+### POST /api/v1/bo/pr/manage/members
 
 Request: `request_id`, `username` (รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก), `password`, `name`, `phone`, `balance` (ไม่บังคับ — MGMT-15A), `pt` (กลุ่มละ `commission_percent` เท่านั้น — MGMT-21) · สกุลเงินตามผู้สร้าง
 Response `data`: `{ "id": 501, "username": "mem01" }`
 Error codes: `422`, `402301`, `402309`, `402312`, `402401`, `402403`
 
-### GET /api/v1/bo/pr/downlines
+### GET /api/v1/bo/pr/manage/downlines
 
 Query: `parent_id` (ไม่ส่ง = ตัวเอง · ต้องเป็นบัญชีฝั่ง agent ในสายล่าง) · `q` · `page` · `limit`
 Response `data` (`response.Page`) แต่ละแถว:
@@ -272,7 +272,7 @@ Response `data` (`response.Page`) แต่ละแถว:
 
 Error codes: `402402`
 
-### GET /api/v1/bo/pr/agents/:id · /members/:id
+### GET /api/v1/bo/pr/manage/agents/:id · /manage/members/:id
 
 Response `data` (ตัวอย่างฝั่ง agent — หลังสร้างด้วย `pt.game.pt = 20` และปิด `scratch_card`):
 ```json
@@ -302,15 +302,15 @@ Response `data` (ตัวอย่างฝั่ง agent — หลังส�
 
 Error codes: `402402`
 
-### POST /api/v1/bo/pr/agents/:id/info · /members/:id/info
+### POST /api/v1/bo/pr/manage/agents/:id/info · /manage/members/:id/info
 
 Request: `{ "name": "share01", "phone": null }` · Response: ไม่มี `data` · Error codes: `422`, `402304`, `402402`, `402403`
 
-### POST /api/v1/bo/pr/agents/:id/status · /members/:id/status
+### POST /api/v1/bo/pr/manage/agents/:id/status · /manage/members/:id/status
 
 Request: `{ "status": "SUSPENDED" }` · Response: ไม่มี `data` · Error codes: `422`, `402304`, `402402`
 
-### POST /api/v1/bo/pr/agents/:id/pt · /members/:id/pt (ผู้สร้างตั้งให้ลูก)
+### POST /api/v1/bo/pr/manage/agents/:id/pt · /manage/members/:id/pt (ผู้สร้างตั้งให้ลูก)
 
 Request (ส่งเฉพาะกลุ่มที่จะแก้ · ในกลุ่มต้องครบ 5 ค่า · ห้าม `null`):
 ```json
@@ -322,7 +322,7 @@ Request (ส่งเฉพาะกลุ่มที่จะแก้ · ใ�
 
 Response: ไม่มี `data` · Error codes: `422`, `402304`, `402305`, `402306`, `402307`, `402308`, `402309`, `402402`
 
-### POST /api/v1/bo/pr/agents/me/pt (บัญชีตั้งค่าถือของตัวเอง)
+### POST /api/v1/bo/pr/manage/agents/me/pt (บัญชีตั้งค่าถือของตัวเอง)
 
 Request (ส่งเฉพาะกลุ่มที่จะแก้):
 ```json
@@ -333,18 +333,18 @@ Request (ส่งเฉพาะกลุ่มที่จะแก้):
 
 Response: ไม่มี `data` · Error codes: `422`, `402305`, `402307`
 
-### POST /api/v1/bo/pr/agents/:id/games
+### POST /api/v1/bo/pr/manage/agents/:id/games
 
 Request: `{ "status_game": { "scratch_card": false } }` (ส่งเฉพาะเกมที่จะเปลี่ยน) · Response: ไม่มี `data` ·
 Error codes: `422`, `402304`, `402402`
 
-### GET /api/v1/bo/pr/agents/copy-sources
+### GET /api/v1/bo/pr/manage/agents/copy-sources
 
 Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", "pt": {...}, "status_game": {...} }]` (ลูกตรงฝั่ง agent ทั้งหมด เรียง A→Z)
 
 ### Sub
 
-`GET /subaccounts?owner_id=&q=&page=&limit=` — แต่ละแถว และ `GET /subaccounts/:id`:
+`GET /manage/subaccounts?owner_id=&q=&page=&limit=` — แต่ละแถว และ `GET /manage/subaccounts/:id`:
 ```json
 {
   "id": 30,
@@ -362,7 +362,7 @@ Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", 
 }
 ```
 
-`POST /subaccounts` (สร้าง):
+`POST /manage/subaccounts` (สร้าง):
 ```json
 {
   "name_suffix": "Staff",
@@ -374,9 +374,9 @@ Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", 
 ```
 → `data`: `{ "id": 30, "username": "comp01@staff" }` · `name_suffix` รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก · เมนูที่ไม่ส่ง = `off`
 
-`POST /subaccounts/:id` (แก้): `{ "name", "phone", "permissions" }` (แทนทั้งชุด)
+`POST /manage/subaccounts/:id` (แก้): `{ "name", "phone", "permissions" }` (แทนทั้งชุด)
 
-`POST /subaccounts/:id/status`: `{ "status": "INACTIVE" }` (`ACTIVE` / `INACTIVE`)
+`POST /manage/subaccounts/:id/status`: `{ "status": "INACTIVE" }` (`ACTIVE` / `INACTIVE`)
 
 Error codes: `422`, `402311`, `402401`, `402403`, `402404`
 
@@ -557,7 +557,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-30 | หัวสายของ Agent ถูกระงับ · ผู้สร้างตั้ง Agent เป็น ACTIVE | สำเร็จ · Agent ยังแสดง `status = SUSPENDED` |
 | MGMT-43 | เจ้าของตั้ง sub เป็น `INACTIVE` | sub login ได้ · เรียก route อื่นนอก Profile / Report ได้ `401311` · รายชื่อ sub แสดง `INACTIVE` · ตั้งกลับ `ACTIVE` แล้วใช้งานได้ |
 | MGMT-45 | ชั้นบนแก้หรือเปลี่ยนสถานะ sub ของบัญชีในสายล่าง | `402404` · ดูรายชื่อ / รายละเอียดได้ |
-| MGMT-40 | sub เรียก `POST /subaccounts` | `402311` |
+| MGMT-40 | sub เรียก `POST /manage/subaccounts` | `402311` |
 | MGMT-51 | sub มี `member` edit · `pt` off สร้างบัญชี | `402303` |
 | MGMT-51 | sub มี `member` view · `pt` off ดูรายชื่อ | สำเร็จ · ไม่มี field `pt` |
 | MGMT-51 | sub มี `pt` edit · `member` off แก้ PT | สำเร็จ |
