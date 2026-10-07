@@ -89,6 +89,7 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 | `REDIS_ADDR` | required |
 | `REDIS_PASSWORD` | Secret |
 | `JWT_SECRET` | Secret, required, อย่างน้อย 32 ตัวอักษร, แยกค่าต่อ env |
+| `PASSWORD_COST` | bcrypt cost — **12** (default) ห้ามลดบน dev/prod ค่า 4 ใช้กับ CI/test เท่านั้น |
 | `SESSION_*`, `LOGIN_*`, `PASSCODE_*`, `TEMP_CREDENTIAL_TTL` | มี default ใช้ตาม `.env.example` ได้ |
 | `MIGRATE_ON_START` | **`false`** (default เมื่อไม่ตั้ง) — migration รันแยกตามข้อถัดไป |
 

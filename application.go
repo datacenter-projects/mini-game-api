@@ -9,6 +9,7 @@ import (
 	"app/pkg/configs"
 	"app/pkg/middleware"
 	"app/pkg/routes"
+	"app/pkg/utils"
 	"app/platform/database"
 	"app/platform/logger"
 
@@ -21,6 +22,7 @@ func main() {
 	if err := configs.Load(); err != nil {
 		log.Fatalf("config: %v", err)
 	}
+	utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
 	logger.InitLogger(configs.Cfg.AppEnv == "local")
 	defer logger.Logger.Sync() //nolint:errcheck
 

@@ -32,6 +32,9 @@ type Config struct {
 type AuthConfig struct {
 	JWTSecret string
 
+	// PasswordCost คือ bcrypt cost ของ password/passcode — prod 12, CI/test 4 (ช่วงที่รับ 4–14)
+	PasswordCost int
+
 	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
 
@@ -111,6 +114,7 @@ func Load() error {
 
 		Auth: AuthConfig{
 			JWTSecret:              required("JWT_SECRET"),
+			PasswordCost:           getEnvInt("PASSWORD_COST", 12),
 			SessionIdleTimeout:     getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
 			SessionAbsoluteTimeout: getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
 			LoginFailLimit:         getEnvInt("LOGIN_FAIL_LIMIT", 5),
@@ -131,6 +135,9 @@ func Load() error {
 	}
 	if len(cfg.Auth.JWTSecret) < 32 {
 		return fmt.Errorf("JWT_SECRET must be at least 32 characters")
+	}
+	if cfg.Auth.PasswordCost < 4 || cfg.Auth.PasswordCost > 14 {
+		return fmt.Errorf("PASSWORD_COST must be between 4 and 14")
 	}
 	if cfg.Auth.SessionIdleTimeout > cfg.Auth.SessionAbsoluteTimeout {
 		return fmt.Errorf("SESSION_IDLE_TIMEOUT must not exceed SESSION_ABSOLUTE_TIMEOUT")
