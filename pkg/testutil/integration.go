@@ -46,9 +46,6 @@ var tables = []string{"account_change_logs", "auth_audit_logs", "balance_ledger"
 // env ที่ห้ามรัน integration test เด็ดขาด — test ล้างทุกตารางและ FLUSHDB Redis
 var forbiddenEnvs = map[string]bool{"dev": true, "uat": true, "prod": true}
 
-// env ที่ห้ามรัน integration test เด็ดขาด — test ล้างทุกตารางและ FLUSHDB Redis
-var forbiddenEnvs = map[string]bool{"dev": true, "uat": true, "prod": true}
-
 // Setup ต่อ DB/Redis ตาม env (ครั้งเดียวต่อ package), รัน migration, คืน fiber app ที่ประกอบ route จริง
 // และล้างข้อมูลทั้งหมดหลัง test จบ — test ที่ใช้ helper นี้ห้ามรัน t.Parallel()
 func Setup(t *testing.T) *fiber.App {

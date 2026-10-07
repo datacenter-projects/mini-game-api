@@ -114,7 +114,7 @@ func CreateUserAgentRepository(db *gorm.DB, a *models.UserAgent) error {
 // GetUserAgentProfileRepository — คอลัมน์ของหน้า Profile (account ACC-12) · ไม่พบคืน apperr.ErrNotFound
 func GetUserAgentProfileRepository(db *gorm.DB, id uint) (models.UserAgent, error) {
 	var a models.UserAgent
-	err := db.Select("id", "username", "role", "last_login_at", "last_login_ip", "created_at").Where("id = ?", id).Take(&a).Error
+	err := db.Select("id", "username", "role", "agent_type", "last_login_at", "last_login_ip", "created_at").Where("id = ?", id).Take(&a).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return a, apperr.ErrNotFound
 	}

@@ -4,27 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"app/app/models"
+	agentManagementCore "app/app/core/agent_management"
 )
-
-func TestUserTypeFromRole(t *testing.T) { // ACC-12
-	tests := []struct {
-		role models.AgentRole
-		want string
-	}{
-		{models.AgentRoleSuperAdmin, "SUPERADMIN"},
-		{models.AgentRoleAdmin, "ADMIN"},
-		{models.AgentRoleAgent, "AGENT"},
-		{models.AgentRoleCompany, ""},     // ต้องใช้ agent_type ของ module ②
-		{models.AgentRoleShareholder, ""}, // ต้องใช้ agent_type ของ module ②
-		{models.AgentRole("UNKNOWN"), ""},
-	}
-	for _, tt := range tests {
-		if got := UserTypeFromRole(tt.role); got != tt.want {
-			t.Errorf("UserTypeFromRole(%q) = %q, want %q", tt.role, got, tt.want)
-		}
-	}
-}
 
 func TestOptionalTime(t *testing.T) { // ACC-32
 	at := time.Date(2026, 10, 5, 10, 0, 0, 0, time.FixedZone("ICT", 7*3600))
@@ -60,41 +41,47 @@ func TestOptionalString(t *testing.T) { // ACC-32
 	}
 }
 
-func TestCurrencies(t *testing.T) { // ACC-18
-	if len(Currencies) != 27 {
-		t.Fatalf("ต้องมี 27 สกุล ได้ %d", len(Currencies))
+func TestIsAPIKeyOwner(t *testing.T) { // ACC-01
+	tests := []struct {
+		in   agentManagementCore.UserType
+		want bool
+	}{
+		{agentManagementCore.UserTypeCompanySeamless1to1, true},
+		{agentManagementCore.UserTypeShareMaster, true},
+		{agentManagementCore.UserTypeShareReseller, true},
+		{agentManagementCore.UserTypeCompanySeamlessReseller, false},
+		{agentManagementCore.UserTypeCompanySeamlessMaster, false},
+		{agentManagementCore.UserTypeCompanyTransfer, false},
+		{agentManagementCore.UserTypeShareB2B, false},
+		{agentManagementCore.UserTypeShareB2C, false},
+		{agentManagementCore.UserTypeAgent, false},
+		{agentManagementCore.UserTypeSuperadmin, false},
+		{agentManagementCore.UserTypeAdmin, false},
 	}
-	seen := map[string]bool{}
-	for _, c := range Currencies {
-		if seen[c] {
-			t.Fatalf("สกุลซ้ำ %s", c)
+	for _, tt := range tests {
+		if got := IsAPIKeyOwner(tt.in); got != tt.want {
+			t.Errorf("IsAPIKeyOwner(%s) = %v, want %v", tt.in, got, tt.want)
 		}
-		seen[c] = true
 	}
 }
 
-func TestPlaceholderPermissions(t *testing.T) { // MGMT-52
-	tests := []struct {
-		role       models.AgentRole
-		count      int
-		has, hasnt string
-	}{
-		{models.AgentRoleSuperAdmin, 9, "rate", "announcement"},
-		{models.AgentRoleCompany, 9, "announcement", "rate"},
-		{models.AgentRoleShareholder, 9, "announcement", "rate"},
-		{models.AgentRoleAgent, 9, "announcement", "rate"},
-		{models.AgentRoleAdmin, 0, "", "dashboard"},
+func TestSuspendedPermissions(t *testing.T) { // ACC-12 · AUTH-54
+	full := agentManagementCore.FullPermissions("COMPANY")
+	got := SuspendedPermissions(full)
+	if len(got) != len(full) || got[agentManagementCore.MenuReport] != agentManagementCore.LevelView {
+		t.Fatalf("full → %v", got)
 	}
-	for _, tt := range tests {
-		p := PlaceholderPermissions(tt.role)
-		if len(p) != tt.count {
-			t.Fatalf("%s: ได้ %d เมนู want %d", tt.role, len(p), tt.count)
+	for m, l := range got {
+		if m != agentManagementCore.MenuReport && l != agentManagementCore.LevelOff {
+			t.Fatalf("%s = %s, want off", m, l)
 		}
-		if tt.has != "" && p[tt.has] != PermissionOff {
-			t.Fatalf("%s: เมนู %s ต้องเป็น off", tt.role, tt.has)
-		}
-		if _, ok := p[tt.hasnt]; ok {
-			t.Fatalf("%s: ต้องไม่มีเมนู %s", tt.role, tt.hasnt)
-		}
+	}
+	noReport := map[agentManagementCore.Menu]agentManagementCore.Level{
+		agentManagementCore.MenuReport: agentManagementCore.LevelOff, agentManagementCore.MenuMember: agentManagementCore.LevelEdit}
+	if got := SuspendedPermissions(noReport); got[agentManagementCore.MenuReport] != agentManagementCore.LevelOff || got[agentManagementCore.MenuMember] != agentManagementCore.LevelOff {
+		t.Fatalf("no report → %v", got)
+	}
+	if got := SuspendedPermissions(map[agentManagementCore.Menu]agentManagementCore.Level{}); len(got) != 0 {
+		t.Fatal("ADMIN ต้องได้ {}")
 	}
 }

@@ -2,6 +2,7 @@
 
 - สถานะ: **APPROVED** (อนุมัติ 2026-10-07 — หลังแก้รูปแบบสิทธิ์, ยอดเงินจริง และไม่มี null ใน API)
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07 · ฉบับก่อนหน้าอนุมัติ 2026-10-05 และ 2026-10-06
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): ACC-12 บัญชีที่ถูกระงับ `permissions` แสดงตามที่ใช้ได้จริง
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.1 ภาพรวม (Dashboard)** · **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API**
 - ที่มาของ rule: ภาพหน้าจอตัวอย่าง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg + review comments (2026-10-05) ·
@@ -27,20 +28,8 @@
 | 1.3 | ประเภทบัญชี (หาเจ้าของ Key) · ระบบสิทธิ์ (สิทธิ์ดู / แก้ไขของ sub) | module ② User Management |
 | Dashboard | bet, ผลได้เสียตาม PT, Commission | module เดิมพัน / Settle |
 
-> **หมายเหตุ — ค่าชั่วคราวระหว่างรอ module ② (2026-10-07):** เส้น Profile เปิดใช้แล้ว (`f5a1ebe`, `285b307`)
-> โดย field ที่ต้องใช้ตารางของ module ② ส่งค่าชั่วคราว **รูปแบบ (key และชนิด) ตรง spec · ค่ายังไม่ตรง spec** —
-> แก้เป็นค่าจริงเมื่อ module ② มีตารางแล้ว และอัปเดต `docs/frontend/account.md` ใน PR เดียวกัน
->
-> | field | ค่าชั่วคราวตอนนี้ | ค่าตาม spec |
-> |---|---|---|
-> | `user_type` ของ Company / Share | `""` | ประเภทย่อย เช่น `COMPANY_TRANSFER` (ACC-12) |
-> | `currencies` | ครบ 27 สกุลทุกบัญชี | เฉพาะสกุลของบัญชี (ACC-12) |
-> | `balances` | 27 รายการ `amount: 0.00` | ยอดจริงจาก `agent_balances` (ACC-19) |
-> | `pt` · `status_game` | `{}` | ค่าหุ้นส่วนต่อกลุ่ม และเปิด / ปิดทีละเกม (ACC-16) |
-> | `permissions` | ทุกเมนูของประเภทเป็น `off` | บัญชีหลัก `edit` ทุกเมนู · sub ตามที่เจ้าของให้ (ACC-12) |
-> | ADMIN | `currencies` / `balances` = `[]` · `permissions` = `{}` | เหมือนเดิม |
->
-> 1.3 ข้อมูลรับรอง API: มี config, migration, เข้ารหัส Key, validation, repository และ DTO แล้ว · service / route รอ `agent_type` ของ module ② (ACC-01)
+> **หมายเหตุ — ค่าชั่วคราว (2026-10-07) เลิกใช้แล้ว (2026-10-08):** ใน `boiledegg/bo/account` (merge module ② แล้ว) Profile ส่งค่าจริงทุก field จากตารางของ
+> module ② และเปิดเส้น 1.3 แล้ว (Key สร้างตอนเปิดหน้าครั้งแรก — ACC-05 · การสร้าง Key พร้อมบัญชีเจ้าของ (module ② MGMT-04) ทำหลังทั้งสอง branch เข้า `dev`) · Dashboard ยังรอ module เดิมพัน
 
 **ไม่อยู่ใน module นี้:** การเก็บและย้ายยอดเงิน (module การชำระเงิน — Profile แค่อ่านยอดมาแสดง ACC-19) ·
 การใช้ Key / IP / ลิงก์ตอนลูกค้าเรียก API (module provider `app/externals/provider`)
@@ -88,7 +77,7 @@
 | ID | Rule |
 |---|---|
 | ACC-11 | ทุกบัญชีหลังบ้านเรียกได้ (SUPERADMIN, ADMIN, Company, Share, Agent และ sub) · ต้องผ่านด่านหลัง login (`PassedGates()`) · เปิดได้แม้ `status = SUSPENDED` (ACC-31) · แสดงข้อมูลของ**ตัวเอง** |
-| ACC-12 | ข้อมูลที่แสดง: username · role · **ประเภทบัญชี** · `status` (key เดียว — ACC-30) · เป็น sub ไหม · username ของผู้สร้าง (เฉพาะ sub) · ตั้ง passcode แล้วหรือยัง · login ล่าสุด (เวลา, IP) · วันที่สร้างบัญชี · **สกุลเงิน** · **ยอดเงินแยกสกุล** (ACC-19) · **ค่าหุ้นส่วน** (ACC-16) · **สิทธิ์** (object `{ menu: off | view | edit }` — module ② MGMT-50) |
+| ACC-12 | ข้อมูลที่แสดง: username · role · **ประเภทบัญชี** · `status` (key เดียว — ACC-30) · เป็น sub ไหม · username ของผู้สร้าง (เฉพาะ sub) · ตั้ง passcode แล้วหรือยัง · login ล่าสุด (เวลา, IP) · วันที่สร้างบัญชี · **สกุลเงิน** · **ยอดเงินแยกสกุล** (ACC-19) · **ค่าหุ้นส่วน** (ACC-16) · **สิทธิ์** (object `{ menu: off | view | edit }` — module ② MGMT-50) · **`status = SUSPENDED`: `permissions` แสดงตามที่ใช้ได้จริง** — `report` = `view` (ถ้าเดิมมีอย่างน้อย `view`) · เมนูอื่น `off` (AUTH-54 · แก้ 2026-10-08) |
 | ACC-15 | sub: role, ประเภทบัญชี, สกุลเงิน, ยอดเงิน และค่าหุ้นส่วน = ของผู้สร้าง (AUTH-25) · สิทธิ์ = ที่ผู้สร้างให้ sub นั้น |
 | ACC-16 | ค่าหุ้นส่วนส่ง**ชุดเดียวต่อกลุ่ม PT** (รูปแบบเดียวกับตอนสร้าง / แก้ใน module ② MGMT-16): `pt` → กลุ่ม (ตอนนี้ `game`) → `pt_from_parent` (ได้รับ — ผู้สร้างตั้งให้บัญชีนี้) · `pt` (ถือจาก Member ใต้ตัวเองตรงๆ — บัญชีนี้ตั้งเอง ผ่าน module ② `POST /api/v1/bo/pr/manage/agents/me/pt`) · `force` · `remain_quota` · `commission_percent` · `status` (เปิด / ปิดทั้งกลุ่ม) · `status_game` → รหัสเกม → bool (เปิด / ปิดทีละเกม · แยกจาก `pt`) · ผู้สร้างตั้งค่าที่ให้ลูกแต่ละคนแยกกัน (module ② MGMT-22) · ระบบเก็บแยกต่อเกม แต่ค่าในกลุ่มเท่ากันทุกเกม API จึงส่งชุดเดียว · SUPERADMIN = ค่าตั้งของตัวเอง (`pt_from_parent` = 100 — module ② MGMT-22) · ADMIN ไม่มีค่าหุ้นส่วน (`pt = {}`, `status_game = {}`) |
 | ACC-19 | ยอดเงินแยกสกุล `balances`: 1 รายการต่อสกุลที่บัญชีมี (`currencies`) · `amount` เป็น JSON number ทศนิยม 2 ตำแหน่ง (ACC-18) · อ่านจาก `agent_balances` (module ② MGMT-15A) · สกุลที่ยังไม่มียอดส่ง `0` · บัญชีฝั่ง Seamless ไม่มียอดเงิน ส่ง `0` (module ② MGMT-15) · cache ห้ามเป็นที่มาของยอด (กฎข้อ 14) |
@@ -306,6 +295,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-11 | Agent / SUPERADMIN / ADMIN เรียก profile | ข้อมูลของตัวเอง · `is_subaccount = false` · `owner_username = ""` |
 | ACC-11 | ยังไม่ตั้ง passcode เรียก profile | `401304` (ด่านหลัง login) |
 | ACC-12 | ผู้สร้างของ sub เป็น SUSPENDED | sub ได้ `status = SUSPENDED` · ไม่มี field `effective_status` |
+| ACC-12 | บัญชีหลักถูกระงับ (เอง หรือจากหัวสาย) เรียก profile | `permissions.report = "view"` · เมนูอื่น `"off"` · sub ที่เจ้าของไม่ได้ให้ `report` ได้ `off` ทุกเมนู |
 | ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt.game.pt = 0` (ล็อก — module ② MGMT-19) · `pt.game.pt_from_parent` = ค่าที่ Superadmin ให้ |
 | ACC-15 | sub ของ Share B2C เรียก profile | `user_type`, `currencies`, `balances`, `pt` เท่าของผู้สร้าง · `permissions` = ที่ผู้สร้างให้ |
 | ACC-16 | ADMIN เรียก profile | `pt = {}` · `status_game = {}` |

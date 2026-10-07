@@ -46,6 +46,8 @@ func RegisterRoutes(api fiber.Router) {
 
 	// account — docs/modules/account.md หัวข้อ 5 · Profile เปิดได้ตอนบัญชีถูกระงับ (ACC-11, AUTH-54)
 	pr.Get("/account/profile", mw.PassedGatesAllowSuspended(), accountController.GetProfileController)
+	pr.Get("/account/api-credential", mw.PassedGates(), mw.RequirePermission(agentManagementCore.MenuAccount, agentManagementCore.LevelView), accountController.GetAPICredentialController)
+	pr.Post("/account/update-credential", mw.PassedGates(), mw.RequirePermission(agentManagementCore.MenuAccount, agentManagementCore.LevelEdit), mw.RequirePasscode(), accountController.SaveAPICredentialController)
 
 	// agent_management — docs/modules/agent_management.md หัวข้อ 5 · payment = edit เมื่อส่ง balance ตรวจใน service (MGMT-51)
 	memberEdit := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelEdit)

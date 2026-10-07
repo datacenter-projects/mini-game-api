@@ -1,15 +1,15 @@
-# API หลังบ้าน — บัญชี (Account) สำหรับหน้าบ้าน — 7 ต.ค. 2026
+# API หลังบ้าน — บัญชี (Account) สำหรับหน้าบ้าน — 8 ต.ค. 2026
 
-เอกสารนี้สรุปจาก spec `docs/modules/account.md` (APPROVED) และโค้ดใน branch `boiledegg/bo/account`
+เอกสารนี้สรุปจาก spec `docs/modules/account.md` (APPROVED) และโค้ดใน branch `boiledegg/bo/account` (merge การจัดการสมาชิกแล้ว)
 · พื้นฐาน (base URL, header, รูปแบบ response, login, session) ดู [auth.md](auth.md)
 
 ## 0. สถานะของแต่ละเส้น
 
 | เส้น | สถานะ | หมายเหตุ |
 |---|---|---|
-| `GET /api/v1/bo/pr/account/profile` | ✅ ใช้ได้ (ยังไม่ merge เข้า `dev`) | บาง field ยังเป็นค่าชั่วคราว (หัวข้อ 2.2) |
-| `GET /api/v1/bo/pr/account/api-credential` | ⏳ contract ล่วงหน้า | รอ module การจัดการสมาชิก |
-| `POST /api/v1/bo/pr/account/update-credential` | ⏳ contract ล่วงหน้า | รอ module การจัดการสมาชิก |
+| `GET /api/v1/bo/pr/account/profile` | ✅ ใช้ได้ (ยังไม่ merge เข้า `dev`) | ค่าจริงทุก field (หัวข้อ 2.2) |
+| `GET /api/v1/bo/pr/account/api-credential` | ✅ ใช้ได้ (ยังไม่ merge เข้า `dev`) | |
+| `POST /api/v1/bo/pr/account/update-credential` | ✅ ใช้ได้ (ยังไม่ merge เข้า `dev`) | |
 | `GET /api/v1/bo/pr/account/dashboard` | ⏳ contract ล่วงหน้า | รอ module เดิมพัน |
 
 เส้น ⏳ ใช้ทำหน้าจอรอได้ แต่ยังเรียกไม่ได้ (ได้ `404001`)
@@ -117,20 +117,18 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | `status_game` | เปิด / ปิดทีละเกม |
 | `permissions` | สิทธิ์ต่อเมนู `off` / `view` / `edit` (หัวข้อ 2.4) |
 
-### 2.2 ⚠️ ค่าชั่วคราว (รอ module การจัดการสมาชิก)
+### 2.2 ที่มาของค่า (8 ต.ค. 2026 — เลิกใช้ค่าชั่วคราวแล้ว)
 
-| field | ตอนนี้ | ค่าจริงในอนาคต |
-|---|---|---|
-| `user_type` ของ Company / Share | `""` | `COMPANY_TRANSFER` ฯลฯ |
-| `currencies` | ครบ 27 สกุลทุกบัญชี | เฉพาะสกุลของบัญชี |
-| `balances` | 27 รายการ ยอด `0.00` | ยอดจริง |
-| `pt` · `status_game` | `{}` | ค่าจริง (หัวข้อ 2.3) |
-| `permissions` | ทุกเมนู `off` | บัญชีหลัก = `edit` ทุกเมนู · sub = ตามที่เจ้าของให้ |
-| ADMIN | `currencies` / `balances` = `[]` · `permissions` = `{}` | เหมือนเดิม |
+| field | ค่า |
+|---|---|
+| `user_type` | ประเภทจริง เช่น `COMPANY_TRANSFER`, `SHARE_RESELLER` · sub = ของผู้สร้าง |
+| `currencies` | เฉพาะสกุลของบัญชี (Superadmin, Company Transfer, Company Seamless Reseller / Master = ครบ 27) |
+| `balances` | 1 รายการต่อสกุลใน `currencies` · ยอดจริง · ยังไม่มียอด และบัญชี Seamless = `0.00` |
+| `pt` · `status_game` | ค่าจริงจากตอนสร้าง / แก้ในการจัดการสมาชิก (หัวข้อ 2.3) |
+| `permissions` | บัญชีหลัก = `edit` ทุกเมนูของประเภท · sub = ตามที่เจ้าของให้ (ไม่ได้ให้ = `off`) |
+| ADMIN | `currencies` / `balances` = `[]` · `pt` / `status_game` / `permissions` = `{}` |
 
-รูปแบบ (key และชนิด) จะไม่เปลี่ยน เปลี่ยนแค่ค่า
-
-### 2.3 รูปแบบ `pt` และ `status_game` (เมื่อมีค่าจริง)
+### 2.3 รูปแบบ `pt` และ `status_game`
 
 ```json
 "pt": {
@@ -164,16 +162,17 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | `announcement` | ประกาศ / เนื้อหา (Company / Share / Agent) | off / view / edit |
 | `rate` | อัตราแพ้ชนะ (Superadmin เท่านั้น) | off / view / edit |
 
-ใช้ซ่อน / แสดงเมนูในหน้าบ้านได้ · หลังบ้านเช็คซ้ำทุกเส้น (ไม่มีสิทธิ์ = `402303`)
+ระดับในตาราง = ระดับสูงสุดที่เจ้าของให้ sub ได้ · บัญชีหลักได้ `edit` ทุกเมนู · ใช้ซ่อน / แสดงเมนูในหน้าบ้านได้ · หลังบ้านเช็คซ้ำทุกเส้น (ไม่มีสิทธิ์ = `402303`)
 
 ### 2.5 Error
 
 `401202` · `401203` · `401301` · `401302` → หน้า login · `401304` / `401306` / `401307` → พาไปทำด่านหลัง login ([auth.md](auth.md) หัวข้อ 2)
 
-## 3. ข้อมูลรับรอง API (⏳ contract ล่วงหน้า)
+## 3. ข้อมูลรับรอง API (✅ ใช้ได้)
 
 หน้า 1.3 · เข้าได้เฉพาะ **Company Seamless 1 to 1 · Share Master · Share Reseller** และ sub ที่ได้สิทธิ์ `account`
 · บัญชีอื่นได้ `403301`
+· Key สร้างให้อัตโนมัติตอนเปิดหน้านี้ครั้งแรก หน้าบ้านไม่ต้องส่ง (สร้างพร้อมบัญชีเจ้าของจะตามมาภายหลัง) · Key เปลี่ยนไม่ได้
 
 ### 3.1 ดู — `GET /api/v1/bo/pr/account/api-credential`
 
