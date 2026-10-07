@@ -41,7 +41,8 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | bb | Module | ไฟล์ | Spec |
 |---|---|---|---|
 | 01 | agent_auth (backoffice auth) | `pkg/apperr/agent_auth_errors.go` | `docs/modules/agent_auth.md`, `docs/modules/agent_auth_phase2.md` |
-| 03 | account (บัญชี) | `pkg/apperr/account_errors.go` | `docs/modules/account.md` (DRAFT) · หมายเหตุ: 02 จองให้ agent_management ใน branch `boiledegg/bo/management` |
+| 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` |
+| 03 | account (บัญชี) | `pkg/apperr/account_errors.go` | `docs/modules/account.md` |
 
 ## agent_auth (01)
 
@@ -72,7 +73,27 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 401406 | 200 | ไม่สามารถรีเซ็ตบัญชีนี้ได้ — phase 2 |
 | 401407 | 200 | บัญชีเป้าหมายถูกล็อก — phase 2 |
 
-## account (03) — DRAFT
+## agent_management (02)
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 402301 | 200 | สร้างบัญชีประเภทนี้ไม่ได้ |
+| 402303 | 200 | ไม่มีสิทธิ์ใช้งานเมนูนี้ |
+| 402304 | 200 | แก้ไขได้เฉพาะผู้สร้างของบัญชีนี้ |
+| 402305 | 200 | ค่าถือเกินกว่าที่ได้รับ |
+| 402306 | 200 | ค่าที่ให้ลูกต่ำกว่าที่ลูกใช้อยู่ |
+| 402307 | 200 | Company Seamless Master ต้องถือ 0 และปล่อยทั้งหมด |
+| 402308 | 200 | Force / Remain เกินที่กำหนด |
+| 402309 | 200 | Commission เกินที่กำหนด |
+| 402310 | 200 | สกุลเงินไม่อยู่ในสกุลของผู้สร้าง |
+| 402311 | 200 | บัญชีย่อยทำรายการนี้ไม่ได้ |
+| 402312 | 200 | ยอดเงินไม่พอสำหรับยอดเงินตั้งต้น |
+| 402401 | 200 | username นี้ถูกใช้แล้ว |
+| 402402 | 200 | ไม่พบบัญชีในสายของคุณ |
+| 402403 | 200 | เบอร์โทรนี้ถูกใช้แล้ว |
+| 402404 | 200 | ไม่พบบัญชีย่อยของคุณ |
+
+## account (03)
 
 | Code | HTTP | ความหมาย |
 |---|---|---|

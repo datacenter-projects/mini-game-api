@@ -39,7 +39,12 @@ var (
 )
 
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
-var tables = []string{"auth_audit_logs", "subaccounts", "user_agents"}
+var tables = []string{"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests",
+	"member_balances", "member_game_settings", "members", "agent_balances", "agent_game_settings", "agent_currencies",
+	"subaccounts", "user_agents"}
+
+// env ที่ห้ามรัน integration test เด็ดขาด — test ล้างทุกตารางและ FLUSHDB Redis
+var forbiddenEnvs = map[string]bool{"dev": true, "uat": true, "prod": true}
 
 // env ที่ห้ามรัน integration test เด็ดขาด — test ล้างทุกตารางและ FLUSHDB Redis
 var forbiddenEnvs = map[string]bool{"dev": true, "uat": true, "prod": true}

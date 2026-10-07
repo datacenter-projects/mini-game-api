@@ -84,7 +84,7 @@ func UpdateSubaccountPasswordRepository(db *gorm.DB, id uint, hash, previousHash
 	}).Error
 }
 
-// CreateSubaccountRepository — รอบนี้ใช้ใน integration test เท่านั้น (การสร้าง sub อยู่ใน module subaccount)
+// CreateSubaccountRepository — สร้าง sub (agent_management MGMT-40) · username ซ้ำ = apperr.ErrConflict
 func CreateSubaccountRepository(db *gorm.DB, s *models.Subaccount) error {
 	err := db.Create(s).Error
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -101,4 +101,14 @@ func GetSubaccountProfileRepository(db *gorm.DB, id uint) (models.Subaccount, er
 		return s, apperr.ErrNotFound
 	}
 	return s, err
+}
+
+// GetSubaccountPermissionsRepository — สิทธิ์ของ sub เป็น JSON (MGMT-50) · ไม่พบคืน apperr.ErrNotFound
+func GetSubaccountPermissionsRepository(db *gorm.DB, id uint) (string, error) {
+	var s models.Subaccount
+	err := db.Select("id", "permissions").Where("id = ?", id).Take(&s).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", apperr.ErrNotFound
+	}
+	return s.Permissions, err
 }

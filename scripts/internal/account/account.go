@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	agentAuthCore "app/app/core/agent_auth"
+	agentManagementCore "app/app/core/agent_management"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
 	"app/app/models"
 	"app/app/repository/postgres"
@@ -18,6 +19,7 @@ import (
 	"app/platform/logger"
 
 	"golang.org/x/term"
+	"gorm.io/gorm"
 )
 
 // Create สร้างบัญชี role ที่กำหนด (ไม่มี parent) — รหัสผ่านอ่านจาก stdin และตรวจตาม AUTH-36
@@ -53,7 +55,16 @@ func Create(rawUsername string, role models.AgentRole) error {
 		Role:         role,
 		Status:       models.AgentStatusActive,
 	}
-	if err := postgres.CreateUserAgentRepository(database.DBConn, &agent); err != nil {
+	err = database.DBConn.Transaction(func(tx *gorm.DB) error {
+		if err := postgres.CreateUserAgentRepository(tx, &agent); err != nil {
+			return err
+		}
+		if role != models.AgentRoleSuperAdmin {
+			return nil
+		}
+		return seedSuperadmin(tx, agent.ID)
+	})
+	if err != nil {
 		return err
 	}
 	fmt.Printf("สร้าง %s %q สำเร็จ (id=%d)\n", role, agent.Username, agent.ID)
@@ -86,4 +97,24 @@ func readPassword() (string, error) {
 		return "", fmt.Errorf("รหัสผ่านไม่ตรงกัน")
 	}
 	return string(p1), nil
+}
+
+// seedSuperadmin — Superadmin ได้รับ 100% ทุกเกม · ถือ 0 · ครบทุกสกุล (agent_management MGMT-10, MGMT-22)
+// แบบเดียวกับ backfill ใน migration agent_management สำหรับ Superadmin ที่มีอยู่ก่อน
+func seedSuperadmin(tx *gorm.DB, agentID uint) error {
+	currencies := make([]models.AgentCurrency, 0, len(agentManagementCore.Currencies))
+	for _, c := range agentManagementCore.Currencies {
+		currencies = append(currencies, models.AgentCurrency{AgentID: agentID, Currency: c})
+	}
+	if err := postgres.CreateAgentCurrenciesRepository(tx, currencies); err != nil {
+		return err
+	}
+	var settings []models.AgentGameSetting
+	for _, g := range agentManagementCore.Groups() {
+		for _, game := range agentManagementCore.GamesOf(g) {
+			settings = append(settings, models.AgentGameSetting{AgentID: agentID, GameCode: game.GameCode, Category: game.Category,
+				PTFromParentBP: agentManagementCore.FullPTBP, Status: true, StatusGame: true})
+		}
+	}
+	return postgres.CreateAgentGameSettingsRepository(tx, settings)
 }
