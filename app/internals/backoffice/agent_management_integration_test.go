@@ -211,6 +211,8 @@ func TestCreateValidation(t *testing.T) { // MGMT-05, MGMT-08, MGMT-12, MGMT-14,
 		{"username ซ้ำ", c.comTok, share(func(b map[string]any) { b["username"] = "Agent01" }), 402401},
 		{"เบอร์มี +", c.comTok, share(func(b map[string]any) { b["phone"] = "+66812345678" }), 422},
 		{"เบอร์ 7 หลัก", c.comTok, share(func(b map[string]any) { b["phone"] = "0812345" }), 422},
+		{"ชื่อมีช่องว่าง", c.comTok, share(func(b map[string]any) { b["name"] = "สมชาย ใจดี" }), 422},
+		{"ชื่อ 2 ตัว", c.comTok, share(func(b map[string]any) { b["name"] = "สม" }), 422},
 		{"รหัสผ่านผิดกฎ", c.comTok, share(func(b map[string]any) { b["password"] = "aaaa1111" }), 422},
 		{"ไม่มี request_id", c.comTok, share(func(b map[string]any) { delete(b, "request_id") }), 422},
 		{"B2B ไม่ส่งสกุล", c.comTok, share(func(b map[string]any) { b["user_type"] = "SHARE_B2B"; delete(b, "currencies") }), 422},
@@ -241,6 +243,23 @@ func TestCreateValidation(t *testing.T) { // MGMT-05, MGMT-08, MGMT-12, MGMT-14,
 	expect(t, call(t, app, "POST", createAgentPath, share(func(b map[string]any) { b["username"] = "other"; b["phone"] = "0812345678" }), c.comTok), 200, 402403)
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("Agent01", 0), c.agentTok), 200, 402401)
 	expect(t, call(t, app, "POST", createAgentPath, agentBody("AGENT", "agcomm", nil, childPT(10, 0, 0, 0.6)), c.agentTok), 200, 200)
+
+	// ชื่อภาษาไทย (MGMT-07)
+	thai := agentBody("AGENT", "agthai", nil, childPT(10, 0, 0, 0))
+	thai["name"] = "สมชาย01"
+	expect(t, call(t, app, "POST", createAgentPath, thai, c.agentTok), 200, 200)
+	mb := memberBody("memthai", 0)
+	mb["name"] = "ใจดี"
+	expect(t, call(t, app, "POST", createMemberPath, mb, c.agentTok), 200, 200)
+
+	// เบอร์ของ sub ซ้ำได้ (MGMT-41)
+	phone := "0899999999"
+	for _, n := range []string{"staff1", "staff2"} {
+		s := models.Subaccount{AgentID: c.agent.ID, Username: "agent01@" + n, PasswordHash: "x", Status: models.AgentStatusActive, Phone: &phone}
+		if err := postgres.CreateSubaccountRepository(database.DBConn, &s); err != nil {
+			t.Fatalf("sub เบอร์ซ้ำต้องสร้างได้: %v", err)
+		}
+	}
 }
 
 func TestCreatePTSettings(t *testing.T) { // MGMT-16, MGMT-19, MGMT-20, MGMT-22

@@ -119,7 +119,7 @@ func IsSeamless(companyType UserType) bool {
 
 var (
 	usernameRe = regexp.MustCompile(`^[a-z0-9]{3,32}$`)
-	nameRe     = regexp.MustCompile(`^[A-Za-z0-9]{3,32}$`)
+	nameRe     = regexp.MustCompile(`^[\p{Thai}A-Za-z0-9]{3,32}$`) // นับเป็นตัวอักษร (rune) ไม่ใช่ byte
 	phoneRe    = regexp.MustCompile(`^[0-9]{8,15}$`)
 	subNameRe  = regexp.MustCompile(`^[a-z0-9]{3,20}$`)
 )
@@ -130,7 +130,7 @@ func NormalizeUsername(s string) string { return strings.ToLower(strings.TrimSpa
 // IsValidUsername — 3–32 ตัว a-z 0-9 หลัง normalize (MGMT-05)
 func IsValidUsername(s string) bool { return usernameRe.MatchString(s) }
 
-// IsValidName — ชื่อ / ชื่อเล่น 3–32 ตัว A-Z a-z 0-9 (MGMT-07, MGMT-41)
+// IsValidName — ชื่อ / ชื่อเล่น 3–32 ตัวอักษร ไทย อังกฤษ ตัวเลข ไม่มีช่องว่าง (MGMT-07, MGMT-41 — แก้ 2026-10-08)
 func IsValidName(s string) bool { return nameRe.MatchString(s) }
 
 // IsValidPhone — ว่าง = ไม่กรอก · ไม่ว่าง = ตัวเลข 8–15 ตัว (MGMT-08)

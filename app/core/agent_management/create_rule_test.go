@@ -141,6 +141,13 @@ func TestIsValidName(t *testing.T) { // MGMT-07, MGMT-41
 		{"Som chai", false},
 		{"", false},
 		{"ABCDEFGHIJabcdefghij0123456789AB", true},
+		{"สมชาย01", true},
+		{"ใจดี", true},
+		{"สม", false},
+		{"สมชาย ใจดี", false},
+		{"สมชาย_01", false},
+		{"กขคงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยร", true},   // 32 ตัว
+		{"กขคงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรล", false}, // 33 ตัว
 	}
 	for _, tt := range tests {
 		if got := IsValidName(tt.in); got != tt.want {

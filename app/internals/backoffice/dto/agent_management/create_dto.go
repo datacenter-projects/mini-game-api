@@ -94,7 +94,7 @@ func validateAccountFields(requestID string, username *string, password, name st
 		return err
 	}
 	if !agentManagementCore.IsValidName(name) {
-		return invalid("name", "ต้องยาว 3–32 ตัว ใช้ได้เฉพาะ A-Z a-z และ 0-9", "must be 3–32 characters of A-Z, a-z and 0-9")
+		return invalid("name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
 	}
 	*phone = strings.TrimSpace(*phone)
 	if !agentManagementCore.IsValidPhone(*phone) {
