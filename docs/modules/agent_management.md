@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ / รายละเอียดเป็น `POST` · `page` / `limit` ใน body
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ / รายละเอียดเป็น `POST` · `page` / `limit` ใน body · sub: `/manage/subaccounts` (รายชื่อ) `/detail` `/create` `/update-info` `/update-status`
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
@@ -164,7 +164,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · **ผู้สร้าง sub เป็นคนเปลี่ยน** · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ เหมือน `SUSPENDED` (AUTH-54 · ภายในเก็บเป็น `SUSPENDED` ในตาราง `subaccounts` · API แสดง `INACTIVE`) · เปลี่ยนกลับเป็น `ACTIVE` ได้ · ไม่ต้อง passcode · ถ้าเจ้าของหรือหัวสายถูกระงับ / ล็อก sub ได้ผลตาม `status` ที่ใช้งานจริง (ACC-30 · AUTH-53) |
 | MGMT-44 | **ไม่มีการลบ sub** — เลิกใช้ให้เปลี่ยนเป็น `INACTIVE` |
 | MGMT-45 | แก้ / เปลี่ยนสถานะได้เฉพาะเจ้าของ · ชั้นบนดูรายชื่อและรายละเอียด sub ของบัญชีในสายล่างได้อย่างเดียว |
-| MGMT-46 | รายชื่อ sub: ระบุเจ้าของ (ไม่ระบุ = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · ค้นหา username บางส่วน · เรียง A→Z · `page` / `limit` · แต่ละแถว: `id` · username · ชื่อเล่น · เบอร์โทร · `status` · สิทธิ์ · วันที่สร้าง · login ล่าสุด (เวลา, IP) · รายละเอียด sub (`GET /manage/subaccounts/:id`) ส่ง field ชุดเดียวกัน |
+| MGMT-46 | รายชื่อ sub: ระบุเจ้าของ (ไม่ระบุ = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · ค้นหา username บางส่วน · เรียง A→Z · `page` / `limit` · แต่ละแถว: `id` · username · ชื่อเล่น · เบอร์โทร · `status` · สิทธิ์ · วันที่สร้าง · login ล่าสุด (เวลา, IP) · รายละเอียด sub (`POST /manage/subaccounts/detail`) ส่ง field ชุดเดียวกัน |
 
 ### สิทธิ์ (ใช้ทั้งหลังบ้าน)
 
@@ -206,11 +206,11 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
 | POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดทีละเกม — ❓ รอ lead: จะย้ายไป module อื่นและให้ใครใช้ |
 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
-| GET | `/api/v1/bo/pr/manage/subaccounts` | บัญชีหลัก | รายชื่อ sub |
-| GET | `/api/v1/bo/pr/manage/subaccounts/:id` | บัญชีหลัก | รายละเอียด sub |
-| POST | `/api/v1/bo/pr/manage/subaccounts` | บัญชีหลัก | สร้าง sub |
-| POST | `/api/v1/bo/pr/manage/subaccounts/:id` | บัญชีหลัก (เจ้าของ) | แก้ชื่อเล่น · เบอร์โทร · สิทธิ์ |
-| POST | `/api/v1/bo/pr/manage/subaccounts/:id/status` | บัญชีหลัก (เจ้าของ) | `ACTIVE` / `INACTIVE` (MGMT-43) |
+| POST | `/api/v1/bo/pr/manage/subaccounts` | บัญชีหลัก (`RequireMainAccount`) | รายชื่อ sub |
+| POST | `/api/v1/bo/pr/manage/subaccounts/detail` | บัญชีหลัก | รายละเอียด sub |
+| POST | `/api/v1/bo/pr/manage/subaccounts/create` | บัญชีหลัก | สร้าง sub |
+| POST | `/api/v1/bo/pr/manage/subaccounts/update-info` | บัญชีหลัก (เจ้าของ) | แก้ชื่อเล่น · เบอร์โทร · สิทธิ์ |
+| POST | `/api/v1/bo/pr/manage/subaccounts/update-status` | บัญชีหลัก (เจ้าของ) | `ACTIVE` / `INACTIVE` (MGMT-43) |
 
 ### POST /api/v1/bo/pr/manage/agents/create
 
@@ -347,7 +347,7 @@ Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", 
 
 ### Sub
 
-`GET /manage/subaccounts?owner_id=&q=&page=&limit=` — แต่ละแถว และ `GET /manage/subaccounts/:id`:
+`POST /manage/subaccounts` body `{ "owner_id", "q", "page", "limit" }` (ทุกค่าไม่บังคับ · `owner_id` ไม่ส่ง = ตัวเอง) — แต่ละแถว และ `POST /manage/subaccounts/detail` body `{ "id" }`:
 ```json
 {
   "id": 30,
@@ -365,7 +365,7 @@ Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", 
 }
 ```
 
-`POST /manage/subaccounts` (สร้าง):
+`POST /manage/subaccounts/create` (สร้าง):
 ```json
 {
   "name_suffix": "Staff",
@@ -377,11 +377,11 @@ Response `data`: `[{ "id": 12, "username": "share01", "user_type": "SHARE_B2C", 
 ```
 → `data`: `{ "id": 30, "username": "comp01@staff" }` · `name_suffix` รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก · เมนูที่ไม่ส่ง = `off`
 
-`POST /manage/subaccounts/:id` (แก้): `{ "name", "phone", "permissions" }` (แทนทั้งชุด)
+`POST /manage/subaccounts/update-info` (แก้): `{ "id", "name", "phone", "permissions" }` (แทนทั้งชุด · ต้องส่งครบ — ไม่ให้สิทธิ์ใดส่ง `{}`)
 
-`POST /manage/subaccounts/:id/status`: `{ "status": "INACTIVE" }` (`ACTIVE` / `INACTIVE`)
+`POST /manage/subaccounts/update-status`: `{ "id", "status": "INACTIVE" }` (`ACTIVE` / `INACTIVE`)
 
-Error codes: `422`, `402311`, `402401`, `402403`, `402404`
+Error codes: `422`, `402301` (ADMIN สร้าง sub), `402311` (sub เรียก), `402401` (username ซ้ำ), `402402` (`owner_id` นอกสาย), `402404` (sub ไม่ใช่ของตัวเอง / นอกสาย)
 
 ## 6. Schema
 
@@ -563,7 +563,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-30 | หัวสายของ Agent ถูกระงับ · ผู้สร้างตั้ง Agent เป็น ACTIVE | สำเร็จ · Agent ยังแสดง `status = SUSPENDED` |
 | MGMT-43 | เจ้าของตั้ง sub เป็น `INACTIVE` | sub login ได้ · เรียก route อื่นนอก Profile / Report ได้ `401311` · รายชื่อ sub แสดง `INACTIVE` · ตั้งกลับ `ACTIVE` แล้วใช้งานได้ |
 | MGMT-45 | ชั้นบนแก้หรือเปลี่ยนสถานะ sub ของบัญชีในสายล่าง | `402404` · ดูรายชื่อ / รายละเอียดได้ |
-| MGMT-40 | sub เรียก `POST /manage/subaccounts` | `402311` |
+| MGMT-40 | sub เรียก `POST /manage/subaccounts/create` หรือ `/manage/subaccounts` | `402311` |
 | MGMT-51 | sub มี `member` edit · `pt` off สร้างบัญชี | `402303` |
 | MGMT-51 | sub มี `member` view · `pt` off ดูรายชื่อ | สำเร็จ · ไม่มี field `pt` |
 | MGMT-51 | sub มี `pt` edit · `member` off แก้ PT | สำเร็จ |

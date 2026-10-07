@@ -51,6 +51,16 @@ func RequirePermission(menu agentManagementCore.Menu, need agentManagementCore.L
 	}
 }
 
+// RequireMainAccount — เฉพาะบัญชีหลัก · sub เรียก = 402311 (agent_management MGMT-40)
+func RequireMainAccount() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		if err := agentManagementService.CheckMainAccountService(GetActor(c)); err != nil {
+			return response.Error(c, err)
+		}
+		return c.Next()
+	}
+}
+
 // RequirePasscode — ต้องส่ง passcode ของตัวเองมาใน body (AUTH-33, AUTH-35)
 // อ่านจาก body เท่านั้น — ห้ามใช้กับ GET
 func RequirePasscode() fiber.Handler {
