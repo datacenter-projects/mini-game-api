@@ -1,7 +1,7 @@
 # บัญชี (`account`) — Dashboard · Profile · ข้อมูลรับรอง API — Spec
 
-- สถานะ: **DRAFT** (แก้ตาม review module ② 2026-10-07: รูปแบบสิทธิ์ และยอดเงินจริง — รออนุมัติใหม่)
-- อนุมัติโดย: lead (zerph) · วันที่: 2026-10-06 · ฉบับก่อนหน้าอนุมัติ 2026-10-05 และ 2026-10-06 (ก่อน review รอบ 2)
+- สถานะ: **APPROVED** (อนุมัติ 2026-10-07 — หลังแก้รูปแบบสิทธิ์, ยอดเงินจริง และไม่มี null ใน API)
+- อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07 · ฉบับก่อนหน้าอนุมัติ 2026-10-05 และ 2026-10-06
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.1 ภาพรวม (Dashboard)** · **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API**
 - ที่มาของ rule: ภาพหน้าจอตัวอย่าง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg + review comments (2026-10-05) ·
