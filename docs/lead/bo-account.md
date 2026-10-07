@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| branch | `boiledegg/bo/account` (แตกจาก `dev` @ `ff12296`) · merge `boiledegg/bo/management` แล้ว (`d2e319f`) |
+| branch | `boiledegg/bo/account` (แตกจาก `dev` @ `ff12296`) · merge `boiledegg/bo/management` แล้ว (ล่าสุด `f3721c0`) |
 | spec | `docs/modules/account.md` — **APPROVED** 2026-10-07 · มีส่วนที่แก้หลังอนุมัติ (2026-10-08 — ACC-12 สิทธิ์ตอนถูกระงับ) · AUTH-54 APPROVED |
 | merge | ยังไม่ merge เข้า `dev` · **ต้องเข้าหลัง `boiledegg/bo/management`** (branch นี้มีโค้ด module ② ติดมา) |
 | test | `make check` ผ่าน · integration test 53 ตัวผ่าน (agent_auth + module ② + account) |
@@ -39,4 +39,5 @@
 | 2026-10-07 | `8ed0cb0` · `3d41545` | เอกสารหน้าบ้าน `docs/frontend/` · หมายเหตุค่าชั่วคราวใน spec |
 | 2026-10-08 | `664f607` | เครื่องมือ test (`scripts/testenv.ps1`, `.env.test`, k6) |
 | 2026-10-08 | `d2e319f` | merge `boiledegg/bo/management` (module ② phase 1–5) |
-| 2026-10-08 | (commit ถัดไป) | Profile ค่าจริง · 1.3 service / route · สิทธิ์ตอนถูกระงับ · เอกสารหน้าบ้าน |
+| 2026-10-08 | `9aefb74` | Profile ค่าจริง · 1.3 service / route · สิทธิ์ตอนถูกระงับ · เอกสารหน้าบ้าน |
+| 2026-10-08 | `f3721c0` | merge management อีกรอบ (เส้นรายชื่อ `/list` · เอกสาร module ②) |
