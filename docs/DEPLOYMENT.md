@@ -17,6 +17,8 @@ push tag แล้ว GitHub Actions จะทำตามลำดับนี�
 2. `check` — เรียก `.github/workflows/ci.yml` ตัวเดียวกับ PR (structure + lint + build + migrate up/down/up + test กับ postgres/redis)
 3. `image` — build `Dockerfile` แล้ว push ทำเฉพาะเมื่อสองขั้นแรกผ่าน
 
+`ci.yml` รันเฉพาะ PR และตอนถูก release เรียก — push เข้า `dev`/`main` (รวม merge ในเครื่องแล้ว push) **ไม่รัน ci** ผลของ check ใน release tag คือการทดสอบของ commit นั้น
+
 image ที่ได้
 
 ```
