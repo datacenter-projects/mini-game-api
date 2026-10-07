@@ -1,6 +1,6 @@
 # บัญชี (`account`) — Dashboard · Profile · ข้อมูลรับรอง API — Spec
 
-- สถานะ: **APPROVED** (อนุมัติ 2026-10-06 หลังแก้ตาม review รอบ 2 และกฎ PT ต่อลูก)
+- สถานะ: **DRAFT** (แก้ตาม review module ② 2026-10-07: รูปแบบสิทธิ์ และยอดเงินจริง — รออนุมัติใหม่)
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-06 · ฉบับก่อนหน้าอนุมัติ 2026-10-05 และ 2026-10-06 (ก่อน review รอบ 2)
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.1 ภาพรวม (Dashboard)** · **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API**
@@ -23,7 +23,7 @@
 | ส่วน | ต้องมี | มาจาก |
 |---|---|---|
 | Profile | ประเภทบัญชี, สกุลเงิน, ค่าหุ้นส่วน, ระบบสิทธิ์ (รายการสิทธิ์ + สิทธิ์ของ sub) | module ② User Management |
-| Profile — ยอดเงิน | ยอดเงินแยกสกุล (`balances`) | module การชำระเงิน — ระหว่างยังไม่มีส่ง `0` |
+| Profile — ยอดเงิน | ยอดเงินแยกสกุล (`balances`) | ตาราง `agent_balances` ของ module ② (MGMT-15A) — module การชำระเงินใช้ต่อ |
 | 1.3 | ประเภทบัญชี (หาเจ้าของ Key) · ระบบสิทธิ์ (สิทธิ์ดู / แก้ไขของ sub) | module ② User Management |
 | Dashboard | bet, ผลได้เสียตาม PT, Commission | module เดิมพัน / Settle |
 
@@ -58,7 +58,7 @@
 
 | ID | Rule |
 |---|---|
-| ACC-20 | เปิดได้: บัญชีหลังบ้านที่มีสิทธิ์ `dashboard` ≥ VIEW (module ② MGMT-51) · `status` ต้องเป็น `ACTIVE` (ACC-31) |
+| ACC-20 | เปิดได้: บัญชีหลังบ้านที่มีสิทธิ์ `dashboard` = `view` ขึ้นไป (module ② MGMT-51) · `status` ต้องเป็น `ACTIVE` (ACC-31) |
 | ACC-21 | ข้อมูลเฉพาะสายของตัวเอง (ตัวเอง + สายล่าง) · sub เห็นของผู้สร้าง (AUTH-26) · ไม่เห็นข้ามสาย ไม่เห็นชั้นบน (System Overview) |
 | ACC-22 | ตัวกรอง: เกม (ทั้งหมด หรือเกมเดียว) · ปี (บังคับ) + เดือน (ไม่บังคับ — **ไม่ส่ง = ทั้งปี** ใช้กับทางลัด "ปีนี้") · ทางลัด ก่อนหน้า / เดือนนี้ / ปีนี้ / ถัดไป หน้าบ้านแปลงเป็น `month` / `year` เอง · สกุลเงิน 1 สกุลต่อครั้ง (บังคับ · ต้องเป็นสกุลที่บัญชีมีตาม module ② MGMT-10 ถึง 13) |
 | ACC-23 | ข้อมูลเป็นยอดสรุปรายวัน อัปเดตวันละครั้ง ช่วง 00:15–01:00 น. (ไม่ใช่ real-time) · ช่วงเวลาที่ยังไม่สรุปไม่นับ |
@@ -72,10 +72,10 @@
 | ID | Rule |
 |---|---|
 | ACC-11 | ทุกบัญชีหลังบ้านเรียกได้ (SUPERADMIN, ADMIN, Company, Share, Agent และ sub) · ต้องผ่านด่านหลัง login (`PassedGates()`) · เปิดได้แม้ `status = SUSPENDED` (ACC-31) · แสดงข้อมูลของ**ตัวเอง** |
-| ACC-12 | ข้อมูลที่แสดง: username · role · **ประเภทบัญชี** · `status` (key เดียว — ACC-30) · เป็น sub ไหม · username ของผู้สร้าง (เฉพาะ sub) · ตั้ง passcode แล้วหรือยัง · login ล่าสุด (เวลา, IP) · วันที่สร้างบัญชี · **สกุลเงิน** · **ยอดเงินแยกสกุล** (ACC-19) · **ค่าหุ้นส่วน** (ACC-16) · **สิทธิ์** |
+| ACC-12 | ข้อมูลที่แสดง: username · role · **ประเภทบัญชี** · `status` (key เดียว — ACC-30) · เป็น sub ไหม · username ของผู้สร้าง (เฉพาะ sub) · ตั้ง passcode แล้วหรือยัง · login ล่าสุด (เวลา, IP) · วันที่สร้างบัญชี · **สกุลเงิน** · **ยอดเงินแยกสกุล** (ACC-19) · **ค่าหุ้นส่วน** (ACC-16) · **สิทธิ์** (object `{ menu: off | view | edit }` — module ② MGMT-50) |
 | ACC-15 | sub: role, ประเภทบัญชี, สกุลเงิน, ยอดเงิน และค่าหุ้นส่วน = ของผู้สร้าง (AUTH-25) · สิทธิ์ = ที่ผู้สร้างให้ sub นั้น |
 | ACC-16 | ค่าหุ้นส่วนส่ง**ชุดเดียวต่อกลุ่ม PT** (รูปแบบเดียวกับตอนสร้าง / แก้ใน module ② MGMT-16): `pt` → กลุ่ม (ตอนนี้ `game`) → `pt_from_parent` (ได้รับ — ผู้สร้างตั้งให้บัญชีนี้) · `pt` (ถือจาก Member ใต้ตัวเองตรงๆ — บัญชีนี้ตั้งเอง ผ่าน module ② `PUT /agents/me/pt`) · `force` · `remain_quota` · `commission_percent` · `status` (เปิด / ปิดทั้งกลุ่ม) · `status_game` → รหัสเกม → bool (เปิด / ปิดทีละเกม · แยกจาก `pt`) · ผู้สร้างตั้งค่าที่ให้ลูกแต่ละคนแยกกัน (module ② MGMT-22) · ระบบเก็บแยกต่อเกม แต่ค่าในกลุ่มเท่ากันทุกเกม API จึงส่งชุดเดียว · SUPERADMIN = ค่าตั้งของตัวเอง (`pt_from_parent` = 100 — module ② MGMT-22) · ADMIN ไม่มีค่าหุ้นส่วน (`pt = {}`, `status_game = {}`) |
-| ACC-19 | ยอดเงินแยกสกุล `balances`: 1 รายการต่อสกุลที่บัญชีมี (`currencies`) · `amount` เป็น JSON number ทศนิยม 2 ตำแหน่ง (ACC-18) · อ่านจาก module การชำระเงิน (ระหว่างยังไม่มี module นั้นส่ง `0`) · บัญชีฝั่ง Seamless ไม่มียอดเงิน ส่ง `0` (module ② MGMT-15) · cache ห้ามเป็นที่มาของยอด (กฎข้อ 14) |
+| ACC-19 | ยอดเงินแยกสกุล `balances`: 1 รายการต่อสกุลที่บัญชีมี (`currencies`) · `amount` เป็น JSON number ทศนิยม 2 ตำแหน่ง (ACC-18) · อ่านจาก `agent_balances` (module ② MGMT-15A) · สกุลที่ยังไม่มียอดส่ง `0` · บัญชีฝั่ง Seamless ไม่มียอดเงิน ส่ง `0` (module ② MGMT-15) · cache ห้ามเป็นที่มาของยอด (กฎข้อ 14) |
 | ACC-17 | Profile มีไว้ให้หน้าบ้านแสดงผล / เช็คเบื้องต้นในฟอร์ม (เช่น สร้างบัญชีชั้นถัดไปที่ PT เกินของตัวเองไม่ได้) · **หลังบ้านต้องเช็คซ้ำทุกครั้ง** ใน module ที่ทำรายการ |
 | ACC-18 | **ตัวเลขใน API vs ภายใน (กฎข้อ 9)**: JSON ใช้ number (เงินเช่น `962056.00` · % เช่น `95.5`) ตามรูปแบบที่หน้าบ้านใช้ · **ภายใน DB และ Go ใช้จำนวนเต็มเสมอ** (เงิน = `int64` หน่วยย่อยที่สุดของสกุล — **ทุกสกุลทศนิยม 2 ตำแหน่ง** หน่วยย่อย = 1/100 · % = bp ×100) · แปลงที่ขอบระบบเท่านั้น · ตอนรับค่าอ่าน JSON number เป็นข้อความแล้วแปลงเป็นจำนวนเต็มตรง (ไม่ผ่าน float) · ห้ามคำนวณเงิน / % ด้วย float |
 | ACC-13 | อ่านอย่างเดียว · เปลี่ยนรหัสผ่าน / passcode ของตัวเองใช้เส้นเดิม `POST /bo/pr/auth/password/change` และ `/auth/passcode/change` |
@@ -86,7 +86,7 @@
 | ID | Rule |
 |---|---|
 | ACC-01 | เจ้าของ Key = **Company Seamless 1 to 1** · **Share Master** · **Share Reseller** · แต่ละบัญชีมี Key, ลิงก์ตอบกลับ และรายการ IP **ของตัวเอง** · บัญชีอื่นทั้งหมด (Superadmin, ADMIN, Company Transfer, Company Seamless Reseller / Master, Share B2B / B2C, Agent) เปิดหน้านี้ไม่ได้ (`403301`) |
-| ACC-02 | เจ้าของเปิดดู / บันทึกได้ · sub ของเจ้าของ: สิทธิ์ `account` = VIEW → GET ได้ · `account` = EDIT → POST ได้ · ไม่ได้รับสิทธิ์ → `402303` (module ② MGMT-51) · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) |
+| ACC-02 | เจ้าของเปิดดู / บันทึกได้ · sub ของเจ้าของ: สิทธิ์ `account` = `view` → GET ได้ · `account` = `edit` → POST ได้ · ไม่ได้รับสิทธิ์ → `402303` (module ② MGMT-51) · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) |
 | ACC-03 | Key สร้างอัตโนมัติ 1 ค่าต่อเจ้าของ: สุ่ม 32 byte ด้วย `crypto/rand` แสดงเป็น hex ตัวพิมพ์เล็ก 64 ตัว · **สร้างใหม่ไม่ได้** · ใช้ทั้งระบุตัวและคำนวณ `sign` |
 | ACC-04 | Key ดูซ้ำได้ (ปุ่มคัดลอก) → เก็บแบบเข้ารหัส AES-256-GCM ที่ถอดกลับได้ (ไม่ใช่ hash) + `sha256(Key)` ไว้ค้นตอนลูกค้าเรียก API · response ใส่ `Cache-Control: no-store` · ห้าม log Key |
 | ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่ยังไม่มี Key สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
@@ -107,10 +107,10 @@
 
 | Method | Path | middleware เพิ่ม |
 |---|---|---|
-| GET | `/api/v1/bo/pr/account/dashboard` | `RequirePermission(dashboard, VIEW)` |
+| GET | `/api/v1/bo/pr/account/dashboard` | `RequirePermission(dashboard, view)` |
 | GET | `/api/v1/bo/pr/account/profile` | — (เปิดได้ตอน SUSPENDED) |
-| GET | `/api/v1/bo/pr/account/api-credential` | `RequirePermission(account, VIEW)` |
-| POST | `/api/v1/bo/pr/account/api-credential` | `RequirePermission(account, EDIT)` · `RequirePasscode` |
+| GET | `/api/v1/bo/pr/account/api-credential` | `RequirePermission(account, view)` |
+| POST | `/api/v1/bo/pr/account/api-credential` | `RequirePermission(account, edit)` · `RequirePasscode` |
 
 ### GET /api/v1/bo/pr/account/dashboard
 
@@ -177,7 +177,10 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
     "game": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
-  "permissions": ["dashboard.view", "report.view"]
+  "permissions": {
+    "dashboard": "view", "account": "view", "member": "off", "pt": "off", "report": "view",
+    "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
+  }
 }
 ```
 - `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้ผู้สร้าง (`share01`) ถูกระงับ sub จึงได้ `SUSPENDED`
@@ -187,7 +190,8 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
 - `owner_username` = `null` เมื่อไม่ใช่ sub · `last_login_*` = `null` ถ้ายังไม่เคยบันทึก
 - ค่า % (`pt`, `pt_from_parent`, `force`, `remain_quota`, `commission_percent`) เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง — ภายในเก็บเป็นจำนวนเต็ม (ACC-18)
 - กลุ่ม PT, รหัสเกม, รายการสกุล (27 สกุล) และชื่อสิทธิ์ ใช้ตามที่ module ② กำหนด (ค่าในตัวอย่างเป็นแค่รูปแบบ)
-- `balances` ตาม ACC-19 — ระหว่างยังไม่มี module การชำระเงิน `amount` = `0`
+- `balances` ตาม ACC-19 (ยอดจริงจาก `agent_balances`)
+- `permissions` = object `{ "{menu}": "off" | "view" | "edit" }` ครบทุกเมนูของประเภทบัญชี (module ② MGMT-50 · MGMT-53) · บัญชีหลักได้ `edit` ทุกเมนู · sub ได้ตามที่เจ้าของให้
 
 Error codes: error ร่วมของ `/bo/pr` เท่านั้น
 
@@ -292,13 +296,16 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game.scratch_card = false` · เกมอื่น `true` · `pt` ยังเป็นชุดเดียว |
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
+| ACC-19 | Share สร้างพร้อมยอดเงินตั้งต้น THB 10,000 (module ② MGMT-15A) | `balances` THB `amount = 10000.00` |
+| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 9 เมนู ค่า `edit` ทั้งหมด |
+| ACC-15 | sub ที่ได้แค่ `report` = `view` | `permissions.report = "view"` · เมนูอื่น `"off"` |
 | ACC-18 | Commission 0.5% | profile ได้ `0.5` · DB เก็บจำนวนเต็ม |
 | ACC-14 | login แล้วเรียก profile | `last_login_at` / `last_login_ip` ตรงกับ login นี้ |
 | ACC-01 | Company Seamless 1 to 1 / Share Master / Share Reseller เรียก GET | สำเร็จ · ได้ Key ของตัวเอง |
 | ACC-01 | Share Reseller 2 บัญชีใต้ Company เดียวกัน | ได้ Key คนละค่า |
 | ACC-01 | Company Seamless Reseller / Master, Company Transfer, Share B2B / B2C, Agent, Superadmin เรียก GET / POST | `403301` |
-| ACC-02 | sub ที่ได้สิทธิ์ `account` = VIEW | GET สำเร็จ · POST `402303` |
-| ACC-02 | sub ที่ไม่ได้รับสิทธิ์ | GET / POST `402303` |
+| ACC-02 | sub ที่ได้สิทธิ์ `account` = `view` | GET สำเร็จ · POST `402303` |
+| ACC-02 | sub ที่ได้ `account` = `off` | GET / POST `402303` |
 | ACC-02 | เจ้าของ SUSPENDED กดบันทึก | ถูกปฏิเสธที่ middleware (ACC-31 / AUTH-54) |
 | ACC-03 | เจ้าของ GET ครั้งแรก | Key hex ตัวพิมพ์เล็ก 64 ตัว |
 | ACC-04 | GET ซ้ำ | Key เดิม · header `Cache-Control: no-store` · DB ไม่มี Key แบบ plain |
@@ -320,7 +327,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 - Profile มี `user_type`, `currencies`, `balances`, `pt` (ชุดเดียวต่อกลุ่ม — รวม `pt_from_parent` ในกลุ่ม), `status_game` (ต่อเกม แยกจาก `pt`), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
 - Dashboard: `month` ไม่บังคับ (ไม่ส่ง = ทั้งปี) · เพิ่มการ์ด `commission_received`, `commission_paid`, `income`
 - หน้า 1.3 แสดงเฉพาะ Company Seamless 1 to 1 / Share Master / Share Reseller และ sub ที่ได้รับสิทธิ์ · `callback_url` ว่างส่ง `null` หรือ `""`
-- `balances` ส่ง `amount = 0` จนกว่าจะมี module การชำระเงิน
+- `balances` ส่งยอดจริงจาก `agent_balances` · `permissions` เป็น object `{ menu: off | view | edit }`
 
 ## 9. การตัดสินใจ (2026-10-05)
 
@@ -342,6 +349,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
    - Dashboard: เพิ่มการ์ดรายได้และ Commission · `month` ไม่บังคับ · ระบุ error และชนิดของการ์ด · `currency` ต้องเป็นสกุลที่บัญชีมี
    - ตัด `403302` — middleware กลาง (AUTH-54) กันก่อนถึง logic เสมอ · error สิทธิ์ของ sub ใช้ `402303`
    - `callback_url` ว่าง: รับ `null` / `""` เก็บเป็น `NULL`
+   - (review module ② 2026-10-07) `permissions` เป็น object `{ menu: off | view | edit }` · `balances` ส่งยอดจริงจาก `agent_balances` (module ② MGMT-15A)
    - (คุยกับ lead 2026-10-06) `pt_from_parent` อยู่ในกลุ่ม `pt` · เพิ่ม `status` ของกลุ่ม · ผู้สร้างตั้งค่าที่ให้ลูกแต่ละคนแยกกัน และบัญชีตั้งค่าถือ `pt` ของตัวเอง (module ② MGMT-22)
 6. **Error code** (module `account` = `bb=03`) — business error ตอบ HTTP 200
 
