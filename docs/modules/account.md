@@ -111,7 +111,7 @@
 | GET | `/api/v1/bo/pr/account/dashboard` | `RequirePermission(dashboard, view)` |
 | GET | `/api/v1/bo/pr/account/profile` | — (เปิดได้ตอน SUSPENDED) |
 | GET | `/api/v1/bo/pr/account/api-credential` | `RequirePermission(account, view)` |
-| POST | `/api/v1/bo/pr/account/api-credential` | `RequirePermission(account, edit)` · `RequirePasscode` |
+| POST | `/api/v1/bo/pr/account/update-credential` | `RequirePermission(account, edit)` · `RequirePasscode` |
 
 ### GET /api/v1/bo/pr/account/dashboard
 
@@ -211,7 +211,7 @@ Response `data` (header `Cache-Control: no-store`):
 
 Error codes: `403301` · `402303` (sub ไม่มีสิทธิ์)
 
-### POST /api/v1/bo/pr/account/api-credential
+### POST /api/v1/bo/pr/account/update-credential
 
 Request:
 ```json
@@ -223,6 +223,7 @@ Request:
 ```
 Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`)
 
+- path แยกจากเส้น GET ให้สื่อว่าเป็นการอัปเดต (ตัดสิน 2026-10-07)
 - `callback_url`: `""` = ไม่ตั้ง · ส่ง `null` = `422` (ACC-06 · ACC-32)
 
 Error codes: `422` (ไม่ส่ง field · ลิงก์ไม่ใช่ https / ยาวเกิน · IP ผิดรูปแบบ · เกิน 50 รายการ · IP ซ้ำ — msg บอก field และรายการ),
@@ -280,7 +281,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-30 | Agent ACTIVE · Share ที่เป็นหัวสายถูกล็อก | Agent `status = LOCKED` |
 | ACC-30 | Agent ถูกล็อก · Share ที่เป็นหัวสาย ACTIVE | Agent `status = LOCKED` · Share `status = ACTIVE` ใช้งานได้ปกติ |
 | ACC-31 | `status = SUSPENDED` เรียก profile | สำเร็จ |
-| ACC-31 | `status = SUSPENDED` เรียก dashboard / POST api-credential / route อื่นนอก Profile, Report | ถูกปฏิเสธ (AUTH-54) |
+| ACC-31 | `status = SUSPENDED` เรียก dashboard / POST update-credential / route อื่นนอก Profile, Report | ถูกปฏิเสธ (AUTH-54) |
 | ACC-21 | Company A ดู dashboard | นับเฉพาะ Member ในสาย A |
 | ACC-22 | `currency` ที่บัญชีไม่มี / ไม่ส่ง · `month = 13` · ไม่ส่ง `year` | `422` |
 | ACC-22 | ไม่ส่ง `month` | `period` = ทั้งปีของ `year` |

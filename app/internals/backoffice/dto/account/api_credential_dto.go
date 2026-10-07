@@ -17,7 +17,7 @@ type APICredentialResponse struct {
 	AllowedIPs  []string `json:"allowed_ips"`
 }
 
-// SaveAPICredentialRequest — POST /api/v1/bo/pr/account/api-credential (ACC-06–ACC-08)
+// SaveAPICredentialRequest — POST /api/v1/bo/pr/account/update-credential (ACC-06–ACC-08)
 // passcode อ่านโดย middleware RequirePasscode · บันทึกแทนทั้งชุด จึงต้องส่งครบทั้ง 2 field
 type SaveAPICredentialRequest struct {
 	CallbackURL utils.JSONString `json:"callback_url"`
