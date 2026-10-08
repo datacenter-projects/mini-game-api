@@ -1,6 +1,6 @@
 # API หลังบ้าน — บัญชี (Account) สำหรับหน้าบ้าน — 8 ต.ค. 2026
 
-เอกสารนี้สรุปจาก spec `docs/modules/account.md` (APPROVED) และโค้ดใน branch `boiledegg/bo/account` (รวม `dev` ล่าสุดแล้ว — รอ merge เข้า `dev`)
+เอกสารนี้สรุปจาก spec `docs/modules/account.md` (APPROVED) และโค้ดใน branch `dev` (merge 8 ต.ค. 2026 — มีบน server dev หลัง deploy รอบถัดไป)
 · พื้นฐาน (base URL, header, รูปแบบ response, login, session) ดู [auth.md](auth.md)
 
 ## 0. สถานะของแต่ละเส้น
