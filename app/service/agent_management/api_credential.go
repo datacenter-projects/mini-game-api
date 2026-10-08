@@ -1,4 +1,4 @@
-package account
+package agentmanagement
 
 import (
 	"errors"
@@ -12,9 +12,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// createAPICredentialIfAbsent — สร้าง Key ของ 1.3 ให้เจ้าของถ้ายังไม่มี (ACC-03 – ACC-05)
-// เรียกพร้อมกันได้ Key เดียว (agent_id เป็น PK) · สร้างพร้อมบัญชีเจ้าของ (module ② MGMT-04) ทำหลัง module ② และ account เข้า dev
-func createAPICredentialIfAbsent(db *gorm.DB, agentID uint) error {
+// CreateAPICredentialIfAbsent — สร้าง Key ของ account 1.3 ให้เจ้าของถ้ายังไม่มี (account ACC-03 – ACC-05)
+// เรียกพร้อมกันได้ Key เดียว (agent_id เป็น PK) · ใช้ทั้งตอนสร้างบัญชีเจ้าของ (MGMT-04) และตอนเปิดหน้า 1.3 ครั้งแรก
+// อยู่ใน module นี้เพราะ account import module นี้อยู่แล้ว (กัน import วน)
+func CreateAPICredentialIfAbsent(db *gorm.DB, agentID uint) error {
 	encKey := configs.Cfg.Account.APIKeyEncryptionKey
 	if len(encKey) == 0 { // local ที่ไม่ได้ตั้ง API_KEY_ENCRYPTION_KEY
 		return apperr.ErrUnavailable.Wrap(errors.New("API_KEY_ENCRYPTION_KEY is not set"))

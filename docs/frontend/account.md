@@ -1,6 +1,6 @@
 # API หลังบ้าน — บัญชี (Account) สำหรับหน้าบ้าน — 8 ต.ค. 2026
 
-เอกสารนี้สรุปจาก spec `docs/modules/account.md` (APPROVED) และโค้ดใน branch `boiledegg/bo/account` (merge การจัดการสมาชิกแล้ว)
+เอกสารนี้สรุปจาก spec `docs/modules/account.md` (APPROVED) และโค้ดใน branch `boiledegg/bo/account` (รวม `dev` ล่าสุดแล้ว — รอ merge เข้า `dev`)
 · พื้นฐาน (base URL, header, รูปแบบ response, login, session) ดู [auth.md](auth.md)
 
 ## 0. สถานะของแต่ละเส้น
@@ -176,7 +176,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 
 หน้า 1.3 · เข้าได้เฉพาะ **Company Seamless 1 to 1 · Share Master · Share Reseller** และ sub ที่ได้สิทธิ์ `account`
 · บัญชีอื่นได้ `403301`
-· Key สร้างให้อัตโนมัติตอนเปิดหน้านี้ครั้งแรก หน้าบ้านไม่ต้องส่ง (สร้างพร้อมบัญชีเจ้าของจะตามมาภายหลัง) · Key เปลี่ยนไม่ได้
+· Key สร้างให้อัตโนมัติตอนสร้างบัญชี (บัญชีที่สร้างก่อนหน้านั้นได้ Key ตอนเปิดหน้านี้ครั้งแรก) หน้าบ้านไม่ต้องส่ง · Key เปลี่ยนไม่ได้
 
 ### 3.1 ดู — `GET /api/v1/bo/pr/account/api-credential`
 

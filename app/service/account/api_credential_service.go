@@ -10,6 +10,7 @@ import (
 	"app/app/models"
 	"app/app/repository/postgres"
 	agentAuthService "app/app/service/agent_auth"
+	agentManagementService "app/app/service/agent_management"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -40,7 +41,7 @@ func GetAPICredentialService(ctx context.Context, actor agentAuthService.Actor) 
 	if err != nil {
 		return res, err
 	}
-	if err := createAPICredentialIfAbsent(db, owner.ID); err != nil {
+	if err := agentManagementService.CreateAPICredentialIfAbsent(db, owner.ID); err != nil {
 		return res, err
 	}
 	cred, err := postgres.GetAPICredentialRepository(db, owner.ID)
@@ -68,7 +69,7 @@ func SaveAPICredentialService(ctx context.Context, actor agentAuthService.Actor,
 		if err != nil {
 			return err
 		}
-		if err := createAPICredentialIfAbsent(tx, owner.ID); err != nil {
+		if err := agentManagementService.CreateAPICredentialIfAbsent(tx, owner.ID); err != nil {
 			return err
 		}
 		cred, err := postgres.LockAPICredentialRepository(tx, owner.ID)

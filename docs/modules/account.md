@@ -29,7 +29,7 @@
 | Dashboard | bet, ผลได้เสียตาม PT, Commission | module เดิมพัน / Settle |
 
 > **หมายเหตุ — ค่าชั่วคราว (2026-10-07) เลิกใช้แล้ว (2026-10-08):** ใน `boiledegg/bo/account` (merge module ② แล้ว) Profile ส่งค่าจริงทุก field จากตารางของ
-> module ② และเปิดเส้น 1.3 แล้ว (Key สร้างตอนเปิดหน้าครั้งแรก — ACC-05 · การสร้าง Key พร้อมบัญชีเจ้าของ (module ② MGMT-04) ทำหลังทั้งสอง branch เข้า `dev`) · Dashboard ยังรอ module เดิมพัน
+> module ② และเปิดเส้น 1.3 แล้ว (Key สร้างพร้อมบัญชีเจ้าของ — module ② MGMT-04 · บัญชีที่สร้างก่อนหน้านั้นได้ Key ตอนเปิดหน้าครั้งแรก — ACC-05) · Dashboard ยังรอ module เดิมพัน
 
 **ไม่อยู่ใน module นี้:** การเก็บและย้ายยอดเงิน (module การชำระเงิน — Profile แค่อ่านยอดมาแสดง ACC-19) ·
 การใช้ Key / IP / ลิงก์ตอนลูกค้าเรียก API (module provider `app/externals/provider`)

@@ -1,7 +1,7 @@
 //go:build integration
 
 // API test ของ 1.3 ข้อมูลรับรอง API ตามตาราง test case ใน docs/modules/account.md หัวข้อ 7 (ACC-01 – ACC-10, ACC-32)
-// MGMT-04 (สร้าง Key พร้อมบัญชีเจ้าของ) ทำหลัง module ② และ account เข้า dev — ตอนนี้ Key สร้างตอนเปิดหน้าครั้งแรก (ACC-05)
+// + MGMT-04 สร้าง Key พร้อมบัญชีเจ้าของ
 package backoffice_test
 
 import (
@@ -82,10 +82,19 @@ func TestAPICredentialOwners(t *testing.T) { // ACC-01, ACC-03, ACC-04, ACC-10
 	app := setup2(t)
 	o := buildOwners(t, app)
 
-	// ยังไม่มี MGMT-04: ก่อนเปิดหน้าครั้งแรกยังไม่มี Key (ACC-05)
-	if n := countRows(t, &models.APICredential{}, "agent_id = ?", o.one.ID); n != 0 {
-		t.Fatalf("ก่อนเปิดหน้าต้องยังไม่มี Key ได้ %d แถว", n)
+	// MGMT-04: เจ้าของ Key ได้ Key ตั้งแต่สร้างบัญชี · บัญชีที่ไม่ใช่เจ้าของไม่มี
+	for _, id := range []uint{o.one.ID, o.res1.ID} {
+		if n := countRows(t, &models.APICredential{}, "agent_id = ?", id); n != 1 {
+			t.Fatalf("agent %d ต้องมี Key ตั้งแต่สร้าง ได้ %d แถว", id, n)
+		}
 	}
+	for _, id := range []uint{o.com.ID, o.share.ID, o.agent.ID} {
+		if n := countRows(t, &models.APICredential{}, "agent_id = ?", id); n != 0 {
+			t.Fatalf("agent %d ไม่ใช่เจ้าของ Key แต่มี %d แถว", id, n)
+		}
+	}
+	var created models.APICredential
+	database.DBConn.Where("agent_id = ?", o.one.ID).Take(&created)
 
 	d, r := getCredential(t, app, o.oneTok)
 	if d.Username != "one2one" || !keyRe.MatchString(d.Key) || d.CallbackURL != "" || d.AllowedIPs == nil || len(d.AllowedIPs) != 0 {
@@ -93,6 +102,9 @@ func TestAPICredentialOwners(t *testing.T) { // ACC-01, ACC-03, ACC-04, ACC-10
 	}
 	if r.Header.Get("Cache-Control") != "no-store" {
 		t.Fatalf("Cache-Control = %q", r.Header.Get("Cache-Control"))
+	}
+	if created.KeyHash != utils.HashAPIKey(d.Key) {
+		t.Fatal("GET ต้องได้ Key ที่สร้างตอนสร้างบัญชี")
 	}
 	again, _ := getCredential(t, app, o.oneTok)
 	if again.Key != d.Key {

@@ -4,12 +4,14 @@ import (
 	"context"
 	"time"
 
+	accountCore "app/app/core/account"
 	agentManagementCore "app/app/core/agent_management"
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
 	"app/app/models"
 	"app/app/repository/postgres"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
+	"app/pkg/configs"
 	"app/pkg/utils"
 	"app/platform/database"
 
@@ -23,7 +25,7 @@ const (
 
 // CreateAgentService — POST /api/v1/bo/pr/manage/agents/create (MGMT-02 – MGMT-25, MGMT-60)
 // สิทธิ์ member / pt = edit ตรวจที่ route · payment = edit ตรวจที่นี่เมื่อส่ง balance (MGMT-51)
-// Key ของ account 1.3 (MGMT-04) เพิ่มใน phase 6
+// เจ้าของ Key ของ account 1.3 ได้ Key พร้อมบัญชี (MGMT-04)
 func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.CreateAgentRequest,
 	meta agentAuthService.RequestMeta) (agentManagementDto.CreateAgentResponse, error) {
 	var res agentManagementDto.CreateAgentResponse
@@ -119,6 +121,12 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 
 		if err := transferInitialBalance(tx, c, models.BalanceOwnerAgent, a.ID, req.BalanceMinor, req.RequestID, actor, now); err != nil {
 			return err
+		}
+		// MGMT-04: เจ้าของ Key ของ account 1.3 ได้ Key ใน tx เดียวกัน · local ที่ไม่ตั้ง API_KEY_ENCRYPTION_KEY ข้ามไปสร้างตอนเปิดหน้าครั้งแรก (ACC-05)
+		if accountCore.IsAPIKeyOwner(newAcc.UserType) && len(configs.Cfg.Account.APIKeyEncryptionKey) > 0 {
+			if err := CreateAPICredentialIfAbsent(tx, a.ID); err != nil {
+				return err
+			}
 		}
 		if err := postgres.CreateCreateRequestRepository(tx, &models.CreateRequest{RequestID: req.RequestID, CreatorType: actor.AccountType,
 			CreatorID: actor.AccountID(), TargetType: targetAgent, TargetID: a.ID, CreatedAt: now}); err != nil {

@@ -192,10 +192,15 @@ func TestSubUpdate(t *testing.T) { // MGMT-42, MGMT-43, MGMT-44, MGMT-45, MGMT-6
 		t.Fatalf("status %s", d.Status)
 	}
 	setPasscode(t, models.AccountTypeSub, s.ID, passcode)
-	if tok := loginToken2(t, app, "share01@staff", mgPassword); tok == "" {
+	subTok := loginToken2(t, app, "share01@staff", mgPassword)
+	if subTok == "" {
 		t.Fatal("INACTIVE ต้อง login ได้")
 	}
+	// AUTH-54: เปิดได้แค่ Profile / Report · route อื่น 401311 (เช็คก่อนสิทธิ์ของ sub)
+	expect(t, call(t, app, "GET", profilePath, nil, subTok), 200, 200)
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 403, 401311)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200)
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303) // กลับมาใช้สิทธิ์ตามปกติ (ไม่มีสิทธิ์ member)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "INACTIVE"}, c.comTok), 200, 402404)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "SUSPENDED"}, c.shareTok), 200, 422)
 
