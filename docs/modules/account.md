@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED** (อนุมัติ 2026-10-07 — หลังแก้รูปแบบสิทธิ์, ยอดเงินจริง และไม่มี null ใน API)
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07 · ฉบับก่อนหน้าอนุมัติ 2026-10-05 และ 2026-10-06
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): ACC-12 บัญชีที่ถูกระงับ `permissions` แสดงตามที่ใช้ได้จริง
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): ACC-12 บัญชีที่ถูกระงับ `permissions` แสดงตามที่ใช้ได้จริง · ACC-16 `pt` แสดงชุดเดียวต่อระบบ (`minigame`) พร้อม `status` `created_at` `created_by` `updated_at` `updated_by` · `status_game` แยกทีละเกมด้านนอก `pt`
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.1 ภาพรวม (Dashboard)** · **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API**
 - ที่มาของ rule: ภาพหน้าจอตัวอย่าง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg + review comments (2026-10-05) ·
@@ -79,7 +79,7 @@
 | ACC-11 | ทุกบัญชีหลังบ้านเรียกได้ (SUPERADMIN, ADMIN, Company, Share, Agent และ sub) · ต้องผ่านด่านหลัง login (`PassedGates()`) · เปิดได้แม้ `status = SUSPENDED` (ACC-31) · แสดงข้อมูลของ**ตัวเอง** |
 | ACC-12 | ข้อมูลที่แสดง: username · role · **ประเภทบัญชี** · `status` (key เดียว — ACC-30) · เป็น sub ไหม · username ของผู้สร้าง (เฉพาะ sub) · ตั้ง passcode แล้วหรือยัง · login ล่าสุด (เวลา, IP) · วันที่สร้างบัญชี · **สกุลเงิน** · **ยอดเงินแยกสกุล** (ACC-19) · **ค่าหุ้นส่วน** (ACC-16) · **สิทธิ์** (object `{ menu: off | view | edit }` — module ② MGMT-50) · **`status = SUSPENDED`: `permissions` แสดงตามที่ใช้ได้จริง** — `report` = `view` (ถ้าเดิมมีอย่างน้อย `view`) · เมนูอื่น `off` (AUTH-54 · แก้ 2026-10-08) |
 | ACC-15 | sub: role, ประเภทบัญชี, สกุลเงิน, ยอดเงิน และค่าหุ้นส่วน = ของผู้สร้าง (AUTH-25) · สิทธิ์ = ที่ผู้สร้างให้ sub นั้น |
-| ACC-16 | ค่าหุ้นส่วนส่ง**ชุดเดียวต่อกลุ่ม PT** (รูปแบบเดียวกับตอนสร้าง / แก้ใน module ② MGMT-16): `pt` → กลุ่ม (ตอนนี้ `game`) → `pt_from_parent` (ได้รับ — ผู้สร้างตั้งให้บัญชีนี้) · `pt` (ถือจาก Member ใต้ตัวเองตรงๆ — บัญชีนี้ตั้งเอง ผ่าน module ② `POST /api/v1/bo/pr/manage/agents/me/pt`) · `force` · `remain_quota` · `commission_percent` · `status` (เปิด / ปิดทั้งกลุ่ม) · `status_game` → รหัสเกม → bool (เปิด / ปิดทีละเกม · แยกจาก `pt`) · ผู้สร้างตั้งค่าที่ให้ลูกแต่ละคนแยกกัน (module ② MGMT-22) · ระบบเก็บแยกต่อเกม แต่ค่าในกลุ่มเท่ากันทุกเกม API จึงส่งชุดเดียว · SUPERADMIN = ค่าตั้งของตัวเอง (`pt_from_parent` = 100 — module ② MGMT-22) · ADMIN ไม่มีค่าหุ้นส่วน (`pt = {}`, `status_game = {}`) |
+| ACC-16 | ค่าหุ้นส่วน**แสดงชุดเดียวต่อระบบ** (แก้ 2026-10-08 — รูปแบบเดียวกับ module ② MGMT-16 · หลังบ้านเก็บต่อเกม): `pt` → ระบบ (ตอนนี้ `minigame`) → `pt_from_parent` (ได้รับ — ผู้สร้างตั้งให้บัญชีนี้) · `pt` (ถือจาก Member ใต้ตัวเองตรงๆ — บัญชีนี้ตั้งเอง ผ่าน module ② `POST /api/v1/bo/pr/manage/agents/update-hold`) · `force` · `remain_quota` · `commission_percent` · `status` (status ของ PT ไม่ใช่สถานะเกม — ❓ รอ lead ยืนยันความหมาย) · `created_at` · `created_by` (เวลา / username ผู้สร้าง) · `updated_at` · `updated_by` (เวลา / username คนที่แก้ล่าสุด) · `status_game` = เปิด / ปิดทีละเกม อยู่นอก `pt` (`false` = Member ในสายเล่นเกมนั้นไม่ได้) · ผู้สร้างตั้งค่าที่ให้ลูกแต่ละคนแยกกัน (module ② MGMT-22) · SUPERADMIN = ค่าตั้งของตัวเอง (`pt_from_parent` = 100 — module ② MGMT-22) · ADMIN ไม่มีค่าหุ้นส่วน (`pt = {}`) |
 | ACC-19 | ยอดเงินแยกสกุล `balances`: 1 รายการต่อสกุลที่บัญชีมี (`currencies`) · `amount` เป็น JSON number ทศนิยม 2 ตำแหน่ง (ACC-18) · อ่านจาก `agent_balances` (module ② MGMT-15A) · สกุลที่ยังไม่มียอดส่ง `0` · บัญชีฝั่ง Seamless ไม่มียอดเงิน ส่ง `0` (module ② MGMT-15) · cache ห้ามเป็นที่มาของยอด (กฎข้อ 14) |
 | ACC-17 | Profile มีไว้ให้หน้าบ้านแสดงผล / เช็คเบื้องต้นในฟอร์ม (เช่น สร้างบัญชีชั้นถัดไปที่ PT เกินของตัวเองไม่ได้) · **หลังบ้านต้องเช็คซ้ำทุกครั้ง** ใน module ที่ทำรายการ |
 | ACC-18 | **ตัวเลขใน API vs ภายใน (กฎข้อ 9)**: JSON ใช้ number (เงินเช่น `962056.00` · % เช่น `95.5`) ตามรูปแบบที่หน้าบ้านใช้ · **ภายใน DB และ Go ใช้จำนวนเต็มเสมอ** (เงิน = `int64` หน่วยย่อยที่สุดของสกุล — **ทุกสกุลทศนิยม 2 ตำแหน่ง** หน่วยย่อย = 1/100 · % = bp ×100) · แปลงที่ขอบระบบเท่านั้น · ตอนรับค่าอ่าน JSON number เป็นข้อความแล้วแปลงเป็นจำนวนเต็มตรง (ไม่ผ่าน float) · ห้ามคำนวณเงิน / % ด้วย float |
@@ -179,7 +179,7 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
     { "currency": "THB", "amount": 962056.00 }
   ],
   "pt": {
-    "game": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+    "minigame": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
@@ -189,7 +189,7 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
 }
 ```
 - `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้ผู้สร้าง (`share01`) ถูกระงับ sub จึงได้ `SUSPENDED`
-- `pt.game`: ได้รับ 90 (`pt_from_parent` — ผู้สร้างตั้ง) · ถือจาก Member ของตัวเอง 20 (`pt` — ตั้งเอง) · `status = true` เปิดทั้งกลุ่ม · `status_game` เปิด / ปิดทีละเกม
+- `pt.minigame`: ได้รับ 90 (`pt_from_parent` — ผู้สร้างตั้ง) · ถือจาก Member ของตัวเอง 20 (`pt` — ตั้งเอง) · `created_by` = ผู้สร้าง · `updated_by` = คนที่แก้ค่า PT ล่าสุด\n- `status_game`: `scratch_card` ถูกปิด (`false`)
 - `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` ·
   `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT`
 - `owner_username` = `""` เมื่อไม่ใช่ sub · `last_login_*` = `""` ถ้ายังไม่เคยบันทึก (ACC-32)
@@ -296,11 +296,11 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-11 | ยังไม่ตั้ง passcode เรียก profile | `401304` (ด่านหลัง login) |
 | ACC-12 | ผู้สร้างของ sub เป็น SUSPENDED | sub ได้ `status = SUSPENDED` · ไม่มี field `effective_status` |
 | ACC-12 | บัญชีหลักถูกระงับ (เอง หรือจากหัวสาย) เรียก profile | `permissions.report = "view"` · เมนูอื่น `"off"` · sub ที่เจ้าของไม่ได้ให้ `report` ได้ `off` ทุกเมนู |
-| ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt.game.pt = 0` (ล็อก — module ② MGMT-19) · `pt.game.pt_from_parent` = ค่าที่ Superadmin ให้ |
+| ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt.minigame.pt = 0` (ล็อก — module ② MGMT-19) · `pt_from_parent` = ค่าที่ Superadmin ให้ |
 | ACC-15 | sub ของ Share B2C เรียก profile | `user_type`, `currencies`, `balances`, `pt` เท่าของผู้สร้าง · `permissions` = ที่ผู้สร้างให้ |
-| ACC-16 | ADMIN เรียก profile | `pt = {}` · `status_game = {}` |
-| ACC-16 | SUPERADMIN เรียก profile | `pt.game.pt_from_parent = 100` · `pt.game.pt = 0` (ไม่มี Member ตรง) |
-| ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game.scratch_card = false` · เกมอื่น `true` · `pt` ยังเป็นชุดเดียว |
+| ACC-16 | ADMIN เรียก profile | `pt = {}` · ไม่มี field `status_game` |
+| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `pt = 0` (ไม่มี Member ตรง) |
+| ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game.scratch_card = false` · เกมอื่น `true` · `pt.minigame` ไม่เปลี่ยน |
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
 | ACC-19 | Share สร้างพร้อมยอดเงินตั้งต้น THB 10,000 (module ② MGMT-15A) | `balances` THB `amount = 10000.00` |
@@ -333,7 +333,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 - เส้นใหม่ 4 เส้นตามหัวข้อ 5
 - สถานะส่ง key เดียว `status` = สถานะที่ใช้งานจริง (ACC-30) · ไม่มี `effective_status`
 - **ไม่มี `null` ใน API** (ACC-32): ข้อความว่าง = `""` · ตัวเลขว่าง = `0` · request ส่ง `null` = `422`
-- Profile มี `user_type`, `currencies`, `balances`, `pt` (ชุดเดียวต่อกลุ่ม — รวม `pt_from_parent` ในกลุ่ม), `status_game` (ต่อเกม แยกจาก `pt`), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
+- Profile มี `user_type`, `currencies`, `balances`, `pt` (ชุดเดียวต่อระบบ `minigame` — รวม `pt_from_parent`, `status`, `created_at`, `created_by`, `updated_at`, `updated_by` · แก้ 2026-10-08), `status_game` (ทีละเกม), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
 - Dashboard: `month` ไม่บังคับ (ไม่ส่ง = ทั้งปี) · เพิ่มการ์ด `commission_received`, `commission_paid`, `income`
 - หน้า 1.3 แสดงเฉพาะ Company Seamless 1 to 1 / Share Master / Share Reseller และ sub ที่ได้รับสิทธิ์ · `callback_url` ว่างส่ง `""`
 - `balances` ส่งยอดจริงจาก `agent_balances` · `permissions` เป็น object `{ menu: off | view | edit }`

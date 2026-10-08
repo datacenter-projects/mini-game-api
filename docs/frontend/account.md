@@ -86,16 +86,17 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
   "last_login_at": "2026-10-07T21:22:39.123+07:00",
   "last_login_ip": "203.0.113.10",
   "created_at": "2026-10-01T09:00:00+07:00",
-  "currencies": ["ARS", "AUD", "...", "THB", "USD", "USDT", "VND"],
+  "currencies": ["THB"],
   "balances": [
-    { "currency": "ARS", "amount": 0.00 },
-    { "currency": "THB", "amount": 0.00 }
+    { "currency": "THB", "amount": 5000.00 }
   ],
-  "pt": {},
-  "status_game": {},
+  "pt": {
+    "minigame": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
+  },
+  "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
-    "dashboard": "off", "account": "off", "member": "off", "pt": "off", "report": "off",
-    "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
+    "dashboard": "edit", "account": "edit", "member": "edit", "pt": "edit", "report": "edit",
+    "bet_cancel": "edit", "payment": "edit", "asset": "edit", "announcement": "edit"
   }
 }
 ```
@@ -113,8 +114,8 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | `created_at` | วันที่สร้างบัญชี |
 | `currencies` | สกุลที่บัญชีใช้ได้ |
 | `balances` | ยอดเงินแยกสกุล |
-| `pt` | ค่าหุ้นส่วนต่อกลุ่ม (หัวข้อ 2.3) |
-| `status_game` | เปิด / ปิดทีละเกม |
+| `pt` | ค่าหุ้นส่วนชุดเดียวต่อระบบ (หัวข้อ 2.3) |
+| `status_game` | เปิด / ปิดทีละเกม (หัวข้อ 2.3) |
 | `permissions` | สิทธิ์ต่อเมนู `off` / `view` / `edit` (หัวข้อ 2.4) |
 
 ### 2.2 ที่มาของค่า (8 ต.ค. 2026 — เลิกใช้ค่าชั่วคราวแล้ว)
@@ -124,28 +125,31 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | `user_type` | ประเภทจริง เช่น `COMPANY_TRANSFER`, `SHARE_RESELLER` · sub = ของผู้สร้าง |
 | `currencies` | เฉพาะสกุลของบัญชี (Superadmin, Company Transfer, Company Seamless Reseller / Master = ครบ 27) |
 | `balances` | 1 รายการต่อสกุลใน `currencies` · ยอดจริง · ยังไม่มียอด และบัญชี Seamless = `0.00` |
-| `pt` · `status_game` | ค่าจริงจากตอนสร้าง / แก้ในการจัดการสมาชิก (หัวข้อ 2.3) |
+| `pt` | ค่าจริงจากตอนสร้าง / แก้ในการจัดการสมาชิก แสดงชุดเดียวต่อระบบ (หัวข้อ 2.3) |
 | `permissions` | บัญชีหลัก = `edit` ทุกเมนูของประเภท · sub = ตามที่เจ้าของให้ (ไม่ได้ให้ = `off`) |
-| ADMIN | `currencies` / `balances` = `[]` · `pt` / `status_game` / `permissions` = `{}` |
+| ADMIN | `currencies` / `balances` = `[]` · `pt` / `permissions` = `{}` |
 
-### 2.3 รูปแบบ `pt` และ `status_game`
+### 2.3 รูปแบบ `pt` และ `status_game` (แก้ 8 ต.ค. 2026 — `pt` ชุดเดียวต่อระบบ)
 
 ```json
 "pt": {
-  "game": {
-    "pt_from_parent": 90,
-    "pt": 20,
-    "force": 0,
-    "remain_quota": 0,
-    "commission_percent": 0.5,
-    "status": true
-  }
+  "minigame": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
 },
 "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
 ```
 
-- `pt_from_parent` = PT ที่ได้รับจากผู้สร้าง · `pt` = PT ที่ถือจาก Member ใต้ตัวเอง
-- `status` = เปิด / ปิดทั้งกลุ่ม · `status_game` = เปิด / ปิดทีละเกม — เกมเล่นได้เมื่อทั้งสองเป็น `true`
+| field | ความหมาย |
+|---|---|
+| `minigame` | ระบบ (ระบบอื่น เช่น `askmelotto` จะเพิ่มข้างๆ ภายหลัง) |
+| `pt_from_parent` | PT ที่ได้รับจากผู้สร้าง |
+| `pt` | PT ที่ถือจาก Member ใต้ตัวเอง |
+| `force` · `remain_quota` · `commission_percent` | บังคับถือสู้ · เอาส่วนที่เหลือ · Commission |
+| `status` | status ของ PT (ไม่ใช่สถานะเกม) — ❓ รอ lead ยืนยันความหมาย |
+| `created_at` · `created_by` | เวลา / username ของผู้สร้างค่า PT (ไม่เปลี่ยนหลังสร้าง) |
+| `updated_at` · `updated_by` | เวลา / username ของคนที่แก้ค่า PT ล่าสุด (รวม sub) |
+| `status_game` | อยู่นอก `pt` · รหัสเกม `coin_toss` · `rock_paper_scissors` · `scratch_card` (หน้าบ้านแปลงเป็นชื่อแสดงเอง) → `true` เปิด / `false` ปิด (Member ในสายเล่นเกมนั้นไม่ได้) |
+
+หลังบ้านเก็บค่า PT แยกต่อเกม แต่ส่ง / รับชุดเดียวต่อระบบ (ทุกเกมในระบบใช้ค่าเดียวกัน)
 
 ### 2.4 เมนูสิทธิ์ (`permissions`)
 
