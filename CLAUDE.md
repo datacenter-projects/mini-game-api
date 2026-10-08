@@ -126,5 +126,6 @@ make test-integration   # ต้องเปิด test env ก่อน (make t
 | `docs/MIGRATION_STATUS.md` | ขั้นตอนการ port และสถานะของแต่ละ module |
 | `docs/ERROR_CODES.md` | error code ทั้งหมดและช่วงที่จองไว้ |
 | `docs/TESTING.md` | test env (Docker / Windows), integration test, load test (k6) |
+| `docs/DEPLOYMENT.md` | ออก tag → image GHCR, สิ่งที่ k8s ต้องเตรียม (env, probe, migration job) |
 | `docs/modules/_TEMPLATE.md` | แม่แบบ spec ของ module |
 | `docs/modules/{module}.md` | spec ที่อนุมัติแล้ว (source of truth ของ business) |

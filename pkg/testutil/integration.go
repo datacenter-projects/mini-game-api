@@ -27,10 +27,12 @@ import (
 	"app/pkg/configs"
 	"app/pkg/middleware"
 	"app/pkg/routes"
+	"app/pkg/utils"
 	"app/platform/database"
 	"app/platform/logger"
 
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -88,6 +90,8 @@ func connect() error {
 	if forbiddenEnvs[configs.Cfg.AppEnv] {
 		return fmt.Errorf("APP_ENV=%s: integration test ล้างข้อมูลทั้งหมด ห้ามรันกับ env นี้", configs.Cfg.AppEnv)
 	}
+	configs.Cfg.Auth.PasswordCost = bcrypt.MinCost // cost 12 + -race ทำ test ช้าจน timeout
+	utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
 	logger.InitLogger(true)
 	ctx := context.Background()
 	if err := database.PostgreSQLConnection(configs.Cfg.DB); err != nil {

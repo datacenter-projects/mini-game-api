@@ -14,6 +14,8 @@ import (
 // SetupRoutes คือจุดเดียวที่ mount ทุก context — route จริงของแต่ละ context อยู่ใน
 // app/internals/{context}/routes.go และ app/externals/{partner}/routes.go
 func SetupRoutes(a *fiber.App) {
+	a.Get("/", health.RootController) // Get ลงทะเบียน HEAD ให้ด้วย
+
 	h := a.Group("/health")
 	h.Get("/live", health.LiveController)
 	h.Get("/ready", health.ReadyController)
