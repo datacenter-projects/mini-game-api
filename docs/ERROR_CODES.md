@@ -41,7 +41,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | bb | Module | ไฟล์ | Spec |
 |---|---|---|---|
 | 01 | agent_auth (backoffice auth) | `pkg/apperr/agent_auth_errors.go` | `docs/modules/agent_auth.md`, `docs/modules/agent_auth_phase2.md` |
-| 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` |
+| 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` · ใช้ร่วมกับ `member_management` (`docs/modules/member_management.md`) |
 | 03 | account (บัญชี) | `pkg/apperr/account_errors.go` | `docs/modules/account.md` |
 
 ## agent_auth (01)
