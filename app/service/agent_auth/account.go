@@ -5,7 +5,7 @@ import (
 
 	agentAuthCore "app/app/core/agent_auth"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 
 	"gorm.io/gorm"
 )
@@ -73,17 +73,17 @@ func fromSubaccount(s models.Subaccount, creator models.UserAgent) account {
 // sub ที่ไม่มีผู้สร้าง (ข้อมูลเสีย) ถือว่าไม่พบ
 func loadAccountForLogin(db *gorm.DB, username string) (account, error) {
 	if !agentAuthCore.IsSubaccountUsername(username) {
-		u, err := postgres.GetUserAgentForLoginRepository(db, username)
+		u, err := agentAuthPostgres.GetUserAgentForLoginRepository(db, username)
 		if err != nil {
 			return account{}, err
 		}
 		return fromUserAgent(u), nil
 	}
-	s, err := postgres.GetSubaccountForLoginRepository(db, username)
+	s, err := agentAuthPostgres.GetSubaccountForLoginRepository(db, username)
 	if err != nil {
 		return account{}, err
 	}
-	creator, err := postgres.GetUserAgentAuthByIDRepository(db, s.AgentID)
+	creator, err := agentAuthPostgres.GetUserAgentAuthByIDRepository(db, s.AgentID)
 	if err != nil {
 		return account{}, err
 	}
@@ -93,17 +93,17 @@ func loadAccountForLogin(db *gorm.DB, username string) (account, error) {
 // loadAccountAuth โหลดเฉพาะคอลัมน์ที่ middleware ใช้ — ไม่พบคืน apperr.ErrNotFound
 func loadAccountAuth(db *gorm.DB, t models.AccountType, id uint) (account, error) {
 	if t == models.AccountTypeAgent {
-		u, err := postgres.GetUserAgentAuthByIDRepository(db, id)
+		u, err := agentAuthPostgres.GetUserAgentAuthByIDRepository(db, id)
 		if err != nil {
 			return account{}, err
 		}
 		return fromUserAgent(u), nil
 	}
-	s, err := postgres.GetSubaccountAuthByIDRepository(db, id)
+	s, err := agentAuthPostgres.GetSubaccountAuthByIDRepository(db, id)
 	if err != nil {
 		return account{}, err
 	}
-	creator, err := postgres.GetUserAgentAuthByIDRepository(db, s.AgentID)
+	creator, err := agentAuthPostgres.GetUserAgentAuthByIDRepository(db, s.AgentID)
 	if err != nil {
 		return account{}, err
 	}
@@ -113,13 +113,13 @@ func loadAccountAuth(db *gorm.DB, t models.AccountType, id uint) (account, error
 // loadAccountCredentials อ่านรหัสผ่าน/passcode โดยไม่ lock (ไม่มีข้อมูลผู้สร้าง)
 func loadAccountCredentials(db *gorm.DB, t models.AccountType, id uint) (account, error) {
 	if t == models.AccountTypeAgent {
-		u, err := postgres.GetUserAgentCredentialsByIDRepository(db, id)
+		u, err := agentAuthPostgres.GetUserAgentCredentialsByIDRepository(db, id)
 		if err != nil {
 			return account{}, err
 		}
 		return fromUserAgent(u), nil
 	}
-	s, err := postgres.GetSubaccountCredentialsByIDRepository(db, id)
+	s, err := agentAuthPostgres.GetSubaccountCredentialsByIDRepository(db, id)
 	if err != nil {
 		return account{}, err
 	}
@@ -129,13 +129,13 @@ func loadAccountCredentials(db *gorm.DB, t models.AccountType, id uint) (account
 // lockAccountCredentials — SELECT ... FOR UPDATE แถวบัญชี (AUTH-42) ใช้ใน tx เท่านั้น (ไม่มีข้อมูลผู้สร้าง)
 func lockAccountCredentials(tx *gorm.DB, t models.AccountType, id uint) (account, error) {
 	if t == models.AccountTypeAgent {
-		u, err := postgres.LockUserAgentCredentialsRepository(tx, id)
+		u, err := agentAuthPostgres.LockUserAgentCredentialsRepository(tx, id)
 		if err != nil {
 			return account{}, err
 		}
 		return fromUserAgent(u), nil
 	}
-	s, err := postgres.LockSubaccountCredentialsRepository(tx, id)
+	s, err := agentAuthPostgres.LockSubaccountCredentialsRepository(tx, id)
 	if err != nil {
 		return account{}, err
 	}
@@ -145,7 +145,7 @@ func lockAccountCredentials(tx *gorm.DB, t models.AccountType, id uint) (account
 // withUplineStatus เติม UplineStatus จากผู้สร้าง (กรณี sub) และ upline ทั้งสาย (AUTH-05, AUTH-21, AUTH-27, AUTH-53)
 // ใช้กับ account ที่โหลดด้วย loadAccountForLogin / loadAccountAuth (มีข้อมูลผู้สร้าง)
 func withUplineStatus(db *gorm.DB, a account) (account, error) {
-	statuses, err := postgres.ListAncestorStatusesRepository(db, a.AgentID)
+	statuses, err := agentAuthPostgres.ListAncestorStatusesRepository(db, a.AgentID)
 	if err != nil {
 		return a, err
 	}
@@ -160,28 +160,28 @@ func (a account) UplineLocked() bool { return a.UplineStatus == models.AgentStat
 
 func setPasscodeIfEmpty(tx *gorm.DB, a account, hash string, at time.Time) (bool, error) {
 	if a.IsSub() {
-		return postgres.SetSubaccountPasscodeIfEmptyRepository(tx, a.ID, hash, at)
+		return agentAuthPostgres.SetSubaccountPasscodeIfEmptyRepository(tx, a.ID, hash, at)
 	}
-	return postgres.SetUserAgentPasscodeIfEmptyRepository(tx, a.ID, hash, at)
+	return agentAuthPostgres.SetUserAgentPasscodeIfEmptyRepository(tx, a.ID, hash, at)
 }
 
 func updatePasscode(tx *gorm.DB, a account, hash string, mustChange bool, tempExpiresAt *time.Time, at time.Time) error {
 	if a.IsSub() {
-		return postgres.UpdateSubaccountPasscodeRepository(tx, a.ID, hash, mustChange, tempExpiresAt, at)
+		return agentAuthPostgres.UpdateSubaccountPasscodeRepository(tx, a.ID, hash, mustChange, tempExpiresAt, at)
 	}
-	return postgres.UpdateUserAgentPasscodeRepository(tx, a.ID, hash, mustChange, tempExpiresAt, at)
+	return agentAuthPostgres.UpdateUserAgentPasscodeRepository(tx, a.ID, hash, mustChange, tempExpiresAt, at)
 }
 
 func updatePassword(tx *gorm.DB, a account, hash string, mustChange bool, tempExpiresAt *time.Time, at time.Time) error {
 	if a.IsSub() {
-		return postgres.UpdateSubaccountPasswordRepository(tx, a.ID, hash, a.PasswordHash, mustChange, tempExpiresAt, at)
+		return agentAuthPostgres.UpdateSubaccountPasswordRepository(tx, a.ID, hash, a.PasswordHash, mustChange, tempExpiresAt, at)
 	}
-	return postgres.UpdateUserAgentPasswordRepository(tx, a.ID, hash, a.PasswordHash, mustChange, tempExpiresAt, at)
+	return agentAuthPostgres.UpdateUserAgentPasswordRepository(tx, a.ID, hash, a.PasswordHash, mustChange, tempExpiresAt, at)
 }
 
 func updateLastLogin(db *gorm.DB, a account, ip string, at time.Time) error {
 	if a.IsSub() {
-		return postgres.UpdateSubaccountLastLoginRepository(db, a.ID, ip, at)
+		return agentAuthPostgres.UpdateSubaccountLastLoginRepository(db, a.ID, ip, at)
 	}
-	return postgres.UpdateUserAgentLastLoginRepository(db, a.ID, ip, at)
+	return agentAuthPostgres.UpdateUserAgentLastLoginRepository(db, a.ID, ip, at)
 }

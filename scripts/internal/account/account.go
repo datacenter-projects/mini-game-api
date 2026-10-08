@@ -11,7 +11,8 @@ import (
 	agentManagementCore "app/app/core/agent_management"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -57,7 +58,7 @@ func Create(rawUsername string, role models.AgentRole) error {
 		Status:       models.AgentStatusActive,
 	}
 	err = database.DBConn.Transaction(func(tx *gorm.DB) error {
-		if err := postgres.CreateUserAgentRepository(tx, &agent); err != nil {
+		if err := agentAuthPostgres.CreateUserAgentRepository(tx, &agent); err != nil {
 			return err
 		}
 		if role != models.AgentRoleSuperAdmin {
@@ -107,7 +108,7 @@ func seedSuperadmin(tx *gorm.DB, agentID uint) error {
 	for _, c := range agentManagementCore.Currencies {
 		currencies = append(currencies, models.AgentCurrency{AgentID: agentID, Currency: c})
 	}
-	if err := postgres.CreateAgentCurrenciesRepository(tx, currencies); err != nil {
+	if err := agentManagementPostgres.CreateAgentCurrenciesRepository(tx, currencies); err != nil {
 		return err
 	}
 	var settings []models.AgentGameSetting
@@ -117,5 +118,5 @@ func seedSuperadmin(tx *gorm.DB, agentID uint) error {
 				PTFromParentBP: agentManagementCore.FullPTBP, Status: true, StatusGame: true})
 		}
 	}
-	return postgres.CreateAgentGameSettingsRepository(tx, settings)
+	return agentManagementPostgres.CreateAgentGameSettingsRepository(tx, settings)
 }

@@ -1,4 +1,4 @@
-package redis
+package agentauth
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"app/app/models"
 )
 
-// key ทั้งหมดของระบบประกาศที่นี่ที่เดียว
+// key ทั้งหมดของ module agent_auth ประกาศที่นี่ที่เดียว · prefix: bo:sess: bo:login: bo:passcode:
 
 // backoffice session — docs/modules/agent_auth.md, docs/modules/agent_auth_phase2.md หัวข้อ 6
 func keyBOSession(sid string) string { return "bo:sess:" + sid }

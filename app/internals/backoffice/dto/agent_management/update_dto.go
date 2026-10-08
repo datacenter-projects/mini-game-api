@@ -20,18 +20,18 @@ type UpdateInfoRequest struct {
 }
 
 func (r *UpdateInfoRequest) Validate() error {
-	if err := checkID(r.ID); err != nil {
+	if err := CheckID(r.ID); err != nil {
 		return err
 	}
 	if !agentManagementCore.IsValidName(r.Name) {
-		return invalid("name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
+		return Invalid("name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
 	}
 	if !r.Phone.Present || !r.Phone.IsString {
-		return invalid("phone", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
+		return Invalid("phone", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
 	}
 	r.Phone.Value = strings.TrimSpace(r.Phone.Value)
 	if !agentManagementCore.IsValidPhone(r.Phone.Value) {
-		return invalid("phone", "ต้องเป็นตัวเลข 8–15 ตัว (ไม่กรอกให้ส่ง \"\")", `must be 8–15 digits (send "" to leave it empty)`)
+		return Invalid("phone", "ต้องเป็นตัวเลข 8–15 ตัว (ไม่กรอกให้ส่ง \"\")", `must be 8–15 digits (send "" to leave it empty)`)
 	}
 	return nil
 }
@@ -43,14 +43,14 @@ type UpdateStatusRequest struct {
 }
 
 func (r *UpdateStatusRequest) Validate() error {
-	if err := checkID(r.ID); err != nil {
+	if err := CheckID(r.ID); err != nil {
 		return err
 	}
 	switch models.AgentStatus(r.Status) {
 	case models.AgentStatusActive, models.AgentStatusSuspended, models.AgentStatusLocked:
 		return nil
 	}
-	return invalid("status", "ต้องเป็น ACTIVE / SUSPENDED / LOCKED", "must be ACTIVE, SUSPENDED or LOCKED")
+	return Invalid("status", "ต้องเป็น ACTIVE / SUSPENDED / LOCKED", "must be ACTIVE, SUSPENDED or LOCKED")
 }
 
 // UpdateChildPTGroup — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม ครบ 5 ค่า · ห้ามส่ง pt (ค่าถือที่ลูกตั้งเอง)
@@ -66,57 +66,18 @@ type UpdateChildPTRequest struct {
 }
 
 func (r *UpdateChildPTRequest) Validate() error {
-	if err := checkID(r.ID); err != nil {
+	if err := CheckID(r.ID); err != nil {
 		return err
 	}
-	if err := checkSomeGroups(r.PT); err != nil {
+	if err := CheckSomeGroups(r.PT); err != nil {
 		return err
 	}
 	for g, v := range r.PT {
 		p := "pt." + g + "."
 		if v.OwnPT.Present {
-			return invalid(p+"pt", "แก้ที่เส้นนี้ไม่ได้ (บัญชีตั้งค่าถือเอง)", "cannot be set here (each account sets its own pt)")
+			return Invalid(p+"pt", "แก้ที่เส้นนี้ไม่ได้ (บัญชีตั้งค่าถือเอง)", "cannot be set here (each account sets its own pt)")
 		}
 		if err := parseChildPT(p, &v.ChildPTRequest); err != nil {
-			return err
-		}
-		r.PT[g] = v
-	}
-	return nil
-}
-
-// UpdateMemberPTGroup — Member มีแค่ commission_percent (MGMT-21) · field อื่น = 422
-type UpdateMemberPTGroup struct {
-	CommissionPercent utils.Decimal `json:"commission_percent"`
-	PTFromParent      utils.Decimal `json:"pt_from_parent"`
-	OwnPT             utils.Decimal `json:"pt"`
-	Force             utils.Decimal `json:"force"`
-	RemainQuota       utils.Decimal `json:"remain_quota"`
-	Status            *bool         `json:"status"`
-
-	CommissionBP int `json:"-"`
-}
-
-// UpdateMemberPTRequest — POST /manage/members/update-commission
-type UpdateMemberPTRequest struct {
-	ID uint                           `json:"id"`
-	PT map[string]UpdateMemberPTGroup `json:"pt"`
-}
-
-func (r *UpdateMemberPTRequest) Validate() error {
-	if err := checkID(r.ID); err != nil {
-		return err
-	}
-	if err := checkSomeGroups(r.PT); err != nil {
-		return err
-	}
-	for g, v := range r.PT {
-		p := "pt." + g + "."
-		if v.PTFromParent.Present || v.OwnPT.Present || v.Force.Present || v.RemainQuota.Present || v.Status != nil {
-			return invalid("pt."+g, "Member มีแค่ commission_percent", "a Member only has commission_percent")
-		}
-		var err error
-		if v.CommissionBP, err = percentBP(p+"commission_percent", v.CommissionPercent); err != nil {
 			return err
 		}
 		r.PT[g] = v
@@ -142,16 +103,16 @@ type UpdateOwnPTRequest struct {
 }
 
 func (r *UpdateOwnPTRequest) Validate() error {
-	if err := checkSomeGroups(r.PT); err != nil {
+	if err := CheckSomeGroups(r.PT); err != nil {
 		return err
 	}
 	for g, v := range r.PT {
 		p := "pt." + g + "."
 		if v.PTFromParent.Present || v.Force.Present || v.RemainQuota.Present || v.CommissionPercent.Present || v.Status != nil {
-			return invalid("pt."+g, "เส้นนี้แก้ได้แค่ pt (ค่าอื่นผู้สร้างเป็นคนตั้ง)", "only pt can be set here (other values are set by the creator)")
+			return Invalid("pt."+g, "เส้นนี้แก้ได้แค่ pt (ค่าอื่นผู้สร้างเป็นคนตั้ง)", "only pt can be set here (other values are set by the creator)")
 		}
 		var err error
-		if v.PTBP, err = percentBP(p+"pt", v.OwnPT); err != nil {
+		if v.PTBP, err = PercentBP(p+"pt", v.OwnPT); err != nil {
 			return err
 		}
 		r.PT[g] = v
@@ -159,23 +120,23 @@ func (r *UpdateOwnPTRequest) Validate() error {
 	return nil
 }
 
-// checkSomeGroups — ต้องส่งอย่างน้อย 1 กลุ่ม และทุกกลุ่มต้องมีอยู่จริง (MGMT-23)
-func checkSomeGroups[T any](pt map[string]T) error {
+// CheckSomeGroups — ต้องส่งอย่างน้อย 1 กลุ่ม และทุกกลุ่มต้องมีอยู่จริง (MGMT-23)
+func CheckSomeGroups[T any](pt map[string]T) error {
 	if len(pt) == 0 {
-		return invalid("pt", "ต้องส่งอย่างน้อย 1 กลุ่ม", "must contain at least 1 group")
+		return Invalid("pt", "ต้องส่งอย่างน้อย 1 กลุ่ม", "must contain at least 1 group")
 	}
 	for k := range pt {
 		if agentManagementCore.GamesOf(agentManagementCore.PTGroup(k)) == nil {
-			return invalid("pt."+k, "ไม่มีกลุ่มนี้", "is not a known group")
+			return Invalid("pt."+k, "ไม่มีกลุ่มนี้", "is not a known group")
 		}
 	}
 	return nil
 }
 
-// checkID — id ของบัญชีที่จะแก้ ต้องส่งเป็นจำนวนเต็มบวก
-func checkID(id uint) error {
+// CheckID — id ของบัญชีที่จะแก้ ต้องส่งเป็นจำนวนเต็มบวก
+func CheckID(id uint) error {
 	if id == 0 {
-		return invalid("id", "ต้องส่งเป็นจำนวนเต็มบวก", "must be a positive integer")
+		return Invalid("id", "ต้องส่งเป็นจำนวนเต็มบวก", "must be a positive integer")
 	}
 	return nil
 }
@@ -187,15 +148,15 @@ type UpdateGamesRequest struct {
 }
 
 func (r *UpdateGamesRequest) Validate() error {
-	if err := checkID(r.ID); err != nil {
+	if err := CheckID(r.ID); err != nil {
 		return err
 	}
 	if len(r.StatusGame) == 0 {
-		return invalid("status_game", "ต้องส่งอย่างน้อย 1 เกม", "must contain at least 1 game")
+		return Invalid("status_game", "ต้องส่งอย่างน้อย 1 เกม", "must contain at least 1 game")
 	}
 	for code := range r.StatusGame {
 		if _, ok := agentManagementCore.GroupOfGame(code); !ok {
-			return invalid("status_game."+code, "ไม่มีเกมนี้", "is not a known game")
+			return Invalid("status_game."+code, "ไม่มีเกมนี้", "is not a known game")
 		}
 	}
 	return nil

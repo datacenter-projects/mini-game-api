@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/testutil"
 	"app/pkg/utils"
 	"app/platform/database"
@@ -237,7 +237,7 @@ func TestAPICredentialSubPermission(t *testing.T) { // ACC-02
 	hash, _ := utils.HashPassword(mgPassword)
 	sub := models.Subaccount{AgentID: o.one.ID, Username: "one2one@staff", PasswordHash: hash, Status: models.AgentStatusActive,
 		Permissions: `{"account":"view"}`}
-	if err := postgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
+	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)

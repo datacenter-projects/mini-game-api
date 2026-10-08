@@ -8,7 +8,8 @@ import (
 	agentManagementCore "app/app/core/agent_management"
 	accountDto "app/app/internals/backoffice/dto/account"
 	"app/app/models"
-	"app/app/repository/postgres"
+	accountPostgres "app/app/repository/postgres/account"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	agentAuthService "app/app/service/agent_auth"
 	agentManagementService "app/app/service/agent_management"
 	"app/pkg/apperr"
@@ -21,7 +22,7 @@ import (
 
 // keyOwner — เจ้าของ Key = บัญชีหลักที่ request ทำงานในนาม (sub = เจ้าของ — ACC-02) · ไม่ใช่ประเภทเจ้าของ = 403301 (ACC-01)
 func keyOwner(db *gorm.DB, actor agentAuthService.Actor) (models.UserAgent, error) {
-	owner, err := postgres.GetAgentProfileRepository(db, actor.AgentID)
+	owner, err := agentManagementPostgres.GetAgentProfileRepository(db, actor.AgentID)
 	if err != nil {
 		return owner, notFoundAsSessionEnded(err)
 	}
@@ -43,11 +44,11 @@ func GetAPICredentialService(ctx context.Context, actor agentAuthService.Actor) 
 	if err := agentManagementService.CreateAPICredentialIfAbsent(db, owner.ID); err != nil {
 		return res, err
 	}
-	cred, err := postgres.GetAPICredentialRepository(db, owner.ID)
+	cred, err := accountPostgres.GetAPICredentialRepository(db, owner.ID)
 	if err != nil {
 		return res, err
 	}
-	ips, err := postgres.ListAPIAllowedIPsRepository(db, owner.ID)
+	ips, err := accountPostgres.ListAPIAllowedIPsRepository(db, owner.ID)
 	if err != nil {
 		return res, err
 	}
@@ -67,11 +68,11 @@ func SaveAPICredentialService(ctx context.Context, actor agentAuthService.Actor,
 		if err := agentManagementService.CreateAPICredentialIfAbsent(tx, owner.ID); err != nil {
 			return err
 		}
-		cred, err := postgres.LockAPICredentialRepository(tx, owner.ID)
+		cred, err := accountPostgres.LockAPICredentialRepository(tx, owner.ID)
 		if err != nil {
 			return err
 		}
-		oldIPs, err := postgres.ListAPIAllowedIPsRepository(tx, owner.ID)
+		oldIPs, err := accountPostgres.ListAPIAllowedIPsRepository(tx, owner.ID)
 		if err != nil {
 			return err
 		}
@@ -79,10 +80,10 @@ func SaveAPICredentialService(ctx context.Context, actor agentAuthService.Actor,
 		if req.NormalizedCallbackURL != "" {
 			newURL = &req.NormalizedCallbackURL
 		}
-		if err := postgres.UpdateAPICredentialCallbackRepository(tx, owner.ID, newURL); err != nil {
+		if err := accountPostgres.UpdateAPICredentialCallbackRepository(tx, owner.ID, newURL); err != nil {
 			return err
 		}
-		if err := postgres.ReplaceAPIAllowedIPsRepository(tx, owner.ID, req.NormalizedIPs); err != nil {
+		if err := accountPostgres.ReplaceAPIAllowedIPsRepository(tx, owner.ID, req.NormalizedIPs); err != nil {
 			return err
 		}
 		l := models.APICredentialLog{AgentID: owner.ID, ActorType: actor.AccountType, ActorID: actor.AccountID(),
@@ -95,6 +96,6 @@ func SaveAPICredentialService(ctx context.Context, actor agentAuthService.Actor,
 		if rid := logger.RequestID(ctx); rid != "" {
 			l.RequestID = &rid
 		}
-		return postgres.CreateAPICredentialLogRepository(tx, &l)
+		return accountPostgres.CreateAPICredentialLogRepository(tx, &l)
 	})
 }

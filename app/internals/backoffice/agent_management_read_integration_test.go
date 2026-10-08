@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/utils"
 	"app/platform/database"
 )
@@ -122,7 +122,7 @@ func TestDownlinesPTPermission(t *testing.T) { // MGMT-51
 	hash, _ := utils.HashPassword(mgPassword)
 	sub := models.Subaccount{AgentID: c.com.ID, Username: "comp01@staff", PasswordHash: hash, Status: models.AgentStatusActive,
 		Permissions: `{"member":"view"}`}
-	if err := postgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
+	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)

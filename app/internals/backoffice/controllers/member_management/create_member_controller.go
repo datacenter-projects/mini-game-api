@@ -1,9 +1,9 @@
-package agentmanagement
+package membermanagement
 
 import (
-	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
+	memberManagementDto "app/app/internals/backoffice/dto/member_management"
 	"app/app/internals/backoffice/middleware"
-	agentManagementService "app/app/service/agent_management"
+	memberManagementService "app/app/service/member_management"
 	"app/pkg/response"
 	"app/pkg/utils"
 
@@ -12,11 +12,11 @@ import (
 
 // CreateMemberController — POST /api/v1/bo/pr/manage/members/create
 func CreateMemberController(c *fiber.Ctx) error {
-	var req agentManagementDto.CreateMemberRequest
+	var req memberManagementDto.CreateMemberRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
 		return response.Error(c, err)
 	}
-	res, err := agentManagementService.CreateMemberService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c))
+	res, err := memberManagementService.CreateMemberService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c))
 	if err != nil {
 		return response.Error(c, err)
 	}

@@ -11,7 +11,7 @@ import (
 
 	mw "app/app/internals/backoffice/middleware"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/configs"
 	"app/pkg/response"
 	"app/pkg/testutil"
@@ -46,7 +46,7 @@ func createAgent(t *testing.T, username string, status models.AgentStatus, paren
 		t.Fatal(err)
 	}
 	a := models.UserAgent{Username: username, PasswordHash: hash, Role: models.AgentRoleAgent, Status: status, ParentID: parentID}
-	if err := postgres.CreateUserAgentRepository(database.DBConn, &a); err != nil {
+	if err := agentAuthPostgres.CreateUserAgentRepository(database.DBConn, &a); err != nil {
 		t.Fatal(err)
 	}
 	return a

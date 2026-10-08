@@ -8,7 +8,7 @@ import (
 	agentManagementCore "app/app/core/agent_management"
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/utils"
 
@@ -43,7 +43,7 @@ func AgentPTViews(settings []models.AgentGameSetting) (map[string]agentManagemen
 }
 
 // MemberPTViews — Member มีแค่ Commission ต่อระบบ (MGMT-21)
-func MemberPTViews(settings []models.MemberGameSetting) map[string]agentManagementDto.MemberPTGroupView {
+func MemberPTViews(settings []models.UserMemberGameSetting) map[string]agentManagementDto.MemberPTGroupView {
 	pt := map[string]agentManagementDto.MemberPTGroupView{}
 	latest := map[string]time.Time{}
 	for _, s := range settings {
@@ -70,8 +70,8 @@ func BalanceViews(currencies []string, amount map[string]int64) []agentManagemen
 	return out
 }
 
-// canSeePT — มีสิทธิ์ pt ≥ view ไหม · ไม่มี = response ไม่มี field pt (MGMT-51)
-func canSeePT(ctx context.Context, actor agentAuthService.Actor) (bool, error) {
+// CanSeePT — มีสิทธิ์ pt ≥ view ไหม · ไม่มี = response ไม่มี field pt (MGMT-51)
+func CanSeePT(ctx context.Context, actor agentAuthService.Actor) (bool, error) {
 	perms, err := PermissionsOf(ctx, actor)
 	if err != nil {
 		return false, err
@@ -79,24 +79,24 @@ func canSeePT(ctx context.Context, actor agentAuthService.Actor) (bool, error) {
 	return perms[agentManagementCore.MenuPT].Allows(agentManagementCore.LevelView), nil
 }
 
-// chainStatus — สถานะที่ใช้งานจริงของบัญชีฝั่ง agent = เข้มที่สุดของตัวเองและหัวสายทุกชั้น (ACC-30 · AUTH-53)
-func chainStatus(db *gorm.DB, agentID uint, own models.AgentStatus) (models.AgentStatus, error) {
-	ancestors, err := postgres.ListAncestorStatusesRepository(db, agentID)
+// ChainStatus — สถานะที่ใช้งานจริงของบัญชีฝั่ง agent = เข้มที่สุดของตัวเองและหัวสายทุกชั้น (ACC-30 · AUTH-53)
+func ChainStatus(db *gorm.DB, agentID uint, own models.AgentStatus) (models.AgentStatus, error) {
+	ancestors, err := agentAuthPostgres.ListAncestorStatusesRepository(db, agentID)
 	if err != nil {
 		return "", err
 	}
 	return agentAuthCore.WorstStatus(append(ancestors, own)...), nil
 }
 
-func stringOrEmpty(s *string) string {
+func StringOrEmpty(s *string) string {
 	if s == nil {
 		return ""
 	}
 	return *s
 }
 
-// optionalTime — "" แทน null (account ACC-32) · รูปแบบเดียวกับ encoding/json ของ time.Time
-func optionalTime(t *time.Time) string {
+// OptionalTime — "" แทน null (account ACC-32) · รูปแบบเดียวกับ encoding/json ของ time.Time
+func OptionalTime(t *time.Time) string {
 	if t == nil {
 		return ""
 	}
