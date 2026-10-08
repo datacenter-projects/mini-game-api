@@ -1,6 +1,6 @@
 # Backoffice Auth (`agent_auth`) ระยะ 2 — Subaccount login · Passcode · Password · Admin reset — Spec
 
-- สถานะ: **APPROVED** · `scripts/reset_credentials` ตกลงแล้ว 2026-10-08 (boiledegg — actor = `SCRIPT`) · AUTH-54 อนุมัติ 2026-10-06
+- สถานะ: **APPROVED** · `scripts/reset_credentials` อนุมัติ 2026-10-08 (lead — actor = `SCRIPT`) · AUTH-54 อนุมัติ 2026-10-06
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
