@@ -12,7 +12,6 @@ import (
 	agentAuthService "app/app/service/agent_auth"
 	agentManagementService "app/app/service/agent_management"
 	"app/pkg/apperr"
-	"app/pkg/configs"
 	"app/pkg/utils"
 	"app/platform/database"
 	"app/platform/logger"
@@ -48,15 +47,11 @@ func GetAPICredentialService(ctx context.Context, actor agentAuthService.Actor) 
 	if err != nil {
 		return res, err
 	}
-	key, err := utils.DecryptAPIKey(configs.Cfg.Account.APIKeyEncryptionKey, cred.KeyCiphertext)
-	if err != nil {
-		return res, err
-	}
 	ips, err := postgres.ListAPIAllowedIPsRepository(db, owner.ID)
 	if err != nil {
 		return res, err
 	}
-	return accountDto.APICredentialResponse{Username: owner.Username, Key: key,
+	return accountDto.APICredentialResponse{Username: owner.Username, Key: cred.APIKey,
 		CallbackURL: accountCore.OptionalString(cred.CallbackURL), AllowedIPs: append([]string{}, ips...)}, nil
 }
 
