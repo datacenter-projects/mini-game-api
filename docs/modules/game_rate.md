@@ -1,7 +1,7 @@
 # game_rate (อัตราแพ้ชนะ) — Spec
 
-- สถานะ: **DRAFT** — boiledegg รีวิวแล้ว 2026-10-08 · รอ lead อนุมัติ
-- อนุมัติโดย: — · วันที่: —
+- สถานะ: **APPROVED** — boiledegg รีวิว 2026-10-08
+- อนุมัติโดย: lead (zerph) · วันที่: 2026-10-08
 - ที่มาของ rule: diagram ของ lead (`Coin Flip Flow.html`, `Rock Paper Scissors Flow.html`, `Scratch Card Flow.html`) +
   คำตอบของ boiledegg 2026-10-08 · ไม่ได้อ้างโค้ดหรือเอกสารของโปรเจกต์เก่า
 - ชื่อ module ในโค้ด: `game_rate` · path `/api/v1/bo/pr/rate/...` · error module id `06` (ตรงกับเมนู ⑥)
