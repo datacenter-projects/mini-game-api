@@ -144,16 +144,11 @@ func MinPTFromParent(childOwnPTBP int, grandchildrenPTFromParentBP []int) int {
 	return m
 }
 
-// GameSwitch — เปิด / ปิดเกมของบัญชี 1 ชั้น (MGMT-20)
-type GameSwitch struct {
-	Status     bool
-	StatusGame bool
-}
-
-// IsGameOpen — เกมเล่นได้เมื่อ status ของกลุ่มและ status_game เป็น true ทุกชั้นตั้งแต่บัญชีนี้ถึงหัวสาย (MGMT-20)
-func IsGameOpen(chain []GameSwitch) bool {
-	for _, s := range chain {
-		if !s.Status || !s.StatusGame {
+// IsGameOpen — เกมเล่นได้เมื่อ status_game ของเกมนั้นเป็น true ทุกชั้นตั้งแต่บัญชีนี้ถึงหัวสาย (MGMT-20)
+// status ใน pt ไม่เกี่ยว — false = ไม่รับ PT แต่เกมยังเปิด
+func IsGameOpen(statusGameChain []bool) bool {
+	for _, on := range statusGameChain {
+		if !on {
 			return false
 		}
 	}
