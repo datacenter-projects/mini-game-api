@@ -9,7 +9,7 @@ import (
 
 // รูปแบบที่ใช้แสดงบัญชี — รายชื่อดาวน์ไลน์ · รายละเอียด · copy-sources · account Profile (ACC-16, ACC-19)
 
-// PTGroupView — ค่าหุ้นส่วนฝั่ง agent 1 กลุ่ม (MGMT-16)
+// PTGroupView — ค่าหุ้นส่วนฝั่ง agent ชุดเดียวต่อระบบ (MGMT-16) · เวลาเป็น RFC 3339
 type PTGroupView struct {
 	PTFromParent      utils.Percent `json:"pt_from_parent"`
 	PT                utils.Percent `json:"pt"`
@@ -17,11 +17,19 @@ type PTGroupView struct {
 	RemainQuota       utils.Percent `json:"remain_quota"`
 	CommissionPercent utils.Percent `json:"commission_percent"`
 	Status            bool          `json:"status"`
+	CreatedAt         string        `json:"created_at"`
+	CreatedBy         string        `json:"created_by"`
+	UpdatedAt         string        `json:"updated_at"`
+	UpdatedBy         string        `json:"updated_by"`
 }
 
 // MemberPTGroupView — Member มีแค่ Commission (MGMT-21)
 type MemberPTGroupView struct {
 	CommissionPercent utils.Percent `json:"commission_percent"`
+	CreatedAt         string        `json:"created_at"`
+	CreatedBy         string        `json:"created_by"`
+	UpdatedAt         string        `json:"updated_at"`
+	UpdatedBy         string        `json:"updated_by"`
 }
 
 // BalanceView — ยอดแยกสกุล (account ACC-19)

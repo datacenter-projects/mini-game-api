@@ -22,8 +22,11 @@ type AgentGameSetting struct {
 	ForceBP        int       `gorm:"column:force_bp"`
 	RemainBP       int       `gorm:"column:remain_bp"`
 	CommissionBP   int       `gorm:"column:commission_bp"`
-	Status         bool      `gorm:"column:status"`      // เปิด / ปิดทั้งกลุ่ม
+	Status         bool      `gorm:"column:status"`      // status ของ PT — ❓ ความหมายรอ lead (MGMT-20)
 	StatusGame     bool      `gorm:"column:status_game"` // เปิด / ปิดทีละเกม
+	CreatedBy      string    `gorm:"column:created_by"`  // username ผู้สร้างค่า PT
+	CreatedAt      time.Time `gorm:"column:created_at"`
+	UpdatedBy      string    `gorm:"column:updated_by"` // username คนที่แก้ค่า PT ล่าสุด (sub = owner@name)
 	UpdatedAt      time.Time `gorm:"column:updated_at"`
 }
 
@@ -53,6 +56,9 @@ type MemberGameSetting struct {
 	GameCode     string    `gorm:"column:game_code;primaryKey"`
 	Category     string    `gorm:"column:category"`
 	CommissionBP int       `gorm:"column:commission_bp"`
+	CreatedBy    string    `gorm:"column:created_by"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
+	UpdatedBy    string    `gorm:"column:updated_by"`
 	UpdatedAt    time.Time `gorm:"column:updated_at"`
 }
 

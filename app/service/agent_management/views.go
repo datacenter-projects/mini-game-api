@@ -17,9 +17,11 @@ import (
 
 // helper สร้างรูปแบบแสดงบัญชี — ใช้ร่วมกับ account Profile (ACC-16, ACC-19)
 
-// AgentPTViews — ค่าหุ้นส่วนชุดเดียวต่อกลุ่ม + เปิด / ปิดทีละเกม จากแถวต่อเกม (MGMT-16, MGMT-20)
+// AgentPTViews — ค่าหุ้นส่วนชุดเดียวต่อระบบ + เปิด / ปิดทีละเกม จากแถวต่อเกม (MGMT-16, MGMT-20)
+// ค่าในระบบเท่ากันทุกเกม · ผู้แก้ล่าสุด = แถวที่ updated_at ใหม่สุด
 func AgentPTViews(settings []models.AgentGameSetting) (map[string]agentManagementDto.PTGroupView, map[string]bool) {
 	pt := map[string]agentManagementDto.PTGroupView{}
+	latest := map[string]time.Time{}
 	statusGame := map[string]bool{}
 	for _, s := range settings {
 		statusGame[s.GameCode] = s.StatusGame
@@ -27,21 +29,34 @@ func AgentPTViews(settings []models.AgentGameSetting) (map[string]agentManagemen
 		if !ok {
 			continue
 		}
-		pt[string(g)] = agentManagementDto.PTGroupView{ // ค่าในกลุ่มเท่ากันทุกเกม
+		if t, seen := latest[string(g)]; seen && !s.UpdatedAt.After(t) {
+			continue
+		}
+		latest[string(g)] = s.UpdatedAt
+		pt[string(g)] = agentManagementDto.PTGroupView{
 			PTFromParent: utils.Percent(s.PTFromParentBP), PT: utils.Percent(s.PTBP), Force: utils.Percent(s.ForceBP),
 			RemainQuota: utils.Percent(s.RemainBP), CommissionPercent: utils.Percent(s.CommissionBP), Status: s.Status,
+			CreatedAt: formatTime(s.CreatedAt), CreatedBy: s.CreatedBy, UpdatedAt: formatTime(s.UpdatedAt), UpdatedBy: s.UpdatedBy,
 		}
 	}
 	return pt, statusGame
 }
 
-// MemberPTViews — Member มีแค่ Commission ต่อกลุ่ม (MGMT-21)
+// MemberPTViews — Member มีแค่ Commission ต่อระบบ (MGMT-21)
 func MemberPTViews(settings []models.MemberGameSetting) map[string]agentManagementDto.MemberPTGroupView {
 	pt := map[string]agentManagementDto.MemberPTGroupView{}
+	latest := map[string]time.Time{}
 	for _, s := range settings {
-		if g, ok := agentManagementCore.GroupOfGame(s.GameCode); ok {
-			pt[string(g)] = agentManagementDto.MemberPTGroupView{CommissionPercent: utils.Percent(s.CommissionBP)}
+		g, ok := agentManagementCore.GroupOfGame(s.GameCode)
+		if !ok {
+			continue
 		}
+		if t, seen := latest[string(g)]; seen && !s.UpdatedAt.After(t) {
+			continue
+		}
+		latest[string(g)] = s.UpdatedAt
+		pt[string(g)] = agentManagementDto.MemberPTGroupView{CommissionPercent: utils.Percent(s.CommissionBP),
+			CreatedAt: formatTime(s.CreatedAt), CreatedBy: s.CreatedBy, UpdatedAt: formatTime(s.UpdatedAt), UpdatedBy: s.UpdatedBy}
 	}
 	return pt
 }
@@ -85,5 +100,7 @@ func optionalTime(t *time.Time) string {
 	if t == nil {
 		return ""
 	}
-	return t.Format(time.RFC3339Nano)
+	return formatTime(*t)
 }
+
+func formatTime(t time.Time) string { return t.Format(time.RFC3339Nano) }

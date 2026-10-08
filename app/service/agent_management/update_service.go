@@ -226,7 +226,7 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 			}
 			if err := postgres.UpdateChildPTRepository(tx, child.ID, gameCodes(group), models.AgentGameSetting{
 				PTFromParentBP: v.PTFromParentBP, ForceBP: v.ForceBP, RemainBP: v.RemainBP, CommissionBP: v.CommissionBP,
-				Status: *req.PT[g].Status}, now); err != nil {
+				Status: *req.PT[g].Status}, actor.Username, now); err != nil {
 				return err
 			}
 			oldLog[g] = agentManagementCore.ChildPT{PTFromParentBP: cur.PTFromParentBP, ForceBP: cur.ForceBP, RemainBP: cur.RemainBP, CommissionBP: cur.CommissionBP}
@@ -261,7 +261,7 @@ func UpdateMemberCommissionService(ctx context.Context, actor agentAuthService.A
 					oldLog[g] = s.CommissionBP
 				}
 			}
-			if err := postgres.UpdateMemberCommissionRepository(tx, m.ID, gameCodes(group), bp, now); err != nil {
+			if err := postgres.UpdateMemberCommissionRepository(tx, m.ID, gameCodes(group), bp, actor.Username, now); err != nil {
 				return err
 			}
 			newLog[g] = bp
@@ -297,7 +297,7 @@ func UpdateOwnHoldService(ctx context.Context, actor agentAuthService.Actor, req
 			if err := ptError(g, agentManagementCore.ValidateOwnPT(bp, cur.PTFromParentBP, isMaster)); err != nil {
 				return err
 			}
-			if err := postgres.UpdateOwnPTRepository(tx, me.ID, gameCodes(group), bp, now); err != nil {
+			if err := postgres.UpdateOwnPTRepository(tx, me.ID, gameCodes(group), bp, actor.Username, now); err != nil {
 				return err
 			}
 			oldLog[g], newLog[g] = cur.PTBP, bp

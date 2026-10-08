@@ -81,7 +81,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			commission[string(g)] = bp
 			for _, game := range agentManagementCore.GamesOf(g) {
 				settings = append(settings, models.MemberGameSetting{MemberID: m.ID, GameCode: game.GameCode, Category: game.Category,
-					CommissionBP: bp, UpdatedAt: now})
+					CommissionBP: bp, CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}
 		}
 		if err := postgres.CreateMemberGameSettingsRepository(tx, settings); err != nil {

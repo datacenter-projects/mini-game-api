@@ -31,17 +31,17 @@ func ListAgentChildIDsRepository(db *gorm.DB, parentID uint) ([]uint, error) {
 }
 
 // UpdateChildPTRepository — ค่าที่ผู้สร้างตั้งให้ลูก ของทุกเกมในกลุ่ม (MGMT-16, MGMT-23)
-func UpdateChildPTRepository(db *gorm.DB, agentID uint, gameCodes []string, v models.AgentGameSetting, at time.Time) error {
+func UpdateChildPTRepository(db *gorm.DB, agentID uint, gameCodes []string, v models.AgentGameSetting, by string, at time.Time) error {
 	return db.Model(&models.AgentGameSetting{}).Where("agent_id = ? AND game_code IN ?", agentID, gameCodes).Updates(map[string]any{
 		"pt_from_parent_bp": v.PTFromParentBP, "force_bp": v.ForceBP, "remain_bp": v.RemainBP,
-		"commission_bp": v.CommissionBP, "status": v.Status, "updated_at": at,
+		"commission_bp": v.CommissionBP, "status": v.Status, "updated_by": by, "updated_at": at,
 	}).Error
 }
 
 // UpdateOwnPTRepository — ค่าถือของบัญชีเอง ของทุกเกมในกลุ่ม (MGMT-22)
-func UpdateOwnPTRepository(db *gorm.DB, agentID uint, gameCodes []string, ptBP int, at time.Time) error {
+func UpdateOwnPTRepository(db *gorm.DB, agentID uint, gameCodes []string, ptBP int, by string, at time.Time) error {
 	return db.Model(&models.AgentGameSetting{}).Where("agent_id = ? AND game_code IN ?", agentID, gameCodes).
-		Updates(map[string]any{"pt_bp": ptBP, "updated_at": at}).Error
+		Updates(map[string]any{"pt_bp": ptBP, "updated_by": by, "updated_at": at}).Error
 }
 
 // LockMemberGameSettingsRepository — SELECT ... FOR UPDATE แถว Commission ของ Member
@@ -52,9 +52,9 @@ func LockMemberGameSettingsRepository(db *gorm.DB, memberID uint) ([]models.Memb
 }
 
 // UpdateMemberCommissionRepository — Commission ของ Member ทุกเกมในกลุ่ม (MGMT-21)
-func UpdateMemberCommissionRepository(db *gorm.DB, memberID uint, gameCodes []string, bp int, at time.Time) error {
+func UpdateMemberCommissionRepository(db *gorm.DB, memberID uint, gameCodes []string, bp int, by string, at time.Time) error {
 	return db.Model(&models.MemberGameSetting{}).Where("member_id = ? AND game_code IN ?", memberID, gameCodes).
-		Updates(map[string]any{"commission_bp": bp, "updated_at": at}).Error
+		Updates(map[string]any{"commission_bp": bp, "updated_by": by, "updated_at": at}).Error
 }
 
 // LockUserAgentRowRepository — SELECT ... FOR UPDATE ข้อมูลที่แก้ได้ของบัญชีฝั่ง agent · ไม่พบ = ผลว่าง (id 0)

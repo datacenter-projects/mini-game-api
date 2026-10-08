@@ -29,7 +29,7 @@ func ptBody(id uint, give, force, remain, commission float64) map[string]any {
 }
 
 func holdBody(pt float64) map[string]any {
-	return map[string]any{"pt": map[string]any{"game": map[string]any{"pt": pt}}}
+	return map[string]any{"pt": map[string]any{"minigame": map[string]any{"pt": pt}}}
 }
 
 func gameSetting(t *testing.T, agentID uint) models.AgentGameSetting {
@@ -75,12 +75,40 @@ func TestUpdatePT(t *testing.T) { // MGMT-18 – MGMT-25
 
 	// field ไม่อยู่ในเส้นนั้น = 422 · ไม่ส่ง id = 422
 	b := ptBody(c.share.ID, 60, 0, 0, 0)
-	b["pt"].(map[string]any)["game"].(map[string]any)["pt"] = 10
+	b["pt"].(map[string]any)["minigame"].(map[string]any)["pt"] = 10
 	expect(t, call(t, app, "POST", updatePTPath, b, c.comTok), 200, 422)
 	expect(t, call(t, app, "POST", updatePTPath, map[string]any{"pt": childPT(60, 0, 0, 0)}, c.comTok), 200, 422)
 	b = holdBody(10)
-	b["pt"].(map[string]any)["game"].(map[string]any)["pt_from_parent"] = 10
+	b["pt"].(map[string]any)["minigame"].(map[string]any)["pt_from_parent"] = 10
 	expect(t, call(t, app, "POST", updateHoldPath, b, c.agentTok), 200, 422)
+
+	// MGMT-16: ผู้สร้างค่า PT ไม่เปลี่ยน · ผู้แก้ล่าสุด = username ของคนที่แก้ (sub = owner@name) ทุกเกมในระบบ
+	sub := createSubAPI(t, app, c.comTok, "staff", map[string]string{"member": "edit", "pt": "edit"})
+	subTok := readyToken(t, app, models.AccountTypeSub, sub.ID, "comp01@staff")
+	before := gameSetting(t, c.share.ID)
+	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0.5), subTok), 200, 200)
+	var rows []models.AgentGameSetting
+	database.DBConn.Where("agent_id = ?", c.share.ID).Find(&rows)
+	for _, s := range rows {
+		if s.CreatedBy != "comp01" || s.UpdatedBy != "comp01@staff" || !s.CreatedAt.Equal(before.CreatedAt) || !s.UpdatedAt.After(before.UpdatedAt) {
+			t.Fatalf("audit %s %+v", s.GameCode, s)
+		}
+	}
+	r = call(t, app, "POST", agentDetailPath, map[string]any{"id": c.share.ID}, c.comTok)
+	expect(t, r, 200, 200)
+	var d struct {
+		PT map[string]map[string]any `json:"pt"`
+	}
+	_ = json.Unmarshal(r.Data, &d)
+	if mg := d.PT["minigame"]; mg["created_by"] != "comp01" || mg["updated_by"] != "comp01@staff" || mg["pt_from_parent"] != float64(80) {
+		t.Fatalf("detail pt %+v", d.PT)
+	}
+
+	// แก้ค่าถือของตัวเอง → updated_by = ตัวเอง
+	expect(t, call(t, app, "POST", updateHoldPath, holdBody(20), c.shareTok), 200, 200)
+	if s := gameSetting(t, c.share.ID); s.UpdatedBy != "share01" || s.CreatedBy != "comp01" {
+		t.Fatalf("hold audit %+v", s)
+	}
 }
 
 func TestUpdateHold(t *testing.T) { // MGMT-19, MGMT-22
@@ -171,14 +199,14 @@ func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, 
 	var m created
 	_ = json.Unmarshal(r.Data, &m)
 	expect(t, call(t, app, "POST", memberInfoPath, map[string]any{"id": m.ID, "name": "ใจดี", "phone": ""}, c.agentTok), 200, 200)
-	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"game": map[string]any{"commission_percent": 0.5}}}, c.agentTok), 200, 200)
+	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"minigame": map[string]any{"commission_percent": 0.5}}}, c.agentTok), 200, 200)
 	var ms models.MemberGameSetting
 	database.DBConn.Where("member_id = ?", m.ID).Take(&ms)
 	if ms.CommissionBP != 50 {
 		t.Fatalf("commission %d", ms.CommissionBP)
 	}
-	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"game": map[string]any{"commission_percent": 1.1}}}, c.agentTok), 200, 402309)
-	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"game": map[string]any{"commission_percent": 0.5, "pt_from_parent": 10}}}, c.agentTok), 200, 422)
+	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"minigame": map[string]any{"commission_percent": 1.1}}}, c.agentTok), 200, 402309)
+	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"minigame": map[string]any{"commission_percent": 0.5, "pt_from_parent": 10}}}, c.agentTok), 200, 422)
 
 	// MGMT-60: ทุกการแก้มี log ค่าเก่า / ใหม่ · ไม่มีรหัสผ่าน
 	var logs []models.AccountChangeLog

@@ -12,7 +12,7 @@ const (
 // PTGroup — กลุ่ม PT ใน API (MGMT-16)
 type PTGroup string
 
-const PTGroupGame PTGroup = "game"
+const PTGroupMinigame PTGroup = "minigame"
 
 // GroupGame — เกมหนึ่งในกลุ่ม
 type GroupGame struct {
@@ -22,7 +22,7 @@ type GroupGame struct {
 
 // groupGames — กลุ่ม → หมวด → เกม (MGMT-16) · เพิ่มเกม / กลุ่มที่นี่โดยไม่เปลี่ยน API / ตาราง
 var groupGames = map[PTGroup][]GroupGame{
-	PTGroupGame: {
+	PTGroupMinigame: {
 		{"minigame", "coin_toss"},
 		{"minigame", "rock_paper_scissors"},
 		{"minigame", "scratch_card"},
@@ -30,7 +30,7 @@ var groupGames = map[PTGroup][]GroupGame{
 }
 
 // Groups — กลุ่มทั้งหมดเรียงตามชื่อ
-func Groups() []PTGroup { return []PTGroup{PTGroupGame} }
+func Groups() []PTGroup { return []PTGroup{PTGroupMinigame} }
 
 // GamesOf — เกมในกลุ่ม · กลุ่มที่ไม่มี = nil
 func GamesOf(g PTGroup) []GroupGame { return groupGames[g] }

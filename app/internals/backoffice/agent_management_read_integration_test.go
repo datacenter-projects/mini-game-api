@@ -75,14 +75,14 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	if p.Total != 3 || got != "amember:MEMBER bmember:MEMBER zagent:AGENT " {
 		t.Fatalf("agent01 downlines = %q (total %d)", got, p.Total)
 	}
-	var mpt map[string]map[string]json.Number
+	var mpt map[string]map[string]any
 	_ = json.Unmarshal(p.Items[0].PT, &mpt)
-	if len(mpt["game"]) != 1 || mpt["game"]["commission_percent"] != "0.2" {
+	if len(mpt["minigame"]) != 5 || mpt["minigame"]["commission_percent"] != 0.2 || mpt["minigame"]["created_by"] != "agent01" {
 		t.Fatalf("member pt %s", p.Items[0].PT)
 	}
 	var apt map[string]map[string]any
 	_ = json.Unmarshal(p.Items[2].PT, &apt)
-	if apt["game"]["pt_from_parent"] != float64(10) {
+	if apt["minigame"]["pt_from_parent"] != float64(10) {
 		t.Fatalf("agent pt %s", p.Items[2].PT)
 	}
 
@@ -184,7 +184,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	}
 	_ = json.Unmarshal(r.Data, &d)
 	if d.UserType != "AGENT" || d.Phone != setPhone || d.ParentUsername != "share01" || len(d.Currencies) != 1 ||
-		d.PT["game"]["pt_from_parent"] != float64(60) || len(d.StatusGame) != 3 || !d.PasscodeSet || d.LastLoginAt == "" {
+		d.PT["minigame"]["pt_from_parent"] != float64(60) || len(d.StatusGame) != 3 || !d.PasscodeSet || d.LastLoginAt == "" {
 		t.Fatalf("detail %s", r.Data)
 	}
 
@@ -207,7 +207,12 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	if _, ok := raw["status_game"]; ok {
 		t.Fatal("Member ต้องไม่มี status_game")
 	}
-	if string(raw["parent_username"]) != `"agent01"` || string(raw["role"]) != `"MEMBER"` || string(raw["pt"]) != `{"game":{"commission_percent":0.3}}` {
+	var memPT map[string]map[string]any
+	_ = json.Unmarshal(raw["pt"], &memPT)
+	mg := memPT["minigame"]
+	if string(raw["parent_username"]) != `"agent01"` || string(raw["role"]) != `"MEMBER"` || len(memPT) != 1 || len(mg) != 5 ||
+		mg["commission_percent"] != 0.3 || mg["created_by"] != "agent01" || mg["updated_by"] != "agent01" ||
+		mg["created_at"] == "" || mg["created_at"] != mg["updated_at"] {
 		t.Fatalf("member detail %s", r.Data)
 	}
 	_, otherTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_TRANSFER", "othercom", nil, childPT(50, 0, 0, 0)))
@@ -233,7 +238,7 @@ func TestCopySources(t *testing.T) { // MGMT-35
 		t.Fatal(err)
 	}
 	if len(list) != 2 || list[0].Username != "ashare" || list[1].Username != "share01" || list[0].UserType != "SHARE_B2B" ||
-		list[0].PT["game"]["force"] != float64(5) || len(list[0].StatusGame) != 3 {
+		list[0].PT["minigame"]["force"] != float64(5) || len(list[0].StatusGame) != 3 {
 		t.Fatalf("copy-sources %s", r.Data)
 	}
 	// ไม่มีลูก = []
