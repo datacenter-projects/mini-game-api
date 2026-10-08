@@ -26,7 +26,7 @@
 |---|---|---|
 | Profile | ประเภทบัญชี, สกุลเงิน, ค่าหุ้นส่วน, ระบบสิทธิ์ (รายการสิทธิ์ + สิทธิ์ของ sub) | module ② User Management |
 | Profile — ยอดเงิน | ยอดเงินแยกสกุล (`balances`) | ตาราง `agent_balances` ของ module ② (MGMT-15A) — module การชำระเงินใช้ต่อ |
-| 1.3 | ประเภทบัญชี (หาเจ้าของ Key) · ระบบสิทธิ์ (สิทธิ์ดู / แก้ไขของ sub) | module ② User Management |
+| 1.3 | ประเภทบัญชี (หาเจ้าของ Key) · สร้าง Key ตอนสร้างบัญชี (MGMT-04) | module ② User Management |
 | Dashboard | bet, ผลได้เสียตาม PT, Commission | module เดิมพัน / Settle |
 
 > **หมายเหตุ — ค่าชั่วคราว (2026-10-07) เลิกใช้แล้ว (2026-10-08):** ใน `boiledegg/bo/account` (merge module ② แล้ว) Profile ส่งค่าจริงทุก field จากตารางของ
@@ -115,8 +115,8 @@
 |---|---|---|
 | GET | `/api/v1/bo/pr/account/dashboard` | `RequirePermission(dashboard, view)` |
 | GET | `/api/v1/bo/pr/account/profile` | — (เปิดได้ตอน SUSPENDED) |
-| GET | `/api/v1/bo/pr/account/api-credential` | `RequirePermission(account, view)` |
-| POST | `/api/v1/bo/pr/account/update-credential` | `RequirePermission(account, edit)` · `RequirePasscode` |
+| GET | `/api/v1/bo/pr/account/api-credential` | — ไม่มีสิทธิ์ต่อเมนู (ACC-02) · เปิดได้ตอน SUSPENDED (ACC-31) |
+| POST | `/api/v1/bo/pr/account/update-credential` | `RequirePasscode` (ไม่มีสิทธิ์ต่อเมนู — ACC-02) |
 
 ### GET /api/v1/bo/pr/account/dashboard
 
@@ -305,7 +305,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
 | ACC-19 | Share สร้างพร้อมยอดเงินตั้งต้น THB 10,000 (module ② MGMT-15A) | `balances` THB `amount = 10000.00` |
-| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 9 เมนู ค่า `edit` ทั้งหมด |
+| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 8 เมนู ค่า `edit` ทั้งหมด (ไม่มี `account`) |
 | ACC-15 | sub ที่ได้แค่ `report` = `view` | `permissions.report = "view"` · เมนูอื่น `"off"` |
 | ACC-18 | Commission 0.5% | profile ได้ `0.5` · DB เก็บจำนวนเต็ม |
 | ACC-14 | login แล้วเรียก profile | `last_login_at` / `last_login_ip` ตรงกับ login นี้ |

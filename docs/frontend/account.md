@@ -218,7 +218,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/account/update-credential" \
 - Response: `{ "code": 200, "msg": "สำเร็จ" }`
 - sub บันทึกได้เสมอ (ใช้ passcode ของ sub เอง)
 
-Error: `422` (msg บอก field เช่น `allowed_ips[1] ซ้ำกับรายการก่อนหน้า`) · `403301` · `401204` (passcode ผิด) · `401205` · `402303`
+Error: `422` (msg บอก field เช่น `allowed_ips[1] ซ้ำกับรายการก่อนหน้า`) · `403301` (Superadmin / ADMIN) · `401204` (passcode ผิด) · `401205` · `401311` (บัญชีถูกระงับ)
 
 ## 4. Dashboard (⏳ contract ล่วงหน้า)
 
