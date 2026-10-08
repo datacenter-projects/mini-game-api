@@ -42,7 +42,7 @@ var (
 
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
 var tables = []string{"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests",
-	"member_balances", "member_game_settings", "members", "agent_balances", "agent_game_settings", "agent_currencies",
+	"user_member_balances", "user_member_game_settings", "user_members", "agent_balances", "agent_game_settings", "agent_currencies",
 	"subaccounts", "user_agents"}
 
 // env ที่ห้ามรัน integration test เด็ดขาด — test ล้างทุกตารางและ FLUSHDB Redis

@@ -1,4 +1,4 @@
-package postgres
+package agentmanagement
 
 import (
 	"errors"
@@ -62,21 +62,15 @@ func ListAgentGameSettingsRepository(db *gorm.DB, agentID uint) ([]models.AgentG
 // UsernameExistsRepository — username นี้มีในฝั่ง agent หรือ Member แล้วไหม (MGMT-05)
 func UsernameExistsRepository(db *gorm.DB, username string) (bool, error) {
 	var exists bool
-	err := db.Raw(`SELECT EXISTS (SELECT 1 FROM user_agents WHERE username = ?) OR EXISTS (SELECT 1 FROM members WHERE username = ?)`,
+	err := db.Raw(`SELECT EXISTS (SELECT 1 FROM user_agents WHERE username = ?) OR EXISTS (SELECT 1 FROM user_members WHERE username = ?)`,
 		username, username).Scan(&exists).Error
 	return exists, err
 }
 
-// AgentPhoneExistsRepository / MemberPhoneExistsRepository — เบอร์ซ้ำภายในตาราง (MGMT-08)
+// AgentPhoneExistsRepository — เบอร์ซ้ำภายในตาราง (MGMT-08)
 func AgentPhoneExistsRepository(db *gorm.DB, phone string) (bool, error) {
 	var n int64
 	err := db.Model(&models.UserAgent{}).Where("phone = ?", phone).Limit(1).Count(&n).Error
-	return n > 0, err
-}
-
-func MemberPhoneExistsRepository(db *gorm.DB, phone string) (bool, error) {
-	var n int64
-	err := db.Model(&models.Member{}).Where("phone = ?", phone).Limit(1).Count(&n).Error
 	return n > 0, err
 }
 
@@ -108,31 +102,6 @@ func CreateAgentGameSettingsRepository(db *gorm.DB, rows []models.AgentGameSetti
 	return db.Create(&rows).Error
 }
 
-func CreateMemberRepository(db *gorm.DB, m *models.Member) error {
-	err := db.Create(m).Error
-	if errors.Is(err, gorm.ErrDuplicatedKey) {
-		return apperr.ErrConflict.Wrap(err)
-	}
-	return err
-}
-
-// GetMemberProfileRepository — ไม่พบคืน apperr.ErrNotFound
-func GetMemberProfileRepository(db *gorm.DB, id uint) (models.Member, error) {
-	var m models.Member
-	err := db.Select("id", "agent_id", "username", "status", "currency").Where("id = ?", id).Take(&m).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return m, apperr.ErrNotFound
-	}
-	return m, err
-}
-
-func CreateMemberGameSettingsRepository(db *gorm.DB, rows []models.MemberGameSetting) error {
-	if len(rows) == 0 {
-		return nil
-	}
-	return db.Create(&rows).Error
-}
-
 // LockAgentBalancesRepository — SELECT ... FOR UPDATE ยอดของบัญชีตามสกุล เรียงตามสกุลกัน deadlock (กฎข้อ 10)
 // สกุลที่ไม่มีแถว = ไม่อยู่ในผลลัพธ์
 func LockAgentBalancesRepository(db *gorm.DB, agentID uint, currencies []string) ([]models.AgentBalance, error) {
@@ -148,13 +117,6 @@ func UpdateAgentBalanceRepository(db *gorm.DB, agentID uint, currency string, am
 }
 
 func CreateAgentBalancesRepository(db *gorm.DB, rows []models.AgentBalance) error {
-	if len(rows) == 0 {
-		return nil
-	}
-	return db.Create(&rows).Error
-}
-
-func CreateMemberBalancesRepository(db *gorm.DB, rows []models.MemberBalance) error {
 	if len(rows) == 0 {
 		return nil
 	}
@@ -207,7 +169,7 @@ const downlineSQL = `
 	FROM user_agents WHERE parent_id = @parent AND role <> 'ADMIN' AND (@q = '' OR username LIKE @like ESCAPE '\')
 	UNION ALL
 	SELECT id, true, 'MEMBER', NULL, username, name, phone, status, currency
-	FROM members WHERE agent_id = @parent AND (@q = '' OR username LIKE @like ESCAPE '\')`
+	FROM user_members WHERE agent_id = @parent AND (@q = '' OR username LIKE @like ESCAPE '\')`
 
 // ListDownlinesRepository — ลูกตรงเรียง username A→Z แบ่งหน้า + จำนวนทั้งหมด (MGMT-26, MGMT-27)
 // q = ข้อความค้น (ตัวเล็กแล้ว) · ว่าง = ไม่กรอง
@@ -244,17 +206,6 @@ func GetAgentDetailRepository(db *gorm.DB, id uint) (models.UserAgent, error) {
 	return a, err
 }
 
-// GetMemberDetailRepository — ไม่พบคืน apperr.ErrNotFound
-func GetMemberDetailRepository(db *gorm.DB, id uint) (models.Member, error) {
-	var m models.Member
-	err := db.Select("id", "agent_id", "username", "name", "phone", "currency", "status", "last_login_at", "last_login_ip", "created_at").
-		Where("id = ?", id).Take(&m).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return m, apperr.ErrNotFound
-	}
-	return m, err
-}
-
 // ---- อ่านทีละหลายบัญชี (กัน N+1 ในหน้ารายชื่อ) ----
 
 func ListAgentCurrenciesByIDsRepository(db *gorm.DB, ids []uint) ([]models.AgentCurrency, error) {
@@ -284,24 +235,6 @@ func ListAgentGameSettingsByIDsRepository(db *gorm.DB, ids []uint) ([]models.Age
 	return out, err
 }
 
-func ListMemberBalancesByIDsRepository(db *gorm.DB, ids []uint) ([]models.MemberBalance, error) {
-	var out []models.MemberBalance
-	if len(ids) == 0 {
-		return out, nil
-	}
-	err := db.Select("member_id", "currency", "amount").Where("member_id IN ?", ids).Find(&out).Error
-	return out, err
-}
-
-func ListMemberGameSettingsByIDsRepository(db *gorm.DB, ids []uint) ([]models.MemberGameSetting, error) {
-	var out []models.MemberGameSetting
-	if len(ids) == 0 {
-		return out, nil
-	}
-	err := db.Where("member_id IN ?", ids).Order("member_id, game_code").Find(&out).Error
-	return out, err
-}
-
 // DownlineSearchRow — ผลค้นทั้งสาย (MGMT-27A) = แถวรายชื่อ + ผู้สร้างตรง + สถานะที่ใช้งานจริง
 type DownlineSearchRow struct {
 	DownlineRow
@@ -328,7 +261,7 @@ const downlineSearchSQL = `
 		UNION ALL
 		SELECT m.id, true, 'MEMBER', NULL, m.username, m.name, m.phone, m.status, m.currency,
 			p.username, GREATEST(p.rnk, CASE m.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END)
-		FROM members m JOIN tree p ON m.agent_id = p.id
+		FROM user_members m JOIN tree p ON m.agent_id = p.id
 		WHERE m.username LIKE @like ESCAPE '\'
 	)`
 

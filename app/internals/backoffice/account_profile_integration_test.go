@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/utils"
 	"app/platform/database"
 
@@ -178,7 +178,7 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 	hash, _ := utils.HashPassword(mgPassword)
 	sub := models.Subaccount{AgentID: c.share.ID, Username: "share01@staff", PasswordHash: hash, Status: models.AgentStatusActive,
 		Permissions: `{"report":"view"}`}
-	if err := postgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
+	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)

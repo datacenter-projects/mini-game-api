@@ -39,7 +39,7 @@ type SubListRequest struct {
 func (r *SubListRequest) Validate() error {
 	r.Q = strings.ToLower(strings.TrimSpace(r.Q))
 	if len(r.Q) > 71 { // ยาวสุดของคอลัมน์ username ของ sub
-		return invalid("q", "ยาวเกินไป", "is too long")
+		return Invalid("q", "ยาวเกินไป", "is too long")
 	}
 	return nil
 }
@@ -56,10 +56,10 @@ type SubCreateRequest struct {
 func (r *SubCreateRequest) Validate() error {
 	r.NameSuffix = agentManagementCore.NormalizeUsername(r.NameSuffix)
 	if !agentManagementCore.IsValidSubName(r.NameSuffix) {
-		return invalid("name_suffix", "ต้องยาว 3–20 ตัว ใช้ได้เฉพาะ a-z และ 0-9", "must be 3–20 characters of a-z and 0-9")
+		return Invalid("name_suffix", "ต้องยาว 3–20 ตัว ใช้ได้เฉพาะ a-z และ 0-9", "must be 3–20 characters of a-z and 0-9")
 	}
 	if r.Password == "" {
-		return invalid("password", "ต้องกรอก", "is required")
+		return Invalid("password", "ต้องกรอก", "is required")
 	}
 	if err := agentAuthDto.PasswordPolicyError("password", agentAuthCore.CheckPasswordPolicy(r.Password)); err != nil {
 		return err
@@ -76,14 +76,14 @@ type SubUpdateRequest struct {
 }
 
 func (r *SubUpdateRequest) Validate() error {
-	if err := checkID(r.ID); err != nil {
+	if err := CheckID(r.ID); err != nil {
 		return err
 	}
 	if !r.Phone.Present || !r.Phone.IsString {
-		return invalid("phone", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
+		return Invalid("phone", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
 	}
 	if r.Permissions == nil {
-		return invalid("permissions", "ต้องส่ง (แทนทั้งชุด — ไม่ให้สิทธิ์ใดให้ส่ง {})", "is required (replaces the whole set — send {} for none)")
+		return Invalid("permissions", "ต้องส่ง (แทนทั้งชุด — ไม่ให้สิทธิ์ใดให้ส่ง {})", "is required (replaces the whole set — send {} for none)")
 	}
 	return validateNamePhone(r.Name, &r.Phone.Value)
 }
@@ -95,11 +95,11 @@ type SubStatusRequest struct {
 }
 
 func (r *SubStatusRequest) Validate() error {
-	if err := checkID(r.ID); err != nil {
+	if err := CheckID(r.ID); err != nil {
 		return err
 	}
 	if r.Status != "ACTIVE" && r.Status != SubStatusInactive {
-		return invalid("status", "ต้องเป็น ACTIVE / INACTIVE", "must be ACTIVE or INACTIVE")
+		return Invalid("status", "ต้องเป็น ACTIVE / INACTIVE", "must be ACTIVE or INACTIVE")
 	}
 	return nil
 }
@@ -111,11 +111,11 @@ type SubCreateResponse struct {
 
 func validateNamePhone(name string, phone *string) error {
 	if !agentManagementCore.IsValidName(name) {
-		return invalid("name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
+		return Invalid("name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
 	}
 	*phone = strings.TrimSpace(*phone)
 	if !agentManagementCore.IsValidPhone(*phone) {
-		return invalid("phone", "ต้องเป็นตัวเลข 8–15 ตัว (ไม่กรอกให้ส่ง \"\")", `must be 8–15 digits (send "" to leave it empty)`)
+		return Invalid("phone", "ต้องเป็นตัวเลข 8–15 ตัว (ไม่กรอกให้ส่ง \"\")", `must be 8–15 digits (send "" to leave it empty)`)
 	}
 	return nil
 }

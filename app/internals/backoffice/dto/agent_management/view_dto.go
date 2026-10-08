@@ -74,24 +74,6 @@ type AgentDetailResponse struct {
 	CreatedAt      string          `json:"created_at"`
 }
 
-// MemberDetailResponse — GET /manage/members/:id (MGMT-29) · ไม่มี status_game / passcode_set
-type MemberDetailResponse struct {
-	ID             uint          `json:"id"`
-	Role           string        `json:"role"`
-	UserType       string        `json:"user_type"`
-	Username       string        `json:"username"`
-	Name           string        `json:"name"`
-	Phone          string        `json:"phone"`
-	Status         string        `json:"status"`
-	ParentUsername string        `json:"parent_username"`
-	Currencies     []string      `json:"currencies"`
-	Balances       []BalanceView `json:"balances"`
-	PT             any           `json:"pt,omitempty"`
-	LastLoginAt    string        `json:"last_login_at"`
-	LastLoginIP    string        `json:"last_login_ip"`
-	CreatedAt      string        `json:"created_at"`
-}
-
 // CopySource — 1 รายการของ GET /manage/agents/copy-sources (MGMT-35)
 type CopySource struct {
 	ID         uint                   `json:"id"`
@@ -123,7 +105,7 @@ type DetailRequest struct {
 	ID uint `json:"id"`
 }
 
-func (r *DetailRequest) Validate() error { return checkID(r.ID) }
+func (r *DetailRequest) Validate() error { return CheckID(r.ID) }
 
 // DownlineSearchRequest — POST /manage/downlines/search (MGMT-27A) · ค้นทุกชั้นใต้ตัวเอง
 type DownlineSearchRequest struct {
@@ -154,10 +136,10 @@ type AdminAccountSearchRequest struct {
 func (r *AdminAccountSearchRequest) Validate() error {
 	r.Username = agentAuthCore.NormalizeUsername(r.Username)
 	if r.Username == "" {
-		return invalid("username", "ต้องกรอก", "is required")
+		return Invalid("username", "ต้องกรอก", "is required")
 	}
 	if len([]rune(r.Username)) > 71 {
-		return invalid("username", "ยาวเกิน 71 ตัว", "must be at most 71 characters")
+		return Invalid("username", "ยาวเกิน 71 ตัว", "must be at most 71 characters")
 	}
 	return nil
 }

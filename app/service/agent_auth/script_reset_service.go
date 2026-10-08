@@ -7,7 +7,7 @@ import (
 
 	agentAuthCore "app/app/core/agent_auth"
 	"app/app/models"
-	redisRepo "app/app/repository/redis"
+	agentAuthRedis "app/app/repository/redis/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -108,12 +108,12 @@ func ScriptResetCredentialsService(ctx context.Context, req ScriptResetRequest) 
 
 	// หลัง commit: ล้างบล็อก (AUTH-10 / AUTH-35) และเตะ session ของเป้าหมาย
 	if req.Password {
-		if err := redisRepo.ClearBOLoginBlockRepository(ctx, target.Username); err != nil {
+		if err := agentAuthRedis.ClearBOLoginBlockRepository(ctx, target.Username); err != nil {
 			logger.Ctx(ctx).Warnw("clear login block failed", "username", target.Username, "error", err)
 		}
 	}
 	if req.Passcode {
-		if err := redisRepo.ClearBOPasscodeBlockRepository(ctx, target.Type, target.ID); err != nil {
+		if err := agentAuthRedis.ClearBOPasscodeBlockRepository(ctx, target.Type, target.ID); err != nil {
 			logger.Ctx(ctx).Warnw("clear passcode block failed", "account_type", target.Type, "account_id", target.ID, "error", err)
 		}
 	}

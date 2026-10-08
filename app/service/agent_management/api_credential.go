@@ -2,7 +2,7 @@ package agentmanagement
 
 import (
 	"app/app/models"
-	"app/app/repository/postgres"
+	accountPostgres "app/app/repository/postgres/account"
 	"app/pkg/utils"
 
 	"gorm.io/gorm"
@@ -17,5 +17,5 @@ func CreateAPICredentialIfAbsent(db *gorm.DB, agentID uint) error {
 	if err != nil {
 		return err
 	}
-	return postgres.CreateAPICredentialIfAbsentRepository(db, &models.APICredential{AgentID: agentID, APIKey: key})
+	return accountPostgres.CreateAPICredentialIfAbsentRepository(db, &models.APICredential{AgentID: agentID, APIKey: key})
 }

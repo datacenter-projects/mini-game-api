@@ -3,7 +3,8 @@
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
-- ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
+- แก้หลังอนุมัติ (2026-10-08 · maofoy · lead ยังไม่ได้รับทราบ): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261008170000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
+- ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`) · เส้น `/manage/members/*` แยกไปที่ `member_management` (`controllers/` `dto/` `service/member_management` — lead อนุมัติ 2026-10-08) · กฎ business ยังอยู่ที่ `core/agent_management` และ spec ฉบับนี้
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
   review ของ lead ต่อฉบับ 647d682 · ภาพหน้าจอตัวอย่าง + คำตอบของ boiledegg (2026-10-05 / 06) · ไม่ได้ extract จากโค้ดเก่า
@@ -19,7 +20,7 @@
 ดูรายละเอียด, แก้ข้อมูล, แก้สถานะ, ตั้ง / แก้ค่าหุ้นส่วน (PT · Force · Remain · Commission) และเปิด / ปิดเกม,
 คัดลอกการตั้งค่า และกำหนดสิทธิ์ของ sub (ระบบสิทธิ์ของทั้งหลังบ้านกำหนดที่นี่ครั้งเดียว)
 
-**ไม่อยู่ใน module นี้:** การเติม / ถอน / โอนเงินหลังสร้างบัญชี (module การชำระเงิน — ใช้ตาราง `agent_balances` · `member_balances` · `balance_ledger` ที่สร้างใน module นี้ต่อ) · **ยอดเงินตั้งต้นตอนสร้างบัญชีอยู่ใน module นี้** (MGMT-15A — แก้ 2026-10-08) ·
+**ไม่อยู่ใน module นี้:** การเติม / ถอน / โอนเงินหลังสร้างบัญชี (module การชำระเงิน — ใช้ตาราง `agent_balances` · `user_member_balances` · `balance_ledger` ที่สร้างใน module นี้ต่อ) · **ยอดเงินตั้งต้นตอนสร้างบัญชีอยู่ใน module นี้** (MGMT-15A — แก้ 2026-10-08) ·
 การคิด PT / Force / Remain / Commission ตอน settle (module เดิมพัน) · login ของ Member (module หน้าบ้าน) ·
 Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี้แค่สร้าง Key ตอนสร้างเจ้าของ ACC-05)
 
@@ -28,7 +29,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | คำ | ความหมาย |
 |---|---|
 | ฝั่ง agent | Superadmin · Company · Share · Agent (ตาราง `user_agents`) |
-| Member | ผู้เล่น (ตาราง `members` แยกจากฝั่ง agent) |
+| Member | ผู้เล่น (ตาราง `user_members` แยกจากฝั่ง agent) |
 | ผู้สร้าง | บัญชีที่สร้างบัญชีนั้น (`parent_id` / `agent_id` ของ member) — ลูกตรง = บัญชีที่ตัวเองสร้าง |
 | สายล่าง | ทุกบัญชีใต้ตัวเองทุกชั้น ไม่นับตัวเอง |
 | `user_type` | ประเภทบัญชี (MGMT-01) — ตรงกับ account ACC-12 |
@@ -43,7 +44,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 
 | ID | Rule |
 |---|---|
-| MGMT-01 | `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` · `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT` · `MEMBER` · เก็บเป็น `role` + `agent_type` ใน `user_agents` (Member อยู่ตาราง `members`) |
+| MGMT-01 | `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` · `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT` · `MEMBER` · เก็บเป็น `role` + `agent_type` ใน `user_agents` (Member อยู่ตาราง `user_members`) |
 | MGMT-02 | ใครสร้างอะไรได้: |
 | | • Superadmin → Company ทั้ง 4 ประเภท |
 | | • Company Transfer → Share B2B · Share B2C |
@@ -60,7 +61,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 
 | ID | Rule |
 |---|---|
-| MGMT-05 | username (ฝั่ง agent และ Member): 3–32 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่แล้วแปลงเป็นเล็ก — AUTH-01) · **ห้ามซ้ำทั้งระบบ** ข้ามตาราง `user_agents` และ `members` (เช็คใน service ภายใน tx พร้อม `pg_advisory_xact_lock` ของ username กันสร้างพร้อมกัน) · แก้ไม่ได้ (AUTH-19) |
+| MGMT-05 | username (ฝั่ง agent และ Member): 3–32 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่แล้วแปลงเป็นเล็ก — AUTH-01) · **ห้ามซ้ำทั้งระบบ** ข้ามตาราง `user_agents` และ `user_members` (เช็คใน service ภายใน tx พร้อม `pg_advisory_xact_lock` ของ username กันสร้างพร้อมกัน) · แก้ไม่ได้ (AUTH-19) |
 | MGMT-06 | รหัสผ่านตาม AUTH-36 · ฝั่ง agent ตั้ง passcode ตอน login ครั้งแรก (AUTH-29) |
 | MGMT-07 | ชื่อ: บังคับ · 3–32 ตัวอักษร (นับเป็นตัวอักษร ไม่ใช่ byte) · ใช้ได้ภาษาไทย `A-Z` `a-z` `0-9` · ไม่มีช่องว่าง (แก้ 2026-10-08 — เดิม `A-Z` `a-z` `0-9` เท่านั้น) |
 | MGMT-08 | เบอร์โทร: ไม่บังคับ (ไม่กรอกส่ง `""` · ห้าม `null` — account ACC-32) · 8–15 ตัว ตัวเลขเท่านั้น (ห้าม `+`) · ห้ามซ้ำภายในตารางเดียวกัน (unique index ต่อตาราง) · ยกเว้น sub ซ้ำได้ (MGMT-41) |
@@ -106,7 +107,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-20 | **`status` ใน `pt` กับ `status_game` แยกหน้าที่กัน** (boiledegg ตัดสิน 2026-10-08): |
 | | • `pt` → ระบบ → `status` (bool) = รับ PT ในระบบนั้นไหม · `false` = **เกมยังเปิดให้เล่น แต่บัญชีนี้ไม่รับ PT** ในระบบนั้น · ผู้สร้างตั้งให้ (สร้าง / `update-pt`) · ส่วน PT ที่บัญชีนี้ไม่รับไปอยู่กับใคร กำหนดตอนทำ module คิด PT |
 | | • `status_game` → รหัสเกม (bool) = **เปิด / ปิดเกมรายบัญชี** · `false` = Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ผู้สร้างตั้งให้ · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
-| MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`member_game_settings`) |
+| MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`user_member_game_settings`) |
 | MGMT-22 | **ผู้สร้างกำหนดค่าที่ให้ลูกแต่ละคนแยกกัน** (ทุกชั้น รวม Superadmin → Company): |
 | | • ลูกแต่ละคนได้รับไม่เท่ากันได้ · ค่าที่ให้ลูกแต่ละคน**ห้ามเกินค่าที่ผู้สร้างได้รับ** · Superadmin ได้รับ 100% |
 | | • ผู้สร้าง**ถือในสายของลูกคนนั้น** = ค่าที่ผู้สร้างได้รับ − ค่าที่ให้ลูกคนนั้น (ระบบคำนวณ ไม่ต้องส่ง) |
@@ -830,7 +831,7 @@ CREATE TABLE agent_game_settings (               -- ค่าหุ้นส่�
     commission_bp     INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
     status            BOOLEAN     NOT NULL DEFAULT true,   -- รับ PT ไหม (false = เกมยังเปิด แต่ไม่รับ PT — MGMT-20)
     status_game       BOOLEAN     NOT NULL DEFAULT true,   -- เปิด / ปิดทีละเกม
-    created_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ผู้สร้าง (เพิ่ม 2026-10-08 — migration ใหม่ พร้อม created_at · member_game_settings ด้วย)
+    created_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ผู้สร้าง (เพิ่ม 2026-10-08 — migration ใหม่ พร้อม created_at · user_member_game_settings ด้วย)
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ของคนที่แก้ล่าสุด
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -838,7 +839,7 @@ CREATE TABLE agent_game_settings (               -- ค่าหุ้นส่�
     CHECK (pt_bp <= pt_from_parent_bp)
 );
 
-CREATE TABLE members (
+CREATE TABLE user_members (                     -- เปลี่ยนชื่อจาก members 2026-10-08
     id            BIGSERIAL    PRIMARY KEY,
     agent_id      BIGINT       NOT NULL REFERENCES user_agents(id),  -- ผู้สร้าง
     username      VARCHAR(32)  NOT NULL,
@@ -851,20 +852,20 @@ CREATE TABLE members (
     last_login_ip VARCHAR(45),
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_members_username UNIQUE (username),
-    CONSTRAINT ck_members_username CHECK (username = lower(username) AND username ~ '^[a-z0-9]{3,32}$'),
-    CONSTRAINT ck_members_phone CHECK (phone IS NULL OR phone ~ '^[0-9]{8,15}$')
+    CONSTRAINT uq_user_members_username UNIQUE (username),
+    CONSTRAINT ck_user_members_username CHECK (username = lower(username) AND username ~ '^[a-z0-9]{3,32}$'),
+    CONSTRAINT ck_user_members_phone CHECK (phone IS NULL OR phone ~ '^[0-9]{8,15}$')
 );
-CREATE INDEX idx_members_agent_username ON members(agent_id, username);
-CREATE UNIQUE INDEX uq_members_phone ON members(phone) WHERE phone IS NOT NULL;
+CREATE INDEX idx_user_members_agent_username ON user_members(agent_id, username);
+CREATE UNIQUE INDEX uq_user_members_phone ON user_members(phone) WHERE phone IS NOT NULL;
 
-CREATE TABLE member_game_settings (             -- Member มีแค่ Commission ต่อเกม (MGMT-21)
-    member_id     BIGINT      NOT NULL REFERENCES members(id),
+CREATE TABLE user_member_game_settings (        -- Member มีแค่ Commission ต่อเกม (MGMT-21) · เปลี่ยนชื่อจาก member_game_settings 2026-10-08
+    user_member_id BIGINT      NOT NULL REFERENCES user_members(id),
     category      VARCHAR(30) NOT NULL,
     game_code     VARCHAR(50) NOT NULL,
     commission_bp INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (member_id, game_code)
+    PRIMARY KEY (user_member_id, game_code)
 );
 
 ALTER TABLE subaccounts
@@ -883,12 +884,12 @@ CREATE TABLE agent_balances (
     PRIMARY KEY (agent_id, currency)
 );
 
-CREATE TABLE member_balances (
-    member_id  BIGINT      NOT NULL REFERENCES members(id),
+CREATE TABLE user_member_balances (             -- เปลี่ยนชื่อจาก member_balances 2026-10-08
+    user_member_id BIGINT      NOT NULL REFERENCES user_members(id),
     currency   VARCHAR(4)  NOT NULL,
     amount     BIGINT      NOT NULL DEFAULT 0 CHECK (amount >= 0),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (member_id, currency)
+    PRIMARY KEY (user_member_id, currency)
 );
 
 CREATE TABLE balance_ledger (                    -- ทุกการเปลี่ยนยอดต้องมีแถวที่นี่ใน tx เดียวกัน (กฎข้อ 11)

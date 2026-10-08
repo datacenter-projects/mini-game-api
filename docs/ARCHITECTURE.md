@@ -14,7 +14,7 @@ HTTP request
   → app/internals/{context}/controllers/{module}/xxx_controller.go
   → app/service/{module}/xxx_service.go        ← business logic + transaction
        ├→ app/core/{topic}                      ← pure rule (คำนวณ ไม่มี side effect)
-       └→ app/repository/{postgres|redis}       ← query เท่านั้น
+       └→ app/repository/{postgres|redis}/{module} ← query เท่านั้น
             → app/models                        ← GORM struct
 ```
 
@@ -37,8 +37,8 @@ app/
 │   └── provider/                      #                             → /api/v1/provider
 ├── service/{module}/                  # business logic — ใช้ร่วมทุก context
 ├── core/{topic}/                      # pure business rule + table test
-├── repository/postgres/               # query PostgreSQL
-├── repository/redis/                  # cache / session / lock
+├── repository/postgres/{module}/      # query PostgreSQL — แยกตาม module เจ้าของตาราง
+├── repository/redis/{module}/         # cache / session / lock — แยกตาม module
 ├── models/                            # GORM struct
 └── health/                            # /health/live, /health/ready
 pkg/
@@ -64,12 +64,19 @@ docs/                                  # เอกสารที่อนุม
 | โฟลเดอร์ module | snake_case, **ชื่อเดียวกันทุก layer** | `controllers/agent_wallet`, `dto/agent_wallet`, `service/agent_wallet` |
 | package | ชื่อโฟลเดอร์ตัด `_` | `package agentwallet` |
 | ไฟล์ | `{operation}_{layer}.go` | `adjust_balance_controller.go`, `adjust_balance_service.go`, `adjust_balance_dto.go` |
-| repository | `{table}_repository.go` | `agent_balance_repository.go` |
+| repository | `repository/{postgres,redis}/{module}/{table}_repository.go` | `repository/postgres/agent_wallet/agent_balance_repository.go` |
 | model | `{table}_models.go` | `agent_balance_models.go` |
 | ฟังก์ชัน | ลงท้ายด้วยชื่อ layer | `AdjustBalanceController`, `AdjustBalanceService`, `LockAgentBalanceRepository` |
-| import alias | `{module}Service`, `{module}Dto` | `agentWalletService "app/app/service/agent_wallet"` |
+| import alias | `{module}Service`, `{module}Dto`, `{module}Postgres`, `{module}Redis` | `agentWalletService "app/app/service/agent_wallet"`, `agentWalletPostgres "app/app/repository/postgres/agent_wallet"` |
 
 `scripts/check_structure.sh` บังคับว่า `controllers/{x}` ต้องมี `dto/{x}` และ `app/service/{x}` คู่กันเสมอ
+
+### Repository แยกตาม module
+
+- ฟังก์ชันอยู่ใน module **เจ้าของตาราง** คือ module ที่สร้างและเขียนตารางนั้นเป็นหลัก เช่น `user_agents` → `postgres/agent_auth`, `user_members` → `postgres/member_management`
+- service ของ module อื่น import repository ของ module เจ้าของมาใช้ได้ ห้าม copy ฟังก์ชันไปไว้อีกที่ (import ไม่วนแน่นอน เพราะ repository import แค่ `models`)
+- root ของ `repository/postgres/` และ `repository/redis/` มีแค่ `doc.go` (กฎของ layer) ห้ามวางไฟล์ query ไว้ตรงนั้น
+- redis: key ของ module ประกาศใน `keys.go` ของ folder นั้นที่เดียว และ prefix ของ key ห้ามซ้ำกับ module อื่น (เช่น `agent_auth` ใช้ `bo:sess:` `bo:login:` `bo:passcode:`)
 
 ## 3. แม่แบบต่อ layer
 
@@ -150,7 +157,7 @@ func CreateNoteService(ctx context.Context, agentID uint, req noteDto.CreateNote
 	var res noteDto.NoteResponse
 
 	err := database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		agent, err := postgres.LockAgentRepository(tx, agentID)       // SELECT ... FOR UPDATE
+		agent, err := agentWalletPostgres.LockAgentRepository(tx, agentID) // SELECT ... FOR UPDATE · repository ของ module เจ้าของตาราง
 		if err != nil {
 			return err
 		}
@@ -158,7 +165,7 @@ func CreateNoteService(ctx context.Context, agentID uint, req noteDto.CreateNote
 			return apperr.ErrNoteNotAllowed
 		}
 		n := models.Note{AgentID: agentID, Title: req.Title, Amount: req.Amount}
-		if err := postgres.CreateNoteRepository(tx, &n); err != nil {
+		if err := notePostgres.CreateNoteRepository(tx, &n); err != nil {
 			return err
 		}
 		res = noteDto.NoteResponse{ID: n.ID, Title: n.Title, Amount: n.Amount}
@@ -172,13 +179,13 @@ func CreateNoteService(ctx context.Context, agentID uint, req noteDto.CreateNote
 }
 ```
 
-- อ่านอย่างเดียว ไม่ต้องมี tx: `postgres.GetNoteRepository(database.DBConn.WithContext(ctx), id)`
+- อ่านอย่างเดียว ไม่ต้องมี tx: `notePostgres.GetNoteRepository(database.DBConn.WithContext(ctx), id)`
 - service ของ module อื่นเรียกกันได้ ถ้าต้องอยู่ใน tx เดียวกัน ให้ทำฟังก์ชันที่รับ `tx *gorm.DB` เพิ่ม (เช่น `DebitWalletTx(tx, ...)`)
 
-### 3.4 Repository — `app/repository/postgres/note_repository.go`
+### 3.4 Repository — `app/repository/postgres/note/note_repository.go`
 
 ```go
-package postgres
+package note // import ด้วย alias notePostgres
 
 func CreateNoteRepository(db *gorm.DB, n *models.Note) error {
 	return db.Create(n).Error
@@ -193,12 +200,6 @@ func GetNoteRepository(db *gorm.DB, agentID, id uint) (models.Note, error) {
 		return n, apperr.ErrNotFound
 	}
 	return n, err
-}
-
-func LockAgentRepository(db *gorm.DB, id uint) (models.Agent, error) {
-	var a models.Agent
-	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).First(&a, id).Error
-	return a, err
 }
 ```
 

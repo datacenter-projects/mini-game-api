@@ -53,19 +53,6 @@ func GetAgentDetailController(c *fiber.Ctx) error {
 	return response.OK(c, res)
 }
 
-// GetMemberDetailController — POST /api/v1/bo/pr/manage/members/detail
-func GetMemberDetailController(c *fiber.Ctx) error {
-	var req agentManagementDto.DetailRequest
-	if err := utils.ParseBodyNoNull(c, &req); err != nil {
-		return response.Error(c, err)
-	}
-	res, err := agentManagementService.GetMemberDetailService(c.UserContext(), middleware.GetActor(c), req.ID)
-	if err != nil {
-		return response.Error(c, err)
-	}
-	return response.OK(c, res)
-}
-
 // ListCopySourcesController — GET /api/v1/bo/pr/manage/agents/copy-sources
 func ListCopySourcesController(c *fiber.Ctx) error {
 	res, err := agentManagementService.ListCopySourcesService(c.UserContext(), middleware.GetActor(c))

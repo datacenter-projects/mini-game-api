@@ -10,7 +10,8 @@ import (
 	agentManagementCore "app/app/core/agent_management"
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/utils"
@@ -55,15 +56,15 @@ func subView(s models.Subaccount, ownerRole models.AgentRole, ownerChain models.
 	for m, l := range perms {
 		out[string(m)] = string(l)
 	}
-	return agentManagementDto.SubView{ID: s.ID, Username: s.Username, Name: stringOrEmpty(s.Name), Phone: stringOrEmpty(s.Phone),
-		Status: subStatus(s.Status, ownerChain), Permissions: out, CreatedAt: optionalTime(&s.CreatedAt),
-		LastLoginAt: optionalTime(s.LastLoginAt), LastLoginIP: stringOrEmpty(s.LastLoginIP)}, nil
+	return agentManagementDto.SubView{ID: s.ID, Username: s.Username, Name: StringOrEmpty(s.Name), Phone: StringOrEmpty(s.Phone),
+		Status: subStatus(s.Status, ownerChain), Permissions: out, CreatedAt: OptionalTime(&s.CreatedAt),
+		LastLoginAt: OptionalTime(s.LastLoginAt), LastLoginIP: StringOrEmpty(s.LastLoginIP)}, nil
 }
 
 // subOwner — เจ้าของที่ผู้เรียกดู sub ได้: ตัวเอง หรือบัญชีในสายล่าง (MGMT-45, MGMT-46) · อื่น = notFound
 func subOwner(db *gorm.DB, actor agentAuthService.Actor, ownerID uint, notFound error) (models.UserAgent, models.AgentStatus, error) {
 	if ownerID != actor.AgentID {
-		ok, err := postgres.IsInDownlineRepository(db, actor.AgentID, ownerID)
+		ok, err := agentManagementPostgres.IsInDownlineRepository(db, actor.AgentID, ownerID)
 		if err != nil {
 			return models.UserAgent{}, "", err
 		}
@@ -71,11 +72,11 @@ func subOwner(db *gorm.DB, actor agentAuthService.Actor, ownerID uint, notFound 
 			return models.UserAgent{}, "", notFound
 		}
 	}
-	owner, err := postgres.GetAgentProfileRepository(db, ownerID)
+	owner, err := agentManagementPostgres.GetAgentProfileRepository(db, ownerID)
 	if err != nil {
 		return owner, "", notFoundAs(err, notFound)
 	}
-	chain, err := chainStatus(db, owner.ID, owner.Status)
+	chain, err := ChainStatus(db, owner.ID, owner.Status)
 	return owner, chain, err
 }
 
@@ -91,7 +92,7 @@ func ListSubaccountsService(ctx context.Context, actor agentAuthService.Actor, r
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, total, err := postgres.ListSubaccountsRepository(db, owner.ID, req.Q, page.Offset(), page.Limit)
+	rows, total, err := agentManagementPostgres.ListSubaccountsRepository(db, owner.ID, req.Q, page.Offset(), page.Limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -107,7 +108,7 @@ func ListSubaccountsService(ctx context.Context, actor agentAuthService.Actor, r
 // GetSubaccountService — POST /manage/subaccounts/detail (MGMT-46) · sub ของตัวเองหรือของสายล่าง · อื่น = 402404
 func GetSubaccountService(ctx context.Context, actor agentAuthService.Actor, id uint) (agentManagementDto.SubView, error) {
 	db := database.DBConn.WithContext(ctx)
-	s, err := postgres.GetSubaccountViewRepository(db, id)
+	s, err := agentManagementPostgres.GetSubaccountViewRepository(db, id)
 	if err != nil {
 		return agentManagementDto.SubView{}, err
 	}
@@ -142,10 +143,10 @@ func CreateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 	}
 	err = database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		username := actor.Username + "@" + req.NameSuffix // actor เป็นบัญชีหลัก = username ของเจ้าของ
-		if err := postgres.AdvisoryXactLockRepository(tx, "username:"+username); err != nil {
+		if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "username:"+username); err != nil {
 			return err
 		}
-		taken, err := postgres.SubaccountUsernameExistsRepository(tx, username)
+		taken, err := agentManagementPostgres.SubaccountUsernameExistsRepository(tx, username)
 		if err != nil {
 			return err
 		}
@@ -155,13 +156,13 @@ func CreateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 		now := time.Now()
 		name := req.Name
 		s := models.Subaccount{AgentID: actor.AgentID, Username: username, PasswordHash: hash, Name: &name,
-			Phone: optionalString(req.Phone), Permissions: string(permsJSON), Status: models.AgentStatusActive,
+			Phone: OptionalString(req.Phone), Permissions: string(permsJSON), Status: models.AgentStatusActive,
 			CreatedAt: now, UpdatedAt: now}
-		if err := postgres.CreateSubaccountRepository(tx, &s); err != nil {
+		if err := agentAuthPostgres.CreateSubaccountRepository(tx, &s); err != nil {
 			return err
 		}
 		res = agentManagementDto.SubCreateResponse{ID: s.ID, Username: s.Username}
-		return writeLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeCreate, nil,
+		return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeCreate, nil,
 			map[string]any{"username": s.Username, "name": req.Name, "phone": req.Phone, "permissions": perms}, now)
 	})
 	return res, err
@@ -169,7 +170,7 @@ func CreateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 
 // lockOwnSub — lock แถว sub ที่จะแก้ · ต้องเป็น sub ของผู้เรียกเอง (MGMT-45) · อื่น = 402404
 func lockOwnSub(tx *gorm.DB, actor agentAuthService.Actor, id uint) (models.Subaccount, error) {
-	s, err := postgres.LockSubaccountViewRepository(tx, id)
+	s, err := agentManagementPostgres.LockSubaccountViewRepository(tx, id)
 	if err != nil {
 		return s, err
 	}
@@ -196,13 +197,13 @@ func UpdateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 			return err
 		}
 		now := time.Now()
-		if err := postgres.UpdateSubaccountInfoRepository(tx, s.ID, req.Name, optionalString(req.Phone.Value), string(permsJSON), now); err != nil {
+		if err := agentManagementPostgres.UpdateSubaccountInfoRepository(tx, s.ID, req.Name, OptionalString(req.Phone.Value), string(permsJSON), now); err != nil {
 			return err
 		}
 		var oldPerms map[string]string
 		_ = json.Unmarshal([]byte(s.Permissions), &oldPerms)
-		return writeLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeUpdateInfo,
-			map[string]any{"name": stringOrEmpty(s.Name), "phone": stringOrEmpty(s.Phone), "permissions": oldPerms},
+		return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeUpdateInfo,
+			map[string]any{"name": StringOrEmpty(s.Name), "phone": StringOrEmpty(s.Phone), "permissions": oldPerms},
 			map[string]any{"name": req.Name, "phone": req.Phone.Value, "permissions": perms}, now)
 	})
 }
@@ -220,10 +221,10 @@ func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.A
 			return err
 		}
 		now := time.Now()
-		if err := postgres.UpdateSubaccountStatusRepository(tx, s.ID, next, now); err != nil {
+		if err := agentManagementPostgres.UpdateSubaccountStatusRepository(tx, s.ID, next, now); err != nil {
 			return err
 		}
-		return writeLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeSubStatus,
+		return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeSubStatus,
 			map[string]string{"status": subStatus(s.Status, models.AgentStatusActive)}, map[string]string{"status": req.Status}, now)
 	})
 }

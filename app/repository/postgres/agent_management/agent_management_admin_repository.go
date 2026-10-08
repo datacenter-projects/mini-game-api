@@ -1,4 +1,4 @@
-package postgres
+package agentmanagement
 
 import (
 	"app/app/models"
@@ -22,12 +22,4 @@ func FindSubaccountByUsernameRepository(db *gorm.DB, username string) (models.Su
 	err := db.Select("id", "agent_id", "username", "status", "last_login_at", "last_login_ip", "created_at").
 		Where("username = ?", username).Limit(1).Find(&s).Error
 	return s, err
-}
-
-// FindMemberByUsernameRepository — Member (ตารางแยก username ซ้ำกับฝั่ง agent ได้)
-func FindMemberByUsernameRepository(db *gorm.DB, username string) (models.Member, error) {
-	var m models.Member
-	err := db.Select("id", "agent_id", "username", "status", "last_login_at", "last_login_ip", "created_at").
-		Where("username = ?", username).Limit(1).Find(&m).Error
-	return m, err
 }

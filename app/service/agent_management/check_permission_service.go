@@ -7,7 +7,7 @@ import (
 
 	agentManagementCore "app/app/core/agent_management"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
 	"app/platform/database"
@@ -18,7 +18,7 @@ func PermissionsOf(ctx context.Context, actor agentAuthService.Actor) (map[agent
 	if actor.AccountType != models.AccountTypeSub {
 		return agentManagementCore.FullPermissions(actor.Role), nil
 	}
-	raw, err := postgres.GetSubaccountPermissionsRepository(database.DBConn.WithContext(ctx), actor.SubaccountID)
+	raw, err := agentAuthPostgres.GetSubaccountPermissionsRepository(database.DBConn.WithContext(ctx), actor.SubaccountID)
 	if err != nil {
 		return nil, err
 	}

@@ -8,7 +8,8 @@ import (
 	agentManagementCore "app/app/core/agent_management"
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
+	memberManagementPostgres "app/app/repository/postgres/member_management"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/utils"
@@ -24,7 +25,7 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q a
 	db := database.DBConn.WithContext(ctx)
 	parentID := actor.AgentID
 	if q.ParentID != 0 && q.ParentID != actor.AgentID {
-		ok, err := postgres.IsInDownlineRepository(db, actor.AgentID, q.ParentID)
+		ok, err := agentManagementPostgres.IsInDownlineRepository(db, actor.AgentID, q.ParentID)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -33,20 +34,20 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q a
 		}
 		parentID = q.ParentID
 	}
-	parent, err := postgres.GetAgentProfileRepository(db, parentID)
+	parent, err := agentManagementPostgres.GetAgentProfileRepository(db, parentID)
 	if err != nil {
-		return nil, 0, notFoundAsDownline(err)
+		return nil, 0, NotFoundAsDownline(err)
 	}
-	parentStatus, err := chainStatus(db, parent.ID, parent.Status)
+	parentStatus, err := ChainStatus(db, parent.ID, parent.Status)
 	if err != nil {
 		return nil, 0, err
 	}
-	showPT, err := canSeePT(ctx, actor)
+	showPT, err := CanSeePT(ctx, actor)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	rows, total, err := postgres.ListDownlinesRepository(db, parentID, q.Q, page.Offset(), page.Limit)
+	rows, total, err := agentManagementPostgres.ListDownlinesRepository(db, parentID, q.Q, page.Offset(), page.Limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -66,23 +67,23 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q a
 func SearchDownlinesService(ctx context.Context, actor agentAuthService.Actor, q agentManagementDto.DownlineSearchRequest,
 	page utils.Page) ([]agentManagementDto.DownlineSearchRow, int64, error) {
 	db := database.DBConn.WithContext(ctx)
-	root, err := postgres.GetAgentProfileRepository(db, actor.AgentID)
+	root, err := agentManagementPostgres.GetAgentProfileRepository(db, actor.AgentID)
 	if err != nil {
 		return nil, 0, err
 	}
-	rootStatus, err := chainStatus(db, root.ID, root.Status)
+	rootStatus, err := ChainStatus(db, root.ID, root.Status)
 	if err != nil {
 		return nil, 0, err
 	}
-	showPT, err := canSeePT(ctx, actor)
+	showPT, err := CanSeePT(ctx, actor)
 	if err != nil {
 		return nil, 0, err
 	}
-	hits, total, err := postgres.SearchDownlinesRepository(db, root.ID, rootStatus, q.Q, page.Offset(), page.Limit)
+	hits, total, err := agentManagementPostgres.SearchDownlinesRepository(db, root.ID, rootStatus, q.Q, page.Offset(), page.Limit)
 	if err != nil {
 		return nil, 0, err
 	}
-	rows := make([]postgres.DownlineRow, len(hits))
+	rows := make([]agentManagementPostgres.DownlineRow, len(hits))
 	for i, h := range hits {
 		rows[i] = h.DownlineRow
 	}
@@ -100,7 +101,7 @@ func SearchDownlinesService(ctx context.Context, actor agentAuthService.Actor, q
 }
 
 // splitIDs — แยก id ฝั่ง agent / Member ของแถวในหน้า
-func splitIDs(rows []postgres.DownlineRow) (agentIDs, memberIDs []uint) {
+func splitIDs(rows []agentManagementPostgres.DownlineRow) (agentIDs, memberIDs []uint) {
 	for _, r := range rows {
 		if r.IsMember {
 			memberIDs = append(memberIDs, r.ID)
@@ -112,12 +113,12 @@ func splitIDs(rows []postgres.DownlineRow) (agentIDs, memberIDs []uint) {
 }
 
 // downlineRow — 1 แถวของรายชื่อ / ผลค้น (MGMT-28) · status = สถานะที่ใช้งานจริง · ไม่มีสิทธิ์ pt = ไม่มี field pt
-func downlineRow(r postgres.DownlineRow, status models.AgentStatus, extra rowExtras, showPT bool) agentManagementDto.DownlineRow {
-	row := agentManagementDto.DownlineRow{ID: r.ID, Username: r.Username, Name: stringOrEmpty(r.Name), Phone: stringOrEmpty(r.Phone),
+func downlineRow(r agentManagementPostgres.DownlineRow, status models.AgentStatus, extra rowExtras, showPT bool) agentManagementDto.DownlineRow {
+	row := agentManagementDto.DownlineRow{ID: r.ID, Username: r.Username, Name: StringOrEmpty(r.Name), Phone: StringOrEmpty(r.Phone),
 		Status: string(status)}
 	if r.IsMember {
 		row.Role, row.UserType = string(agentManagementCore.UserTypeMember), string(agentManagementCore.UserTypeMember)
-		row.Balances = BalanceViews([]string{stringOrEmpty(r.Currency)}, extra.memberBalance[r.ID])
+		row.Balances = BalanceViews([]string{StringOrEmpty(r.Currency)}, extra.memberBalance[r.ID])
 		if showPT {
 			row.PT = MemberPTViews(extra.memberSettings[r.ID])
 		}
@@ -138,20 +139,20 @@ type rowExtras struct {
 	agentBalance    map[uint]map[string]int64
 	agentSettings   map[uint][]models.AgentGameSetting
 	memberBalance   map[uint]map[string]int64
-	memberSettings  map[uint][]models.MemberGameSetting
+	memberSettings  map[uint][]models.UserMemberGameSetting
 }
 
 func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
 	e := rowExtras{map[uint][]string{}, map[uint]map[string]int64{}, map[uint][]models.AgentGameSetting{},
-		map[uint]map[string]int64{}, map[uint][]models.MemberGameSetting{}}
-	curs, err := postgres.ListAgentCurrenciesByIDsRepository(db, agentIDs)
+		map[uint]map[string]int64{}, map[uint][]models.UserMemberGameSetting{}}
+	curs, err := agentManagementPostgres.ListAgentCurrenciesByIDsRepository(db, agentIDs)
 	if err != nil {
 		return e, err
 	}
 	for _, c := range curs {
 		e.agentCurrencies[c.AgentID] = append(e.agentCurrencies[c.AgentID], c.Currency)
 	}
-	abs, err := postgres.ListAgentBalancesByIDsRepository(db, agentIDs)
+	abs, err := agentManagementPostgres.ListAgentBalancesByIDsRepository(db, agentIDs)
 	if err != nil {
 		return e, err
 	}
@@ -161,29 +162,29 @@ func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
 		}
 		e.agentBalance[b.AgentID][b.Currency] = b.Amount
 	}
-	ags, err := postgres.ListAgentGameSettingsByIDsRepository(db, agentIDs)
+	ags, err := agentManagementPostgres.ListAgentGameSettingsByIDsRepository(db, agentIDs)
 	if err != nil {
 		return e, err
 	}
 	for _, s := range ags {
 		e.agentSettings[s.AgentID] = append(e.agentSettings[s.AgentID], s)
 	}
-	mbs, err := postgres.ListMemberBalancesByIDsRepository(db, memberIDs)
+	mbs, err := memberManagementPostgres.ListUserMemberBalancesByIDsRepository(db, memberIDs)
 	if err != nil {
 		return e, err
 	}
 	for _, b := range mbs {
-		if e.memberBalance[b.MemberID] == nil {
-			e.memberBalance[b.MemberID] = map[string]int64{}
+		if e.memberBalance[b.UserMemberID] == nil {
+			e.memberBalance[b.UserMemberID] = map[string]int64{}
 		}
-		e.memberBalance[b.MemberID][b.Currency] = b.Amount
+		e.memberBalance[b.UserMemberID][b.Currency] = b.Amount
 	}
-	mgs, err := postgres.ListMemberGameSettingsByIDsRepository(db, memberIDs)
+	mgs, err := memberManagementPostgres.ListUserMemberGameSettingsByIDsRepository(db, memberIDs)
 	if err != nil {
 		return e, err
 	}
 	for _, s := range mgs {
-		e.memberSettings[s.MemberID] = append(e.memberSettings[s.MemberID], s)
+		e.memberSettings[s.UserMemberID] = append(e.memberSettings[s.UserMemberID], s)
 	}
 	return e, nil
 }
@@ -192,22 +193,22 @@ func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
 func GetAgentDetailService(ctx context.Context, actor agentAuthService.Actor, id uint) (agentManagementDto.AgentDetailResponse, error) {
 	var res agentManagementDto.AgentDetailResponse
 	db := database.DBConn.WithContext(ctx)
-	ok, err := postgres.IsInDownlineRepository(db, actor.AgentID, id)
+	ok, err := agentManagementPostgres.IsInDownlineRepository(db, actor.AgentID, id)
 	if err != nil {
 		return res, err
 	}
 	if !ok {
 		return res, apperr.ErrDownlineNotFound
 	}
-	a, err := postgres.GetAgentDetailRepository(db, id)
+	a, err := agentManagementPostgres.GetAgentDetailRepository(db, id)
 	if err != nil {
-		return res, notFoundAsDownline(err)
+		return res, NotFoundAsDownline(err)
 	}
-	parent, err := postgres.GetAgentProfileRepository(db, *a.ParentID) // อยู่ในสายล่าง = มี parent เสมอ
+	parent, err := agentManagementPostgres.GetAgentProfileRepository(db, *a.ParentID) // อยู่ในสายล่าง = มี parent เสมอ
 	if err != nil {
 		return res, err
 	}
-	status, err := chainStatus(db, a.ID, a.Status)
+	status, err := ChainStatus(db, a.ID, a.Status)
 	if err != nil {
 		return res, err
 	}
@@ -218,12 +219,12 @@ func GetAgentDetailService(ctx context.Context, actor agentAuthService.Actor, id
 	pt, statusGame := AgentPTViews(extra.agentSettings[a.ID])
 	res = agentManagementDto.AgentDetailResponse{ID: a.ID, Role: string(a.Role),
 		UserType: string(agentManagementCore.UserTypeOf(a.Role, a.AgentType)), Username: a.Username,
-		Name: stringOrEmpty(a.Name), Phone: stringOrEmpty(a.Phone), Status: string(status), ParentUsername: parent.Username,
+		Name: StringOrEmpty(a.Name), Phone: StringOrEmpty(a.Phone), Status: string(status), ParentUsername: parent.Username,
 		Currencies: append([]string{}, extra.agentCurrencies[a.ID]...),
 		Balances:   BalanceViews(extra.agentCurrencies[a.ID], extra.agentBalance[a.ID]),
 		StatusGame: statusGame, PasscodeSet: a.PasscodeHash != nil,
-		LastLoginAt: optionalTime(a.LastLoginAt), LastLoginIP: stringOrEmpty(a.LastLoginIP), CreatedAt: optionalTime(&a.CreatedAt)}
-	show, err := canSeePT(ctx, actor)
+		LastLoginAt: OptionalTime(a.LastLoginAt), LastLoginIP: StringOrEmpty(a.LastLoginIP), CreatedAt: OptionalTime(&a.CreatedAt)}
+	show, err := CanSeePT(ctx, actor)
 	if err != nil {
 		return res, err
 	}
@@ -233,55 +234,10 @@ func GetAgentDetailService(ctx context.Context, actor agentAuthService.Actor, id
 	return res, nil
 }
 
-// GetMemberDetailService — POST /api/v1/bo/pr/manage/members/detail (MGMT-29) · ผู้สร้างต้องเป็นตัวเองหรืออยู่ในสายล่าง
-func GetMemberDetailService(ctx context.Context, actor agentAuthService.Actor, id uint) (agentManagementDto.MemberDetailResponse, error) {
-	var res agentManagementDto.MemberDetailResponse
-	db := database.DBConn.WithContext(ctx)
-	m, err := postgres.GetMemberDetailRepository(db, id)
-	if err != nil {
-		return res, notFoundAsDownline(err)
-	}
-	if m.AgentID != actor.AgentID {
-		ok, err := postgres.IsInDownlineRepository(db, actor.AgentID, m.AgentID)
-		if err != nil {
-			return res, err
-		}
-		if !ok {
-			return res, apperr.ErrDownlineNotFound
-		}
-	}
-	creator, err := postgres.GetAgentProfileRepository(db, m.AgentID)
-	if err != nil {
-		return res, err
-	}
-	creatorStatus, err := chainStatus(db, creator.ID, creator.Status)
-	if err != nil {
-		return res, err
-	}
-	extra, err := loadRowExtras(db, nil, []uint{m.ID})
-	if err != nil {
-		return res, err
-	}
-	member := string(agentManagementCore.UserTypeMember)
-	res = agentManagementDto.MemberDetailResponse{ID: m.ID, Role: member, UserType: member, Username: m.Username, Name: m.Name,
-		Phone: stringOrEmpty(m.Phone), Status: string(agentAuthCore.WorstStatus(creatorStatus, m.Status)),
-		ParentUsername: creator.Username, Currencies: []string{m.Currency},
-		Balances:    BalanceViews([]string{m.Currency}, extra.memberBalance[m.ID]),
-		LastLoginAt: optionalTime(m.LastLoginAt), LastLoginIP: stringOrEmpty(m.LastLoginIP), CreatedAt: optionalTime(&m.CreatedAt)}
-	show, err := canSeePT(ctx, actor)
-	if err != nil {
-		return res, err
-	}
-	if show {
-		res.PT = MemberPTViews(extra.memberSettings[m.ID])
-	}
-	return res, nil
-}
-
 // ListCopySourcesService — GET /api/v1/bo/pr/manage/agents/copy-sources (MGMT-35) · ลูกตรงฝั่ง agent ทั้งหมด A→Z
 func ListCopySourcesService(ctx context.Context, actor agentAuthService.Actor) ([]agentManagementDto.CopySource, error) {
 	db := database.DBConn.WithContext(ctx)
-	children, err := postgres.ListAgentDirectChildrenRepository(db, actor.AgentID)
+	children, err := agentManagementPostgres.ListAgentDirectChildrenRepository(db, actor.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +245,7 @@ func ListCopySourcesService(ctx context.Context, actor agentAuthService.Actor) (
 	for i, c := range children {
 		ids[i] = c.ID
 	}
-	settings, err := postgres.ListAgentGameSettingsByIDsRepository(db, ids)
+	settings, err := agentManagementPostgres.ListAgentGameSettingsByIDsRepository(db, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +262,7 @@ func ListCopySourcesService(ctx context.Context, actor agentAuthService.Actor) (
 	return out, nil
 }
 
-func notFoundAsDownline(err error) error {
+func NotFoundAsDownline(err error) error {
 	if errors.Is(err, apperr.ErrNotFound) {
 		return apperr.ErrDownlineNotFound
 	}

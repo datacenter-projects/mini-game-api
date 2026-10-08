@@ -7,7 +7,7 @@ import (
 	agentAuthCore "app/app/core/agent_auth"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
 	"app/app/models"
-	redisRepo "app/app/repository/redis"
+	agentAuthRedis "app/app/repository/redis/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -58,7 +58,7 @@ func ResetPasscodeService(ctx context.Context, actor Actor, req agentAuthDto.Res
 	}
 
 	// หลัง commit: ล้างตัวนับ/บล็อก passcode และเตะ session ของเป้าหมาย
-	if err := redisRepo.ClearBOPasscodeBlockRepository(ctx, target.Type, target.ID); err != nil {
+	if err := agentAuthRedis.ClearBOPasscodeBlockRepository(ctx, target.Type, target.ID); err != nil {
 		logger.Ctx(ctx).Warnw("clear passcode block failed", "account_type", target.Type, "account_id", target.ID, "error", err)
 	}
 	endAllSessions(ctx, target)

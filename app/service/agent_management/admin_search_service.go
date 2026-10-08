@@ -6,7 +6,8 @@ import (
 	agentAuthCore "app/app/core/agent_auth"
 	agentManagementCore "app/app/core/agent_management"
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
-	"app/app/repository/postgres"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
+	memberManagementPostgres "app/app/repository/postgres/member_management"
 	"app/platform/database"
 
 	"gorm.io/gorm"
@@ -20,33 +21,33 @@ func AdminSearchAccountsService(ctx context.Context, req agentManagementDto.Admi
 	out := []agentManagementDto.AdminAccountRow{}
 
 	if agentAuthCore.IsSubaccountUsername(req.Username) {
-		s, err := postgres.FindSubaccountByUsernameRepository(db, req.Username)
+		s, err := agentManagementPostgres.FindSubaccountByUsernameRepository(db, req.Username)
 		if err != nil {
 			return nil, err
 		}
 		if s.ID != 0 {
-			owner, err := postgres.GetAgentProfileRepository(db, s.AgentID)
+			owner, err := agentManagementPostgres.GetAgentProfileRepository(db, s.AgentID)
 			if err != nil {
 				return nil, err
 			}
-			chain, err := chainStatus(db, owner.ID, owner.Status)
+			chain, err := ChainStatus(db, owner.ID, owner.Status)
 			if err != nil {
 				return nil, err
 			}
 			out = append(out, agentManagementDto.AdminAccountRow{Username: s.Username, Role: string(owner.Role),
 				UserType: string(agentManagementCore.UserTypeOf(owner.Role, owner.AgentType)), IsSubaccount: true,
-				Status: subStatus(s.Status, chain), ParentUsername: owner.Username, CreatedAt: optionalTime(&s.CreatedAt),
-				LastLoginAt: optionalTime(s.LastLoginAt), LastLoginIP: stringOrEmpty(s.LastLoginIP)})
+				Status: subStatus(s.Status, chain), ParentUsername: owner.Username, CreatedAt: OptionalTime(&s.CreatedAt),
+				LastLoginAt: OptionalTime(s.LastLoginAt), LastLoginIP: StringOrEmpty(s.LastLoginIP)})
 		}
 		return out, nil // username ของ sub มี @ — ไม่มีในตารางอื่น
 	}
 
-	a, err := postgres.FindUserAgentByUsernameRepository(db, req.Username)
+	a, err := agentManagementPostgres.FindUserAgentByUsernameRepository(db, req.Username)
 	if err != nil {
 		return nil, err
 	}
 	if a.ID != 0 {
-		status, err := chainStatus(db, a.ID, a.Status)
+		status, err := ChainStatus(db, a.ID, a.Status)
 		if err != nil {
 			return nil, err
 		}
@@ -56,27 +57,27 @@ func AdminSearchAccountsService(ctx context.Context, req agentManagementDto.Admi
 		}
 		out = append(out, agentManagementDto.AdminAccountRow{Username: a.Username, Role: string(a.Role),
 			UserType: string(agentManagementCore.UserTypeOf(a.Role, a.AgentType)), Status: string(status),
-			ParentUsername: parent, CreatedAt: optionalTime(&a.CreatedAt),
-			LastLoginAt: optionalTime(a.LastLoginAt), LastLoginIP: stringOrEmpty(a.LastLoginIP)})
+			ParentUsername: parent, CreatedAt: OptionalTime(&a.CreatedAt),
+			LastLoginAt: OptionalTime(a.LastLoginAt), LastLoginIP: StringOrEmpty(a.LastLoginIP)})
 	}
 
-	m, err := postgres.FindMemberByUsernameRepository(db, req.Username)
+	m, err := memberManagementPostgres.FindUserMemberByUsernameRepository(db, req.Username)
 	if err != nil {
 		return nil, err
 	}
 	if m.ID != 0 {
-		creator, err := postgres.GetAgentProfileRepository(db, m.AgentID)
+		creator, err := agentManagementPostgres.GetAgentProfileRepository(db, m.AgentID)
 		if err != nil {
 			return nil, err
 		}
-		creatorStatus, err := chainStatus(db, creator.ID, creator.Status)
+		creatorStatus, err := ChainStatus(db, creator.ID, creator.Status)
 		if err != nil {
 			return nil, err
 		}
 		member := string(agentManagementCore.UserTypeMember)
 		out = append(out, agentManagementDto.AdminAccountRow{Username: m.Username, Role: member, UserType: member,
 			Status: string(agentAuthCore.WorstStatus(creatorStatus, m.Status)), ParentUsername: creator.Username,
-			CreatedAt: optionalTime(&m.CreatedAt), LastLoginAt: optionalTime(m.LastLoginAt), LastLoginIP: stringOrEmpty(m.LastLoginIP)})
+			CreatedAt: OptionalTime(&m.CreatedAt), LastLoginAt: OptionalTime(m.LastLoginAt), LastLoginIP: StringOrEmpty(m.LastLoginIP)})
 	}
 	return out, nil
 }
@@ -86,7 +87,7 @@ func parentUsername(db *gorm.DB, parentID *uint) (string, error) {
 	if parentID == nil {
 		return "", nil
 	}
-	p, err := postgres.GetAgentProfileRepository(db, *parentID)
+	p, err := agentManagementPostgres.GetAgentProfileRepository(db, *parentID)
 	if err != nil {
 		return "", err
 	}
