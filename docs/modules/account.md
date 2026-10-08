@@ -2,7 +2,8 @@
 
 - สถานะ: **APPROVED** (อนุมัติ 2026-10-07 — หลังแก้รูปแบบสิทธิ์, ยอดเงินจริง และไม่มี null ใน API)
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07 · ฉบับก่อนหน้าอนุมัติ 2026-10-05 และ 2026-10-06
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): ACC-12 บัญชีที่ถูกระงับ `permissions` แสดงตามที่ใช้ได้จริง · ACC-16 `pt` แสดงชุดเดียวต่อระบบ (`minigame`) พร้อม `status` `created_at` `created_by` `updated_at` `updated_by` · `status_game` แยกทีละเกมด้านนอก `pt` · ACC-04 เก็บ Key ตรงๆ ไม่เข้ารหัส (lead ตัดสิน)
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ACC-12 บัญชีที่ถูกระงับ `permissions` แสดงตามที่ใช้ได้จริง · ACC-16 `pt` แสดงชุดเดียวต่อระบบ (`minigame`) พร้อม `status` `created_at` `created_by` `updated_at` `updated_by` · `status_game` แยกทีละเกมด้านนอก `pt` · ACC-04 เก็บ Key ตรงๆ ไม่เข้ารหัส (lead ตัดสิน)
+- แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · รอ lead รับทราบ): ACC-01 ทุกบัญชี Company / Share / Agent มี Key · ACC-02 ไม่มีสิทธิ์เมนู `account` (เจ้าของและ sub เปิดได้เสมอ) · ถูกระงับดูหน้า 1.3 ได้ (บันทึกไม่ได้) · migration สร้าง Key ให้บัญชีเดิมทุกบัญชี
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.1 ภาพรวม (Dashboard)** · **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API**
 - ที่มาของ rule: ภาพหน้าจอตัวอย่าง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg + review comments (2026-10-05) ·
@@ -25,7 +26,7 @@
 |---|---|---|
 | Profile | ประเภทบัญชี, สกุลเงิน, ค่าหุ้นส่วน, ระบบสิทธิ์ (รายการสิทธิ์ + สิทธิ์ของ sub) | module ② User Management |
 | Profile — ยอดเงิน | ยอดเงินแยกสกุล (`balances`) | ตาราง `agent_balances` ของ module ② (MGMT-15A) — module การชำระเงินใช้ต่อ |
-| 1.3 | ประเภทบัญชี (หาเจ้าของ Key) · ระบบสิทธิ์ (สิทธิ์ดู / แก้ไขของ sub) | module ② User Management |
+| 1.3 | ประเภทบัญชี (หาเจ้าของ Key) · สร้าง Key ตอนสร้างบัญชี (MGMT-04) | module ② User Management |
 | Dashboard | bet, ผลได้เสียตาม PT, Commission | module เดิมพัน / Settle |
 
 > **หมายเหตุ — ค่าชั่วคราว (2026-10-07) เลิกใช้แล้ว (2026-10-08):** ใน `boiledegg/bo/account` (merge module ② แล้ว) Profile ส่งค่าจริงทุก field จากตารางของ
@@ -41,7 +42,7 @@
 | ประเภทบัญชี (`user_type`) | role + ประเภทย่อยตาม Company Hierarchy เช่น Company Transfer, Share B2C, Agent |
 | ค่าหุ้นส่วน | PT ที่ได้รับ (ผู้สร้างตั้งให้ลูกแต่ละคน) · PT ถือจาก Member ใต้ตัวเอง (ตั้งเอง) · Remain (เอาส่วนที่เหลือ) · Force (บังคับถือสู้) · Commission — ระบบเก็บต่อเกม แต่หน้าบ้านตั้ง**ชุดเดียว**แล้วใช้กับทุกเกม (module ②) |
 | สิทธิ์ | รายการสิ่งที่บัญชีทำได้ (กำหนดใน module ② ครั้งเดียว) · บัญชีหลักได้ตามประเภท · sub ได้ตามที่ผู้สร้างให้ |
-| เจ้าของ Key | Company Seamless 1 to 1 · Share Master · Share Reseller — บัญชีละ 1 Key (ACC-01) |
+| เจ้าของ Key | Company / Share / Agent ทุกประเภท — บัญชีละ 1 Key (ACC-01) |
 | Key | ค่าลับที่ลูกค้าใช้ระบุตัวและคำนวณ `sign` ทุกคำขอ (Seamless API Flow) |
 | ลิงก์ตอบกลับ | URL ของระบบลูกค้าที่ระบบเราเรียก (GetMember, GetBalance, Bet, Settle, Cancel) |
 | IP ที่อนุญาต | IP ของลูกค้าที่เรียก API ของเราได้ |
@@ -56,7 +57,7 @@
 | | • บัญชีตัวเอง ACTIVE · หัวสาย LOCKED → `status = LOCKED` เข้าใช้งานไม่ได้ |
 | | • บัญชีตัวเองถูกล็อก · หัวสาย ACTIVE → ลูก `status = LOCKED` เข้าใช้งานไม่ได้ · **หัวสายใช้งานได้ปกติ** (สถานะของลูกไม่ส่งผลขึ้นไปข้างบน) |
 | | • Company ระงับ Share → Share และ Agent / Member ใต้ Share `status = SUSPENDED` · Company ยัง `ACTIVE` |
-| ACC-31 | การเข้าใช้งานตัดสินจาก `status` (ACC-30): `ACTIVE` ใช้งานได้ปกติ · `SUSPENDED` เข้าได้**เฉพาะหน้า Profile และ Report** และดูได้อย่างเดียว · `LOCKED` เข้าใช้งานไม่ได้เลย (AUTH-27) — บังคับทุก module ที่ middleware กลาง (AUTH-54) |
+| ACC-31 | การเข้าใช้งานตัดสินจาก `status` (ACC-30): `ACTIVE` ใช้งานได้ปกติ · `SUSPENDED` เข้าได้**เฉพาะหน้า Profile, Report และดูข้อมูลรับรอง API (1.3)** แบบดูอย่างเดียว (1.3 เพิ่ม 2026-10-08) · `LOCKED` เข้าใช้งานไม่ได้เลย (AUTH-27) — บังคับทุก module ที่ middleware กลาง (AUTH-54) |
 | ACC-32 | **ไม่มี `null` ใน API (ใช้ทุก module)**: response — ข้อความที่ไม่มีค่า = `""` · ตัวเลขที่ไม่มีค่า = `0` · รายการว่าง = `[]` · object ว่าง = `{}` · request — ห้ามส่ง `null` (ส่ง = `422` msg บอก field) · ข้อความที่จะเว้นว่างส่ง `""` · ใน DB เก็บ `NULL` ได้ตามปกติ แปลงที่ขอบระบบ |
 
 ### Dashboard (1.1)
@@ -90,11 +91,11 @@
 
 | ID | Rule |
 |---|---|
-| ACC-01 | เจ้าของ Key = **Company Seamless 1 to 1** · **Share Master** · **Share Reseller** · แต่ละบัญชีมี Key, ลิงก์ตอบกลับ และรายการ IP **ของตัวเอง** · บัญชีอื่นทั้งหมด (Superadmin, ADMIN, Company Transfer, Company Seamless Reseller / Master, Share B2B / B2C, Agent) เปิดหน้านี้ไม่ได้ (`403301`) |
-| ACC-02 | เจ้าของเปิดดู / บันทึกได้ · sub ของเจ้าของ: สิทธิ์ `account` = `view` → GET ได้ · `account` = `edit` → POST ได้ · ไม่ได้รับสิทธิ์ → `402303` (module ② MGMT-51) · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) |
+| ACC-01 | เจ้าของ Key = **ทุกบัญชี Company / Share / Agent ทุกประเภท** (แก้ 2026-10-08 — เดิมเฉพาะ Seamless 1 to 1 / Share Master / Share Reseller) · แต่ละบัญชีมี Key, ลิงก์ตอบกลับ และรายการ IP **ของตัวเอง** · Superadmin / ADMIN ไม่มี (`403301`) |
+| ACC-02 | **ไม่มีสิทธิ์ต่อเมนู** (แก้ 2026-10-08 — เอาเมนู `account` ออกจากระบบสิทธิ์ module ②): เจ้าของและ sub ของเจ้าของเปิดดู / บันทึกได้เสมอ (sub ทำงานแทนเจ้าของ) · บันทึกยังต้อง passcode · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) |
 | ACC-03 | Key สร้างอัตโนมัติ 1 ค่าต่อเจ้าของ: สุ่ม 32 byte ด้วย `crypto/rand` แสดงเป็น hex ตัวพิมพ์เล็ก 64 ตัว · **สร้างใหม่ไม่ได้** · ใช้ทั้งระบุตัวและคำนวณ `sign` |
 | ACC-04 | Key ดูซ้ำได้ (ปุ่มคัดลอก) → **เก็บ Key ตรงๆ** ในคอลัมน์ `api_key` (unique — ใช้ค้นตอนลูกค้าเรียก API) ไม่เข้ารหัส (lead ตัดสิน 2026-10-08 — ใช้ IP whitelist ACC-07 ป้องกันการเรียก API แทน · ไม่มี `API_KEY_ENCRYPTION_KEY`) · response ใส่ `Cache-Control: no-store` · ห้าม log Key |
-| ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่ยังไม่มี Key สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
+| ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่มีอยู่ก่อนได้ Key จาก migration `20261008170000_account_api_keys_for_all` (แก้ 2026-10-08) · ถ้ายังไม่มี Key (กันไว้) สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
 | ACC-06 | ลิงก์ตอบกลับ: ต้องเป็น URL `https://` ที่มี host · ยาวไม่เกิน 500 ตัว · เว้นว่างได้ (= ยังไม่ตั้ง): ส่ง `""` (ตัดช่องว่างแล้วว่าง) → เก็บเป็น `NULL` · response ส่ง `""` · ส่ง `null` = `422` (ACC-32) · ไม่ส่ง field = `422` (บันทึกแทนทั้งชุด — ACC-08) |
 | ACC-07 | IP ที่อนุญาต: IPv4 หรือช่วง CIDR ของ IPv4 (IP เดี่ยวเก็บเป็น `/32`) · ไม่เกิน **50** รายการ · ห้ามซ้ำ · **ไม่มีเลย = ลูกค้าเรียก API ของเราไม่ได้** |
 | ACC-08 | บันทึก = แทนทั้งชุด (ลิงก์ + รายการ IP) · ต้องส่ง `passcode` ของผู้กด (`RequirePasscode`) · tx + `SELECT ... FOR UPDATE` แถว credential |
@@ -114,8 +115,8 @@
 |---|---|---|
 | GET | `/api/v1/bo/pr/account/dashboard` | `RequirePermission(dashboard, view)` |
 | GET | `/api/v1/bo/pr/account/profile` | — (เปิดได้ตอน SUSPENDED) |
-| GET | `/api/v1/bo/pr/account/api-credential` | `RequirePermission(account, view)` |
-| POST | `/api/v1/bo/pr/account/update-credential` | `RequirePermission(account, edit)` · `RequirePasscode` |
+| GET | `/api/v1/bo/pr/account/api-credential` | — ไม่มีสิทธิ์ต่อเมนู (ACC-02) · เปิดได้ตอน SUSPENDED (ACC-31) |
+| POST | `/api/v1/bo/pr/account/update-credential` | `RequirePasscode` (ไม่มีสิทธิ์ต่อเมนู — ACC-02) |
 
 ### GET /api/v1/bo/pr/account/dashboard
 
@@ -183,7 +184,7 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
-    "dashboard": "view", "account": "view", "member": "off", "pt": "off", "report": "view",
+    "dashboard": "view", "member": "off", "pt": "off", "report": "view",
     "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
   }
 }
@@ -213,7 +214,7 @@ Response `data` (header `Cache-Control: no-store`):
 ```
 `callback_url` = `""` เมื่อยังไม่ตั้ง · `allowed_ips` = `[]` เมื่อยังไม่มี
 
-Error codes: `403301` · `402303` (sub ไม่มีสิทธิ์)
+Error codes: `403301` (Superadmin / ADMIN)
 
 ### POST /api/v1/bo/pr/account/update-credential
 
@@ -231,7 +232,7 @@ Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`)
 - `callback_url`: `""` = ไม่ตั้ง · ส่ง `null` = `422` (ACC-06 · ACC-32)
 
 Error codes: `422` (ไม่ส่ง field · ลิงก์ไม่ใช่ https / ยาวเกิน · IP ผิดรูปแบบ · เกิน 50 รายการ · IP ซ้ำ — msg บอก field และรายการ),
-`403301`, `401204`, `401205` · `402303` (sub ไม่มีสิทธิ์)
+`403301` (Superadmin / ADMIN), `401204`, `401205`
 
 ## 6. Schema
 
@@ -284,7 +285,8 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-30 | Agent ACTIVE · Share ที่เป็นหัวสายถูกล็อก | Agent `status = LOCKED` |
 | ACC-30 | Agent ถูกล็อก · Share ที่เป็นหัวสาย ACTIVE | Agent `status = LOCKED` · Share `status = ACTIVE` ใช้งานได้ปกติ |
 | ACC-31 | `status = SUSPENDED` เรียก profile | สำเร็จ |
-| ACC-31 | `status = SUSPENDED` เรียก dashboard / POST update-credential / route อื่นนอก Profile, Report | ถูกปฏิเสธ (AUTH-54) |
+| ACC-31 | `status = SUSPENDED` (เจ้าของหรือ sub) เรียก GET api-credential | สำเร็จ (ดูได้อย่างเดียว) |
+| ACC-31 | `status = SUSPENDED` เรียก dashboard / POST update-credential / route อื่นนอก Profile, Report, GET api-credential | ถูกปฏิเสธ (AUTH-54) |
 | ACC-21 | Company A ดู dashboard | นับเฉพาะ Member ในสาย A |
 | ACC-22 | `currency` ที่บัญชีไม่มี / ไม่ส่ง · `month = 13` · ไม่ส่ง `year` | `422` |
 | ACC-22 | ไม่ส่ง `month` | `period` = ทั้งปีของ `year` |
@@ -303,15 +305,15 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
 | ACC-19 | Share สร้างพร้อมยอดเงินตั้งต้น THB 10,000 (module ② MGMT-15A) | `balances` THB `amount = 10000.00` |
-| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 9 เมนู ค่า `edit` ทั้งหมด |
+| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 8 เมนู ค่า `edit` ทั้งหมด (ไม่มี `account`) |
 | ACC-15 | sub ที่ได้แค่ `report` = `view` | `permissions.report = "view"` · เมนูอื่น `"off"` |
 | ACC-18 | Commission 0.5% | profile ได้ `0.5` · DB เก็บจำนวนเต็ม |
 | ACC-14 | login แล้วเรียก profile | `last_login_at` / `last_login_ip` ตรงกับ login นี้ |
 | ACC-01 | Company Seamless 1 to 1 / Share Master / Share Reseller เรียก GET | สำเร็จ · ได้ Key ของตัวเอง |
 | ACC-01 | Share Reseller 2 บัญชีใต้ Company เดียวกัน | ได้ Key คนละค่า |
-| ACC-01 | Company Seamless Reseller / Master, Company Transfer, Share B2B / B2C, Agent, Superadmin เรียก GET / POST | `403301` |
-| ACC-02 | sub ที่ได้สิทธิ์ `account` = `view` | GET สำเร็จ · POST `402303` |
-| ACC-02 | sub ที่ได้ `account` = `off` | GET / POST `402303` |
+| ACC-01 | Company Transfer, Company Seamless Reseller, Share B2C, Agent เรียก GET | ได้ Key ของตัวเอง (สร้างตอนสร้างบัญชี) |
+| ACC-01 | Superadmin / ADMIN เรียก GET / POST | `403301` |
+| ACC-02 | sub ที่ไม่ได้รับสิทธิ์ใดเลย (`permissions = {}`) | GET / POST สำเร็จ · log บันทึก actor เป็น sub |
 | ACC-02 | เจ้าของ SUSPENDED กดบันทึก | ถูกปฏิเสธที่ middleware (ACC-31 / AUTH-54) |
 | ACC-03 | เจ้าของ GET ครั้งแรก | Key hex ตัวพิมพ์เล็ก 64 ตัว |
 | ACC-04 | GET ซ้ำ | Key เดิม · header `Cache-Control: no-store` · `api_credentials.api_key` = Key ที่ได้ |
@@ -364,6 +366,6 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 
 | Code | HTTP | ความหมาย |
 |---|---|---|
-| 403301 | 200 | บัญชีนี้ไม่มีข้อมูลรับรอง API |
+| 403301 | 200 | บัญชีนี้ไม่มีข้อมูลรับรอง API (Superadmin / ADMIN) |
 
 `403302` (เดิม: บัญชีถูกระงับ) ตัดออกก่อนปล่อยใช้ — จองถาวร

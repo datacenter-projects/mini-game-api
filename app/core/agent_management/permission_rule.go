@@ -2,14 +2,13 @@ package agentmanagement
 
 import "app/app/models"
 
-// สิทธิ์ต่อเมนู (MGMT-50 – MGMT-53)
+// สิทธิ์ต่อเมนู (MGMT-50 – MGMT-53) · ไม่มีเมนู account — Profile และ 1.3 เปิดได้เสมอ (แก้ 2026-10-08)
 
 // Menu — เมนูที่ใช้กำหนดสิทธิ์
 type Menu string
 
 const (
 	MenuDashboard    Menu = "dashboard"
-	MenuAccount      Menu = "account"
 	MenuMember       Menu = "member"
 	MenuPT           Menu = "pt"
 	MenuReport       Menu = "report"
@@ -57,8 +56,8 @@ func MaxLevel(m Menu) Level {
 }
 
 var (
-	superadminMenus = []Menu{MenuDashboard, MenuAccount, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuRate}
-	agentMenus      = []Menu{MenuDashboard, MenuAccount, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuAnnouncement}
+	superadminMenus = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuRate}
+	agentMenus      = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuAnnouncement}
 )
 
 // MenusForRole — เมนูที่บัญชีหลักแต่ละ role มี (MGMT-52) · ADMIN ไม่ใช้ระบบนี้ (AUTH-44) = nil

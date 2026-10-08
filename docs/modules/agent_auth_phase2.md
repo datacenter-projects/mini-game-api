@@ -1,6 +1,6 @@
 # Backoffice Auth (`agent_auth`) ระยะ 2 — Subaccount login · Passcode · Password · Admin reset — Spec
 
-- สถานะ: **APPROVED** · `scripts/reset_credentials` ตกลงแล้ว 2026-10-08 (boiledegg — actor = `SCRIPT`) · AUTH-54 อนุมัติ 2026-10-06
+- สถานะ: **APPROVED** · `scripts/reset_credentials` อนุมัติ 2026-10-08 (lead — actor = `SCRIPT`) · AUTH-54 อนุมัติ 2026-10-06
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
@@ -116,7 +116,7 @@
 | ID | Rule |
 |---|---|
 | AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) |
-| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** (review account 2026-10-05 — อนุมัติ 2026-10-06): ตัดสินจาก `EffectiveStatus` (ตัวเอง, ผู้สร้างกรณี sub หรือ upline ถูกระงับ) · ทุก route ใต้ `/pr` ใช้ `mw.PassedGates(...)` ซึ่ง**ปฏิเสธ SUSPENDED** (`401311`) · route ดูข้อมูลของ Profile / Report ใช้ `mw.PassedGatesAllowSuspended(...)` บรรทัดเดียวกับ route · ด่านหลัง login (AUTH-29) ยังใช้กับทุก route · **เปลี่ยน passcode / รหัสผ่านของตัวเองก็ไม่ได้** (setup, change — ตัดสิน 2026-10-06) · logout ได้เสมอ · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 |
+| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** · **เพิ่ม 2026-10-08: ดูข้อมูลรับรอง API (`GET /account/api-credential`) ได้ด้วย** (review account 2026-10-05 — อนุมัติ 2026-10-06): ตัดสินจาก `EffectiveStatus` (ตัวเอง, ผู้สร้างกรณี sub หรือ upline ถูกระงับ) · ทุก route ใต้ `/pr` ใช้ `mw.PassedGates(...)` ซึ่ง**ปฏิเสธ SUSPENDED** (`401311`) · route ดูข้อมูลของ Profile / Report ใช้ `mw.PassedGatesAllowSuspended(...)` บรรทัดเดียวกับ route · ด่านหลัง login (AUTH-29) ยังใช้กับทุก route · **เปลี่ยน passcode / รหัสผ่านของตัวเองก็ไม่ได้** (setup, change — ตัดสิน 2026-10-06) · logout ได้เสมอ · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 

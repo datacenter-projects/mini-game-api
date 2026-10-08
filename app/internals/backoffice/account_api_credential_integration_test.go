@@ -81,16 +81,14 @@ func TestAPICredentialOwners(t *testing.T) { // ACC-01, ACC-03, ACC-04, ACC-10
 	app := setup2(t)
 	o := buildOwners(t, app)
 
-	// MGMT-04: เจ้าของ Key ได้ Key ตั้งแต่สร้างบัญชี · บัญชีที่ไม่ใช่เจ้าของไม่มี
-	for _, id := range []uint{o.one.ID, o.res1.ID} {
+	// MGMT-04 · ACC-01 (แก้ 2026-10-08): Company / Share / Agent ทุกประเภทได้ Key ตั้งแต่สร้างบัญชี · Superadmin ไม่มี
+	for _, id := range []uint{o.one.ID, o.res1.ID, o.com.ID, o.share.ID, o.agent.ID} {
 		if n := countRows(t, &models.APICredential{}, "agent_id = ?", id); n != 1 {
 			t.Fatalf("agent %d ต้องมี Key ตั้งแต่สร้าง ได้ %d แถว", id, n)
 		}
 	}
-	for _, id := range []uint{o.com.ID, o.share.ID, o.agent.ID} {
-		if n := countRows(t, &models.APICredential{}, "agent_id = ?", id); n != 0 {
-			t.Fatalf("agent %d ไม่ใช่เจ้าของ Key แต่มี %d แถว", id, n)
-		}
+	if n := countRows(t, &models.APICredential{}, "agent_id IN (SELECT id FROM user_agents WHERE role = ?)", models.AgentRoleSuperAdmin); n != 0 {
+		t.Fatalf("Superadmin ต้องไม่มี Key ได้ %d แถว", n)
 	}
 	var created models.APICredential
 	database.DBConn.Where("agent_id = ?", o.one.ID).Take(&created)
@@ -117,15 +115,19 @@ func TestAPICredentialOwners(t *testing.T) { // ACC-01, ACC-03, ACC-04, ACC-10
 		t.Fatal("เจ้าของแต่ละบัญชีต้องได้ Key ของตัวเอง")
 	}
 
-	for name, tok := range map[string]string{"Superadmin": o.saTok, "Company Transfer": o.comTok, "Share B2C": o.shareTok,
+	for name, tok := range map[string]string{"Company Transfer": o.comTok, "Share B2C": o.shareTok,
 		"Agent": o.agentTok, "Company Seamless Reseller": o.resellerComTok} {
 		t.Run(name, func(t *testing.T) {
-			expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 403301)
-			expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 403301)
+			if k, _ := getCredential(t, app, tok); !keyRe.MatchString(k.Key) {
+				t.Fatalf("%s ต้องได้ Key", name)
+			}
 		})
 	}
-	if n := countRows(t, &models.APICredential{}, "1 = 1"); n != 4 {
-		t.Fatalf("api_credentials = %d แถว, want 4 (เจ้าของเท่านั้น)", n)
+	// Superadmin / ADMIN ไม่มีข้อมูลรับรอง API
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, o.saTok), 200, 403301)
+	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), o.saTok), 200, 403301)
+	if n := countRows(t, &models.APICredential{}, "1 = 1"); n != 9 {
+		t.Fatalf("api_credentials = %d แถว, want 9 (ทุกบัญชีฝั่ง agent ยกเว้น Superadmin)", n)
 	}
 }
 
@@ -244,21 +246,27 @@ func TestAPICredentialSubPermission(t *testing.T) { // ACC-02
 	if d.Username != "one2one" {
 		t.Fatalf("sub ต้องเห็น username ของเจ้าของ ได้ %q", d.Username)
 	}
-	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 402303)
+	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 200) // ACC-02: sub บันทึกได้เสมอ (ไม่มีสิทธิ์เมนู account แล้ว)
 
 	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"account":"edit"}`})
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{"1.2.3.4"}), tok), 200, 200)
 	var l models.APICredentialLog
-	database.DBConn.Where("agent_id = ?", o.one.ID).Take(&l)
+	database.DBConn.Where("agent_id = ?", o.one.ID).Order("id").Take(&l)
 	if l.ActorType != models.AccountTypeSub || l.ActorUsername != "one2one@staff" {
 		t.Fatalf("log actor %+v", l)
 	}
 
+	// ACC-02 (แก้ 2026-10-08): ไม่มีสิทธิ์เมนู account แล้ว — sub ไม่มีสิทธิ์ใดเลยก็ดู / บันทึกได้
 	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{}`})
-	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 402303)
-	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 402303)
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 200)
+	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 200)
 
-	// เจ้าของ SUSPENDED กดบันทึก → ถูกกันที่ middleware (ACC-31 / AUTH-54)
+	// เจ้าของ SUSPENDED: ดู 1.3 ได้ · บันทึกถูกกันที่ middleware (ACC-31 / AUTH-54) · sub ของเจ้าของก็เหมือนกัน
 	setStatus(t, o.one.ID, models.AgentStatusSuspended)
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), o.oneTok), 403, 401311)
+	if d, _ := getCredential(t, app, o.oneTok); d.Username != "one2one" {
+		t.Fatalf("ถูกระงับต้องดู 1.3 ได้ %+v", d)
+	}
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 200)
+	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 403, 401311)
 }

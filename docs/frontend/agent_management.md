@@ -711,7 +711,7 @@ Response `data`:
       "phone": "",
       "status": "ACTIVE",
       "permissions": {
-        "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
+        "dashboard": "view", "member": "edit", "pt": "view", "report": "view",
         "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
       },
       "created_at": "2026-10-06T12:26:43+07:00",
@@ -754,7 +754,7 @@ Response `data`: รูปแบบเดียวกับ 1 แถวของ
   "phone": "",
   "status": "ACTIVE",
   "permissions": {
-    "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
+    "dashboard": "view", "member": "edit", "pt": "view", "report": "view",
     "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
   },
   "created_at": "2026-10-06T12:26:43+07:00",
