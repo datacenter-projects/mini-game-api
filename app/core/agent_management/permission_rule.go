@@ -1,6 +1,10 @@
 package agentmanagement
 
-import "app/app/models"
+import (
+	"sort"
+
+	"app/app/models"
+)
 
 // สิทธิ์ต่อเมนู (MGMT-50 – MGMT-53) · ไม่มีเมนู account — Profile และ 1.3 เปิดได้เสมอ (แก้ 2026-10-08)
 
@@ -99,8 +103,13 @@ func NormalizeSubPermissions(ownerRole models.AgentRole, in map[string]string) (
 	for _, m := range menus {
 		out[m] = LevelOff
 	}
-	for k, val := range in {
-		m, l := Menu(k), Level(val)
+	keys := make([]string, 0, len(in)) // ตรวจตามลำดับชื่อ — error ออกตัวเดียวกันทุกครั้ง
+	for k := range in {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		m, l := Menu(k), Level(in[k])
 		if !allowed[m] {
 			return nil, PermissionViolation{k, "menu"}, false
 		}

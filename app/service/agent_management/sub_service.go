@@ -1,6 +1,8 @@
 package agentmanagement
 
 import (
+	"strings"
+
 	"context"
 	"encoding/json"
 	"errors"
@@ -131,7 +133,7 @@ func CreateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 	}
 	perms, v, ok := agentManagementCore.NormalizeSubPermissions(actor.Role, req.Permissions)
 	if !ok {
-		return res, permissionError(v)
+		return res, permissionError(v, actor.Role)
 	}
 	permsJSON, err := json.Marshal(perms)
 	if err != nil {
@@ -185,7 +187,7 @@ func UpdateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 	meta agentAuthService.RequestMeta) error {
 	perms, v, ok := agentManagementCore.NormalizeSubPermissions(actor.Role, *req.Permissions)
 	if !ok {
-		return permissionError(v)
+		return permissionError(v, actor.Role)
 	}
 	permsJSON, err := json.Marshal(perms)
 	if err != nil {
@@ -230,10 +232,16 @@ func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.A
 }
 
 // permissionError — สิทธิ์ที่ส่งมาผิด (MGMT-50, MGMT-52) → 422 บอกเมนู
-func permissionError(v agentManagementCore.PermissionViolation) error {
+func permissionError(v agentManagementCore.PermissionViolation, ownerRole models.AgentRole) error {
 	field := "permissions." + v.Menu
 	if v.Reason == "menu" {
-		return apperr.ErrValidation.WithMessage(field+" ไม่มีเมนูนี้สำหรับบัญชีประเภทนี้", field+" is not a menu of this account type")
+		menus := agentManagementCore.MenusForRole(ownerRole)
+		names := make([]string, len(menus))
+		for i, m := range menus {
+			names[i] = string(m)
+		}
+		list := strings.Join(names, ", ")
+		return apperr.ErrValidation.WithMessage(field+" ไม่มีเมนูนี้ · เมนูที่ให้ได้: "+list, field+" is not a menu · allowed menus: "+list)
 	}
 	return apperr.ErrValidation.WithMessage(field+" ต้องเป็น off / view / edit (dashboard และ report สูงสุด view)",
 		field+" must be off, view or edit (dashboard and report up to view)")

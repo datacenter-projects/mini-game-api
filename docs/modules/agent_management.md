@@ -4,6 +4,7 @@
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
+- แก้ 2026-10-09 (boiledegg ตัดสิน): ลำดับเช็คบนลงล่างตาม field ใน body และข้อความ error บอก field + ค่าที่ตั้งได้ (หัวข้อ 7.1)
 - แก้หลังอนุมัติ (2026-10-08 · maofoy · boiledegg ยืนยัน 2026-10-09): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261009000000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`) · เส้น `/manage/members/*` แยกไปที่ `member_management` (`controllers/` `dto/` `service/member_management` — lead อนุมัติ 2026-10-08 · spec [member_management.md](member_management.md) แยกเอกสาร 2026-10-09) · กฎ business ยังอยู่ที่ `core/agent_management` และ spec ฉบับนี้
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
@@ -905,10 +906,22 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-52 | sub ของ Superadmin ได้สิทธิ์ `announcement` | `422` |
 | MGMT-52 | Superadmin ให้ sub `rate` = `edit` · Company ให้ sub `rate` | สำเร็จ · `422` |
 
-### 7.1 ลำดับเช็ค (เส้นสร้าง)
+### 7.1 ลำดับเช็ค (แก้ 2026-10-09 — ทุกเส้นใน module นี้)
 
-`422` (รูปแบบ) → `402303` (สิทธิ์ sub) → `402301` (สร้างประเภทนี้ไม่ได้) → `402310` (สกุล) → `402401` / `402403` (ซ้ำ) →
-`402305` / `402307` / `402308` / `402309` (ค่าหุ้นส่วน)
+ไล่ **บนลงล่างตามลำดับ field ใน body** 2 รอบ · ตอบ error ของ field แรกที่ผิด:
+
+1. **รูปแบบ** (DTO — ไม่ต้องดู DB) ทุก field บนลงล่าง → `422`
+2. **กฎที่ต้องดู DB** บนลงล่าง — เส้นสร้างฝั่ง agent:
+   `user_type` (`402301`) → `username` ซ้ำ (`402401`) → `phone` ซ้ำ (`402403`) → `currencies` (`422` / `402310`) →
+   `balance` (`422` / `402312`) → `pt` ทีละ field: `pt_from_parent` (`402305` / `402307`) → `force` → `remain_quota` (`402308`) → `commission_percent` (`402309`)
+   · `update-pt`: `pt_from_parent` (เพดาน `402305` → ต่ำสุดที่ลูกใช้ `402306`) → `force` → `remain_quota` → `commission_percent`
+3. สิทธิ์ (`401308` / `402303` / `402311`) เช็คที่ middleware ก่อนทั้งหมด
+
+ค่าที่เป็น object (`pt`, `balance`, `status_game`, `permissions`) ไล่ key ตามลำดับตัวอักษร — error ออกตัวเดียวกันทุกครั้ง
+
+**ข้อความ error บอก field และค่าที่ตั้งได้** (code เดิม): เช่น `402301` → `user_type: SUPERADMIN สร้างได้เฉพาะ COMPANY_TRANSFER, …` ·
+`422` currencies → `currencies: COMPANY_TRANSFER ได้ครบทุกสกุล ห้ามส่ง currencies` · `402305` → `pt.minigame.pt_from_parent ตั้งได้ไม่เกิน 90 (ค่าที่คุณได้รับ)` ·
+`402308` → `pt.minigame.force ตั้งได้ไม่เกิน 50 (ค่าที่ให้ลูก)` · `402312` → `balance.THB ยอดของคุณไม่พอ (มี 0.00)` · สิทธิ์ sub → `permissions.rate ไม่มีเมนูนี้ · เมนูที่ให้ได้: …`
 
 ## 8. Contract changes (แจ้ง frontend)
 

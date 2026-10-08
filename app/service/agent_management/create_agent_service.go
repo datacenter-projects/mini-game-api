@@ -11,7 +11,6 @@ import (
 	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	agentAuthService "app/app/service/agent_auth"
-	"app/pkg/apperr"
 	"app/pkg/utils"
 	"app/platform/database"
 
@@ -56,28 +55,30 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		if err != nil {
 			return err
 		}
+		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO) — หัวข้อ 7.1
 		newAcc, ok := agentManagementCore.ResolveNewAgent(c.UserType, agentManagementCore.UserType(req.UserType))
 		if !ok {
-			return apperr.ErrCannotCreateType
+			return CannotCreateTypeError(c.UserType)
+		}
+		if err := LockAndCheckIdentity(tx, req.Username, req.Phone, false); err != nil {
+			return err
 		}
 		currencies, cv := agentManagementCore.ResolveCurrencies(c.UserType, newAcc.UserType, req.Currencies, c.Currencies)
-		switch cv {
-		case agentManagementCore.CurrencyInvalidInput:
-			return apperr.ErrValidation.WithMessage("currencies ไม่ตรงกับกฎของประเภทนี้ (MGMT-10 – MGMT-13)", "currencies do not match the rule for this account type")
-		case agentManagementCore.CurrencyNotInCreators:
-			return apperr.ErrCurrencyNotInCreator
-		}
-		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
-		for g, v := range req.PT {
-			if err := PTError(g, agentManagementCore.ValidateChildPT(v.Parsed, c.ReceivedBP[agentManagementCore.PTGroup(g)], creatorIsMaster)); err != nil {
-				return err
-			}
+		if cv != agentManagementCore.CurrencyOK {
+			return CurrencyError(c.UserType, newAcc.UserType, cv, c.Currencies)
 		}
 		if err := CheckInitialBalance(req.BalanceMinor, c.newAccountSeamless(newAcc.UserType), currencies); err != nil {
 			return err
 		}
-		if err := LockAndCheckIdentity(tx, req.Username, req.Phone, false); err != nil {
+		if err := CheckCreatorBalance(tx, c, req.BalanceMinor); err != nil {
 			return err
+		}
+		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
+		for _, g := range SortedGroups(req.PT) {
+			is := agentManagementCore.CheckChildPT(req.PT[g].Parsed, c.ReceivedBP[agentManagementCore.PTGroup(g)], creatorIsMaster)
+			if err := ChildPTError(g, is); err != nil {
+				return err
+			}
 		}
 
 		now := time.Now()

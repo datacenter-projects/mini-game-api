@@ -153,8 +153,10 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 		for _, g := range SortedGroups(req.PT) {
 			v := req.PT[g].Parsed
 			group := agentManagementCore.PTGroup(g)
-			if err := PTError(g, agentManagementCore.ValidateChildPT(v, c.ReceivedBP[group], creatorIsMaster)); err != nil {
-				return err
+			// ไล่ตาม field: pt_from_parent (เพดาน → ต่ำสุดที่ลูกใช้ MGMT-24) → force → remain_quota → commission_percent
+			is := agentManagementCore.CheckChildPT(v, c.ReceivedBP[group], creatorIsMaster)
+			if is.Field == "pt_from_parent" {
+				return ChildPTError(g, is)
 			}
 			cur, ok := groupSetting(childSettings, group)
 			if !ok {
@@ -171,6 +173,9 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 				return apperr.ErrPTBelowChildUsage.WithMessage(
 					"pt."+g+".pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด "+string(p),
 					"pt."+g+".pt_from_parent is lower than what the child uses, minimum is "+string(p))
+			}
+			if err := ChildPTError(g, is); err != nil {
+				return err
 			}
 			if err := agentManagementPostgres.UpdateChildPTRepository(tx, child.ID, GameCodes(group), models.AgentGameSetting{
 				PTFromParentBP: v.PTFromParentBP, ForceBP: v.ForceBP, RemainBP: v.RemainBP, CommissionBP: v.CommissionBP,
@@ -204,10 +209,10 @@ func UpdateOwnHoldService(ctx context.Context, actor agentAuthService.Actor, req
 			group := agentManagementCore.PTGroup(g)
 			cur, ok := groupSetting(settings, group)
 			if !ok {
-				return PTError(g, agentManagementCore.PTExceedsReceived) // ไม่มีค่าที่ได้รับในกลุ่มนี้
+				return OwnPTError(g, agentManagementCore.PTExceedsReceived, 0) // ไม่มีค่าที่ได้รับในกลุ่มนี้
 			}
 			bp := req.PT[g].PTBP
-			if err := PTError(g, agentManagementCore.ValidateOwnPT(bp, cur.PTFromParentBP, isMaster)); err != nil {
+			if err := OwnPTError(g, agentManagementCore.ValidateOwnPT(bp, cur.PTFromParentBP, isMaster), cur.PTFromParentBP); err != nil {
 				return err
 			}
 			if err := agentManagementPostgres.UpdateOwnPTRepository(tx, me.ID, GameCodes(group), bp, actor.Username, now); err != nil {
