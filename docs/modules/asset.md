@@ -10,8 +10,8 @@
   `app/internals/backoffice/middleware/asset_target_middleware.go`, `app/internals/backoffice/routes/module_routes.go`,
   `app/repository/postgres/minigame_asset_*_repository.go`, `app/services/agent/*site*_service.go`,
   `database/postgres/seeddata/seed_minigame_asset_type.go`, `platform/s3client/s3.go`
-- spec ที่อ้างถึง: `agent_auth.md`, `agent_auth_phase2.md`, `agent_management.md` (APPROVED · อยู่บน `dev`),
-  `account.md` (อยู่บน branch `boiledegg/bo/account`)
+- spec ที่อ้างถึง: [agent_auth.md](agent_auth.md), [agent_auth_phase2.md](agent_auth_phase2.md),
+  [agent_management.md](agent_management.md), [account.md](account.md) (APPROVED ทั้งหมด)
 
 > เอกสารนี้คือ source of truth ของ module — โค้ดและ test ต้องตรงกับเอกสารนี้ ถ้าไม่ตรงให้แก้โค้ด
 > หรือแก้เอกสารผ่านการอนุมัติใหม่ ห้ามอ้างเอกสารของโปรเจกต์เก่า
@@ -73,7 +73,7 @@ Member
 
 | ID | Rule |
 |---|---|
-| AST-08 | เส้นที่เลือก scope ได้ส่ง `scope` = `"GLOBAL"` / `"AGENT"` **บังคับ** · `AGENT` ต้องส่ง `agent_id` > 0 · `GLOBAL` ต้องไม่ส่ง `agent_id` หรือส่ง `0` · เส้น branding / banner ส่ง `agent_id` > 0 อย่างเดียว · ไม่ส่ง / ค่าอื่น / `null` / อ่านไม่ออก → `422` msg บอก field · **ไม่มีค่าพิเศษ `me`** (หน้าบ้านใช้ id จาก Profile) · **ไม่มีการตีความค่าว่างหรือ 0 เป็น GLOBAL เงียบๆ** — พิมพ์ผิดต้องไม่กลายเป็นการเขียนทับค่ากลาง |
+| AST-08 | เส้นที่เลือก scope ได้ส่ง `scope` = `"GLOBAL"` / `"AGENT"` **บังคับ** · `AGENT` ต้องส่ง `agent_id` > 0 · `GLOBAL` ต้องไม่ส่ง `agent_id` หรือส่ง `0` · เส้น branding / banner ส่ง `agent_id` > 0 อย่างเดียว · ไม่ส่ง / ค่าอื่น / `null` / อ่านไม่ออก → `422` msg บอก field (body JSON อ่านด้วย `utils.ParseBodyNoNull`) · **ไม่มีค่าพิเศษ `me`** (หน้าบ้านใช้ id จาก Profile) · **ไม่มีการตีความค่าว่างหรือ 0 เป็น GLOBAL เงียบๆ** — พิมพ์ผิดต้องไม่กลายเป็นการเขียนทับค่ากลาง |
 | AST-09 | middleware `ResolveAssetTarget` เก็บผลเป็น struct ที่บอกชัดว่า resolve แล้วหรือยัง และได้ scope ไหน · guard ที่มีความหมายเฉพาะฝั่งเดียว (เช่น AST-02, AST-04) ต้องอยู่หลังตัวแยกฝั่ง · ถ้าอ่านผล resolve ไม่ได้ → ปฏิเสธ (fail-closed) ห้ามปล่อยผ่าน |
 
 ### Catalog
@@ -91,7 +91,7 @@ Member
 |---|---|
 | AST-14 | `game_code` และ `asset_type` ต้องตรงกับ catalog **ทุกตัวอักษร** (ไม่แปลงตัวพิมพ์ ไม่แทนช่องว่าง) · ไม่พบ → `405401` |
 | AST-15 | ลำดับตรวจ: สิทธิ์ → catalog (AST-14) → เลิกใช้ (AST-13) → ชนิด / ขนาดไฟล์ (AST-16) → ขนาดภาพ (AST-17) → **แล้วค่อยอัปขึ้น storage** · ไม่ผ่านข้อใด = ไม่มีไฟล์ขึ้น bucket |
-| AST-16 | ไฟล์ ≤ **10 MB** (`405103`) · ชนิด `png` · `jpeg` · `gif` · `webp` ตรวจจาก**เนื้อไฟล์** (magic bytes) ไม่เชื่อ `Content-Type` ที่ client ส่ง (`405102`) · นามสกุลของ storage key มาจากชนิดที่ตรวจได้ |
+| AST-16 | ไฟล์ ≤ **10 MB** (`405103` · ชนกับ `BodyLimit` 10 MB ของทั้ง request — ❓ หัวข้อ 9 ตาราง "ต้องขออนุมัติ") · ชนิด `png` · `jpeg` · `gif` · `webp` ตรวจจาก**เนื้อไฟล์** (magic bytes) ไม่เชื่อ `Content-Type` ที่ client ส่ง (`405102`) · นามสกุลของ storage key มาจากชนิดที่ตรวจได้ |
 | AST-17 | ขนาดภาพ: ช่องมีสเปก + อ่านขนาดได้ + ไม่ตรงขนาดใดเลย → `405101` msg บอกขนาดที่รับ · **ผ่านโดยตั้งใจ (fail-open) 2 กรณี**: ช่องไม่มีสเปก · อ่านขนาดจากไฟล์ไม่ได้ — ขนาดภาพเป็นเรื่องหน้าตา ไม่ใช่ความปลอดภัย |
 | AST-18 | อ่าน catalog จาก DB ไม่สำเร็จ → `500` ปฏิเสธ (**fail-closed** — ห้ามข้ามไปบันทึกต่อ) |
 | AST-19 | storage ไม่พร้อม → `505801` · อัปขึ้น storage ไม่สำเร็จ / timeout → `505802` (ไม่มีแถว DB) · อัปสำเร็จแต่บันทึก DB ไม่สำเร็จ → ลบ object ทิ้ง (ลบไม่ได้ log error พร้อม key) แล้วตอบ `500` |
@@ -107,7 +107,7 @@ Member
 | AST-24 | ใช้งานจริงของช่องในขอบเขตเดียว (เว็บ หรือ GLOBAL): มี used → config ของ used · ไม่มี used → config ล่าสุดที่ยังไม่ถูกลบของขอบเขตนั้น (อัปแล้วมีผลทันทีถ้ายังไม่เคยเลือก) · การรวม used กับล่าสุดต้อง**เพิ่ม**ช่องที่มีแค่ used (เว็บเลือก config GLOBAL ไว้ แต่ไม่เคยอัปของตัวเอง) — ไม่ใช่แค่ทับช่องที่มีอยู่ ไม่งั้นหน้าตั้งค่าเห็นรูปหนึ่ง เกม render อีกรูป |
 | AST-25 | **fallback ทีละช่อง** (เป้าหมาย AGENT): ช่องที่เว็บมีตาม AST-24 → ใช้ของเว็บ (`source = agent` รวมกรณีเว็บเลือก config GLOBAL) · ไม่มี → ใช้ GLOBAL ของช่องนั้นตาม AST-24 (`source = global`) · ทั้งชุด: `agent` / `global` / `mixed` · ห้าม fallback ทั้งชุดจาก "เว็บมีสักช่องไหม" |
 | AST-26 | repository ที่ตอบ "ของเว็บนี้มีอะไร" กรองเข้ม `scope = AGENT` + `agent_id` ตรง ไม่ปน GLOBAL · การรวม / fallback ทำใน service (ตรรกะรวมเป็น pure function ใน `app/core/asset`) |
-| AST-27 | `library` ของช่อง: config ที่ยังไม่ถูกลบของเป้าหมาย (+ ของ GLOBAL เมื่อเป้าหมายเป็น AGENT) เรียงใหม่ → เก่า · ทุกแถวมี `source`, `created_by`, `created_at`, `is_used` |
+| AST-27 | `library` ของช่อง: config ที่ยังไม่ถูกลบของเป้าหมาย (+ ของ GLOBAL เมื่อเป้าหมายเป็น AGENT) เรียงใหม่ → เก่า · ทุกแถวมี `source`, `created_by`, `created_at`, `is_used` · แบ่งหน้า: `page` / `limit` ใน body (`utils.NewPage` — ค่าเริ่มต้น 20 สูงสุด 100) ตอบด้วย `response.Page` (กฎข้อ 19 — config ไม่มีการตัดเวอร์ชันเก่า จึงยาวได้ไม่จำกัด) |
 
 ### ลบ — อสมมาตรโดยตั้งใจ (ห้ามทำให้เหมือนกัน)
 
@@ -149,7 +149,7 @@ Member
 | AST-41 | branding เป็นของเว็บ (AST-02) เท่านั้น ไม่มี GLOBAL · สิทธิ์อ่าน / เขียนตาม AST-04 / AST-05 (❓ เมนู — หัวข้อ 9 ข้อ 3) |
 | AST-42 | `branding/update` = แทนชุด `site_name` + `site_theme` · `site_name` บังคับ 1–50 ตัวอักษร · `site_theme` = `code` ที่ `is_active` ใน `site_themes` หรือ `""` (= ไม่ใช้ธีม) · ผิด → `422` msg บอก field |
 | AST-43 | โลโก้: ชนิด / ขนาดไฟล์ตาม AST-16 · favicon: `ico` หรือ `png` ≤ 10 MB ตรวจจากเนื้อไฟล์ · ไม่ตรวจขนาดภาพ · **เขียนทับ** (ไม่เก็บประวัติ) · ไฟล์เดิมใน storage ❓ หัวข้อ 9 ข้อ 5 |
-| AST-44 | banner: สร้างใหม่ 1 แถวต่อครั้ง · รูปตาม AST-16 · `link_url` = `""` หรือ URL `https://` ที่มี host ยาวไม่เกิน 500 (แบบ ACC-06) · `status` `ACTIVE` (ค่าเริ่มต้น) / `INACTIVE` · ลบ = soft delete · ลบ / เปลี่ยนสถานะได้โดยผู้มีสิทธิ์เขียนเว็บนั้น **ไม่ผูกกับคนอัป** · banner ไม่พบ / ของเว็บอื่น / ถูกลบ → `405404` ข้อความเดียวกัน · เรียงใหม่ → เก่า (ไม่มีการจัดลำดับรอบนี้) |
+| AST-44 | banner: สร้างใหม่ 1 แถวต่อครั้ง · รูปตาม AST-16 · `link_url` = `""` หรือ URL `https://` ที่มี host ยาวไม่เกิน 500 (แบบ ACC-06) · `status` `ACTIVE` (ค่าเริ่มต้น) / `INACTIVE` · ลบ = soft delete · ลบ / เปลี่ยนสถานะได้โดยผู้มีสิทธิ์เขียนเว็บนั้น **ไม่ผูกกับคนอัป** · banner ไม่พบ / ของเว็บอื่น / ถูกลบ → `405404` ข้อความเดียวกัน · เรียงใหม่ → เก่า (ไม่มีการจัดลำดับรอบนี้) · รายชื่อแบ่งหน้าแบบเดียวกับ AST-27 |
 
 ### Bundle
 
@@ -225,7 +225,9 @@ anti-pattern ทั้ง 9 ข้อของหมวด 6 ถูกห้า�
 
 ใช้แค่ `GET` / `POST` · ระบุบัญชีด้วย `agent_id` ใน body (ผู้เรียกมาจาก token) — เส้นอ่านที่ต้องระบุเป้าหมายจึงเป็น `POST` ·
 ใต้ `/bo/pr` ผ่าน `Authenticated` + `PassedGates()` · สิทธิ์เมนูด้วย `RequirePermission(MenuAsset, view|edit)` ·
-สิทธิ์ต่อเป้าหมาย (AST-03/04/05/09) ด้วย `ResolveAssetTarget` + `RequireAssetTarget(view|edit)` · ทุกอย่างเขียนบรรทัดเดียวกับ route (กฎข้อ 28)
+สิทธิ์ต่อเป้าหมาย (AST-03/04/05/09) ด้วย `ResolveAssetTarget` + `RequireAssetTarget(view|edit)` · ทุกอย่างเขียนบรรทัดเดียวกับ route (กฎข้อ 28) ·
+รายชื่อที่ยาวได้ไม่จำกัด (`library`, `banners/list`) แบ่งหน้าตามกฎข้อ 19 (`page` / `limit` ใน body · `response.Page`) ·
+รายการขนาดคงที่ (`games`, `slots`, `site-themes`, `list` ≤ จำนวนช่องของเกม) ตอบเป็น array ธรรมดาแบบ `copy-sources` ของ module ②
 
 error ร่วมทุกเส้น: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, `401307`, `401311`, `402303` ·
 เส้นที่ระบุเป้าหมายเพิ่ม: `422` (AST-08), `402402`, `405301`, `405302`
@@ -328,14 +330,22 @@ Error codes: `422`, `405401`
 
 Request:
 ```json
-{ "scope": "AGENT", "agent_id": 12, "game_code": "scratch_card", "asset_type": "icon_button" }
+{ "scope": "AGENT", "agent_id": 12, "game_code": "scratch_card", "asset_type": "icon_button", "page": 1, "limit": 20 }
 ```
-Response `data`:
+Response `data` (`response.Page`):
 ```json
-[
-  { "config_id": 9001, "url": "https://cdn.example.com/games/scratch_card/agents/12/icon_button/1759900000000000000-a1b2c3d4.png", "source": "agent", "is_used": true, "created_by": "share01@design", "created_at": "2026-10-08T10:00:00+07:00" },
-  { "config_id": 118, "url": "https://cdn.example.com/games/scratch_card/global/icon_button/1759700000000000000-c9d0e1f2.png", "source": "global", "is_used": false, "created_by": "superadmin", "created_at": "2026-10-01T09:00:00+07:00" }
-]
+{
+  "current_page": 1,
+  "total_page": 1,
+  "total_count": 2,
+  "limit": 20,
+  "has_next": false,
+  "has_prev": false,
+  "data": [
+    { "config_id": 9001, "url": "https://cdn.example.com/games/scratch_card/agents/12/icon_button/1759900000000000000-a1b2c3d4.png", "source": "agent", "is_used": true, "created_by": "share01@design", "created_at": "2026-10-08T10:00:00+07:00" },
+    { "config_id": 118, "url": "https://cdn.example.com/games/scratch_card/global/icon_button/1759700000000000000-c9d0e1f2.png", "source": "global", "is_used": false, "created_by": "superadmin", "created_at": "2026-10-01T09:00:00+07:00" }
+  ]
+}
 ```
 `is_used` = เป็นไฟล์ใช้งานจริงของช่องนี้ของเป้าหมาย · Error codes: `422`, `405401`
 
@@ -429,11 +439,19 @@ Error codes: `422`, `405102`, `405103`, `505801`, `505802`
 
 ### POST /api/v1/bo/pr/asset/banners/list
 
-Request: `{ "agent_id": 12 }` · Response `data`:
+Request: `{ "agent_id": 12, "page": 1, "limit": 20 }` · Response `data` (`response.Page`):
 ```json
-[
-  { "id": 55, "image": "https://cdn.example.com/sites/12/banners/1759900000000000000-11223344.png", "link_url": "https://share01.example.com/promo", "status": "ACTIVE", "created_by": "share01", "created_at": "2026-10-08T10:00:00+07:00" }
-]
+{
+  "current_page": 1,
+  "total_page": 1,
+  "total_count": 1,
+  "limit": 20,
+  "has_next": false,
+  "has_prev": false,
+  "data": [
+    { "id": 55, "image": "https://cdn.example.com/sites/12/banners/1759900000000000000-11223344.png", "link_url": "https://share01.example.com/promo", "status": "ACTIVE", "created_by": "share01", "created_at": "2026-10-08T10:00:00+07:00" }
+  ]
+}
 ```
 
 ### POST /api/v1/bo/pr/asset/banners/create (multipart/form-data)
@@ -661,6 +679,7 @@ CREATE INDEX idx_site_banners_agent ON site_banners(agent_id, created_at DESC) W
 | AST-25 | เว็บไม่มีของตัวเองเลย | `source = global` |
 | AST-26 | repository "config ล่าสุดของเว็บ share01" ขณะ GLOBAL มีช่องเดียวกัน | คืนเฉพาะแถว `AGENT` ของ share01 (integration test ของ repository) |
 | AST-27 | `library` ของ share01 ช่อง `icon_button` | ของ share01 + ของ GLOBAL ใหม่ → เก่า · ไม่มีของเว็บอื่น · ไม่มีแถวที่ลบแล้ว |
+| AST-27 | ช่องมี 30 เวอร์ชัน · ไม่ส่ง `page` / `limit` · `limit = 500` | หน้า 1 ได้ 20 แถว `total_count = 30` · `limit` ถูกปรับเป็น 100 |
 | AST-28 | superadmin ลบ config GLOBAL ที่ `sa@ops` อัป | `405303` |
 | AST-28 | ลบ config GLOBAL ที่ไม่มีใครเลือก | แถวหาย · object หาย |
 | AST-28 | **ลบ GLOBAL ขณะเว็บอื่นยิง `update-used` เลือก config เดียวกันพร้อมกัน** | ผลอย่างใดอย่างหนึ่ง: ลบสำเร็จ + `update-used` ได้ `405402` · หรือ `update-used` สำเร็จ + ลบได้ `405403` · ไม่มี `500` · ไม่มี used ชี้ config ที่หายไป |
@@ -730,8 +749,8 @@ CREATE INDEX idx_site_banners_agent ON site_banners(agent_id, created_at DESC) W
 5. **โลโก้ / favicon ที่ถูกเขียนทับ** — โค้ดเก่าไม่ลบไฟล์เดิม · เสนอ: ลบไฟล์เดิมหลังบันทึกแถวสำเร็จ ลบไม่ได้แค่ log ·
    **ประวัติการแก้**: เสนอเพิ่ม `asset_change_logs` แบบ MGMT-60 (ใคร / ทำอะไร / ค่าเก่า → ใหม่ / ip / request_id) — ตอนนี้มีแค่
    `created_by` / `updated_by` (AST-50)
-6. **error code** — เสนอ module id `05` (01–04 ถูกจองใน `dev` และ branch `account` / `game-rate` แล้ว — ต้องเช็ค branch
-   `currency-rate` ก่อนจองจริง) · ข้อความ th/en ตามกฎ `ERROR_CODES.md`
+6. **error code** — เสนอ module id `05` (ตรวจ 2026-10-08: `dev` จอง 01–03 · branch `game-rate` จอง 04 ·
+   branch `currency-rate` ยังไม่จอง — ต้องเช็คอีกครั้งตอนจองจริง) · ข้อความ th/en ตามกฎ `ERROR_CODES.md`
 
 | Code | HTTP | ความหมาย |
 |---|---|---|
@@ -760,7 +779,8 @@ CREATE INDEX idx_site_banners_agent ON site_banners(agent_id, created_at DESC) W
 | dependency S3 | `go.mod` เพิ่ม AWS SDK v2 (S3) |
 | config | `pkg/configs/config.go` + `.env.example`: `S3_REGION` · `S3_BUCKET` · `S3_CDN_BASE_URL` · `S3_UPLOAD_TIMEOUT` (credential จาก AWS default chain — ไม่เก็บ key ใน env) · storage ไม่พร้อมต้อง boot ได้ (AST-30) |
 | storage client | package ใหม่ `platform/storage` |
-| ขนาด body | `pkg/configs/fiber_config.go` `BodyLimit` (ค่าเริ่มต้นของ Fiber 4 MB < 10 MB ของ AST-16) |
+| ขนาด body | `pkg/configs/fiber_config.go` ตั้ง `BodyLimit` = 10 MB **ทั้ง request** อยู่แล้ว · multipart มี boundary + field อื่นด้วย ไฟล์ใกล้ 10 MB จะโดน fasthttp ตอบ 413 ก่อนถึง handler (ไม่ใช่ `405103`) · เสนอ: เพิ่ม `BodyLimit` เป็น 11 MB (กระทบทุกเส้น) หรือลดเพดานไฟล์ใน AST-16 ลงให้ request ทั้งก้อนไม่เกิน 10 MB |
 | multipart | helper อ่าน multipart + `Validate()` ใน `pkg/utils` (ตอนนี้มีแค่ `ParseBody` / `ParseQuery` แบบ JSON) |
 | middleware | `ResolveAssetTarget` / `RequireAssetTarget` ใน `app/internals/backoffice/middleware` · ใช้ `RequirePermission` ของ module ② |
-| เอกสารกลาง | จอง module id ใน `docs/ERROR_CODES.md` · เพิ่มแถว `asset` ใน `docs/MIGRATION_STATUS.md` |
+| เอกสารกลาง | จอง module id ใน `docs/ERROR_CODES.md` · เพิ่มแถว `asset` ใน `docs/MIGRATION_STATUS.md` · ไฟล์สถานะของ branch `docs/lead/carl-asset.md` + แถวใน `docs/lead/README.md` (1 ไฟล์ต่อ branch) · หลังอนุมัติ: `docs/frontend/asset.md` + แถวใน `docs/frontend/README.md` (เอกสารหน้าบ้านทำจาก spec ที่อนุมัติแล้วเท่านั้น) |
+| migration | ไฟล์ใหม่ต้องมี timestamp หลัง `20261008160000_account_api_key_plain.sql` (ล่าสุดตอนตรวจ) |

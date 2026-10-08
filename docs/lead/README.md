@@ -8,6 +8,7 @@
 | `bo-account.md` | `boiledegg/bo/account` |
 | `bo-management.md` | `boiledegg/bo/management` |
 | `bo-currency-rate.md` | `boiledegg/bo/currency-rate` |
+| `carl-asset.md` | `carl/asset` |
 
 ## โครงของแต่ละไฟล์
 
