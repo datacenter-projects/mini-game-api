@@ -74,8 +74,8 @@ database/migrations/      goose .sql
 16. แยก error ด้วย `errors.Is(err, apperr.ErrX)` เท่านั้น **ห้ามเทียบข้อความ error** (`strings.Contains(err.Error(), ...)`)
 17. service คืน `(result, error)` ห้ามคืน code เป็นค่าแยก
 18. ทุก response ต้องผ่าน `pkg/response` ห้ามเรียก `c.JSON` เองใน controller
-19. list ต้องใช้ `utils.ParsePage` + `response.Page`
-    - request body/query ต้องผ่าน `utils.ParseBody` / `utils.ParseQuery` และ DTO ต้องมี method `Validate()`
+19. list ต้องตอบด้วย `response.Page` · page / limit มาจาก query (`utils.ParsePage`) หรือจาก body ของเส้น `POST` (`utils.NewPage`)
+    - request body/query ต้องผ่าน `utils.ParseBody` / `utils.ParseBodyNoNull` / `utils.ParseQuery` และ DTO ต้องมี method `Validate()`
       ที่เขียนเป็น `if` ธรรมดา **ห้ามใช้ struct tag ของ validator**
     - ข้อความ error ต้องบอกว่าผิดที่ field ไหน (`apperr.ErrValidation.WithMessage(th, en)`)
 
