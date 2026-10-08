@@ -1,7 +1,9 @@
-# API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 8 ต.ค. 2026
+# API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 9 ต.ค. 2026
 
 เอกสารนี้สรุปจากโค้ดใน branch `dev` (merge แล้ว 8 ต.ค. 2026 — มีบน server dev หลัง deploy รอบถัดไป) ·
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
+
+เส้นของ Member (หัวข้อ 3.2, 3.5, 3.8, 3.10, 3.12) แยกไปอยู่ module `member_management` ในโค้ด (ผู้ดูแล: maofoy) — **path, request และ response ไม่เปลี่ยน** หน้าบ้านใช้เหมือนเดิม
 
 ## 1. พื้นฐาน
 
@@ -97,19 +99,19 @@ sub ของ comp01 = `comp01@staff` (id 30)
 | # | Method | Path | ใช้เมื่อ | สิทธิ์ของ sub |
 |---|---|---|---|---|
 | 3.1 | POST | `/api/v1/bo/pr/manage/agents/create` | สร้าง Company / Share / Agent | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) |
-| 3.2 | POST | `/api/v1/bo/pr/manage/members/create` | สร้าง Member | เหมือน 3.1 |
+| 3.2 | POST | `/api/v1/bo/pr/manage/members/create` | สร้าง Member (`member_management`) | เหมือน 3.1 |
 | 3.3 | POST | `/api/v1/bo/pr/manage/downlines/list` | รายชื่อลูกตรง (กรองด้วย `q` ได้) | `member` view |
 | 3.3A | POST | `/api/v1/bo/pr/manage/downlines/search` | ค้นหาทั้งสายใต้ตัวเอง (username) | `member` view |
 | 3.3B | POST | `/api/v1/bo/pr/admin/accounts/search` | ADMIN ค้นหาบัญชีทั้งระบบด้วย username ตรงทั้งคำ | ADMIN เท่านั้น |
 | 3.4 | POST | `/api/v1/bo/pr/manage/agents/detail` | รายละเอียดบัญชีฝั่ง agent | `member` view |
-| 3.5 | POST | `/api/v1/bo/pr/manage/members/detail` | รายละเอียด Member | `member` view |
+| 3.5 | POST | `/api/v1/bo/pr/manage/members/detail` | รายละเอียด Member (`member_management`) | `member` view |
 | 3.6 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | ลูกตรง + ค่า PT สำหรับ "คัดลอกการตั้งค่าจาก" | `pt` view |
 | 3.7 | POST | `/api/v1/bo/pr/manage/agents/update-info` | แก้ชื่อ · เบอร์ (ฝั่ง agent) | `member` edit |
-| 3.8 | POST | `/api/v1/bo/pr/manage/members/update-info` | แก้ชื่อ · เบอร์ (Member) | `member` edit |
+| 3.8 | POST | `/api/v1/bo/pr/manage/members/update-info` | แก้ชื่อ · เบอร์ (Member) (`member_management`) | `member` edit |
 | 3.9 | POST | `/api/v1/bo/pr/manage/agents/update-status` | แก้สถานะ (ฝั่ง agent) | `member` edit |
-| 3.10 | POST | `/api/v1/bo/pr/manage/members/update-status` | แก้สถานะ (Member) | `member` edit |
+| 3.10 | POST | `/api/v1/bo/pr/manage/members/update-status` | แก้สถานะ (Member) (`member_management`) | `member` edit |
 | 3.11 | POST | `/api/v1/bo/pr/manage/agents/update-pt` | ผู้สร้างแก้ค่าที่ให้ลูก | `pt` edit |
-| 3.12 | POST | `/api/v1/bo/pr/manage/members/update-commission` | แก้ Commission ของ Member | `pt` edit |
+| 3.12 | POST | `/api/v1/bo/pr/manage/members/update-commission` | แก้ Commission ของ Member (`member_management`) | `pt` edit |
 | 3.13 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | ตั้งค่าถือของตัวเอง | `pt` edit |
 | 3.13A | POST | `/api/v1/bo/pr/manage/agents/update-games` | เปิด / ปิดเกมให้ลูกตรง | `pt` edit · ผู้สร้างโดยตรง |
 | 3.14 | POST | `/api/v1/bo/pr/manage/subaccounts/list` | รายชื่อ sub (กรองด้วย `q` ได้) | บัญชีหลักเท่านั้น |
