@@ -11,7 +11,6 @@ import (
 	"app/app/repository/postgres"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
-	"app/pkg/configs"
 	"app/pkg/utils"
 	"app/platform/database"
 
@@ -122,8 +121,8 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		if err := transferInitialBalance(tx, c, models.BalanceOwnerAgent, a.ID, req.BalanceMinor, req.RequestID, actor, now); err != nil {
 			return err
 		}
-		// MGMT-04: เจ้าของ Key ของ account 1.3 ได้ Key ใน tx เดียวกัน · local ที่ไม่ตั้ง API_KEY_ENCRYPTION_KEY ข้ามไปสร้างตอนเปิดหน้าครั้งแรก (ACC-05)
-		if accountCore.IsAPIKeyOwner(newAcc.UserType) && len(configs.Cfg.Account.APIKeyEncryptionKey) > 0 {
+		// MGMT-04: เจ้าของ Key ของ account 1.3 ได้ Key ใน tx เดียวกัน
+		if accountCore.IsAPIKeyOwner(newAcc.UserType) {
 			if err := CreateAPICredentialIfAbsent(tx, a.ID); err != nil {
 				return err
 			}

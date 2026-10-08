@@ -5,7 +5,6 @@
 package backoffice_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
@@ -103,17 +102,12 @@ func TestAPICredentialOwners(t *testing.T) { // ACC-01, ACC-03, ACC-04, ACC-10
 	if r.Header.Get("Cache-Control") != "no-store" {
 		t.Fatalf("Cache-Control = %q", r.Header.Get("Cache-Control"))
 	}
-	if created.KeyHash != utils.HashAPIKey(d.Key) {
+	if created.APIKey != d.Key { // ACC-04: เก็บ Key ตรงๆ
 		t.Fatal("GET ต้องได้ Key ที่สร้างตอนสร้างบัญชี")
 	}
 	again, _ := getCredential(t, app, o.oneTok)
 	if again.Key != d.Key {
 		t.Fatal("GET ซ้ำต้องได้ Key เดิม")
-	}
-	var cred models.APICredential
-	database.DBConn.Where("agent_id = ?", o.one.ID).Take(&cred)
-	if bytes.Contains(cred.KeyCiphertext, []byte(d.Key)) || cred.KeyHash != utils.HashAPIKey(d.Key) {
-		t.Fatal("DB ต้องไม่มี Key แบบ plain และ key_hash = sha256(Key)")
 	}
 
 	k1, _ := getCredential(t, app, o.res1Tok)
