@@ -1,27 +1,29 @@
-package agentmanagement
+package adminmanagement
 
 import (
 	"context"
 
 	agentAuthCore "app/app/core/agent_auth"
 	agentManagementCore "app/app/core/agent_management"
-	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
+	adminManagementDto "app/app/internals/backoffice/dto/admin_management"
+	adminManagementPostgres "app/app/repository/postgres/admin_management"
 	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	memberManagementPostgres "app/app/repository/postgres/member_management"
+	agentManagementService "app/app/service/agent_management"
 	"app/platform/database"
 
 	"gorm.io/gorm"
 )
 
-// AdminSearchAccountsService — POST /api/v1/bo/pr/admin/accounts/search (MGMT-27B)
+// SearchAccountsService — POST /api/v1/bo/pr/admin/accounts/search (MGMT-27B)
 // ADMIN ค้นบัญชีทั้งระบบด้วย username ตรงทั้งคำ (ไม่จำกัดสาย — ADMIN ไม่มีสายของตัวเอง)
 // ผล 0–2 แถว: ฝั่ง agent หรือ sub (username ไม่ซ้ำกัน) แล้วตามด้วย Member (ตารางแยก username ซ้ำกับฝั่ง agent ได้)
-func AdminSearchAccountsService(ctx context.Context, req agentManagementDto.AdminAccountSearchRequest) ([]agentManagementDto.AdminAccountRow, error) {
+func SearchAccountsService(ctx context.Context, req adminManagementDto.AccountSearchRequest) ([]adminManagementDto.AccountRow, error) {
 	db := database.DBConn.WithContext(ctx)
-	out := []agentManagementDto.AdminAccountRow{}
+	out := []adminManagementDto.AccountRow{}
 
 	if agentAuthCore.IsSubaccountUsername(req.Username) {
-		s, err := agentManagementPostgres.FindSubaccountByUsernameRepository(db, req.Username)
+		s, err := adminManagementPostgres.FindSubaccountByUsernameRepository(db, req.Username)
 		if err != nil {
 			return nil, err
 		}
@@ -30,24 +32,24 @@ func AdminSearchAccountsService(ctx context.Context, req agentManagementDto.Admi
 			if err != nil {
 				return nil, err
 			}
-			chain, err := ChainStatus(db, owner.ID, owner.Status)
+			chain, err := agentManagementService.ChainStatus(db, owner.ID, owner.Status)
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, agentManagementDto.AdminAccountRow{Username: s.Username, Role: string(owner.Role),
+			out = append(out, adminManagementDto.AccountRow{Username: s.Username, Role: string(owner.Role),
 				UserType: string(agentManagementCore.UserTypeOf(owner.Role, owner.AgentType)), IsSubaccount: true,
-				Status: subStatus(s.Status, chain), ParentUsername: owner.Username, CreatedAt: OptionalTime(&s.CreatedAt),
-				LastLoginAt: OptionalTime(s.LastLoginAt), LastLoginIP: StringOrEmpty(s.LastLoginIP)})
+				Status: agentManagementService.SubStatus(s.Status, chain), ParentUsername: owner.Username, CreatedAt: agentManagementService.OptionalTime(&s.CreatedAt),
+				LastLoginAt: agentManagementService.OptionalTime(s.LastLoginAt), LastLoginIP: agentManagementService.StringOrEmpty(s.LastLoginIP)})
 		}
 		return out, nil // username ของ sub มี @ — ไม่มีในตารางอื่น
 	}
 
-	a, err := agentManagementPostgres.FindUserAgentByUsernameRepository(db, req.Username)
+	a, err := adminManagementPostgres.FindUserAgentByUsernameRepository(db, req.Username)
 	if err != nil {
 		return nil, err
 	}
 	if a.ID != 0 {
-		status, err := ChainStatus(db, a.ID, a.Status)
+		status, err := agentManagementService.ChainStatus(db, a.ID, a.Status)
 		if err != nil {
 			return nil, err
 		}
@@ -55,10 +57,10 @@ func AdminSearchAccountsService(ctx context.Context, req agentManagementDto.Admi
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, agentManagementDto.AdminAccountRow{Username: a.Username, Role: string(a.Role),
+		out = append(out, adminManagementDto.AccountRow{Username: a.Username, Role: string(a.Role),
 			UserType: string(agentManagementCore.UserTypeOf(a.Role, a.AgentType)), Status: string(status),
-			ParentUsername: parent, CreatedAt: OptionalTime(&a.CreatedAt),
-			LastLoginAt: OptionalTime(a.LastLoginAt), LastLoginIP: StringOrEmpty(a.LastLoginIP)})
+			ParentUsername: parent, CreatedAt: agentManagementService.OptionalTime(&a.CreatedAt),
+			LastLoginAt: agentManagementService.OptionalTime(a.LastLoginAt), LastLoginIP: agentManagementService.StringOrEmpty(a.LastLoginIP)})
 	}
 
 	m, err := memberManagementPostgres.FindUserMemberByUsernameRepository(db, req.Username)
@@ -70,14 +72,14 @@ func AdminSearchAccountsService(ctx context.Context, req agentManagementDto.Admi
 		if err != nil {
 			return nil, err
 		}
-		creatorStatus, err := ChainStatus(db, creator.ID, creator.Status)
+		creatorStatus, err := agentManagementService.ChainStatus(db, creator.ID, creator.Status)
 		if err != nil {
 			return nil, err
 		}
 		member := string(agentManagementCore.UserTypeMember)
-		out = append(out, agentManagementDto.AdminAccountRow{Username: m.Username, Role: member, UserType: member,
+		out = append(out, adminManagementDto.AccountRow{Username: m.Username, Role: member, UserType: member,
 			Status: string(agentAuthCore.WorstStatus(creatorStatus, m.Status)), ParentUsername: creator.Username,
-			CreatedAt: OptionalTime(&m.CreatedAt), LastLoginAt: OptionalTime(m.LastLoginAt), LastLoginIP: StringOrEmpty(m.LastLoginIP)})
+			CreatedAt: agentManagementService.OptionalTime(&m.CreatedAt), LastLoginAt: agentManagementService.OptionalTime(m.LastLoginAt), LastLoginIP: agentManagementService.StringOrEmpty(m.LastLoginIP)})
 	}
 	return out, nil
 }

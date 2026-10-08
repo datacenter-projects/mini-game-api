@@ -4,7 +4,6 @@ import (
 	agentAuthCore "app/app/core/agent_auth"
 	agentManagementCore "app/app/core/agent_management"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
-	"app/app/models"
 	agentAuthService "app/app/service/agent_auth"
 	agentManagementService "app/app/service/agent_management"
 	"app/pkg/apperr"
@@ -41,16 +40,6 @@ func PassedGates(allow ...agentAuthCore.Gate) fiber.Handler {
 func PassedGatesAllowSuspended(allow ...agentAuthCore.Gate) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		if err := agentAuthService.CheckGateService(GetActor(c), allow...); err != nil {
-			return response.Error(c, err)
-		}
-		return c.Next()
-	}
-}
-
-// RequireRole — เฉพาะบัญชี agent ที่มี role นี้ (AUTH-44)
-func RequireRole(role models.AgentRole) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		if err := agentAuthService.CheckRoleService(GetActor(c), role); err != nil {
 			return response.Error(c, err)
 		}
 		return c.Next()

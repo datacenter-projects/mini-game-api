@@ -61,16 +61,3 @@ func ListCopySourcesController(c *fiber.Ctx) error {
 	}
 	return response.OK(c, res)
 }
-
-// AdminSearchAccountsController — POST /api/v1/bo/pr/admin/accounts/search (ADMIN เท่านั้น — สิทธิ์อยู่ที่ route)
-func AdminSearchAccountsController(c *fiber.Ctx) error {
-	var req agentManagementDto.AdminAccountSearchRequest
-	if err := utils.ParseBodyNoNull(c, &req); err != nil {
-		return response.Error(c, err)
-	}
-	rows, err := agentManagementService.AdminSearchAccountsService(c.UserContext(), req)
-	if err != nil {
-		return response.Error(c, err)
-	}
-	return response.OK(c, rows)
-}

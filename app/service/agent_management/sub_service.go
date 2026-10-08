@@ -33,8 +33,8 @@ func CheckMainAccountService(actor agentAuthService.Actor) error {
 	return nil
 }
 
-// subStatus — สถานะที่แสดง (MGMT-43): เจ้าของ / หัวสายถูกระงับ / ล็อก = สถานะนั้น · sub ถูกตั้ง SUSPENDED = INACTIVE
-func subStatus(own, ownerChain models.AgentStatus) string {
+// SubStatus — สถานะที่แสดง (MGMT-43): เจ้าของ / หัวสายถูกระงับ / ล็อก = สถานะนั้น · sub ถูกตั้ง SUSPENDED = INACTIVE
+func SubStatus(own, ownerChain models.AgentStatus) string {
 	if ownerChain != models.AgentStatusActive {
 		return string(agentAuthCore.WorstStatus(ownerChain, own))
 	}
@@ -57,7 +57,7 @@ func subView(s models.Subaccount, ownerRole models.AgentRole, ownerChain models.
 		out[string(m)] = string(l)
 	}
 	return agentManagementDto.SubView{ID: s.ID, Username: s.Username, Name: StringOrEmpty(s.Name), Phone: StringOrEmpty(s.Phone),
-		Status: subStatus(s.Status, ownerChain), Permissions: out, CreatedAt: OptionalTime(&s.CreatedAt),
+		Status: SubStatus(s.Status, ownerChain), Permissions: out, CreatedAt: OptionalTime(&s.CreatedAt),
 		LastLoginAt: OptionalTime(s.LastLoginAt), LastLoginIP: StringOrEmpty(s.LastLoginIP)}, nil
 }
 
@@ -225,7 +225,7 @@ func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.A
 			return err
 		}
 		return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeSubStatus,
-			map[string]string{"status": subStatus(s.Status, models.AgentStatusActive)}, map[string]string{"status": req.Status}, now)
+			map[string]string{"status": SubStatus(s.Status, models.AgentStatusActive)}, map[string]string{"status": req.Status}, now)
 	})
 }
 
