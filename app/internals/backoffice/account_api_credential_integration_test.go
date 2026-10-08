@@ -261,7 +261,12 @@ func TestAPICredentialSubPermission(t *testing.T) { // ACC-02
 	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 200)
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 200)
 
-	// เจ้าของ SUSPENDED กดบันทึก → ถูกกันที่ middleware (ACC-31 / AUTH-54)
+	// เจ้าของ SUSPENDED: ดู 1.3 ได้ · บันทึกถูกกันที่ middleware (ACC-31 / AUTH-54) · sub ของเจ้าของก็เหมือนกัน
 	setStatus(t, o.one.ID, models.AgentStatusSuspended)
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), o.oneTok), 403, 401311)
+	if d, _ := getCredential(t, app, o.oneTok); d.Username != "one2one" {
+		t.Fatalf("ถูกระงับต้องดู 1.3 ได้ %+v", d)
+	}
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 200)
+	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 403, 401311)
 }

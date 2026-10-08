@@ -3,7 +3,7 @@
 - สถานะ: **APPROVED** (อนุมัติ 2026-10-07 — หลังแก้รูปแบบสิทธิ์, ยอดเงินจริง และไม่มี null ใน API)
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07 · ฉบับก่อนหน้าอนุมัติ 2026-10-05 และ 2026-10-06
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ACC-12 บัญชีที่ถูกระงับ `permissions` แสดงตามที่ใช้ได้จริง · ACC-16 `pt` แสดงชุดเดียวต่อระบบ (`minigame`) พร้อม `status` `created_at` `created_by` `updated_at` `updated_by` · `status_game` แยกทีละเกมด้านนอก `pt` · ACC-04 เก็บ Key ตรงๆ ไม่เข้ารหัส (lead ตัดสิน)
-- แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · รอ lead รับทราบ): ACC-01 ทุกบัญชี Company / Share / Agent มี Key · ACC-02 ไม่มีสิทธิ์เมนู `account` (เจ้าของและ sub เปิดได้เสมอ)
+- แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · รอ lead รับทราบ): ACC-01 ทุกบัญชี Company / Share / Agent มี Key · ACC-02 ไม่มีสิทธิ์เมนู `account` (เจ้าของและ sub เปิดได้เสมอ) · ถูกระงับดูหน้า 1.3 ได้ (บันทึกไม่ได้) · migration สร้าง Key ให้บัญชีเดิมทุกบัญชี
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.1 ภาพรวม (Dashboard)** · **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API**
 - ที่มาของ rule: ภาพหน้าจอตัวอย่าง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg + review comments (2026-10-05) ·
@@ -57,7 +57,7 @@
 | | • บัญชีตัวเอง ACTIVE · หัวสาย LOCKED → `status = LOCKED` เข้าใช้งานไม่ได้ |
 | | • บัญชีตัวเองถูกล็อก · หัวสาย ACTIVE → ลูก `status = LOCKED` เข้าใช้งานไม่ได้ · **หัวสายใช้งานได้ปกติ** (สถานะของลูกไม่ส่งผลขึ้นไปข้างบน) |
 | | • Company ระงับ Share → Share และ Agent / Member ใต้ Share `status = SUSPENDED` · Company ยัง `ACTIVE` |
-| ACC-31 | การเข้าใช้งานตัดสินจาก `status` (ACC-30): `ACTIVE` ใช้งานได้ปกติ · `SUSPENDED` เข้าได้**เฉพาะหน้า Profile และ Report** และดูได้อย่างเดียว · `LOCKED` เข้าใช้งานไม่ได้เลย (AUTH-27) — บังคับทุก module ที่ middleware กลาง (AUTH-54) |
+| ACC-31 | การเข้าใช้งานตัดสินจาก `status` (ACC-30): `ACTIVE` ใช้งานได้ปกติ · `SUSPENDED` เข้าได้**เฉพาะหน้า Profile, Report และดูข้อมูลรับรอง API (1.3)** แบบดูอย่างเดียว (1.3 เพิ่ม 2026-10-08) · `LOCKED` เข้าใช้งานไม่ได้เลย (AUTH-27) — บังคับทุก module ที่ middleware กลาง (AUTH-54) |
 | ACC-32 | **ไม่มี `null` ใน API (ใช้ทุก module)**: response — ข้อความที่ไม่มีค่า = `""` · ตัวเลขที่ไม่มีค่า = `0` · รายการว่าง = `[]` · object ว่าง = `{}` · request — ห้ามส่ง `null` (ส่ง = `422` msg บอก field) · ข้อความที่จะเว้นว่างส่ง `""` · ใน DB เก็บ `NULL` ได้ตามปกติ แปลงที่ขอบระบบ |
 
 ### Dashboard (1.1)
@@ -95,7 +95,7 @@
 | ACC-02 | **ไม่มีสิทธิ์ต่อเมนู** (แก้ 2026-10-08 — เอาเมนู `account` ออกจากระบบสิทธิ์ module ②): เจ้าของและ sub ของเจ้าของเปิดดู / บันทึกได้เสมอ (sub ทำงานแทนเจ้าของ) · บันทึกยังต้อง passcode · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) |
 | ACC-03 | Key สร้างอัตโนมัติ 1 ค่าต่อเจ้าของ: สุ่ม 32 byte ด้วย `crypto/rand` แสดงเป็น hex ตัวพิมพ์เล็ก 64 ตัว · **สร้างใหม่ไม่ได้** · ใช้ทั้งระบุตัวและคำนวณ `sign` |
 | ACC-04 | Key ดูซ้ำได้ (ปุ่มคัดลอก) → **เก็บ Key ตรงๆ** ในคอลัมน์ `api_key` (unique — ใช้ค้นตอนลูกค้าเรียก API) ไม่เข้ารหัส (lead ตัดสิน 2026-10-08 — ใช้ IP whitelist ACC-07 ป้องกันการเรียก API แทน · ไม่มี `API_KEY_ENCRYPTION_KEY`) · response ใส่ `Cache-Control: no-store` · ห้าม log Key |
-| ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่ยังไม่มี Key สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
+| ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่มีอยู่ก่อนได้ Key จาก migration `20261008170000_account_api_keys_for_all` (แก้ 2026-10-08) · ถ้ายังไม่มี Key (กันไว้) สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
 | ACC-06 | ลิงก์ตอบกลับ: ต้องเป็น URL `https://` ที่มี host · ยาวไม่เกิน 500 ตัว · เว้นว่างได้ (= ยังไม่ตั้ง): ส่ง `""` (ตัดช่องว่างแล้วว่าง) → เก็บเป็น `NULL` · response ส่ง `""` · ส่ง `null` = `422` (ACC-32) · ไม่ส่ง field = `422` (บันทึกแทนทั้งชุด — ACC-08) |
 | ACC-07 | IP ที่อนุญาต: IPv4 หรือช่วง CIDR ของ IPv4 (IP เดี่ยวเก็บเป็น `/32`) · ไม่เกิน **50** รายการ · ห้ามซ้ำ · **ไม่มีเลย = ลูกค้าเรียก API ของเราไม่ได้** |
 | ACC-08 | บันทึก = แทนทั้งชุด (ลิงก์ + รายการ IP) · ต้องส่ง `passcode` ของผู้กด (`RequirePasscode`) · tx + `SELECT ... FOR UPDATE` แถว credential |
@@ -285,7 +285,8 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-30 | Agent ACTIVE · Share ที่เป็นหัวสายถูกล็อก | Agent `status = LOCKED` |
 | ACC-30 | Agent ถูกล็อก · Share ที่เป็นหัวสาย ACTIVE | Agent `status = LOCKED` · Share `status = ACTIVE` ใช้งานได้ปกติ |
 | ACC-31 | `status = SUSPENDED` เรียก profile | สำเร็จ |
-| ACC-31 | `status = SUSPENDED` เรียก dashboard / POST update-credential / route อื่นนอก Profile, Report | ถูกปฏิเสธ (AUTH-54) |
+| ACC-31 | `status = SUSPENDED` (เจ้าของหรือ sub) เรียก GET api-credential | สำเร็จ (ดูได้อย่างเดียว) |
+| ACC-31 | `status = SUSPENDED` เรียก dashboard / POST update-credential / route อื่นนอก Profile, Report, GET api-credential | ถูกปฏิเสธ (AUTH-54) |
 | ACC-21 | Company A ดู dashboard | นับเฉพาะ Member ในสาย A |
 | ACC-22 | `currency` ที่บัญชีไม่มี / ไม่ส่ง · `month = 13` · ไม่ส่ง `year` | `422` |
 | ACC-22 | ไม่ส่ง `month` | `period` = ทั้งปีของ `year` |

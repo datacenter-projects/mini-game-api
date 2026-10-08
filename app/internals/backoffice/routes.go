@@ -45,9 +45,9 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/admin/password/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasswordController)
 	pr.Post("/admin/accounts/search", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), agentManagementController.AdminSearchAccountsController) // MGMT-27B
 
-	// account — docs/modules/account.md หัวข้อ 5 · ไม่มีสิทธิ์ต่อเมนู: เจ้าของและ sub เปิดได้เสมอ (ACC-02) · Profile เปิดได้ตอนบัญชีถูกระงับ (ACC-11, AUTH-54)
+	// account — docs/modules/account.md หัวข้อ 5 · ไม่มีสิทธิ์ต่อเมนู: เจ้าของและ sub เปิดได้เสมอ (ACC-02) · Profile และดู 1.3 เปิดได้ตอนบัญชีถูกระงับ (ACC-11, ACC-31, AUTH-54)
 	pr.Get("/account/profile", mw.PassedGatesAllowSuspended(), accountController.GetProfileController)
-	pr.Get("/account/api-credential", mw.PassedGates(), accountController.GetAPICredentialController)
+	pr.Get("/account/api-credential", mw.PassedGatesAllowSuspended(), accountController.GetAPICredentialController) // ACC-31: ถูกระงับดูได้ บันทึกไม่ได้
 	pr.Post("/account/update-credential", mw.PassedGates(), mw.RequirePasscode(), accountController.SaveAPICredentialController)
 
 	// agent_management — docs/modules/agent_management.md หัวข้อ 5 · payment = edit เมื่อส่ง balance ตรวจใน service (MGMT-51)
