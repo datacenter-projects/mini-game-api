@@ -41,7 +41,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | bb | Module | ไฟล์ | Spec |
 |---|---|---|---|
 | 01 | agent_auth (backoffice auth) | `pkg/apperr/agent_auth_errors.go` | `docs/modules/agent_auth.md`, `docs/modules/agent_auth_phase2.md` |
-| 06 | game_rate (อัตราแพ้ชนะ — ตรงกับเมนู ⑥) | `pkg/apperr/game_rate_errors.go` | `docs/modules/game_rate.md` (DRAFT) — 02 / 03 จองใน branch management / account |
+| 06 | game_rate (อัตราแพ้ชนะ — ตรงกับเมนู ⑥) | `pkg/apperr/game_rate_errors.go` | `docs/modules/game_rate.md` — 02 / 03 จองใน branch management / account |
 
 ## agent_auth (01)
 
