@@ -15,7 +15,7 @@ import (
 // GetAPICredentialRepository — ไม่พบคืน apperr.ErrNotFound
 func GetAPICredentialRepository(db *gorm.DB, agentID uint) (models.APICredential, error) {
 	var c models.APICredential
-	err := db.Select("agent_id", "key_ciphertext", "key_hash", "callback_url").Where("agent_id = ?", agentID).Take(&c).Error
+	err := db.Select("agent_id", "api_key", "callback_url").Where("agent_id = ?", agentID).Take(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c, apperr.ErrNotFound
 	}
@@ -31,7 +31,7 @@ func LockAPICredentialRepository(db *gorm.DB, agentID uint) (models.APICredentia
 // เรียกพร้อมกันได้ Key เดียวเสมอ เพราะ agent_id เป็น primary key
 func CreateAPICredentialIfAbsentRepository(db *gorm.DB, c *models.APICredential) error {
 	return db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "agent_id"}}, DoNothing: true}).
-		Select("agent_id", "key_ciphertext", "key_hash").Create(c).Error
+		Select("agent_id", "api_key").Create(c).Error
 }
 
 // UpdateAPICredentialCallbackRepository — callbackURL nil = ยังไม่ตั้ง

@@ -8,12 +8,11 @@ import (
 
 // APICredential — Key, ลิงก์ตอบกลับของเจ้าของ Key 1 บัญชี (docs/modules/account.md ACC-01–ACC-06)
 type APICredential struct {
-	AgentID       uint      `gorm:"column:agent_id;primaryKey"` // เจ้าของ Key
-	KeyCiphertext []byte    `gorm:"column:key_ciphertext"`      // AES-256-GCM (nonce + ciphertext)
-	KeyHash       string    `gorm:"column:key_hash"`            // sha256(Key) hex
-	CallbackURL   *string   `gorm:"column:callback_url"`        // nil = ยังไม่ตั้ง
-	CreatedAt     time.Time `gorm:"column:created_at"`
-	UpdatedAt     time.Time `gorm:"column:updated_at"`
+	AgentID     uint      `gorm:"column:agent_id;primaryKey"` // เจ้าของ Key
+	APIKey      string    `gorm:"column:api_key"`             // Key ตรงๆ hex 64 ตัว (ACC-03, ACC-04)
+	CallbackURL *string   `gorm:"column:callback_url"`        // nil = ยังไม่ตั้ง
+	CreatedAt   time.Time `gorm:"column:created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
 }
 
 func (APICredential) TableName() string { return "api_credentials" }
