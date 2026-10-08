@@ -43,6 +43,7 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/auth/password/change", mw.PassedGates(agentAuthCore.GateChangePassword), mw.RequirePasscodeUnlessMustChangePassword(), agentAuthController.ChangePasswordController)
 	pr.Post("/admin/passcode/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasscodeController)
 	pr.Post("/admin/password/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasswordController)
+	pr.Post("/admin/accounts/search", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), agentManagementController.AdminSearchAccountsController) // MGMT-27B
 
 	// account — docs/modules/account.md หัวข้อ 5 · Profile เปิดได้ตอนบัญชีถูกระงับ (ACC-11, AUTH-54)
 	pr.Get("/account/profile", mw.PassedGatesAllowSuspended(), accountController.GetProfileController)
