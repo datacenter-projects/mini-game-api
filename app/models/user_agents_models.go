@@ -12,6 +12,20 @@ const (
 	AgentRoleAgent       AgentRole = "AGENT"
 )
 
+// AgentType — ประเภทย่อยของ Company / Share (docs/modules/agent_management.md MGMT-01) · บัญชีอื่น = nil
+type AgentType string
+
+const (
+	AgentTypeTransfer         AgentType = "TRANSFER"
+	AgentTypeSeamlessReseller AgentType = "SEAMLESS_RESELLER"
+	AgentTypeSeamlessMaster   AgentType = "SEAMLESS_MASTER"
+	AgentTypeSeamless1to1     AgentType = "SEAMLESS_1TO1"
+	AgentTypeShareB2B         AgentType = "B2B"
+	AgentTypeShareB2C         AgentType = "B2C"
+	AgentTypeShareReseller    AgentType = "RESELLER" // Share B2C ใต้ Company Seamless Reseller
+	AgentTypeShareMaster      AgentType = "MASTER"   // Share B2C ใต้ Company Seamless Master
+)
+
 type AgentStatus string
 
 const (
@@ -31,6 +45,9 @@ type UserAgent struct {
 	MustChangePasscode    bool        `gorm:"column:must_change_passcode"`
 	TempPasswordExpiresAt *time.Time  `gorm:"column:temp_password_expires_at"`
 	TempPasscodeExpiresAt *time.Time  `gorm:"column:temp_passcode_expires_at"`
+	Name                  *string     `gorm:"column:name"`  // ชื่อ (module ② MGMT-07)
+	Phone                 *string     `gorm:"column:phone"` // nil = ไม่ได้กรอก (MGMT-08)
+	AgentType             *AgentType  `gorm:"column:agent_type"`
 	Role                  AgentRole   `gorm:"column:role"`
 	Status                AgentStatus `gorm:"column:status"`
 	LastLoginAt           *time.Time  `gorm:"column:last_login_at"`

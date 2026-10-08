@@ -1,6 +1,6 @@
 # Backoffice Auth (`agent_auth`) ระยะ 2 — Subaccount login · Passcode · Password · Admin reset — Spec
 
-- สถานะ: **APPROVED** (ยกเว้น `scripts/reset_credentials` ที่ยังคุยอยู่)
+- สถานะ: **APPROVED** · `scripts/reset_credentials` ตกลงแล้ว 2026-10-08 (boiledegg — actor = `SCRIPT`) · AUTH-54 อนุมัติ 2026-10-06
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
@@ -108,7 +108,7 @@
 | | • ระบบบล็อก (actor = `SYSTEM`): `PASSCODE_BLOCKED` (AUTH-35), `LOGIN_BLOCKED` (AUTH-10/39 · username ที่ไม่มีจริงเก็บแค่ `target_username`) — บันทึกไม่ได้ไม่ทำให้ request ล้ม |
 | | • เก็บ actor, target (type + id + username ณ เวลานั้น), ip, user agent, request_id · ห้ามเก็บรหัสผ่าน, passcode, token หรือค่าชั่วคราว |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → ใช้งานได้ (ไม่ต้อง login ใหม่ระหว่างทาง) |
-| AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ · script ใช้ได้กับ SUPERADMIN / ADMIN **เท่านั้น** · สุ่มค่าชั่วคราว + บังคับเปลี่ยน + หมดอายุ 24 ชม. แบบเดียวกับ AUTH-46–48 · บันทึก `auth_audit_logs` |
+| AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ (กู้บัญชีที่ลืมรหัส) · script ใช้ได้กับ SUPERADMIN / ADMIN **เท่านั้น** · `-password` / `-passcode` เลือกอย่างใดอย่างหนึ่งหรือทั้งคู่ (ทั้งคู่ = transaction เดียว) · สุ่มค่าชั่วคราว + บังคับเปลี่ยน + หมดอายุ 24 ชม. แบบเดียวกับ AUTH-46–48 · แสดงค่าบนจอครั้งเดียว · บันทึก `auth_audit_logs` actor = `SCRIPT` · `actor_username` = user ของเครื่องที่รัน · ไม่มี `actor_id` |
 | AUTH-52 | ผู้สร้างรีเซ็ตให้ sub ของตัวเอง **ไม่ได้** (กำหนดทิศทางไว้สำหรับ module subaccount) |
 
 ### Effective status
@@ -116,6 +116,7 @@
 | ID | Rule |
 |---|---|
 | AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) |
+| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** (review account 2026-10-05 — อนุมัติ 2026-10-06): ตัดสินจาก `EffectiveStatus` (ตัวเอง, ผู้สร้างกรณี sub หรือ upline ถูกระงับ) · ทุก route ใต้ `/pr` ใช้ `mw.PassedGates(...)` ซึ่ง**ปฏิเสธ SUSPENDED** (`401311`) · route ดูข้อมูลของ Profile / Report ใช้ `mw.PassedGatesAllowSuspended(...)` บรรทัดเดียวกับ route · ด่านหลัง login (AUTH-29) ยังใช้กับทุก route · **เปลี่ยน passcode / รหัสผ่านของตัวเองก็ไม่ได้** (setup, change — ตัดสิน 2026-10-06) · logout ได้เสมอ · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
@@ -137,7 +138,7 @@
 — เขียนไว้บรรทัดเดียวกับ route ทุกเส้น
 
 **error ของทุก route ใต้ `/bo/pr` ที่ผ่าน `Authenticated`** (ไม่เขียนซ้ำในแต่ละเส้นด้านล่าง):
-`401202`, `401203`, `401301`, `401302` · logout ไม่ผ่าน `Authenticated` (AUTH-09) จึงตอบแค่ `401202`
+`401202`, `401203`, `401301`, `401302` · route ที่ใช้ `PassedGates` เพิ่ม `401311` (AUTH-54) · logout ไม่ผ่าน `Authenticated` (AUTH-09) จึงตอบแค่ `401202`
 
 ### POST /api/v1/bo/pb/auth/login (เส้นเดิม — รับ sub + field ใหม่)
 
@@ -390,6 +391,10 @@ Redis:
 | AUTH-27 | upline ของ agent (เช่น Company) ถูก LOCK ระหว่างใช้งาน | request ถัดไปของ agent `401302` และ session ถูกลบ |
 | AUTH-53 | upline ของผู้สร้าง SUSPENDED | `EffectiveStatus` ของ agent และ sub = `SUSPENDED` |
 | AUTH-53 | sub SUSPENDED · ผู้สร้าง ACTIVE | sub = `SUSPENDED` · ผู้สร้าง = `ACTIVE` |
+| AUTH-54 | บัญชีที่ `EffectiveStatus = SUSPENDED` (upline ถูกระงับ หรือตัวเอง) เรียก route ที่ใช้ `PassedGatesAllowSuspended` | สำเร็จ |
+| AUTH-54 | บัญชีที่ `EffectiveStatus = SUSPENDED` เรียก route อื่น · `RequirePasscode` · passcode setup / change · password change | `401311` (HTTP 403) |
+| AUTH-54 | sub SUSPENDED · ผู้สร้าง ACTIVE | sub `401311` · ผู้สร้างใช้งานได้ปกติ |
+| AUTH-54 | ยังไม่ตั้ง passcode และถูกระงับ | passcode setup `401311` · route ดูข้อมูลติดด่าน `401304` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสถูก | `401309` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสผิด | `401201` |
 | AUTH-28 | รหัสชั่วคราวเกิน 24 ชม. แล้ว login ด้วยรหัสนั้น | `401310` |
@@ -440,6 +445,8 @@ Redis:
 | AUTH-49 | รีเซ็ตไม่สำเร็จ | ไม่มีแถว |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เรียก `passcode/change` ก่อน | `401306` |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → เรียก route อื่น | ผ่าน ด้วย token เดิม |
+| AUTH-51 | `reset_credentials -username <superadmin> -password -passcode` | ค่าชั่วคราว 12 ตัว / 6 หลัก · session เดิมหลุด · login แล้ว `must_change_password` และ `must_change_passcode = true` · audit 2 แถว actor `SCRIPT` |
+| AUTH-51 | script กับ Agent / sub · username ที่ไม่มี · ไม่เลือก `-password` หรือ `-passcode` | `401406` · `401404` · error |
 
 ## 8. Contract changes (แจ้ง frontend)
 
@@ -475,6 +482,7 @@ Redis:
 | 401308 | 403 | ไม่มีสิทธิ์ใช้งานส่วนของ admin |
 | 401309 | 403 | ระงับ login เพราะ passcode ผิดหลายครั้ง |
 | 401310 | 403 | ค่าชั่วคราวหมดอายุ กรุณาติดต่อ admin |
+| 401311 | 403 | บัญชีถูกระงับ ใช้งานได้เฉพาะหน้าประวัติของฉันและรายงาน (AUTH-54) |
 | 401401 | 200 | ตั้ง passcode ไว้แล้ว |
 | 401402 | 200 | รหัสผ่านใหม่ซ้ำกับรหัสที่เคยใช้ |
 | 401403 | 200 | passcode ใหม่ซ้ำกับตัวเดิม |

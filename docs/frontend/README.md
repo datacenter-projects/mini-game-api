@@ -4,6 +4,8 @@
 
 | ไฟล์ | เนื้อหา | spec ต้นทาง |
 |---|---|---|
-| [auth.md](auth.md) | login, logout, passcode, รหัสผ่าน, admin reset, flow หลัง login, error codes | `agent_auth.md`, `agent_auth_phase2.md` |
+| [auth.md](auth.md) | login, logout, passcode, รหัสผ่าน, admin reset, flow หลัง login, บัญชีถูกระงับ, error codes | `agent_auth.md`, `agent_auth_phase2.md` |
+| [account.md](account.md) | Profile, ข้อมูลรับรอง API, Dashboard | `account.md` |
+| [agent_management.md](agent_management.md) | สร้างบัญชี, รายชื่อ / ค้นหาดาวน์ไลน์, รายละเอียด, แก้ข้อมูล / สถานะ / PT / เปิด-ปิดเกม, บัญชีย่อย | `agent_management.md` |
 
 แก้ spec แล้วต้องแก้ไฟล์ในโฟลเดอร์นี้ใน PR เดียวกัน
