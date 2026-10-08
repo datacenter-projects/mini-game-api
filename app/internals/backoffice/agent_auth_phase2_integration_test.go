@@ -57,7 +57,14 @@ func createAccount(t *testing.T, username string, role models.AgentRole, parentI
 	t.Helper()
 	a := createAgent(t, username, models.AgentStatusActive, parentID)
 	if role != models.AgentRoleAgent {
-		if err := database.DBConn.Model(&models.UserAgent{}).Where("id = ?", a.ID).Update("role", role).Error; err != nil {
+		cols := map[string]any{"role": role}
+		switch role { // Company / Share ต้องมี agent_type (agent_management MGMT-01)
+		case models.AgentRoleCompany:
+			cols["agent_type"] = models.AgentTypeTransfer
+		case models.AgentRoleShareholder:
+			cols["agent_type"] = models.AgentTypeShareB2C
+		}
+		if err := database.DBConn.Model(&models.UserAgent{}).Where("id = ?", a.ID).Updates(cols).Error; err != nil {
 			t.Fatal(err)
 		}
 		a.Role = role

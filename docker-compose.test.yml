@@ -1,0 +1,31 @@
+# dependency สำหรับ integration test และ load test เท่านั้น (docs/TESTING.md)
+# แยกจาก docker-compose.yml: port ไม่ชนของ dev (55432 / 56379) และเก็บข้อมูลใน RAM — down แล้วหายหมด
+#
+#   docker compose -f docker-compose.test.yml up -d
+#   docker compose -f docker-compose.test.yml down
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: minigame
+      POSTGRES_PASSWORD: minigame
+      POSTGRES_DB: minigame_test
+      TZ: Asia/Bangkok
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minigame -d minigame_test"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:56379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 30

@@ -2,9 +2,11 @@ package middleware
 
 import (
 	agentAuthCore "app/app/core/agent_auth"
+	agentManagementCore "app/app/core/agent_management"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
 	"app/app/models"
 	agentAuthService "app/app/service/agent_auth"
+	agentManagementService "app/app/service/agent_management"
 	"app/pkg/apperr"
 	"app/pkg/response"
 	"app/pkg/utils"
@@ -31,6 +33,28 @@ func PassedGates(allow ...agentAuthCore.Gate) fiber.Handler {
 func RequireRole(role models.AgentRole) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		if err := agentAuthService.CheckRoleService(GetActor(c), role); err != nil {
+			return response.Error(c, err)
+		}
+		return c.Next()
+	}
+}
+
+// RequirePermission — สิทธิ์ต่อเมนูของบัญชีหลัก / sub (MGMT-50, MGMT-51) · ไม่พอ = 402303
+//
+//	pr.Post("/manage/downlines/list", mw.PassedGates(), mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelView), ...)
+func RequirePermission(menu agentManagementCore.Menu, need agentManagementCore.Level) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		if err := agentManagementService.CheckPermissionService(c.UserContext(), GetActor(c), menu, need); err != nil {
+			return response.Error(c, err)
+		}
+		return c.Next()
+	}
+}
+
+// RequireMainAccount — เฉพาะบัญชีหลัก · sub เรียก = 402311 (agent_management MGMT-40)
+func RequireMainAccount() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		if err := agentManagementService.CheckMainAccountService(GetActor(c)); err != nil {
 			return response.Error(c, err)
 		}
 		return c.Next()
