@@ -1,4 +1,4 @@
--- account 1.3 ข้อมูลรับรอง API (docs/modules/account.md หัวข้อ 6)
+-- account 1.3 ข้อมูลรับรอง API (docs/modules/account.md หัวข้อ 6) · เลขเวอร์ชันเปลี่ยนจาก 20261007142913 (2026-10-08) ให้ลงหลัง migration ของ agent_management ที่เข้า dev ก่อน
 
 -- +goose Up
 CREATE TABLE api_credentials (
