@@ -123,15 +123,14 @@ func TestMinPTFromParent(t *testing.T) { // MGMT-24
 }
 
 func TestIsGameOpen(t *testing.T) { // MGMT-20
-	on := GameSwitch{true, true}
 	tests := []struct {
 		name  string
-		chain []GameSwitch
+		chain []bool
 		want  bool
 	}{
-		{"เปิดทุกชั้น", []GameSwitch{on, on, on}, true},
-		{"ปิดทั้งกลุ่มที่ตัวเอง", []GameSwitch{{false, true}, on}, false},
-		{"หัวสายปิดเกม · ลูกเปิด", []GameSwitch{on, {true, false}}, false},
+		{"เปิดทุกชั้น", []bool{true, true, true}, true},
+		{"ตัวเองปิดเกม", []bool{false, true}, false},
+		{"หัวสายปิดเกม · ลูกเปิด", []bool{true, false}, false},
 		{"ไม่มีชั้น", nil, true},
 	}
 	for _, tt := range tests {

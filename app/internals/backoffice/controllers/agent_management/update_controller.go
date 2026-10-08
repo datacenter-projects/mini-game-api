@@ -82,3 +82,12 @@ func result(c *fiber.Ctx, err error) error {
 	}
 	return response.OK(c, nil)
 }
+
+// UpdateGamesController — POST /api/v1/bo/pr/manage/agents/update-games
+func UpdateGamesController(c *fiber.Ctx) error {
+	var req agentManagementDto.UpdateGamesRequest
+	if err := utils.ParseBodyNoNull(c, &req); err != nil {
+		return response.Error(c, err)
+	}
+	return result(c, agentManagementService.UpdateGamesService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
+}

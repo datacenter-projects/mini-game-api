@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status`
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
@@ -94,16 +94,18 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-16 | **รับค่าชุดเดียวต่อกลุ่ม · เก็บต่อเกม**: |
 | | • ส่งเป็น object `pt` แยกตาม**กลุ่ม PT** · ระบบ**กระจายค่าลงทุกเกมในกลุ่ม** แล้วเก็บทีละเกม (`agent_game_settings`) · ค่าของเกมในกลุ่มเท่ากันเสมอ |
 | | • ตอนนี้มีกลุ่ม `minigame` กลุ่มเดียว = `coin_toss`, `rock_paper_scissors`, `scratch_card` (แก้ชื่อจาก `game` 2026-10-08) · ระบบอื่น เช่น `askmelotto` เพิ่มเมื่อมีระบบนั้น · การจับคู่กลุ่ม → หมวด → เกม กำหนดใน `app/core` เพิ่มได้โดยไม่เปลี่ยน API / ตาราง |
-| | • **ผู้สร้างตั้งให้ลูก** (สร้าง / แก้ลูก): กลุ่มละ 5 ค่า `pt_from_parent` (ให้ลูกคนนี้) · `force` · `remain_quota` · `commission_percent` · `status` (เปิด / ปิดทั้งกลุ่ม — MGMT-20) |
+| | • **ผู้สร้างตั้งให้ลูก** (สร้าง / แก้ลูก): กลุ่มละ 5 ค่า `pt_from_parent` (ให้ลูกคนนี้) · `force` · `remain_quota` · `commission_percent` · `status` (รับ PT ไหม — MGMT-20) |
 | | • **บัญชีตั้งของตัวเอง** (MGMT-22): กลุ่มละ 1 ค่า `pt` (ถือจาก Member ใต้ตัวเองตรงๆ) |
 | | • **แสดง (response ทุกเส้น — แก้ 2026-10-08): ชุดเดียวต่อระบบ** (ทุกเกมในระบบค่าเท่ากันเสมอ — หลังบ้านเก็บต่อเกม แล้วรวมตอนส่งออก) `pt` → ระบบ → `pt_from_parent` · `pt` · `force` · `remain_quota` · `commission_percent` · `status` · `created_at` · `created_by` · `updated_at` · `updated_by` · `status_game` → รหัสเกม → bool แยกด้านนอก `pt` (MGMT-20) · Member: ต่อระบบมีแค่ `commission_percent` · `created_at` · `created_by` · `updated_at` · `updated_by` |
-| | • `status` = status ของ PT (ไม่ใช่สถานะเกม — เกมใช้ `status_game`) · ❓ รอ lead: `status = false` มีผลอย่างไร (MGMT-20 เดิมเขียนว่าปิดทุกเกมในกลุ่ม) |
+| | • `status` = **รับ PT ในระบบนั้นไหม** (ไม่ใช่สถานะเกม — เกมใช้ `status_game`) · ความหมายตาม MGMT-20 |
 | | • `created_at` / `created_by` = เวลา / username ของผู้สร้างค่า PT (ตอนสร้างบัญชี · ไม่เปลี่ยนอีก) · `updated_at` / `updated_by` = เวลา / username ของคนที่แก้ล่าสุด (รวม sub) · ตอนสร้าง = ผู้สร้าง |
 | | • เกมใหม่ที่เพิ่มเข้าหมวดภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
 | MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง (เช่น `30`, `0.5`) · ภายใน DB / Go เป็นจำนวนเต็ม bp (ACC-18) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ค่าที่ให้ลูก (`pt_from_parent`) และค่าถือ (`pt`): 0 ถึง**ค่าที่ตัวเองได้รับ** ทีละ 0.5% · Force / Remain: 0 ถึงค่าที่ให้ลูกคนนั้น ทีละ 0.5% · Commission: 0–1% ทีละ 0.1% · Commission ของลูกตั้ง**เกินของผู้สร้างได้** (เช่น ผู้สร้างได้ 0.5% ตั้งให้ลูก 0.6% ได้) แต่ไม่เกิน 1% |
 | MGMT-19 | Company Seamless Master: `pt` ล็อกที่ 0 · ค่าที่ให้ Share Master ต้อง**เท่ากับค่าที่ตัวเองได้รับ** · Force และ Remain ที่ให้ Share Master = 0 · แก้ได้แค่ Commission (เอกสาร PT) |
-| MGMT-20 | ❓ รอ lead: `status` ใน `pt` เป็น status ของ PT ไม่ใช่สถานะเกม (2026-10-08) — ความหมายด้านล่างของ `status` อาจเปลี่ยน · เปิด / ปิดเกมรายบัญชี มี 2 ระดับ ผู้สร้างตั้งให้ทั้งคู่: **ทั้งกลุ่ม** `pt` → กลุ่ม → `status` (bool · `false` = ปิดทุกเกมในกลุ่ม) และ **ทีละเกม** `status_game` → รหัสเกม (bool · แยกจาก `pt`) · เกมเล่นได้เมื่อ `status` ของกลุ่มและ `status_game` ของเกมนั้นเป็น `true` ทั้งคู่ · ปิดแล้ว Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
+| MGMT-20 | **`status` ใน `pt` กับ `status_game` แยกหน้าที่กัน** (boiledegg ตัดสิน 2026-10-08): |
+| | • `pt` → ระบบ → `status` (bool) = รับ PT ในระบบนั้นไหม · `false` = **เกมยังเปิดให้เล่น แต่บัญชีนี้ไม่รับ PT** ในระบบนั้น · ผู้สร้างตั้งให้ (สร้าง / `update-pt`) · ส่วน PT ที่บัญชีนี้ไม่รับไปอยู่กับใคร กำหนดตอนทำ module คิด PT |
+| | • `status_game` → รหัสเกม (bool) = **เปิด / ปิดเกมรายบัญชี** · `false` = Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ผู้สร้างตั้งให้ · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
 | MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`member_game_settings`) |
 | MGMT-22 | **ผู้สร้างกำหนดค่าที่ให้ลูกแต่ละคนแยกกัน** (ทุกชั้น รวม Superadmin → Company): |
 | | • ลูกแต่ละคนได้รับไม่เท่ากันได้ · ค่าที่ให้ลูกแต่ละคน**ห้ามเกินค่าที่ผู้สร้างได้รับ** · Superadmin ได้รับ 100% |
@@ -208,7 +210,7 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 | POST | `/api/v1/bo/pr/manage/agents/update-status` · `/manage/members/update-status` | `member` edit | แก้สถานะ |
 | POST | `/api/v1/bo/pr/manage/agents/update-pt` · `/manage/members/update-commission` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
-| POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดทีละเกม — ❓ รอ lead: จะย้ายไป module อื่นและให้ใครใช้ |
+| POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดเกมรายบัญชีให้ลูกตรง (MGMT-20) |
 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
 | POST | `/api/v1/bo/pr/manage/subaccounts/list` | บัญชีหลัก (`RequireMainAccount`) | รายชื่อ sub |
 | POST | `/api/v1/bo/pr/manage/subaccounts/detail` | บัญชีหลัก | รายละเอียด sub |
@@ -260,7 +262,7 @@ Response:
 - `username` รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก (`Share01` → `share01`)
 - `currencies` ตาม MGMT-10 ถึง 13 (ประเภทที่ไม่ต้องส่ง ห้ามส่ง · ส่งผิดจำนวน = `422` · ไม่อยู่ในสกุลของผู้สร้าง = `402310`)
 - `balance` ไม่บังคับ · ยอดเงินตั้งต้นต่อสกุล โอนจากยอดของผู้สร้าง (MGMT-15A) · บัญชีฝั่ง Seamless ห้ามส่ง
-- `phone` ไม่ตั้งให้ส่ง `""` · `pt` ต้องส่งครบทุกกลุ่ม ครบ 5 ค่า · `status_game` ไม่บังคับ · เกมที่ไม่ส่ง = `true` (เปิด) · ไม่ส่งทั้ง field = เปิดทุกเกม (❓ รอ lead — อาจย้ายไป module อื่น)
+- `phone` ไม่ตั้งให้ส่ง `""` · `pt` ต้องส่งครบทุกกลุ่ม ครบ 5 ค่า · `status_game` ไม่บังคับ · เกมที่ไม่ส่ง = `true` (เปิด) · ไม่ส่งทั้ง field = เปิดทุกเกม · แก้ทีหลังที่ `update-games`
 
 Error codes: `422`, `402301`, `402303`, `402305`, `402307`, `402308`, `402309`, `402310`, `402312`, `402401`, `402403`
 
@@ -577,7 +579,7 @@ Response:
 ```json
 { "code": 200, "msg": "สำเร็จ" }
 ```
-- `pt_from_parent` = ค่าที่ให้ลูกคนนี้ · ผู้สร้างถือในสายนี้ = ค่าที่ผู้สร้างได้รับ − ค่านี้ (MGMT-22) · `status` = เปิด / ปิดทั้งกลุ่ม (MGMT-20)
+- `pt_from_parent` = ค่าที่ให้ลูกคนนี้ · ผู้สร้างถือในสายนี้ = ค่าที่ผู้สร้างได้รับ − ค่านี้ (MGMT-22) · `status` = รับ PT ไหม · `false` = เกมยังเปิด แต่ไม่รับ PT (MGMT-20)
 - ลดได้ไม่ต่ำกว่าที่ลูกใช้อยู่ (MGMT-24) — ตัวอย่าง: share01 ถือ 30 และให้ agent01 60 → ตั้งต่ำสุด 60 · ตั้ง 55 = `402306`
 - ส่ง `pt` (ค่าถือที่ลูกตั้งเอง) มา = `422`
 
@@ -613,9 +615,11 @@ Response:
 
 Error codes: `422`, `402303`, `402305`, `402307`
 
-### POST /api/v1/bo/pr/manage/agents/update-games (❓ รอ lead — ยังไม่เปิดใช้)
+### POST /api/v1/bo/pr/manage/agents/update-games
 
-Request (ส่งเฉพาะเกมที่จะเปลี่ยน):
+เปิด / ปิดเกมรายบัญชีให้ลูกตรง (MGMT-20 · boiledegg ตัดสิน 2026-10-08 — อยู่ใน module นี้)
+
+Request (ส่งเฉพาะเกมที่จะเปลี่ยน · อย่างน้อย 1 เกม):
 ```json
 { "id": 12, "status_game": { "scratch_card": false } }
 ```
@@ -623,6 +627,9 @@ Response:
 ```json
 { "code": 200, "msg": "สำเร็จ" }
 ```
+
+- แก้ได้เฉพาะ**ผู้สร้างโดยตรง** · ไม่ส่งต่อลงสายล่าง (สายล่างเช็คทั้งสายตอนเล่น — MGMT-20) · ไม่เปลี่ยนค่า PT และ `updated_by` ของ PT · บันทึก `account_change_logs` (`UPDATE_GAMES` ค่าเก่า / ใหม่)
+- เกมไม่มีในระบบ · `status_game` ว่าง · `null` → `422`
 
 Error codes: `422`, `402303`, `402304`, `402402`
 
@@ -792,7 +799,7 @@ CREATE TABLE agent_game_settings (               -- ค่าหุ้นส่�
     force_bp          INT         NOT NULL DEFAULT 0 CHECK (force_bp BETWEEN 0 AND 10000),
     remain_bp         INT         NOT NULL DEFAULT 0 CHECK (remain_bp BETWEEN 0 AND 10000),
     commission_bp     INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
-    status            BOOLEAN     NOT NULL DEFAULT true,   -- เปิด / ปิดทั้งกลุ่ม (ทุกเกมในกลุ่มค่าเดียวกัน — MGMT-20)
+    status            BOOLEAN     NOT NULL DEFAULT true,   -- รับ PT ไหม (false = เกมยังเปิด แต่ไม่รับ PT — MGMT-20)
     status_game       BOOLEAN     NOT NULL DEFAULT true,   -- เปิด / ปิดทีละเกม
     created_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ผู้สร้าง (เพิ่ม 2026-10-08 — migration ใหม่ พร้อม created_at · member_game_settings ด้วย)
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -968,7 +975,9 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-22 | agent1 ได้รับ 60 ตั้ง `pt` 40 · Member แพ้ 1,000 | agent1 ได้ 400 · 200 คืน Superadmin (ไม่มี Force / Remain) |
 | MGMT-22 | agent1 ตั้ง `pt` 61 | `402305` |
 | MGMT-23 | ผู้สร้างแก้ `pt` ของลูก · ลูกแก้ `pt_from_parent` ของตัวเอง | `422` (field ไม่อยู่ในเส้นนั้น) |
-| MGMT-20 | ผู้สร้างตั้ง `pt.minigame.status = false` | ❓ รอ lead ยืนยันว่า `status` ของ PT มีผลอย่างไร |
+| MGMT-20 | ผู้สร้างตั้ง `pt.minigame.status = false` | บันทึกสำเร็จ · รายละเอียดแสดง `false` · `status_game` ทุกเกมไม่เปลี่ยน (เกมยังเปิด) |
+| MGMT-20 | comp01 `update-games` ปิด `scratch_card` ของ share01 แล้วเปิดกลับ | `status_game` ของ share01 เปลี่ยนเฉพาะเกมนั้น · agent ใต้ share01 ไม่เปลี่ยน · ค่า PT / `updated_by` ไม่เปลี่ยน · log `UPDATE_GAMES` 2 แถว |
+| MGMT-20 | `update-games` กับลูกของลูก · นอกสาย · เกมไม่มีในระบบ / ว่าง / `null` | `402304` · `402402` · `422` |
 | MGMT-52 | sub ของ Superadmin ได้สิทธิ์ `announcement` | `422` |
 | MGMT-52 | Superadmin ให้ sub `rate` = `edit` · Company ให้ sub `rate` | สำเร็จ · `422` |
 

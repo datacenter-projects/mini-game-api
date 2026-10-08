@@ -1,6 +1,6 @@
 # API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 8 ต.ค. 2026
 
-เอกสารนี้สรุปจากโค้ดใน branch `boiledegg/bo/management` (`860c007` + เส้นรายชื่อเปลี่ยนเป็น `/list` — ยังไม่ merge เข้า `dev`) ·
+เอกสารนี้สรุปจากโค้ดใน branch `dev` (merge แล้ว 8 ต.ค. 2026 — มีบน server dev หลัง deploy รอบถัดไป) ·
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
 
 ## 1. พื้นฐาน
@@ -60,7 +60,7 @@ key ของระบบคือ `minigame` (ทุกเกม minigame · �
 | `pt` | ค่าถือจาก Member ใต้ตัวเอง (ไม่เกิน `pt_from_parent`) | บัญชีนั้นเอง (`update-hold`) |
 | `force` · `remain_quota` | บังคับถือสู้ · เอาส่วนที่เหลือ (ไม่เกินค่าที่ให้) | ผู้สร้าง |
 | `commission_percent` | Commission 0–1 | ผู้สร้าง |
-| `status` | status ของ PT (ไม่ใช่สถานะเกม) — ❓ รอ lead ยืนยันความหมาย | ผู้สร้าง |
+| `status` | รับ PT ในระบบนี้ไหม · `false` = เกมยังเปิด แต่บัญชีนี้ไม่รับ PT (ไม่ใช่สถานะเกม) | ผู้สร้าง |
 | `status_game` | เปิด / ปิดทีละเกม (อยู่นอก `pt`) | ผู้สร้าง (ตอนสร้าง) |
 | `created_at` · `created_by` | เวลา / username ของผู้สร้างค่า PT (ไม่เปลี่ยนหลังสร้าง) | ระบบตั้งให้ |
 | `updated_at` · `updated_by` | เวลา / username ของคนที่แก้ค่า PT ล่าสุด (รวม sub) | ระบบตั้งให้ |
@@ -110,20 +110,19 @@ sub ของ comp01 = `comp01@staff` (id 30)
 | 3.11 | POST | `/api/v1/bo/pr/manage/agents/update-pt` | ผู้สร้างแก้ค่าที่ให้ลูก | `pt` edit |
 | 3.12 | POST | `/api/v1/bo/pr/manage/members/update-commission` | แก้ Commission ของ Member | `pt` edit |
 | 3.13 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | ตั้งค่าถือของตัวเอง | `pt` edit |
+| 3.13A | POST | `/api/v1/bo/pr/manage/agents/update-games` | เปิด / ปิดเกมให้ลูกตรง | `pt` edit · ผู้สร้างโดยตรง |
 | 3.14 | POST | `/api/v1/bo/pr/manage/subaccounts/list` | รายชื่อ sub (กรองด้วย `q` ได้) | บัญชีหลักเท่านั้น |
 | 3.15 | POST | `/api/v1/bo/pr/manage/subaccounts/detail` | รายละเอียด sub | บัญชีหลักเท่านั้น |
 | 3.16 | POST | `/api/v1/bo/pr/manage/subaccounts/create` | สร้าง sub | บัญชีหลักเท่านั้น |
 | 3.17 | POST | `/api/v1/bo/pr/manage/subaccounts/update-info` | แก้ชื่อเล่น · เบอร์ · สิทธิ์ของ sub | เจ้าของ sub |
 | 3.18 | POST | `/api/v1/bo/pr/manage/subaccounts/update-status` | `ACTIVE` / `INACTIVE` ของ sub | เจ้าของ sub |
 
-ยังไม่มี: `POST /manage/agents/update-games` (เปิด / ปิดทีละเกม — รอ lead) · ตอนนี้ตั้ง `status_game` ได้ตอนสร้างเท่านั้น
-
 **error ที่เกิดได้กับทุกเส้น** (ไม่เขียนซ้ำในแต่ละเส้น): `401202`, `401203`, `401301`, `401302` → หน้า login ·
 `401304`, `401306`, `401307` → ด่านหลัง login (`docs/frontend/auth.md` หัวข้อ 2)
 
 ### ตั้งค่า Postman (ตัวแปร `{{MG_URL}}` และ `{{TOKEN}}`)
 
-คัดลอก curl ไป **Import** ใน Postman ได้เลย · `MG_URL` = `http://localhost:8282` (test env) · `TOKEN` ตั้งอัตโนมัติจากเส้น Login
+คัดลอก curl ไป **Import** ใน Postman ได้เลย · `MG_URL` = `https://dev-mini-api.pirate168.com` (server dev หลัง deploy) หรือ `http://localhost:8282` (test env) · `TOKEN` ตั้งอัตโนมัติจากเส้น Login
 (script ใน `docs/frontend/auth.md`) · ขอข้อความ error เป็นภาษาอังกฤษ: เพิ่ม `-H "X-Lang: en"`
 
 ### 3.1 POST /api/v1/bo/pr/manage/agents/create
@@ -619,6 +618,28 @@ Response: `{ "code": 200, "msg": "สำเร็จ" }`
 - Company Seamless Master ตั้งได้แค่ `0` (`402307`) · ส่ง `pt_from_parent` / `force` ฯลฯ มา = `422`
 
 Error: `422`, `402303`, `402305`, `402307`
+
+### 3.13A POST /api/v1/bo/pr/manage/agents/update-games
+
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/update-games" \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d '{"id":12,"status_game":{"scratch_card":false}}'
+```
+
+Request (ส่งเฉพาะเกมที่จะเปลี่ยน · อย่างน้อย 1 เกม):
+```json
+{ "id": 12, "status_game": { "scratch_card": false } }
+```
+Response: `{ "code": 200, "msg": "สำเร็จ" }`
+
+- `false` = ปิดเกมนั้นให้บัญชีนี้ · Member ในสายเล่นเกมนั้นไม่ได้ · `true` = เปิดกลับ
+- แก้ได้เฉพาะผู้สร้างโดยตรง (`402304`) · บัญชีนอกสาย `402402`
+- ไม่เปลี่ยนค่าของสายล่าง — ชั้นบนปิดแล้วสายล่างเปิดเองไม่ได้ (ระบบเช็คทั้งสายตอนเล่น)
+- ไม่เปลี่ยนค่า PT และ `updated_by` ของ `pt` · ดูค่าปัจจุบันที่ `status_game` ของ `agents/detail`
+
+Error: `422`, `402303`, `402304`, `402402`
 
 ### 3.14 POST /api/v1/bo/pr/manage/subaccounts/list
 

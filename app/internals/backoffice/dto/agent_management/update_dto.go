@@ -179,3 +179,24 @@ func checkID(id uint) error {
 	}
 	return nil
 }
+
+// UpdateGamesRequest — POST /manage/agents/update-games (MGMT-20) · ส่งเฉพาะเกมที่จะเปลี่ยน
+type UpdateGamesRequest struct {
+	ID         uint            `json:"id"`
+	StatusGame map[string]bool `json:"status_game"`
+}
+
+func (r *UpdateGamesRequest) Validate() error {
+	if err := checkID(r.ID); err != nil {
+		return err
+	}
+	if len(r.StatusGame) == 0 {
+		return invalid("status_game", "ต้องส่งอย่างน้อย 1 เกม", "must contain at least 1 game")
+	}
+	for code := range r.StatusGame {
+		if _, ok := agentManagementCore.GroupOfGame(code); !ok {
+			return invalid("status_game."+code, "ไม่มีเกมนี้", "is not a known game")
+		}
+	}
+	return nil
+}

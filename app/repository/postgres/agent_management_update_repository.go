@@ -105,3 +105,12 @@ func MemberPhoneTakenByOtherRepository(db *gorm.DB, phone string, selfID uint) (
 	err := db.Model(&models.Member{}).Where("phone = ? AND id <> ?", phone, selfID).Limit(1).Count(&n).Error
 	return n > 0, err
 }
+
+// UpdateStatusGameRepository — เปิด / ปิดเกมรายบัญชี (MGMT-20) · ไม่แตะ updated_* ของค่า PT
+func UpdateStatusGameRepository(db *gorm.DB, agentID uint, gameCodes []string, on bool) error {
+	if len(gameCodes) == 0 {
+		return nil
+	}
+	return db.Model(&models.AgentGameSetting{}).Where("agent_id = ? AND game_code IN ?", agentID, gameCodes).
+		Update("status_game", on).Error
+}

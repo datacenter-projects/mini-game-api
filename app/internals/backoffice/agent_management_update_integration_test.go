@@ -22,6 +22,7 @@ const (
 	updatePTPath         = "/api/v1/bo/pr/manage/agents/update-pt"
 	updateCommissionPath = "/api/v1/bo/pr/manage/members/update-commission"
 	updateHoldPath       = "/api/v1/bo/pr/manage/agents/update-hold"
+	updateGamesPath      = "/api/v1/bo/pr/manage/agents/update-games"
 )
 
 func ptBody(id uint, give, force, remain, commission float64) map[string]any {
@@ -240,4 +241,71 @@ func TestUpdateSubPermission(t *testing.T) { // MGMT-51
 		t.Fatalf("owner pt_bp %d", s.PTBP)
 	}
 	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "name": "share01", "phone": ""}, tok), 200, 402303)
+}
+
+func TestUpdateGames(t *testing.T) { // MGMT-20
+	app := setup2(t)
+	c := buildChain(t, app)
+	statusGame := func(agentID uint) map[string]bool {
+		t.Helper()
+		var rows []models.AgentGameSetting
+		database.DBConn.Where("agent_id = ?", agentID).Find(&rows)
+		out := map[string]bool{}
+		for _, s := range rows {
+			out[s.GameCode] = s.StatusGame
+		}
+		return out
+	}
+	before := gameSetting(t, c.share.ID)
+
+	// ผู้สร้างปิดเกมให้ลูกตรง · ส่งเฉพาะเกมที่เปลี่ยน · ค่า PT และผู้แก้ PT ไม่เปลี่ยน
+	body := map[string]any{"id": c.share.ID, "status_game": map[string]any{"scratch_card": false}}
+	expect(t, call(t, app, "POST", updateGamesPath, body, c.comTok), 200, 200)
+	if sg := statusGame(c.share.ID); sg["scratch_card"] || !sg["coin_toss"] || !sg["rock_paper_scissors"] {
+		t.Fatalf("status_game %v", sg)
+	}
+	if after := gameSetting(t, c.share.ID); after.UpdatedBy != before.UpdatedBy || !after.UpdatedAt.Equal(before.UpdatedAt) || !after.Status {
+		t.Fatalf("ค่า PT ต้องไม่เปลี่ยน %+v", after)
+	}
+	if sg := statusGame(c.agent.ID); !sg["scratch_card"] {
+		t.Fatal("ไม่ส่งต่อลงสายล่าง — สายล่างเช็คตอนเล่น")
+	}
+	r := call(t, app, "POST", agentDetailPath, map[string]any{"id": c.share.ID}, c.comTok)
+	var d struct {
+		StatusGame map[string]bool `json:"status_game"`
+	}
+	_ = json.Unmarshal(r.Data, &d)
+	if d.StatusGame["scratch_card"] || !d.StatusGame["coin_toss"] {
+		t.Fatalf("detail status_game %v", d.StatusGame)
+	}
+
+	// เปิดกลับได้ · log ค่าเก่า / ใหม่
+	body["status_game"] = map[string]any{"scratch_card": true}
+	expect(t, call(t, app, "POST", updateGamesPath, body, c.comTok), 200, 200)
+	var logs []models.AccountChangeLog
+	database.DBConn.Where("action = ?", models.ChangeUpdateGames).Order("id").Find(&logs)
+	var oldV, newV struct {
+		StatusGame map[string]bool `json:"status_game"`
+	}
+	if len(logs) != 2 || logs[1].OldValue == nil || logs[1].NewValue == nil || logs[1].ActorUsername != "comp01" {
+		t.Fatalf("logs %+v", logs)
+	}
+	_ = json.Unmarshal([]byte(*logs[1].OldValue), &oldV)
+	_ = json.Unmarshal([]byte(*logs[1].NewValue), &newV)
+	if v, ok := oldV.StatusGame["scratch_card"]; !ok || v || !newV.StatusGame["scratch_card"] || len(newV.StatusGame) != 1 {
+		t.Fatalf("log values %s → %s", *logs[1].OldValue, *logs[1].NewValue)
+	}
+
+	// ไม่ใช่ผู้สร้างโดยตรง 402304 · นอกสาย 402402 · validation 422
+	expect(t, call(t, app, "POST", updateGamesPath, map[string]any{"id": c.agent.ID, "status_game": map[string]any{"coin_toss": false}}, c.comTok), 200, 402304)
+	_, otherTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_TRANSFER", "othercom", nil, childPT(50, 0, 0, 0)))
+	expect(t, call(t, app, "POST", updateGamesPath, map[string]any{"id": c.share.ID, "status_game": map[string]any{"coin_toss": false}}, otherTok), 200, 402402)
+	for _, b := range []map[string]any{
+		{"id": c.share.ID, "status_game": map[string]any{}},
+		{"id": c.share.ID, "status_game": map[string]any{"poker": false}},
+		{"id": c.share.ID, "status_game": map[string]any{"coin_toss": nil}},
+		{"status_game": map[string]any{"coin_toss": false}},
+	} {
+		expect(t, call(t, app, "POST", updateGamesPath, b, c.comTok), 200, 422)
+	}
 }

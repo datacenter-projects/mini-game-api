@@ -68,6 +68,7 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/manage/agents/update-pt", mw.PassedGates(), ptEdit, agentManagementController.UpdateChildPTController)
 	pr.Post("/manage/members/update-commission", mw.PassedGates(), ptEdit, agentManagementController.UpdateMemberCommissionController)
 	pr.Post("/manage/agents/update-hold", mw.PassedGates(), ptEdit, agentManagementController.UpdateOwnHoldController)
+	pr.Post("/manage/agents/update-games", mw.PassedGates(), ptEdit, agentManagementController.UpdateGamesController)
 	// sub: เฉพาะบัญชีหลัก (sub เรียก = 402311 — MGMT-40) · ไม่ใช้สิทธิ์เมนู
 	pr.Post("/manage/subaccounts/list", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.ListSubaccountsController)
 	pr.Post("/manage/subaccounts/detail", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.GetSubaccountController)
