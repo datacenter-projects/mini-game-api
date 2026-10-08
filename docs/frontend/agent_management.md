@@ -1,6 +1,6 @@
 # API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 8 ต.ค. 2026
 
-เอกสารนี้สรุปจากโค้ดใน branch `boiledegg/bo/management` (`860c007` + เส้นรายชื่อเปลี่ยนเป็น `/list` — ยังไม่ merge เข้า `dev`) ·
+เอกสารนี้สรุปจากโค้ดใน branch `dev` (merge แล้ว 8 ต.ค. 2026 — มีบน server dev หลัง deploy รอบถัดไป) ·
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
 
 ## 1. พื้นฐาน
@@ -122,7 +122,7 @@ sub ของ comp01 = `comp01@staff` (id 30)
 
 ### ตั้งค่า Postman (ตัวแปร `{{MG_URL}}` และ `{{TOKEN}}`)
 
-คัดลอก curl ไป **Import** ใน Postman ได้เลย · `MG_URL` = `http://localhost:8282` (test env) · `TOKEN` ตั้งอัตโนมัติจากเส้น Login
+คัดลอก curl ไป **Import** ใน Postman ได้เลย · `MG_URL` = `https://dev-mini-api.pirate168.com` (server dev หลัง deploy) หรือ `http://localhost:8282` (test env) · `TOKEN` ตั้งอัตโนมัติจากเส้น Login
 (script ใน `docs/frontend/auth.md`) · ขอข้อความ error เป็นภาษาอังกฤษ: เพิ่ม `-H "X-Lang: en"`
 
 ### 3.1 POST /api/v1/bo/pr/manage/agents/create
