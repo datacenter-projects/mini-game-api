@@ -4,8 +4,8 @@
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
-- แก้หลังอนุมัติ (2026-10-08 · maofoy · lead ยังไม่ได้รับทราบ): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261009000000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
-- ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`) · เส้น `/manage/members/*` แยกไปที่ `member_management` (`controllers/` `dto/` `service/member_management` — lead อนุมัติ 2026-10-08) · กฎ business ยังอยู่ที่ `core/agent_management` และ spec ฉบับนี้
+- แก้หลังอนุมัติ (2026-10-08 · maofoy · boiledegg ยืนยัน 2026-10-09): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261009000000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
+- ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`) · เส้น `/manage/members/*` แยกไปที่ `member_management` (`controllers/` `dto/` `service/member_management` — lead อนุมัติ 2026-10-08 · spec [member_management.md](member_management.md) แยกเอกสาร 2026-10-09) · กฎ business ยังอยู่ที่ `core/agent_management` และ spec ฉบับนี้
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
   review ของ lead ต่อฉบับ 647d682 · ภาพหน้าจอตัวอย่าง + คำตอบของ boiledegg (2026-10-05 / 06) · ไม่ได้ extract จากโค้ดเก่า
@@ -201,18 +201,18 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 สิทธิ์ของ sub ใช้ middleware `RequirePermission(menu, level)` บรรทัดเดียวกับ route ·
 error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, `401307`, `401311`, `402303`
 
+**เส้นของ Member** (`/manage/members/*`) ย้ายไป spec [member_management.md](member_management.md) (แยกเอกสาร 2026-10-09) · ตารางนี้เหลือเส้นของ module `agent_management`
+
 | Method | Path | สิทธิ์ (sub) | หมายเหตุ |
 |---|---|---|---|
 | POST | `/api/v1/bo/pr/manage/agents/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Company / Share / Agent |
-| POST | `/api/v1/bo/pr/manage/members/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Member |
 | POST | `/api/v1/bo/pr/manage/downlines/list` | `member` view | รายชื่อลูกตรง (agent + Member) |
 | POST | `/api/v1/bo/pr/manage/downlines/search` | `member` view | ค้นหาทั้งสายใต้ตัวเอง (MGMT-27A) |
 | POST | `/api/v1/bo/pr/admin/accounts/search` | ADMIN เท่านั้น | ค้นหาบัญชีทั้งระบบด้วย username ตรงทั้งคำ (MGMT-27B) |
 | POST | `/api/v1/bo/pr/manage/agents/detail` | `member` view | รายละเอียดฝั่ง agent |
-| POST | `/api/v1/bo/pr/manage/members/detail` | `member` view | รายละเอียด Member |
-| POST | `/api/v1/bo/pr/manage/agents/update-info` · `/manage/members/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
-| POST | `/api/v1/bo/pr/manage/agents/update-status` · `/manage/members/update-status` | `member` edit | แก้สถานะ |
-| POST | `/api/v1/bo/pr/manage/agents/update-pt` · `/manage/members/update-commission` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
+| POST | `/api/v1/bo/pr/manage/agents/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
+| POST | `/api/v1/bo/pr/manage/agents/update-status` | `member` edit | แก้สถานะ |
+| POST | `/api/v1/bo/pr/manage/agents/update-pt` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
 | POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดเกมรายบัญชีให้ลูกตรง (MGMT-20) |
 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
@@ -269,33 +269,6 @@ Response:
 - `phone` ไม่ตั้งให้ส่ง `""` · `pt` ต้องส่งครบทุกกลุ่ม ครบ 5 ค่า · `status_game` ไม่บังคับ · เกมที่ไม่ส่ง = `true` (เปิด) · ไม่ส่งทั้ง field = เปิดทุกเกม · แก้ทีหลังที่ `update-games`
 
 Error codes: `422`, `402301`, `402303`, `402305`, `402307`, `402308`, `402309`, `402310`, `402312`, `402401`, `402403`
-
-### POST /api/v1/bo/pr/manage/members/create
-
-Request:
-```json
-{
-  "request_id": "0b9c5a77-2d1e-4f3a-8c61-5e4d3c2b1a09",
-  "username": "Mem01",
-  "password": "aA4b4c4d4e4f",
-  "name": "ใจดี",
-  "phone": "",
-  "balance": { "THB": 100.00 },
-  "pt": { "minigame": { "commission_percent": 0.3 } }
-}
-```
-Response:
-```json
-{
-  "code": 200,
-  "msg": "สำเร็จ",
-  "data": { "id": 501, "username": "mem01" }
-}
-```
-- ไม่มี `user_type` · `currencies` · `status_game` · สกุลเงิน = สกุลของผู้สร้าง (MGMT-13)
-- `pt` กลุ่มละ `commission_percent` เท่านั้น (MGMT-21)
-
-Error codes: `422`, `402301`, `402303`, `402309`, `402312`, `402401`, `402403`
 
 ### POST /api/v1/bo/pr/manage/downlines/list (รายชื่อลูกตรง)
 
@@ -496,41 +469,6 @@ Response:
 
 Error codes: `422`, `402303`, `402402`
 
-### POST /api/v1/bo/pr/manage/members/detail
-
-Request:
-```json
-{ "id": 501 }
-```
-Response:
-```json
-{
-  "code": 200,
-  "msg": "สำเร็จ",
-  "data": {
-    "id": 501,
-    "role": "MEMBER",
-    "user_type": "MEMBER",
-    "username": "mem01",
-    "name": "ใจดี",
-    "phone": "",
-    "status": "ACTIVE",
-    "parent_username": "agent01",
-    "currencies": ["THB"],
-    "balances": [ { "currency": "THB", "amount": 100.00 } ],
-    "pt": {
-      "minigame": { "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
-    },
-    "last_login_at": "",
-    "last_login_ip": "",
-    "created_at": "2026-10-02T14:30:00+07:00"
-  }
-}
-```
-- ดูได้: ผู้สร้าง Member และชั้นบนในสาย · ไม่มี `passcode_set` · `pt` ต่อเกมมีแค่ `commission_percent` · `created_at` · `created_by` · `updated_at` · `updated_by`
-
-Error codes: `422`, `402303`, `402402`
-
 ### GET /api/v1/bo/pr/manage/agents/copy-sources
 
 Request: ไม่มี body (ลูกตรงฝั่ง agent ของบัญชีใน token)
@@ -566,7 +504,7 @@ Response (ตัวอย่างของ comp01):
 
 Error codes: `402303`
 
-### POST /api/v1/bo/pr/manage/agents/update-info · /manage/members/update-info
+### POST /api/v1/bo/pr/manage/agents/update-info
 
 Request (แทนทั้งชุด — ต้องส่งครบ):
 ```json
@@ -577,11 +515,10 @@ Response:
 { "code": 200, "msg": "สำเร็จ" }
 ```
 - `id` = บัญชีที่จะแก้ (ลูกตรงเท่านั้น) · ผู้แก้มาจาก token · `phone` `""` = ไม่ตั้ง · ส่ง `null` หรือไม่ส่ง field = `422`
-- เส้น Member ใช้ body รูปแบบเดียวกัน (`"id": 501`)
 
 Error codes: `422`, `402303`, `402304`, `402402`, `402403`
 
-### POST /api/v1/bo/pr/manage/agents/update-status · /manage/members/update-status
+### POST /api/v1/bo/pr/manage/agents/update-status
 
 Request:
 ```json
@@ -615,20 +552,6 @@ Response:
 - ส่ง `pt` (ค่าถือที่ลูกตั้งเอง) มา = `422`
 
 Error codes: `422`, `402303`, `402304`, `402305`, `402306`, `402307`, `402308`, `402309`, `402402`
-
-### POST /api/v1/bo/pr/manage/members/update-commission
-
-Request:
-```json
-{ "id": 501, "pt": { "minigame": { "commission_percent": 0.3 } } }
-```
-Response:
-```json
-{ "code": 200, "msg": "สำเร็จ" }
-```
-- Member มีแค่ `commission_percent` (MGMT-21) · ส่ง field อื่นในกลุ่ม = `422`
-
-Error codes: `422`, `402303`, `402304`, `402309`, `402402`
 
 ### POST /api/v1/bo/pr/manage/agents/update-hold (บัญชีตั้งค่าถือของตัวเอง)
 
@@ -840,34 +763,8 @@ CREATE TABLE agent_game_settings (               -- ค่าหุ้นส่�
     CHECK (pt_bp <= pt_from_parent_bp)
 );
 
-CREATE TABLE user_members (                     -- เปลี่ยนชื่อจาก members 2026-10-08
-    id            BIGSERIAL    PRIMARY KEY,
-    agent_id      BIGINT       NOT NULL REFERENCES user_agents(id),  -- ผู้สร้าง
-    username      VARCHAR(32)  NOT NULL,
-    password_hash VARCHAR(100) NOT NULL,
-    name          VARCHAR(32)  NOT NULL,
-    phone         VARCHAR(15),
-    currency      VARCHAR(4)   NOT NULL,
-    status        VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','LOCKED')),
-    last_login_at TIMESTAMPTZ,
-    last_login_ip VARCHAR(45),
-    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_user_members_username UNIQUE (username),
-    CONSTRAINT ck_user_members_username CHECK (username = lower(username) AND username ~ '^[a-z0-9]{3,32}$'),
-    CONSTRAINT ck_user_members_phone CHECK (phone IS NULL OR phone ~ '^[0-9]{8,15}$')
-);
-CREATE INDEX idx_user_members_agent_username ON user_members(agent_id, username);
-CREATE UNIQUE INDEX uq_user_members_phone ON user_members(phone) WHERE phone IS NOT NULL;
+-- ตาราง Member (user_members · user_member_game_settings) อยู่ใน docs/modules/member_management.md หัวข้อ 4
 
-CREATE TABLE user_member_game_settings (        -- Member มีแค่ Commission ต่อเกม (MGMT-21) · เปลี่ยนชื่อจาก member_game_settings 2026-10-08
-    user_member_id BIGINT      NOT NULL REFERENCES user_members(id),
-    category      VARCHAR(30) NOT NULL,
-    game_code     VARCHAR(50) NOT NULL,
-    commission_bp INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_member_id, game_code)
-);
 
 ALTER TABLE subaccounts
     ADD COLUMN name        VARCHAR(32),
@@ -885,13 +782,7 @@ CREATE TABLE agent_balances (
     PRIMARY KEY (agent_id, currency)
 );
 
-CREATE TABLE user_member_balances (             -- เปลี่ยนชื่อจาก member_balances 2026-10-08
-    user_member_id BIGINT      NOT NULL REFERENCES user_members(id),
-    currency   VARCHAR(4)  NOT NULL,
-    amount     BIGINT      NOT NULL DEFAULT 0 CHECK (amount >= 0),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_member_id, currency)
-);
+-- user_member_balances อยู่ใน docs/modules/member_management.md หัวข้อ 4
 
 CREATE TABLE balance_ledger (                    -- ทุกการเปลี่ยนยอดต้องมีแถวที่นี่ใน tx เดียวกัน (กฎข้อ 11)
     id            BIGSERIAL   PRIMARY KEY,
