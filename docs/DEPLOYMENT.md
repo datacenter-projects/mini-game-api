@@ -93,6 +93,7 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 | `REDIS_ADDR` | required |
 | `REDIS_PASSWORD` | Secret |
 | `JWT_SECRET` | Secret, required, อย่างน้อย 32 ตัวอักษร, แยกค่าต่อ env |
+| `API_KEY_ENCRYPTION_KEY` | Secret, **required บน dev / uat / prod** (ขาด = app ไม่ boot) — base64 ของ 32 byte (สร้างด้วย `openssl rand -base64 32`) แยกค่าต่อ env · ใช้เข้ารหัส Key ของ account 1.3 **ห้ามเปลี่ยนค่าหลังใช้งาน** (Key เดิมจะถอดไม่ได้) |
 | `PASSWORD_COST` | bcrypt cost — **12** (default) ห้ามลดบน dev/prod ค่า 4 ใช้กับ CI/test เท่านั้น |
 | `SESSION_*`, `LOGIN_*`, `PASSCODE_*`, `TEMP_CREDENTIAL_TTL` | มี default ใช้ตาม `.env.example` ได้ |
 | `MIGRATE_ON_START` | **`false`** (default เมื่อไม่ตั้ง) — migration รันแยกตามข้อถัดไป |
