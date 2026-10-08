@@ -10,9 +10,12 @@ import (
 
 // MemberPTRequest — Member มีแค่ commission_percent ต่อกลุ่ม (MGMT-21)
 type MemberPTRequest struct {
+	PTFromParent      utils.Decimal `json:"pt_from_parent"`
+	Force             utils.Decimal `json:"force"`
+	RemainQuota       utils.Decimal `json:"remain_quota"`
+	Status            *bool         `json:"status"`
 	CommissionPercent utils.Decimal `json:"commission_percent"`
-
-	CommissionBP int `json:"-"` // bp หลัง Validate
+	CommissionBP      int           `json:"-"` // bp หลัง Validate
 }
 
 // CreateMemberRequest — POST /api/v1/bo/pr/manage/members/create

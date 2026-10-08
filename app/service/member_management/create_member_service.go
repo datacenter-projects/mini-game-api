@@ -22,8 +22,7 @@ import (
 )
 
 // CreateMemberService — POST /api/v1/bo/pr/manage/members/create (MGMT-02, MGMT-05 – MGMT-15A, MGMT-21, MGMT-60)
-func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.CreateMemberRequest,
-	meta agentAuthService.RequestMeta) (memberManagementDto.CreateMemberResponse, error) {
+func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.CreateMemberRequest, meta agentAuthService.RequestMeta) (memberManagementDto.CreateMemberResponse, error) {
 	var res memberManagementDto.CreateMemberResponse
 	if len(req.BalanceMinor) > 0 {
 		if err := agentManagementService.CheckPermissionService(ctx, actor, agentManagementCore.MenuPayment, agentManagementCore.LevelEdit); err != nil {
