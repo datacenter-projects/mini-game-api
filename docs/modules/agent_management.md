@@ -145,7 +145,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-26 | เส้นรายชื่อเส้นเดียว: แสดง**ลูกตรง**ของบัญชีที่ระบุ (ไม่ระบุ = ตัวเอง) ทั้งฝั่ง agent และ Member ปนกัน · ไล่ลงทีละชั้นได้ถึง Member · ระบุได้เฉพาะตัวเองหรือบัญชีในสายล่าง (`402402`) · ADMIN ไม่อยู่ในรายการใด (AUTH-43) |
 | MGMT-27 | ตัวกรองมีแค่ `page` / `limit` และค้นหา username บางส่วน (ไม่สนตัวพิมพ์) · เรียง username A→Z · `page` / `limit` อยู่ใน body (แก้ 2026-10-08) · `limit` ค่าเริ่มต้น 20 สูงสุด 100 (`utils.NewPage`) |
 | MGMT-27A | **ค้นหาทั้งสาย** (`/manage/downlines/search` — เพิ่ม 2026-10-08): ค้น username บางส่วน (ไม่สนตัวพิมพ์) ในบัญชี**ทุกชั้นใต้ตัวเอง** ทั้งฝั่ง agent และ Member · ไม่รวมตัวเอง ชั้นบน และสายข้างเคียง (ขอบเขตจาก token — กฎข้อ 22) · `q` บังคับ 2–32 ตัว (`422`) · เรียง username A→Z · `page` / `limit` เหมือน MGMT-27 · แต่ละแถวเหมือน MGMT-28 + `parent_username` (ผู้สร้างตรง) · `status` = สถานะที่ใช้งานจริง · ADMIN ไม่อยู่ในผล |
-| MGMT-27B | **ค้นหาบัญชีของ ADMIN** (`/admin/accounts/search` — เพิ่ม 2026-10-08 · boiledegg ตัดสิน): ADMIN เท่านั้น (`401308`) · ค้นบัญชี**ทั้งระบบ** (ADMIN ไม่มีสาย) ทุกประเภท รวม SUPERADMIN, ADMIN, sub และ Member · username **ตรงทั้งคำ** ไม่สนตัวพิมพ์ ตัดช่องว่าง (ไม่รับบางส่วน) · ผล 0–2 แถว (ฝั่ง agent / sub แล้วตามด้วย Member ที่ username ซ้ำได้) ไม่มี `page` · แต่ละแถวมีแค่ข้อมูลระบุตัวตน: `username` · `role` · `user_type` · `is_subaccount` · `status` (สถานะที่ใช้งานจริง · sub ตาม MGMT-43) · `parent_username` (ผู้สร้าง · sub = เจ้าของ · SUPERADMIN / ADMIN = `""`) · `created_at` · `last_login_at` · `last_login_ip` · **ไม่มี** ยอดเงิน, PT, id · sub ใช้ `role` / `user_type` ของเจ้าของ |
+| MGMT-27B | **ค้นหาบัญชีของ ADMIN** (`/admin/accounts/search` — เพิ่ม 2026-10-08 · boiledegg ตัดสิน) · **เส้นอยู่ module `admin_management`** ([admin_management.md](admin_management.md)): ADMIN เท่านั้น (`401308`) · ค้นบัญชี**ทั้งระบบ** (ADMIN ไม่มีสาย) ทุกประเภท รวม SUPERADMIN, ADMIN, sub และ Member · username **ตรงทั้งคำ** ไม่สนตัวพิมพ์ ตัดช่องว่าง (ไม่รับบางส่วน) · ผล 0–2 แถว (ฝั่ง agent / sub แล้วตามด้วย Member ที่ username ซ้ำได้) ไม่มี `page` · แต่ละแถวมีแค่ข้อมูลระบุตัวตน: `username` · `role` · `user_type` · `is_subaccount` · `status` (สถานะที่ใช้งานจริง · sub ตาม MGMT-43) · `parent_username` (ผู้สร้าง · sub = เจ้าของ · SUPERADMIN / ADMIN = `""`) · `created_at` · `last_login_at` · `last_login_ip` · **ไม่มี** ยอดเงิน, PT, id · sub ใช้ `role` / `user_type` ของเจ้าของ |
 | MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` (ACC-30) · `pt` (ตาม MGMT-51) · `balances` (ยอดแยกสกุลตาม account ACC-19 — ระหว่างยังไม่มี module การชำระเงินส่ง `0`) |
 | MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม (รวม `pt_from_parent` ในกลุ่ม — MGMT-16) ชุดเดียวต่อระบบ + `status_game` ต่อเกม (MGMT-16 · รูปแบบเดียวกับ account ACC-16) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
 
@@ -179,7 +179,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | ID | Rule |
 |---|---|
 | MGMT-50 | สิทธิ์ต่อเมนู ระดับ `off` (เข้าไม่ได้) / `view` (ดูอย่างเดียว) / `edit` (ดูและแก้) · **ไม่ติ๊ก = `off`** · บัญชีหลักได้ `edit` ทุกเมนูที่ประเภทนั้นมี · sub ได้ตามที่เจ้าของให้ · รูปแบบใน API เป็น object `{ "{menu}": "off" \| "view" \| "edit" }` ทั้ง request และ response (รวม Profile — account ACC-12) |
-| MGMT-51 | เช็คด้วย middleware แยก `RequirePermission(menu, level)` บรรทัดเดียวกับ route (กฎข้อ 28) · route ของ admin ใช้ middleware แยก `RequireRole(ADMIN)` (AUTH-44) · เมนู: |
+| MGMT-51 | เช็คด้วย middleware แยก `RequirePermission(menu, level)` บรรทัดเดียวกับ route (กฎข้อ 28) · route ของ admin ใช้ middleware แยก `adminMw.RequireAdmin()` ของ module admin_management (AUTH-44) · เมนู: |
 | | `dashboard` (off / view) — account 1.1 · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` · `rate` (อัตราแพ้ชนะ — เฉพาะ Superadmin) |
 | | ไม่มี `pt` ≥ view → response ไม่มี field `pt` · **สร้างบัญชี ต้องมี `member` = edit และ `pt` = edit** (ถ้าส่ง `balance` ต้องมี `payment` = edit ด้วย — MGMT-15A) · เปลี่ยนรหัสผ่าน / passcode ของตัวเองไม่ต้องใช้สิทธิ์ (แต่ถูก AUTH-54 กันตอนถูกระงับ) |
 | MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 8 เมนู — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · **Company · Share · Agent** = 8 เมนูเดียวกัน — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` (ไม่มี `rate` — ยืนยัน 2026-10-07) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
@@ -208,7 +208,6 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 | POST | `/api/v1/bo/pr/manage/agents/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Company / Share / Agent |
 | POST | `/api/v1/bo/pr/manage/downlines/list` | `member` view | รายชื่อลูกตรง (agent + Member) |
 | POST | `/api/v1/bo/pr/manage/downlines/search` | `member` view | ค้นหาทั้งสายใต้ตัวเอง (MGMT-27A) |
-| POST | `/api/v1/bo/pr/admin/accounts/search` | ADMIN เท่านั้น | ค้นหาบัญชีทั้งระบบด้วย username ตรงทั้งคำ (MGMT-27B) |
 | POST | `/api/v1/bo/pr/manage/agents/detail` | `member` view | รายละเอียดฝั่ง agent |
 | POST | `/api/v1/bo/pr/manage/agents/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
 | POST | `/api/v1/bo/pr/manage/agents/update-status` | `member` edit | แก้สถานะ |
@@ -402,33 +401,6 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
 - `status` = สถานะที่ใช้งานจริง รวมผลจากทุกชั้นด้านบน (ตัวอย่าง: sh1 ปกติ แต่ sh3agent ถูกระงับเอง)
 
 Error codes: `422`, `402303`
-
-### POST /api/v1/bo/pr/admin/accounts/search (ADMIN ค้นหาบัญชีทั้งระบบ)
-
-สิทธิ์: ADMIN เท่านั้น (ไม่ใช่ = `401308`) · MGMT-27B
-
-Request:
-```json
-{ "username": "Share01" }
-```
-Response `data` (0–2 แถว · ไม่พบ = `[]`):
-```json
-[
-  {
-    "username": "share01",
-    "role": "SHAREHOLDER",
-    "user_type": "SHARE_B2C",
-    "is_subaccount": false,
-    "status": "ACTIVE",
-    "parent_username": "comp01",
-    "created_at": "2026-10-01T09:00:00+07:00",
-    "last_login_at": "2026-10-08T10:00:00+07:00",
-    "last_login_ip": "203.0.113.10"
-  }
-]
-```
-
-Error codes: `422`, `401308`
 
 ### POST /api/v1/bo/pr/manage/agents/detail
 

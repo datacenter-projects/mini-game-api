@@ -4,6 +4,7 @@
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
 
 เส้นของ Member (สร้าง · รายละเอียด · แก้ข้อมูล · แก้สถานะ · แก้ Commission) ย้ายไป [member_management.md](member_management.md) (แยกเอกสาร 2026-10-09 · path ไม่เปลี่ยน)
+เส้นค้นหาบัญชีของ ADMIN (`/admin/accounts/search`) ย้ายไป [admin_management.md](admin_management.md) (2026-10-09 · path ไม่เปลี่ยน)
 
 ## 1. พื้นฐาน
 
@@ -101,7 +102,6 @@ sub ของ comp01 = `comp01@staff` (id 30)
 | 3.1 | POST | `/api/v1/bo/pr/manage/agents/create` | สร้าง Company / Share / Agent | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) |
 | 3.3 | POST | `/api/v1/bo/pr/manage/downlines/list` | รายชื่อลูกตรง (กรองด้วย `q` ได้) | `member` view |
 | 3.3A | POST | `/api/v1/bo/pr/manage/downlines/search` | ค้นหาทั้งสายใต้ตัวเอง (username) | `member` view |
-| 3.3B | POST | `/api/v1/bo/pr/admin/accounts/search` | ADMIN ค้นหาบัญชีทั้งระบบด้วย username ตรงทั้งคำ | ADMIN เท่านั้น |
 | 3.4 | POST | `/api/v1/bo/pr/manage/agents/detail` | รายละเอียดบัญชีฝั่ง agent | `member` view |
 | 3.6 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | ลูกตรง + ค่า PT สำหรับ "คัดลอกการตั้งค่าจาก" | `pt` view |
 | 3.7 | POST | `/api/v1/bo/pr/manage/agents/update-info` | แก้ชื่อ · เบอร์ (ฝั่ง agent) | `member` edit |
@@ -316,44 +316,6 @@ Response `data` (comp01 ค้น `sh`):
 | อื่นๆ | เหมือนแถวของ 3.3 |
 
 ต่างจาก 3.3: 3.3 ดูทีละชั้น (ลูกตรงของ `parent_id`) · 3.3A ค้นรวดเดียวทุกชั้น · Error: `422`, `402303`
-
-### 3.3B POST /api/v1/bo/pr/admin/accounts/search (ADMIN เท่านั้น)
-
-```
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/admin/accounts/search" \
-  -H "Authorization: Bearer {{TOKEN}}" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"Share01"}'
-```
-
-Request:
-```json
-{ "username": "Share01" }
-```
-Response `data` (0–2 แถว · ไม่พบ = `[]`):
-```json
-[
-  {
-    "username": "share01",
-    "role": "SHAREHOLDER",
-    "user_type": "SHARE_B2C",
-    "is_subaccount": false,
-    "status": "ACTIVE",
-    "parent_username": "comp01",
-    "created_at": "2026-10-01T09:00:00+07:00",
-    "last_login_at": "2026-10-08T10:00:00+07:00",
-    "last_login_ip": "203.0.113.10"
-  }
-]
-```
-
-- ค้นได้ทุกบัญชีในระบบ: Superadmin, ADMIN, Company / Share / Agent, บัญชีย่อย, Member
-- username ต้อง**ตรงทั้งคำ** (ไม่สนตัวพิมพ์) — พิมพ์บางส่วนได้ `[]` · ไม่มี `page` / `limit`
-- ได้ 2 แถวเมื่อ username ตรงทั้งบัญชีฝั่ง agent และ Member · บัญชีย่อย `role` / `user_type` = ของเจ้าของ และ `parent_username` = เจ้าของ
-- `status` = สถานะที่ใช้งานจริง (หัวสายถูกระงับ = `SUSPENDED`) · ยังไม่เคย login: `last_login_at` / `last_login_ip` = `""`
-- ใช้คู่กับรีเซ็ตรหัส (`docs/frontend/auth.md` หัวข้อ 3.6 / 3.7) — ส่ง `username` ที่ได้ไปรีเซ็ตต่อ
-
-Error: `422`, `401308` (ไม่ใช่ ADMIN)
 
 ### 3.4 POST /api/v1/bo/pr/manage/agents/detail
 
