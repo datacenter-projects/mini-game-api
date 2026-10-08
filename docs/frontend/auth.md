@@ -1,6 +1,6 @@
 # API หลังบ้าน — Auth (สำหรับหน้าบ้าน) — 8 ต.ค. 2026
 
-เอกสารนี้สรุปจากโค้ดใน branch `boiledegg/bo/account` (`dev` + AUTH-54 บัญชีถูกระงับ — ยังไม่ merge เข้า `dev`) ·
+เอกสารนี้สรุปจากโค้ดใน branch `dev` (รวม AUTH-54 บัญชีถูกระงับ — มีบน server dev หลัง deploy รอบถัดไป) ·
 spec เต็ม: `docs/modules/agent_auth.md`, `docs/modules/agent_auth_phase2.md` · เส้นอื่นดู `account.md`, `agent_management.md`
 
 ## 1. พื้นฐาน
@@ -96,7 +96,7 @@ login → must_change_password? → password/change
 
 | ตัวแปร | ค่า | ตั้งที่ |
 |---|---|---|
-| `MG_URL` | `http://localhost:8181` (dev ในเครื่อง) · `http://localhost:8282` (test env) | ตัวแปรของ collection หรือ environment |
+| `MG_URL` | `https://dev-mini-api.pirate168.com` (server dev) · `http://localhost:8282` (test env ในเครื่อง) | ตัวแปรของ collection หรือ environment |
 | `TOKEN` | token จาก login (ตั้งอัตโนมัติด้วย script ด้านล่าง) | ตัวแปรของ collection |
 
 ทุก path ต้องมี `/api/v1/bo` ต่อจาก `{{MG_URL}}` เช่น `{{MG_URL}}/api/v1/bo/pr/account/profile`

@@ -50,7 +50,7 @@ key เดียว = สถานะที่ใช้งานจริง (�
 
 | ตัวแปร | ค่า | ตั้งที่ |
 |---|---|---|
-| `MG_URL` | `http://localhost:8181` (dev ในเครื่อง) · `http://localhost:8282` (test env) | ตัวแปรของ collection หรือ environment |
+| `MG_URL` | `https://dev-mini-api.pirate168.com` (server dev) · `http://localhost:8282` (test env ในเครื่อง) | ตัวแปรของ collection หรือ environment |
 | `TOKEN` | token จาก login (ตั้งอัตโนมัติด้วย script ด้านล่าง) | ตัวแปรของ collection |
 
 ทุก path ต้องมี `/api/v1/bo` ต่อจาก `{{MG_URL}}` เช่น `{{MG_URL}}/api/v1/bo/pr/account/profile`
