@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search` · ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
@@ -54,7 +54,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | | • Agent → Agent (ซ้อนได้ไม่จำกัดชั้น) หรือ Member |
 | | ADMIN สร้างไม่ได้ (AUTH-43) · ประเภทการเดิมพัน (Transfer / Seamless) ตามผู้สร้าง เลือกไม่ได้ |
 | MGMT-03 | ผู้สร้างต้อง `status = ACTIVE` (AUTH-54 บังคับที่ middleware) · บัญชีใหม่ `status = ACTIVE` |
-| MGMT-04 | สร้าง Company Seamless 1 to 1 · Share Reseller · Share Master → สร้าง Key ของ account 1.3 ใน tx เดียวกัน (ACC-05) |
+| MGMT-04 | สร้างบัญชีฝั่ง agent **ทุกประเภท** (Company / Share / Agent — แก้ 2026-10-08) → สร้าง Key ของ account 1.3 ใน tx เดียวกัน (ACC-05) |
 
 ### ข้อมูลบัญชี
 
@@ -178,9 +178,9 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 |---|---|
 | MGMT-50 | สิทธิ์ต่อเมนู ระดับ `off` (เข้าไม่ได้) / `view` (ดูอย่างเดียว) / `edit` (ดูและแก้) · **ไม่ติ๊ก = `off`** · บัญชีหลักได้ `edit` ทุกเมนูที่ประเภทนั้นมี · sub ได้ตามที่เจ้าของให้ · รูปแบบใน API เป็น object `{ "{menu}": "off" \| "view" \| "edit" }` ทั้ง request และ response (รวม Profile — account ACC-12) |
 | MGMT-51 | เช็คด้วย middleware แยก `RequirePermission(menu, level)` บรรทัดเดียวกับ route (กฎข้อ 28) · route ของ admin ใช้ middleware แยก `RequireRole(ADMIN)` (AUTH-44) · เมนู: |
-| | `dashboard` (off / view) — account 1.1 · `account` — account 1.2 Profile, 1.3 API · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` · `rate` (อัตราแพ้ชนะ — เฉพาะ Superadmin) |
+| | `dashboard` (off / view) — account 1.1 · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` · `rate` (อัตราแพ้ชนะ — เฉพาะ Superadmin) |
 | | ไม่มี `pt` ≥ view → response ไม่มี field `pt` · **สร้างบัญชี ต้องมี `member` = edit และ `pt` = edit** (ถ้าส่ง `balance` ต้องมี `payment` = edit ด้วย — MGMT-15A) · เปลี่ยนรหัสผ่าน / passcode ของตัวเองไม่ต้องใช้สิทธิ์ (แต่ถูก AUTH-54 กันตอนถูกระงับ) |
-| MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 9 เมนู — `dashboard` · `account` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · **Company · Share · Agent** = 9 เมนูเดียวกัน — `dashboard` · `account` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` (ไม่มี `rate` — ยืนยัน 2026-10-07) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
+| MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 8 เมนู — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · **Company · Share · Agent** = 8 เมนูเดียวกัน — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` (ไม่มี `rate` — ยืนยัน 2026-10-07) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
 | MGMT-53 | Profile (account ACC-12) ส่ง `permissions` เป็น object รูปแบบเดียวกับ MGMT-50 · บัญชีหลักได้ `edit` ทุกเมนูของประเภทตัวเอง |
 
 ### ประวัติ
@@ -688,7 +688,7 @@ Response:
         "phone": "",
         "status": "ACTIVE",
         "permissions": {
-          "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
+          "dashboard": "view", "member": "edit", "pt": "view", "report": "view",
           "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
         },
         "created_at": "2026-10-06T12:26:43+07:00",
@@ -723,7 +723,7 @@ Response:
     "phone": "",
     "status": "ACTIVE",
     "permissions": {
-      "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
+      "dashboard": "view", "member": "edit", "pt": "view", "report": "view",
       "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
     },
     "created_at": "2026-10-06T12:26:43+07:00",
@@ -948,7 +948,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-02 | Company Seamless Reseller สร้าง `SHARE_B2C` | สำเร็จ · `user_type = SHARE_RESELLER` |
 | MGMT-02 | Company Seamless 1 to 1 สร้าง Share · Share B2B สร้าง Member | `402301` |
 | MGMT-02 | Share B2C สร้าง Member · Agent สร้าง Member · Agent สร้าง Agent 3 ชั้น | สำเร็จ |
-| MGMT-04 | สร้าง Share Master | มีแถว `api_credentials` ของบัญชีใหม่ |
+| MGMT-04 | สร้าง Company Transfer · Share B2C · Agent · Share Master | ทุกบัญชีมีแถว `api_credentials` ของตัวเอง |
 | MGMT-05 | username `ab` / 33 ตัว / มี `_` | `422` · `Share01` เก็บเป็น `share01` |
 | MGMT-05 | username ซ้ำ | `402401` |
 | MGMT-08 | เบอร์ `+66812345678` / 7 หลัก | `422` · เบอร์ซ้ำ `402403` |

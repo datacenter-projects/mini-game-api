@@ -35,12 +35,12 @@ func TestMenusForRole(t *testing.T) { // MGMT-52
 		return false
 	}
 	sa := MenusForRole(models.AgentRoleSuperAdmin)
-	if len(sa) != 9 || !has(sa, MenuRate) || has(sa, MenuAnnouncement) {
+	if len(sa) != 8 || !has(sa, MenuRate) || has(sa, MenuAnnouncement) {
 		t.Errorf("Superadmin menus = %v", sa)
 	}
 	for _, r := range []models.AgentRole{models.AgentRoleCompany, models.AgentRoleShareholder, models.AgentRoleAgent} {
 		ms := MenusForRole(r)
-		if len(ms) != 9 || has(ms, MenuRate) || !has(ms, MenuAnnouncement) {
+		if len(ms) != 8 || has(ms, MenuRate) || !has(ms, MenuAnnouncement) {
 			t.Errorf("%s menus = %v", r, ms)
 		}
 	}
@@ -51,7 +51,7 @@ func TestMenusForRole(t *testing.T) { // MGMT-52
 
 func TestFullPermissions(t *testing.T) { // MGMT-53
 	p := FullPermissions(models.AgentRoleCompany)
-	if len(p) != 9 || p[MenuMember] != LevelEdit || p[MenuDashboard] != LevelEdit || p[MenuReport] != LevelEdit {
+	if len(p) != 8 || p[MenuMember] != LevelEdit || p[MenuDashboard] != LevelEdit || p[MenuReport] != LevelEdit {
 		t.Errorf("FullPermissions(COMPANY) = %v", p)
 	}
 }
@@ -87,8 +87,8 @@ func TestNormalizeSubPermissions(t *testing.T) { // MGMT-50, MGMT-52
 			}
 			continue
 		}
-		if len(out) != 9 {
-			t.Errorf("%s: %d menus, want 9", tt.name, len(out))
+		if len(out) != 8 {
+			t.Errorf("%s: %d menus, want 8", tt.name, len(out))
 		}
 		for m, l := range out {
 			want := LevelOff
@@ -103,14 +103,17 @@ func TestNormalizeSubPermissions(t *testing.T) { // MGMT-50, MGMT-52
 }
 
 func TestSubPermissionsView(t *testing.T) { // MGMT-50
-	got := SubPermissionsView(models.AgentRoleCompany, map[string]string{"member": "view", "pt": "bogus", "rate": "edit", "report": "edit"})
-	if len(got) != 9 {
-		t.Fatalf("len = %d, want 9", len(got))
+	got := SubPermissionsView(models.AgentRoleCompany, map[string]string{"member": "view", "pt": "bogus", "rate": "edit", "report": "edit", "account": "edit"})
+	if len(got) != 8 {
+		t.Fatalf("len = %d, want 8", len(got))
 	}
-	if got[MenuMember] != LevelView || got[MenuPT] != LevelOff || got[MenuReport] != LevelOff || got[MenuAccount] != LevelOff {
+	if got[MenuMember] != LevelView || got[MenuPT] != LevelOff || got[MenuReport] != LevelOff {
 		t.Errorf("SubPermissionsView = %v", got)
 	}
 	if _, ok := got[MenuRate]; ok {
 		t.Error("Company sub should not have rate")
+	}
+	if _, ok := got["account"]; ok {
+		t.Error("ไม่มีเมนู account แล้ว — ค่าเก่าที่เก็บไว้ต้องไม่แสดง")
 	}
 }

@@ -7,9 +7,9 @@
 
 | เส้น | สถานะ | หมายเหตุ |
 |---|---|---|
-| `GET /api/v1/bo/pr/account/profile` | ✅ ใช้ได้ (ยังไม่ merge เข้า `dev`) | ค่าจริงทุก field (หัวข้อ 2.2) |
-| `GET /api/v1/bo/pr/account/api-credential` | ✅ ใช้ได้ (ยังไม่ merge เข้า `dev`) | |
-| `POST /api/v1/bo/pr/account/update-credential` | ✅ ใช้ได้ (ยังไม่ merge เข้า `dev`) | |
+| `GET /api/v1/bo/pr/account/profile` | ✅ ใช้ได้ | ค่าจริงทุก field (หัวข้อ 2.2) |
+| `GET /api/v1/bo/pr/account/api-credential` | ✅ ใช้ได้ | |
+| `POST /api/v1/bo/pr/account/update-credential` | ✅ ใช้ได้ | |
 | `GET /api/v1/bo/pr/account/dashboard` | ⏳ contract ล่วงหน้า | รอ module เดิมพัน |
 
 เส้น ⏳ ใช้ทำหน้าจอรอได้ แต่ยังเรียกไม่ได้ (ได้ `404001`)
@@ -95,7 +95,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
-    "dashboard": "edit", "account": "edit", "member": "edit", "pt": "edit", "report": "edit",
+    "dashboard": "edit", "member": "edit", "pt": "edit", "report": "edit",
     "bet_cancel": "edit", "payment": "edit", "asset": "edit", "announcement": "edit"
   }
 }
@@ -156,7 +156,6 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | key | เมนู | ระดับ |
 |---|---|---|
 | `dashboard` | หน้าแรก (1.1 ภาพรวม) | off / view |
-| `account` | บัญชี (1.2 ประวัติของฉัน · 1.3 ข้อมูลรับรอง API) | off / view / edit |
 | `member` | การจัดการสมาชิก | off / view / edit |
 | `pt` | ถือสู้ (PT) | off / view / edit |
 | `report` | รายงาน | off / view |
@@ -174,8 +173,8 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 
 ## 3. ข้อมูลรับรอง API (✅ ใช้ได้)
 
-หน้า 1.3 · เข้าได้เฉพาะ **Company Seamless 1 to 1 · Share Master · Share Reseller** และ sub ที่ได้สิทธิ์ `account`
-· บัญชีอื่นได้ `403301`
+หน้า 1.3 · ทุกบัญชี **Company / Share / Agent** และ sub ของบัญชีนั้นเปิดได้เสมอ (ไม่มีสิทธิ์ต่อเมนู)
+· Superadmin / ADMIN ได้ `403301`
 · Key สร้างให้อัตโนมัติตอนสร้างบัญชี (บัญชีที่สร้างก่อนหน้านั้นได้ Key ตอนเปิดหน้านี้ครั้งแรก) หน้าบ้านไม่ต้องส่ง · Key เปลี่ยนไม่ได้
 
 ### 3.1 ดู — `GET /api/v1/bo/pr/account/api-credential`
@@ -196,7 +195,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/api-credential" -H "Authorization: Bearer 
 - `key` = hex 64 ตัว · สร้างให้อัตโนมัติ · สร้างใหม่ไม่ได้ · ดูซ้ำได้ (ปุ่มคัดลอก)
 - ยังไม่ตั้งลิงก์ = `""` · ไม่มี IP = `[]`
 - response มี header `Cache-Control: no-store`
-- sub ต้องมีสิทธิ์ `account` = `view` ขึ้นไป
+- sub เปิดได้เสมอ เห็น Key ของเจ้าของ
 
 ### 3.2 อัปเดต — `POST /api/v1/bo/pr/account/update-credential`
 
@@ -216,7 +215,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/account/update-credential" \
 - **แทนทั้งชุด** — IP เดิมที่ไม่อยู่ในรายการใหม่ถูกลบ
 - IP เดี่ยว `1.2.3.4` เก็บเป็น `1.2.3.4/32` · CIDR ต้องเป็นที่อยู่เครือข่าย (`1.2.3.0/24` ได้ · `1.2.3.4/24` ได้ `422`)
 - Response: `{ "code": 200, "msg": "สำเร็จ" }`
-- sub ต้องมีสิทธิ์ `account` = `edit`
+- sub บันทึกได้เสมอ (ใช้ passcode ของ sub เอง)
 
 Error: `422` (msg บอก field เช่น `allowed_ips[1] ซ้ำกับรายการก่อนหน้า`) · `403301` · `401204` (passcode ผิด) · `401205` · `402303`
 
@@ -244,4 +243,4 @@ Error: `422` (msg บอก field เช่น `allowed_ips[1] ซ้ำกั�
 |---|---|---|---|
 | 401311 | 403 | บัญชีถูกระงับ ใช้งานได้เฉพาะหน้าประวัติของฉันและรายงาน | แสดง msg · พาไปหน้า Profile |
 | 402303 | 200 | ไม่มีสิทธิ์ใช้งานเมนูนี้ (sub) | แสดง msg / ซ่อนเมนู |
-| 403301 | 200 | บัญชีนี้ไม่มีข้อมูลรับรอง API | ซ่อนเมนู 1.3 |
+| 403301 | 200 | บัญชีนี้ไม่มีข้อมูลรับรอง API (Superadmin / ADMIN) | ซ่อนเมนู 1.3 |

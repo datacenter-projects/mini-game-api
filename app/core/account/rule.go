@@ -25,13 +25,13 @@ func OptionalString(s *string) string {
 	return *s
 }
 
-// IsAPIKeyOwner — เจ้าของ Key ของ 1.3 = Company Seamless 1 to 1 · Share Master · Share Reseller (ACC-01)
+// IsAPIKeyOwner — บัญชีที่มี Key ของ 1.3 = Company / Share / Agent ทุกประเภท (ACC-01 แก้ 2026-10-08) · SUPERADMIN / ADMIN / Member ไม่มี
 func IsAPIKeyOwner(t agentManagementCore.UserType) bool {
 	switch t {
-	case agentManagementCore.UserTypeCompanySeamless1to1, agentManagementCore.UserTypeShareMaster, agentManagementCore.UserTypeShareReseller:
-		return true
+	case agentManagementCore.UserTypeSuperadmin, agentManagementCore.UserTypeAdmin, agentManagementCore.UserTypeMember, "":
+		return false
 	}
-	return false
+	return true
 }
 
 // SuspendedPermissions — สิทธิ์ที่ใช้ได้จริงตอน status = SUSPENDED (ACC-12 · AUTH-54): เหลือ report ไม่เกิน view · เมนูอื่น off
