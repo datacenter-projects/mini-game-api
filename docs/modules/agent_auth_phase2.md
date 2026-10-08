@@ -1,6 +1,6 @@
 # Backoffice Auth (`agent_auth`) ระยะ 2 — Subaccount login · Passcode · Password · Admin reset — Spec
 
-- สถานะ: **APPROVED** (ยกเว้น `scripts/reset_credentials` ที่ยังคุยอยู่)
+- สถานะ: **APPROVED** · `scripts/reset_credentials` ตกลงแล้ว 2026-10-08 (boiledegg — actor = `SCRIPT`)
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
@@ -108,7 +108,7 @@
 | | • ระบบบล็อก (actor = `SYSTEM`): `PASSCODE_BLOCKED` (AUTH-35), `LOGIN_BLOCKED` (AUTH-10/39 · username ที่ไม่มีจริงเก็บแค่ `target_username`) — บันทึกไม่ได้ไม่ทำให้ request ล้ม |
 | | • เก็บ actor, target (type + id + username ณ เวลานั้น), ip, user agent, request_id · ห้ามเก็บรหัสผ่าน, passcode, token หรือค่าชั่วคราว |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → ใช้งานได้ (ไม่ต้อง login ใหม่ระหว่างทาง) |
-| AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ · script ใช้ได้กับ SUPERADMIN / ADMIN **เท่านั้น** · สุ่มค่าชั่วคราว + บังคับเปลี่ยน + หมดอายุ 24 ชม. แบบเดียวกับ AUTH-46–48 · บันทึก `auth_audit_logs` |
+| AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ (กู้บัญชีที่ลืมรหัส) · script ใช้ได้กับ SUPERADMIN / ADMIN **เท่านั้น** · `-password` / `-passcode` เลือกอย่างใดอย่างหนึ่งหรือทั้งคู่ (ทั้งคู่ = transaction เดียว) · สุ่มค่าชั่วคราว + บังคับเปลี่ยน + หมดอายุ 24 ชม. แบบเดียวกับ AUTH-46–48 · แสดงค่าบนจอครั้งเดียว · บันทึก `auth_audit_logs` actor = `SCRIPT` · `actor_username` = user ของเครื่องที่รัน · ไม่มี `actor_id` |
 | AUTH-52 | ผู้สร้างรีเซ็ตให้ sub ของตัวเอง **ไม่ได้** (กำหนดทิศทางไว้สำหรับ module subaccount) |
 
 ### Effective status
@@ -440,6 +440,8 @@ Redis:
 | AUTH-49 | รีเซ็ตไม่สำเร็จ | ไม่มีแถว |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เรียก `passcode/change` ก่อน | `401306` |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → เรียก route อื่น | ผ่าน ด้วย token เดิม |
+| AUTH-51 | `reset_credentials -username <superadmin> -password -passcode` | ค่าชั่วคราว 12 ตัว / 6 หลัก · session เดิมหลุด · login แล้ว `must_change_password` และ `must_change_passcode = true` · audit 2 แถว actor `SCRIPT` |
+| AUTH-51 | script กับ Agent / sub · username ที่ไม่มี · ไม่เลือก `-password` หรือ `-passcode` | `401406` · `401404` · error |
 
 ## 8. Contract changes (แจ้ง frontend)
 

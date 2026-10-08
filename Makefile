@@ -1,4 +1,4 @@
-.PHONY: run build test test-integration lint check check-structure dev-up dev-down test-env-up test-env-down migrate-up migrate-down migrate-status migration
+.PHONY: run build test test-integration lint check check-structure dev-up dev-down test-env-up test-env-down migrate-up migrate-down migrate-status migration release
 
 APP_NAME = apiserver
 BUILD_DIR = ./build
@@ -64,3 +64,8 @@ superadmin:
 # make admin username=support01  (พิมพ์รหัสผ่านตอนรัน)
 admin:
 	go run ./scripts/create_admin -username $(username)
+
+# ---- release ----
+# make release env=dev | make release env=prod — tag ที่ origin/<branch> แล้ว push ให้ CI build image (docs/DEPLOYMENT.md)
+release:
+	bash scripts/release_tag.sh $(env)

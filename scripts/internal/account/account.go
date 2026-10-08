@@ -36,12 +36,13 @@ func Create(rawUsername string, role models.AgentRole) error {
 	if err := agentAuthDto.PasswordPolicyError("password", agentAuthCore.CheckPasswordPolicy(password)); err != nil {
 		return fmt.Errorf("%s", apperr.From(err).MsgTH)
 	}
-	hash, err := utils.HashPassword(password)
-	if err != nil {
-		return err
-	}
 
 	if err := configs.Load(); err != nil {
+		return err
+	}
+	utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
+	hash, err := utils.HashPassword(password)
+	if err != nil {
 		return err
 	}
 	logger.InitLogger(true)

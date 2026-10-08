@@ -20,6 +20,9 @@ type Config struct {
 	TrustedProxies     []string
 	CORSAllowOrigins   string
 
+	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
+	MetricsAddr string
+
 	DB    DBConfig
 	Redis RedisConfig
 	Auth  AuthConfig
@@ -31,6 +34,9 @@ type Config struct {
 // และ docs/modules/agent_auth_phase2.md (AUTH-35, AUTH-46)
 type AuthConfig struct {
 	JWTSecret string
+
+	// PasswordCost คือ bcrypt cost ของ password/passcode — prod 12, CI/test 4 (ช่วงที่รับ 4–14)
+	PasswordCost int
 
 	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
@@ -90,6 +96,7 @@ func Load() error {
 		ShutdownTimeout:    getEnvDuration("SHUTDOWN_TIMEOUT", 30*time.Second),
 		TrustedProxies:     getEnvList("TRUSTED_PROXIES"),
 		CORSAllowOrigins:   getEnv("CORS_ALLOW_ORIGINS", "*"),
+		MetricsAddr:        getEnvOrEmpty("METRICS_ADDR", ":9090"),
 
 		DB: DBConfig{
 			Host:            required("DB_HOST"),
@@ -111,6 +118,7 @@ func Load() error {
 
 		Auth: AuthConfig{
 			JWTSecret:              required("JWT_SECRET"),
+			PasswordCost:           getEnvInt("PASSWORD_COST", 12),
 			SessionIdleTimeout:     getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
 			SessionAbsoluteTimeout: getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
 			LoginFailLimit:         getEnvInt("LOGIN_FAIL_LIMIT", 5),
@@ -132,6 +140,12 @@ func Load() error {
 	if len(cfg.Auth.JWTSecret) < 32 {
 		return fmt.Errorf("JWT_SECRET must be at least 32 characters")
 	}
+	if cfg.Auth.PasswordCost < 4 || cfg.Auth.PasswordCost > 14 {
+		return fmt.Errorf("PASSWORD_COST must be between 4 and 14")
+	}
+	if cfg.MetricsAddr != "" && cfg.MetricsAddr == cfg.ServerAddr {
+		return fmt.Errorf("METRICS_ADDR must differ from SERVER_ADDR")
+	}
 	if cfg.Auth.SessionIdleTimeout > cfg.Auth.SessionAbsoluteTimeout {
 		return fmt.Errorf("SESSION_IDLE_TIMEOUT must not exceed SESSION_ABSOLUTE_TIMEOUT")
 	}
@@ -143,6 +157,14 @@ func (c *Config) IsProd() bool { return c.AppEnv == "prod" }
 
 func getEnv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// ต่างจาก getEnv ตรงที่ตั้งเป็นค่าว่างได้ (ไม่ตั้ง key = default, ตั้งเป็นว่าง = ว่าง)
+func getEnvOrEmpty(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
 	return def
