@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status`
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status`
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
@@ -32,7 +32,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | ผู้สร้าง | บัญชีที่สร้างบัญชีนั้น (`parent_id` / `agent_id` ของ member) — ลูกตรง = บัญชีที่ตัวเองสร้าง |
 | สายล่าง | ทุกบัญชีใต้ตัวเองทุกชั้น ไม่นับตัวเอง |
 | `user_type` | ประเภทบัญชี (MGMT-01) — ตรงกับ account ACC-12 |
-| กลุ่ม PT | ชุดค่าหุ้นส่วนที่รับตอนสร้าง / แก้ แยกตามระบบที่มีเรื่อง PT (`game` = ทุกเกมในหมวด `minigame` · เพิ่มกลุ่มได้โดยไม่เปลี่ยนโครงสร้าง) · ระบบเก็บต่อเกม |
+| กลุ่ม PT | ระบบที่มีเรื่อง PT ใช้เป็น key ของ `pt` (`minigame` = ทุกเกม minigame · ระบบอื่น เช่น `askmelotto` เพิ่มได้โดยไม่เปลี่ยนโครงสร้าง) · รับค่าชุดเดียวต่อระบบ · เก็บและแสดงต่อเกม |
 | ได้รับ / ถือ / ให้ลูก | ได้รับ (`pt_from_parent`) = PT ที่ผู้สร้างให้ · ให้ลูก = PT ที่แบ่งให้ลูกแต่ละคน (ไม่เกินที่ได้รับ) · ถือ (`pt`) = ส่วนที่ถือจาก Member ใต้ตัวเองตรงๆ (ตั้งเอง) · ผู้สร้างถือในสายของลูก = ได้รับ − ให้ลูกคนนั้น |
 | bp | % × 100 เป็นจำนวนเต็ม เช่น 95.50% = `9550` — ใช้ภายใน DB / Go เท่านั้น · API ส่ง % เป็น JSON number (ACC-18) |
 | `status` | สถานะที่ใช้งานจริง key เดียว (account ACC-30) = เข้มที่สุดของสถานะที่ตั้งกับบัญชีเอง, ผู้สร้าง (sub) และหัวสายทุกชั้น (AUTH-53) · DB เก็บสถานะที่ตั้งกับบัญชีเองแยกไว้ |
@@ -93,15 +93,17 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 |---|---|
 | MGMT-16 | **รับค่าชุดเดียวต่อกลุ่ม · เก็บต่อเกม**: |
 | | • ส่งเป็น object `pt` แยกตาม**กลุ่ม PT** · ระบบ**กระจายค่าลงทุกเกมในกลุ่ม** แล้วเก็บทีละเกม (`agent_game_settings`) · ค่าของเกมในกลุ่มเท่ากันเสมอ |
-| | • ตอนนี้มีกลุ่ม `game` กลุ่มเดียว = ทุกเกมในหมวด `minigame` (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · `provider` ฯลฯ เพิ่มเมื่อมีระบบนั้น · การจับคู่กลุ่ม → หมวด → เกม กำหนดใน `app/core` เพิ่มได้โดยไม่เปลี่ยน API / ตาราง |
+| | • ตอนนี้มีกลุ่ม `minigame` กลุ่มเดียว = `coin_toss`, `rock_paper_scissors`, `scratch_card` (แก้ชื่อจาก `game` 2026-10-08) · ระบบอื่น เช่น `askmelotto` เพิ่มเมื่อมีระบบนั้น · การจับคู่กลุ่ม → หมวด → เกม กำหนดใน `app/core` เพิ่มได้โดยไม่เปลี่ยน API / ตาราง |
 | | • **ผู้สร้างตั้งให้ลูก** (สร้าง / แก้ลูก): กลุ่มละ 5 ค่า `pt_from_parent` (ให้ลูกคนนี้) · `force` · `remain_quota` · `commission_percent` · `status` (เปิด / ปิดทั้งกลุ่ม — MGMT-20) |
 | | • **บัญชีตั้งของตัวเอง** (MGMT-22): กลุ่มละ 1 ค่า `pt` (ถือจาก Member ใต้ตัวเองตรงๆ) |
-| | • แสดง (response ทุกเส้น): กลุ่มละ 6 ค่า `pt_from_parent` · `pt` · `force` · `remain_quota` · `commission_percent` · `status` · `status_game` แยกต่อเกม (MGMT-20) |
+| | • **แสดง (response ทุกเส้น — แก้ 2026-10-08): ชุดเดียวต่อระบบ** (ทุกเกมในระบบค่าเท่ากันเสมอ — หลังบ้านเก็บต่อเกม แล้วรวมตอนส่งออก) `pt` → ระบบ → `pt_from_parent` · `pt` · `force` · `remain_quota` · `commission_percent` · `status` · `created_at` · `created_by` · `updated_at` · `updated_by` · `status_game` → รหัสเกม → bool แยกด้านนอก `pt` (MGMT-20) · Member: ต่อระบบมีแค่ `commission_percent` · `created_at` · `created_by` · `updated_at` · `updated_by` |
+| | • `status` = status ของ PT (ไม่ใช่สถานะเกม — เกมใช้ `status_game`) · ❓ รอ lead: `status = false` มีผลอย่างไร (MGMT-20 เดิมเขียนว่าปิดทุกเกมในกลุ่ม) |
+| | • `created_at` / `created_by` = เวลา / username ของผู้สร้างค่า PT (ตอนสร้างบัญชี · ไม่เปลี่ยนอีก) · `updated_at` / `updated_by` = เวลา / username ของคนที่แก้ล่าสุด (รวม sub) · ตอนสร้าง = ผู้สร้าง |
 | | • เกมใหม่ที่เพิ่มเข้าหมวดภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
 | MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง (เช่น `30`, `0.5`) · ภายใน DB / Go เป็นจำนวนเต็ม bp (ACC-18) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ค่าที่ให้ลูก (`pt_from_parent`) และค่าถือ (`pt`): 0 ถึง**ค่าที่ตัวเองได้รับ** ทีละ 0.5% · Force / Remain: 0 ถึงค่าที่ให้ลูกคนนั้น ทีละ 0.5% · Commission: 0–1% ทีละ 0.1% · Commission ของลูกตั้ง**เกินของผู้สร้างได้** (เช่น ผู้สร้างได้ 0.5% ตั้งให้ลูก 0.6% ได้) แต่ไม่เกิน 1% |
 | MGMT-19 | Company Seamless Master: `pt` ล็อกที่ 0 · ค่าที่ให้ Share Master ต้อง**เท่ากับค่าที่ตัวเองได้รับ** · Force และ Remain ที่ให้ Share Master = 0 · แก้ได้แค่ Commission (เอกสาร PT) |
-| MGMT-20 | เปิด / ปิดเกมรายบัญชี มี 2 ระดับ ผู้สร้างตั้งให้ทั้งคู่: **ทั้งกลุ่ม** `pt` → กลุ่ม → `status` (bool · `false` = ปิดทุกเกมในกลุ่ม) และ **ทีละเกม** `status_game` → รหัสเกม (bool · แยกจาก `pt`) · เกมเล่นได้เมื่อ `status` ของกลุ่มและ `status_game` ของเกมนั้นเป็น `true` ทั้งคู่ · ปิดแล้ว Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
+| MGMT-20 | ❓ รอ lead: `status` ใน `pt` เป็น status ของ PT ไม่ใช่สถานะเกม (2026-10-08) — ความหมายด้านล่างของ `status` อาจเปลี่ยน · เปิด / ปิดเกมรายบัญชี มี 2 ระดับ ผู้สร้างตั้งให้ทั้งคู่: **ทั้งกลุ่ม** `pt` → กลุ่ม → `status` (bool · `false` = ปิดทุกเกมในกลุ่ม) และ **ทีละเกม** `status_game` → รหัสเกม (bool · แยกจาก `pt`) · เกมเล่นได้เมื่อ `status` ของกลุ่มและ `status_game` ของเกมนั้นเป็น `true` ทั้งคู่ · ปิดแล้ว Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
 | MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`member_game_settings`) |
 | MGMT-22 | **ผู้สร้างกำหนดค่าที่ให้ลูกแต่ละคนแยกกัน** (ทุกชั้น รวม Superadmin → Company): |
 | | • ลูกแต่ละคนได้รับไม่เท่ากันได้ · ค่าที่ให้ลูกแต่ละคน**ห้ามเกินค่าที่ผู้สร้างได้รับ** · Superadmin ได้รับ 100% |
@@ -112,7 +114,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-24 | **ลดค่าที่ให้ลูก**: ค่าใหม่ต้อง ≥ ค่าที่มากที่สุดระหว่าง (ค่าที่ลูกให้ลูกของมันแต่ละคน, `pt` ของลูก) ไม่งั้น**ปฏิเสธทั้งคำสั่ง** (`402306` msg บอกค่าต่ำสุดที่ตั้งได้) · ระบบไม่แก้ค่าของลูกหรือหลานให้เอง — ถ้าจะลดต่ำกว่านั้นลูกต้องลดของตัวเองก่อน · **เพิ่มค่าที่ให้ลูก**: ได้ถึงค่าที่ผู้สร้างได้รับ · ลูกคนอื่นไม่กระทบ · tx + lock แถวลูกและลูกของลูก (อ่านค่าที่ใช้อยู่) เรียงตาม id |
 | MGMT-25 | Force / Remain ในคำสั่งเดียวกันต้องไม่เกินค่าที่ให้ลูกใหม่ (`402308`) |
 
-ตัวอย่าง (กลุ่ม `game`):
+ตัวอย่าง (กลุ่ม `minigame`):
 
 ```
 Superadmin (ได้รับ 100)
@@ -140,7 +142,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-27 | ตัวกรองมีแค่ `page` / `limit` และค้นหา username บางส่วน (ไม่สนตัวพิมพ์) · เรียง username A→Z · `page` / `limit` อยู่ใน body (แก้ 2026-10-08) · `limit` ค่าเริ่มต้น 20 สูงสุด 100 (`utils.NewPage`) |
 | MGMT-27A | **ค้นหาทั้งสาย** (`/manage/downlines/search` — เพิ่ม 2026-10-08): ค้น username บางส่วน (ไม่สนตัวพิมพ์) ในบัญชี**ทุกชั้นใต้ตัวเอง** ทั้งฝั่ง agent และ Member · ไม่รวมตัวเอง ชั้นบน และสายข้างเคียง (ขอบเขตจาก token — กฎข้อ 22) · `q` บังคับ 2–32 ตัว (`422`) · เรียง username A→Z · `page` / `limit` เหมือน MGMT-27 · แต่ละแถวเหมือน MGMT-28 + `parent_username` (ผู้สร้างตรง) · `status` = สถานะที่ใช้งานจริง · ADMIN ไม่อยู่ในผล |
 | MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` (ACC-30) · `pt` (ตาม MGMT-51) · `balances` (ยอดแยกสกุลตาม account ACC-19 — ระหว่างยังไม่มี module การชำระเงินส่ง `0`) |
-| MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม (รวม `pt_from_parent` ในกลุ่ม — MGMT-16) + `status_game` ต่อเกม (รูปแบบเดียวกับ account ACC-16 · Member มีแค่ `pt` → `commission_percent`) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
+| MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม (รวม `pt_from_parent` ในกลุ่ม — MGMT-16) ชุดเดียวต่อระบบ + `status_game` ต่อเกม (MGMT-16 · รูปแบบเดียวกับ account ACC-16) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
 
 ### สถานะ
 
@@ -220,10 +222,10 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 ทุก response มีรูปแบบ `{ "code", "msg", "data" }` · สำเร็จ `code = 200` · เส้นที่ไม่มีข้อมูลตอบกลับไม่มี key `data` ·
 business error ตอบ HTTP 200 พร้อม `code` ของ error · ตัวอย่าง error:
 ```json
-{ "code": 402306, "msg": "pt.game.pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด 60" }
+{ "code": 402306, "msg": "pt.minigame.pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด 60" }
 ```
 ```json
-{ "code": 422, "msg": "pt.game.force ห้ามเป็น null" }
+{ "code": 422, "msg": "pt.minigame.force ห้ามเป็น null" }
 ```
 
 ### POST /api/v1/bo/pr/manage/agents/create
@@ -240,7 +242,7 @@ Request:
   "currencies": ["THB"],
   "balance": { "THB": 10000.00 },
   "pt": {
-    "game": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+    "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
 }
@@ -273,7 +275,7 @@ Request:
   "name": "ใจดี",
   "phone": "",
   "balance": { "THB": 100.00 },
-  "pt": { "game": { "commission_percent": 0.3 } }
+  "pt": { "minigame": { "commission_percent": 0.3 } }
 }
 ```
 Response:
@@ -317,8 +319,9 @@ Response (ตัวอย่าง: ลูกตรงของ share01 · ห�
         "phone": "0898765432",
         "status": "SUSPENDED",
         "pt": {
-          "game": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+          "minigame": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" }
         },
+        "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
         "balances": [ { "currency": "THB", "amount": 5000.00 } ]
       },
       {
@@ -329,7 +332,9 @@ Response (ตัวอย่าง: ลูกตรงของ share01 · ห�
         "name": "ใจดี",
         "phone": "",
         "status": "SUSPENDED",
-        "pt": { "game": { "commission_percent": 0.3 } },
+        "pt": {
+          "minigame": { "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
+        },
         "balances": [ { "currency": "THB", "amount": 100.00 } ]
       }
     ]
@@ -373,8 +378,9 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "status": "ACTIVE",
         "parent_username": "comp01",
         "pt": {
-          "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+          "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
         },
+        "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
         "balances": [ { "currency": "THB", "amount": 10000.00 } ]
       },
       {
@@ -387,8 +393,9 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "status": "ACTIVE",
         "parent_username": "comp01",
         "pt": {
-          "game": { "pt_from_parent": 50, "pt": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true }
+          "minigame": { "pt_from_parent": 50, "pt": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
         },
+        "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
         "balances": [ { "currency": "THB", "amount": 0.00 }, { "currency": "USD", "amount": 0.00 } ]
       },
       {
@@ -401,8 +408,9 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "status": "SUSPENDED",
         "parent_username": "sh1",
         "pt": {
-          "game": { "pt_from_parent": 40, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+          "minigame": { "pt_from_parent": 40, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "sh1", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "sh1" }
         },
+        "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
         "balances": [ { "currency": "THB", "amount": 500.00 } ]
       }
     ]
@@ -439,7 +447,7 @@ Response:
     "currencies": ["THB"],
     "balances": [ { "currency": "THB", "amount": 10000.00 } ],
     "pt": {
-      "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+      "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
     },
     "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
     "passcode_set": true,
@@ -450,7 +458,7 @@ Response:
 }
 ```
 - `id` = บัญชีในสายล่างที่จะดู (ตัวเอง / สายบน / นอกสาย = `402402`) · ข้อมูลของตัวเองดูที่ account Profile
-- รูปแบบ `pt` และ `status_game` เหมือน Profile (account ACC-16) · ตัวอย่างนี้ ได้รับ 70 · ถือจาก Member ของตัวเอง 30
+- รูปแบบ `pt` (ชุดเดียวต่อระบบ) และ `status_game` เหมือน Profile (account ACC-16) · ตัวอย่างนี้ ได้รับ 70 · ถือจาก Member ของตัวเอง 30 · `scratch_card` ถูกปิด
 - ไม่มีสิทธิ์ `pt` ≥ view = ไม่มี field `pt` · ยังไม่เคย login = `last_login_at` / `last_login_ip` เป็น `""`
 
 Error codes: `422`, `402303`, `402402`
@@ -477,14 +485,16 @@ Response:
     "parent_username": "agent01",
     "currencies": ["THB"],
     "balances": [ { "currency": "THB", "amount": 100.00 } ],
-    "pt": { "game": { "commission_percent": 0.3 } },
+    "pt": {
+      "minigame": { "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
+    },
     "last_login_at": "",
     "last_login_ip": "",
     "created_at": "2026-10-02T14:30:00+07:00"
   }
 }
 ```
-- ดูได้: ผู้สร้าง Member และชั้นบนในสาย · ไม่มี `status_game` / `passcode_set`
+- ดูได้: ผู้สร้าง Member และชั้นบนในสาย · ไม่มี `passcode_set` · `pt` ต่อเกมมีแค่ `commission_percent` · `created_at` · `created_by` · `updated_at` · `updated_by`
 
 Error codes: `422`, `402303`, `402402`
 
@@ -503,7 +513,7 @@ Response (ตัวอย่างของ comp01):
       "username": "share01",
       "user_type": "SHARE_B2C",
       "pt": {
-        "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+        "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
       },
       "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
     },
@@ -512,7 +522,7 @@ Response (ตัวอย่างของ comp01):
       "username": "share02",
       "user_type": "SHARE_B2B",
       "pt": {
-        "game": { "pt_from_parent": 50, "pt": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true }
+        "minigame": { "pt_from_parent": 50, "pt": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
       },
       "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true }
     }
@@ -559,7 +569,7 @@ Request (ส่งเฉพาะกลุ่มที่จะแก้ · ใ�
 {
   "id": 12,
   "pt": {
-    "game": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+    "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
   }
 }
 ```
@@ -577,7 +587,7 @@ Error codes: `422`, `402303`, `402304`, `402305`, `402306`, `402307`, `402308`, 
 
 Request:
 ```json
-{ "id": 501, "pt": { "game": { "commission_percent": 0.3 } } }
+{ "id": 501, "pt": { "minigame": { "commission_percent": 0.3 } } }
 ```
 Response:
 ```json
@@ -591,7 +601,7 @@ Error codes: `422`, `402303`, `402304`, `402309`, `402402`
 
 Request (ไม่ส่ง `id` — แก้บัญชีใน token · ส่งเฉพาะกลุ่มที่จะแก้):
 ```json
-{ "pt": { "game": { "pt": 40 } } }
+{ "pt": { "minigame": { "pt": 40 } } }
 ```
 Response:
 ```json
@@ -784,6 +794,9 @@ CREATE TABLE agent_game_settings (               -- ค่าหุ้นส่�
     commission_bp     INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
     status            BOOLEAN     NOT NULL DEFAULT true,   -- เปิด / ปิดทั้งกลุ่ม (ทุกเกมในกลุ่มค่าเดียวกัน — MGMT-20)
     status_game       BOOLEAN     NOT NULL DEFAULT true,   -- เปิด / ปิดทีละเกม
+    created_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ผู้สร้าง (เพิ่ม 2026-10-08 — migration ใหม่ พร้อม created_at · member_game_settings ด้วย)
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ของคนที่แก้ล่าสุด
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (agent_id, game_code),
     CHECK (pt_bp <= pt_from_parent_bp)
@@ -914,7 +927,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-18 | ผู้สร้างมี commission 0.5% ตั้งให้ลูก 0.6% | สำเร็จ |
 | MGMT-19 | Company Seamless Master ตั้ง `pt` ของตัวเอง = 1 · ให้ Share Master น้อยกว่าที่ตัวเองได้รับ | `402307` |
 | MGMT-23 | แก้ PT ของหลาน (ไม่ใช่ผู้สร้างโดยตรง) | `402304` |
-| MGMT-23 | ส่งแค่กลุ่ม `game` | กลุ่มอื่นไม่เปลี่ยน |
+| MGMT-23 | ส่งแค่กลุ่ม `minigame` | กลุ่มอื่นไม่เปลี่ยน |
 | MGMT-22 | Superadmin ให้ comA 90 · comB 80 | comA `pt_from_parent = 90` · comB `= 80` · Superadmin ถือในสาย comA 10 · สาย comB 20
 | MGMT-24 | comA ลดค่าที่ให้ share1 จาก 70 เหลือ 55 (share1 ให้ agent1 60 · `pt` 30) | `402306` msg บอกต่ำสุด 60 · ไม่มีแถวไหนเปลี่ยน |
 | MGMT-24 | comA ลดค่าที่ให้ share1 เหลือ 60 · เพิ่มค่าที่ให้ share2 | สำเร็จ · share2 และลูกของ share1 ไม่เปลี่ยน |
@@ -925,7 +938,8 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-27A | share ค้นด้วยคำที่ตรงกับ Company ของตัวเอง หรือ share สายข้าง | ไม่พบ (`total_count = 0`) |
 | MGMT-27A | `"q": "s"` (1 ตัว) · ไม่ส่ง `q` | `422` |
 | MGMT-29 | ดูรายละเอียด | ไม่มี field รหัสผ่าน / passcode / hash |
-| MGMT-16 | สร้างด้วย `pt.game.pt_from_parent = 70` | `agent_game_settings` มี 3 แถว (ทุกเกมใน `minigame`) ค่า `pt_from_parent_bp = 7000` · `pt_bp = 7000` (เริ่มถือทั้งหมด — MGMT-22) · รายละเอียดแสดง `pt.game.pt_from_parent = 70` · `pt = 70` และ `status_game` ครบ 3 เกม · รายชื่อแสดง `pt.game.pt = 20` |
+| MGMT-16 | comp01 สร้างด้วย `pt.minigame.pt_from_parent = 70` | `agent_game_settings` มี 3 แถว ค่า `pt_from_parent_bp = 7000` · `pt_bp = 7000` (เริ่มถือทั้งหมด — MGMT-22) · รายละเอียดแสดง `pt.minigame.pt_from_parent = 70` · `pt = 70` · `created_by` = `updated_by` = `"comp01"` · `status_game` ครบ 3 เกม |
+| MGMT-16 | sub `comp01@staff` แก้ PT ให้ลูก | `pt.minigame.updated_by = "comp01@staff"` · `updated_at` เปลี่ยน · `created_by` ยังเป็น `"comp01"` |
 | MGMT-30 | Share แก้สถานะ Agent ของ Agent ลูก (ไม่ใช่ผู้สร้างโดยตรง) | `402304` |
 | MGMT-30 | LOCKED → ACTIVE โดยผู้สร้าง | สำเร็จ |
 | MGMT-31 | Company ระงับ Share | Share และ Agent ใต้ Share `status = SUSPENDED` · Company `status = ACTIVE` |
@@ -954,7 +968,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-22 | agent1 ได้รับ 60 ตั้ง `pt` 40 · Member แพ้ 1,000 | agent1 ได้ 400 · 200 คืน Superadmin (ไม่มี Force / Remain) |
 | MGMT-22 | agent1 ตั้ง `pt` 61 | `402305` |
 | MGMT-23 | ผู้สร้างแก้ `pt` ของลูก · ลูกแก้ `pt_from_parent` ของตัวเอง | `422` (field ไม่อยู่ในเส้นนั้น) |
-| MGMT-20 | ผู้สร้างตั้ง `pt.game.status = false` | ทุกเกมในกลุ่มเล่นไม่ได้ แม้ `status_game` ของเกมเป็น `true` |
+| MGMT-20 | ผู้สร้างตั้ง `pt.minigame.status = false` | ❓ รอ lead ยืนยันว่า `status` ของ PT มีผลอย่างไร |
 | MGMT-52 | sub ของ Superadmin ได้สิทธิ์ `announcement` | `422` |
 | MGMT-52 | Superadmin ให้ sub `rate` = `edit` · Company ให้ sub `rate` | สำเร็จ · `422` |
 
@@ -971,7 +985,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 - สิทธิ์ของ sub ส่งเป็น object `{ "{menu}": "off" | "view" | "edit" }` (รวม Profile — account ACC-12)
 - ใช้แค่ method `GET` และ `POST` · ระบุบัญชีด้วย `id` ใน body (เส้นอ่านที่ต้องระบุบัญชีเป็น `POST`) · ไม่มีเส้นลบ sub (ใช้สถานะ `INACTIVE`)
 - เส้นสร้างรับ `request_id` (บังคับ) และ `balance` (ไม่บังคับ — ยอดเงินตั้งต้น)
-- account (review รอบ 2): Profile ส่ง `pt` ชุดเดียว (รวม `pt_from_parent` ในกลุ่ม) + `status_game` แยก และ `status` key เดียว — ตรงกับ module นี้ · ข้อมูลอ่านจาก `agent_game_settings`
+- `pt` ใน response ทุกเส้น (รวม account Profile) เป็นชุดเดียวใต้ระบบ `minigame` + `created_at` · `created_by` · `updated_at` · `updated_by` · `status_game` แยกต่อเกมด้านนอกเหมือนเดิม (แก้ 2026-10-08) · key ของระบบตอนส่งเปลี่ยนจาก `game` เป็น `minigame`
 
 ## 9. Error codes (`bb=02`) — business error ตอบ HTTP 200
 
