@@ -344,3 +344,51 @@ func writeLog(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, me
 	}
 	return postgres.CreateAccountChangeLogsRepository(tx, []models.AccountChangeLog{row})
 }
+
+// UpdateGamesService — POST /manage/agents/update-games (MGMT-20)
+// เปิด / ปิดเกมรายบัญชีให้ลูกตรง · ไม่ส่งต่อลงสายล่าง — ตอนเล่นเช็คทั้งสาย (core.IsGameOpen)
+func UpdateGamesService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateGamesRequest,
+	meta agentAuthService.RequestMeta) error {
+	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		child, err := lockAgentChild(tx, actor, req.ID)
+		if err != nil {
+			return err
+		}
+		settings, err := postgres.LockAgentGameSettingsRepository(tx, []uint{child.ID}, "UPDATE")
+		if err != nil {
+			return err
+		}
+		cur := make(map[string]bool, len(settings))
+		for _, s := range settings {
+			cur[s.GameCode] = s.StatusGame
+		}
+		codes := make([]string, 0, len(req.StatusGame))
+		for code := range req.StatusGame {
+			codes = append(codes, code)
+		}
+		sort.Strings(codes)
+		var on, off []string
+		oldLog, newLog := map[string]bool{}, map[string]bool{}
+		for _, code := range codes {
+			was, ok := cur[code]
+			if !ok {
+				continue // บัญชีไม่มีแถวของเกมนี้ (ข้อมูลก่อน module ②) — ไม่มีอะไรให้แก้
+			}
+			next := req.StatusGame[code]
+			if next {
+				on = append(on, code)
+			} else {
+				off = append(off, code)
+			}
+			oldLog[code], newLog[code] = was, next
+		}
+		if err := postgres.UpdateStatusGameRepository(tx, child.ID, on, true); err != nil {
+			return err
+		}
+		if err := postgres.UpdateStatusGameRepository(tx, child.ID, off, false); err != nil {
+			return err
+		}
+		return writeLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdateGames,
+			map[string]any{"status_game": oldLog}, map[string]any{"status_game": newLog}, time.Now())
+	})
+}

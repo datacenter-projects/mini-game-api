@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members)
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
@@ -210,7 +210,7 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 | POST | `/api/v1/bo/pr/manage/agents/update-status` · `/manage/members/update-status` | `member` edit | แก้สถานะ |
 | POST | `/api/v1/bo/pr/manage/agents/update-pt` · `/manage/members/update-commission` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
-| POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดทีละเกม — ❓ รอ lead: จะย้ายไป module อื่นและให้ใครใช้ |
+| POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดเกมรายบัญชีให้ลูกตรง (MGMT-20) |
 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
 | POST | `/api/v1/bo/pr/manage/subaccounts/list` | บัญชีหลัก (`RequireMainAccount`) | รายชื่อ sub |
 | POST | `/api/v1/bo/pr/manage/subaccounts/detail` | บัญชีหลัก | รายละเอียด sub |
@@ -262,7 +262,7 @@ Response:
 - `username` รับตัวพิมพ์ใหญ่ได้ เก็บเป็นตัวเล็ก (`Share01` → `share01`)
 - `currencies` ตาม MGMT-10 ถึง 13 (ประเภทที่ไม่ต้องส่ง ห้ามส่ง · ส่งผิดจำนวน = `422` · ไม่อยู่ในสกุลของผู้สร้าง = `402310`)
 - `balance` ไม่บังคับ · ยอดเงินตั้งต้นต่อสกุล โอนจากยอดของผู้สร้าง (MGMT-15A) · บัญชีฝั่ง Seamless ห้ามส่ง
-- `phone` ไม่ตั้งให้ส่ง `""` · `pt` ต้องส่งครบทุกกลุ่ม ครบ 5 ค่า · `status_game` ไม่บังคับ · เกมที่ไม่ส่ง = `true` (เปิด) · ไม่ส่งทั้ง field = เปิดทุกเกม (❓ รอ lead — อาจย้ายไป module อื่น)
+- `phone` ไม่ตั้งให้ส่ง `""` · `pt` ต้องส่งครบทุกกลุ่ม ครบ 5 ค่า · `status_game` ไม่บังคับ · เกมที่ไม่ส่ง = `true` (เปิด) · ไม่ส่งทั้ง field = เปิดทุกเกม · แก้ทีหลังที่ `update-games`
 
 Error codes: `422`, `402301`, `402303`, `402305`, `402307`, `402308`, `402309`, `402310`, `402312`, `402401`, `402403`
 
@@ -615,9 +615,11 @@ Response:
 
 Error codes: `422`, `402303`, `402305`, `402307`
 
-### POST /api/v1/bo/pr/manage/agents/update-games (❓ รอ lead — ยังไม่เปิดใช้)
+### POST /api/v1/bo/pr/manage/agents/update-games
 
-Request (ส่งเฉพาะเกมที่จะเปลี่ยน):
+เปิด / ปิดเกมรายบัญชีให้ลูกตรง (MGMT-20 · boiledegg ตัดสิน 2026-10-08 — อยู่ใน module นี้)
+
+Request (ส่งเฉพาะเกมที่จะเปลี่ยน · อย่างน้อย 1 เกม):
 ```json
 { "id": 12, "status_game": { "scratch_card": false } }
 ```
@@ -625,6 +627,9 @@ Response:
 ```json
 { "code": 200, "msg": "สำเร็จ" }
 ```
+
+- แก้ได้เฉพาะ**ผู้สร้างโดยตรง** · ไม่ส่งต่อลงสายล่าง (สายล่างเช็คทั้งสายตอนเล่น — MGMT-20) · ไม่เปลี่ยนค่า PT และ `updated_by` ของ PT · บันทึก `account_change_logs` (`UPDATE_GAMES` ค่าเก่า / ใหม่)
+- เกมไม่มีในระบบ · `status_game` ว่าง · `null` → `422`
 
 Error codes: `422`, `402303`, `402304`, `402402`
 
@@ -971,6 +976,8 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-22 | agent1 ตั้ง `pt` 61 | `402305` |
 | MGMT-23 | ผู้สร้างแก้ `pt` ของลูก · ลูกแก้ `pt_from_parent` ของตัวเอง | `422` (field ไม่อยู่ในเส้นนั้น) |
 | MGMT-20 | ผู้สร้างตั้ง `pt.minigame.status = false` | บันทึกสำเร็จ · รายละเอียดแสดง `false` · `status_game` ทุกเกมไม่เปลี่ยน (เกมยังเปิด) |
+| MGMT-20 | comp01 `update-games` ปิด `scratch_card` ของ share01 แล้วเปิดกลับ | `status_game` ของ share01 เปลี่ยนเฉพาะเกมนั้น · agent ใต้ share01 ไม่เปลี่ยน · ค่า PT / `updated_by` ไม่เปลี่ยน · log `UPDATE_GAMES` 2 แถว |
+| MGMT-20 | `update-games` กับลูกของลูก · นอกสาย · เกมไม่มีในระบบ / ว่าง / `null` | `402304` · `402402` · `422` |
 | MGMT-52 | sub ของ Superadmin ได้สิทธิ์ `announcement` | `422` |
 | MGMT-52 | Superadmin ให้ sub `rate` = `edit` · Company ให้ sub `rate` | สำเร็จ · `422` |
 
