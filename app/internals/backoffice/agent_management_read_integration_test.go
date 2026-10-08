@@ -75,14 +75,14 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	if p.Total != 3 || got != "amember:MEMBER bmember:MEMBER zagent:AGENT " {
 		t.Fatalf("agent01 downlines = %q (total %d)", got, p.Total)
 	}
-	var mpt map[string]map[string]json.Number
+	var mpt map[string]map[string]any
 	_ = json.Unmarshal(p.Items[0].PT, &mpt)
-	if len(mpt["game"]) != 1 || mpt["game"]["commission_percent"] != "0.2" {
+	if len(mpt["minigame"]) != 5 || mpt["minigame"]["commission_percent"] != 0.2 || mpt["minigame"]["created_by"] != "agent01" {
 		t.Fatalf("member pt %s", p.Items[0].PT)
 	}
 	var apt map[string]map[string]any
 	_ = json.Unmarshal(p.Items[2].PT, &apt)
-	if apt["game"]["pt_from_parent"] != float64(10) {
+	if apt["minigame"]["pt_from_parent"] != float64(10) {
 		t.Fatalf("agent pt %s", p.Items[2].PT)
 	}
 
@@ -184,7 +184,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	}
 	_ = json.Unmarshal(r.Data, &d)
 	if d.UserType != "AGENT" || d.Phone != setPhone || d.ParentUsername != "share01" || len(d.Currencies) != 1 ||
-		d.PT["game"]["pt_from_parent"] != float64(60) || len(d.StatusGame) != 3 || !d.PasscodeSet || d.LastLoginAt == "" {
+		d.PT["minigame"]["pt_from_parent"] != float64(60) || len(d.StatusGame) != 3 || !d.PasscodeSet || d.LastLoginAt == "" {
 		t.Fatalf("detail %s", r.Data)
 	}
 
@@ -207,7 +207,12 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	if _, ok := raw["status_game"]; ok {
 		t.Fatal("Member ต้องไม่มี status_game")
 	}
-	if string(raw["parent_username"]) != `"agent01"` || string(raw["role"]) != `"MEMBER"` || string(raw["pt"]) != `{"game":{"commission_percent":0.3}}` {
+	var memPT map[string]map[string]any
+	_ = json.Unmarshal(raw["pt"], &memPT)
+	mg := memPT["minigame"]
+	if string(raw["parent_username"]) != `"agent01"` || string(raw["role"]) != `"MEMBER"` || len(memPT) != 1 || len(mg) != 5 ||
+		mg["commission_percent"] != 0.3 || mg["created_by"] != "agent01" || mg["updated_by"] != "agent01" ||
+		mg["created_at"] == "" || mg["created_at"] != mg["updated_at"] {
 		t.Fatalf("member detail %s", r.Data)
 	}
 	_, otherTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_TRANSFER", "othercom", nil, childPT(50, 0, 0, 0)))
@@ -233,7 +238,7 @@ func TestCopySources(t *testing.T) { // MGMT-35
 		t.Fatal(err)
 	}
 	if len(list) != 2 || list[0].Username != "ashare" || list[1].Username != "share01" || list[0].UserType != "SHARE_B2B" ||
-		list[0].PT["game"]["force"] != float64(5) || len(list[0].StatusGame) != 3 {
+		list[0].PT["minigame"]["force"] != float64(5) || len(list[0].StatusGame) != 3 {
 		t.Fatalf("copy-sources %s", r.Data)
 	}
 	// ไม่มีลูก = []
@@ -242,4 +247,71 @@ func TestCopySources(t *testing.T) { // MGMT-35
 	if string(r.Data) != "[]" {
 		t.Fatalf("ไม่มีลูกฝั่ง agent ต้องได้ [] ได้ %s", r.Data)
 	}
+}
+
+func TestDownlinesSearch(t *testing.T) { // MGMT-27A
+	app := setup2(t)
+	c := buildChain(t, app) // comp01 → share01 → agent01
+	const searchPath = "/api/v1/bo/pr/manage/downlines/search"
+	mustCreate(t, app, c.comTok, agentBody("SHARE_B2B", "share02", []string{"THB"}, childPT(40, 0, 0, 0)))
+	mustCreate(t, app, c.agentTok, agentBody("AGENT", "sharedeep", nil, childPT(10, 0, 0, 0))) // ชื่อมี "share" อยู่ลึก 3 ชั้น
+	expect(t, call(t, app, "POST", createMemberPath, memberBody("memshare", 0.2), c.agentTok), 200, 200)
+	_, otherTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_TRANSFER", "othercom", nil, childPT(50, 0, 0, 0)))
+	mustCreate(t, app, otherTok, agentBody("SHARE_B2C", "shareother", []string{"THB"}, childPT(40, 0, 0, 0)))
+
+	search := func(tok, q string) ([]map[string]any, int64) {
+		t.Helper()
+		r := call(t, app, "POST", searchPath, map[string]any{"q": q}, tok)
+		expect(t, r, 200, 200)
+		var p struct {
+			Data  []map[string]any `json:"data"`
+			Total int64            `json:"total_count"`
+		}
+		_ = json.Unmarshal(r.Data, &p)
+		return p.Data, p.Total
+	}
+	names := func(rows []map[string]any) string {
+		s := ""
+		for _, r := range rows {
+			s += r["username"].(string) + "<" + r["parent_username"].(string) + " "
+		}
+		return s
+	}
+
+	// comp01 ค้น "SHARE" → ทุกชั้นใต้ตัวเอง ไม่เห็นสายอื่น
+	rows, total := search(c.comTok, "SHARE")
+	if total != 4 || names(rows) != "memshare<agent01 share01<comp01 share02<comp01 sharedeep<agent01 " {
+		t.Fatalf("comp01 search = %q (%d)", names(rows), total)
+	}
+	if rows[0]["role"] != "MEMBER" || rows[1]["pt"] == nil {
+		t.Fatalf("row shape %v", rows[0])
+	}
+	// share01 ค้น → เห็นแค่ใต้ตัวเอง ไม่เห็นตัวเอง / share02 สายข้าง / หัวสาย
+	rows, _ = search(c.shareTok, "share")
+	if names(rows) != "memshare<agent01 sharedeep<agent01 " {
+		t.Fatalf("share01 search = %q", names(rows))
+	}
+	rows, total = search(c.shareTok, "comp")
+	if total != 0 || len(rows) != 0 {
+		t.Fatalf("ต้องไม่เห็นหัวสาย %v", rows)
+	}
+	// status ที่ใช้งานจริง: share01 ถูกระงับ → แถวใต้ share01 เป็น SUSPENDED
+	setStatus(t, c.share.ID, models.AgentStatusSuspended)
+	rows, _ = search(c.comTok, "deep")
+	if len(rows) != 1 || rows[0]["status"] != "SUSPENDED" {
+		t.Fatalf("status %v", rows)
+	}
+	setStatus(t, c.share.ID, models.AgentStatusActive)
+	// page / limit
+	r := call(t, app, "POST", searchPath, map[string]any{"q": "share", "limit": 1, "page": 2}, c.comTok)
+	var p struct {
+		Data  []map[string]any `json:"data"`
+		Total int64            `json:"total_count"`
+	}
+	_ = json.Unmarshal(r.Data, &p)
+	if p.Total != 4 || len(p.Data) != 1 || p.Data[0]["username"] != "share01" {
+		t.Fatalf("page 2 %v", p)
+	}
+	expect(t, call(t, app, "POST", searchPath, map[string]any{"q": "s"}, c.comTok), 200, 422)
+	expect(t, call(t, app, "POST", searchPath, map[string]any{}, c.comTok), 200, 422)
 }

@@ -10,7 +10,7 @@ func TestFindJSONNull(t *testing.T) { // ACC-32
 	}{
 		{`{"a":1,"b":"x"}`, "", false},
 		{`{"phone":null}`, "phone", true},
-		{`{"pt":{"game":{"force":null,"pt_from_parent":70}}}`, "pt.game.force", true},
+		{`{"pt":{"minigame":{"force":null,"pt_from_parent":70}}}`, "pt.minigame.force", true},
 		{`{"currencies":["THB",null]}`, "currencies[1]", true},
 		{`{"b":null,"a":null}`, "a", true},
 		{`null`, "", true},

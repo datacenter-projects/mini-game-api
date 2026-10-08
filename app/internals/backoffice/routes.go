@@ -57,6 +57,7 @@ func RegisterRoutes(api fiber.Router) {
 	memberView := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelView)
 	ptView := mw.RequirePermission(agentManagementCore.MenuPT, agentManagementCore.LevelView)
 	pr.Post("/manage/downlines/list", mw.PassedGates(), memberView, agentManagementController.ListDownlinesController)
+	pr.Post("/manage/downlines/search", mw.PassedGates(), memberView, agentManagementController.SearchDownlinesController)
 	pr.Get("/manage/agents/copy-sources", mw.PassedGates(), ptView, agentManagementController.ListCopySourcesController)
 	pr.Post("/manage/agents/detail", mw.PassedGates(), memberView, agentManagementController.GetAgentDetailController)
 	pr.Post("/manage/members/detail", mw.PassedGates(), memberView, agentManagementController.GetMemberDetailController)

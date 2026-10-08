@@ -110,7 +110,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 				settings = append(settings, models.AgentGameSetting{AgentID: a.ID, GameCode: game.GameCode, Category: game.Category,
 					PTFromParentBP: v.PTFromParentBP, PTBP: agentManagementCore.InitialOwnPT(v.PTFromParentBP, newIsMaster),
 					ForceBP: v.ForceBP, RemainBP: v.RemainBP, CommissionBP: v.CommissionBP,
-					Status: groupOn, StatusGame: on, UpdatedAt: now})
+					Status: groupOn, StatusGame: on, CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}
 		}
 		if err := postgres.CreateAgentGameSettingsRepository(tx, settings); err != nil {

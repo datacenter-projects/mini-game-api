@@ -3,7 +3,7 @@ package agentmanagement
 import "testing"
 
 func TestGroups(t *testing.T) { // MGMT-16
-	games := GamesOf(PTGroupGame)
+	games := GamesOf(PTGroupMinigame)
 	if len(games) != 3 {
 		t.Fatalf("GamesOf(game) = %d games, want 3", len(games))
 	}
@@ -11,7 +11,7 @@ func TestGroups(t *testing.T) { // MGMT-16
 		if g.Category != "minigame" {
 			t.Errorf("%s category = %q", g.GameCode, g.Category)
 		}
-		if grp, ok := GroupOfGame(g.GameCode); !ok || grp != PTGroupGame {
+		if grp, ok := GroupOfGame(g.GameCode); !ok || grp != PTGroupMinigame {
 			t.Errorf("GroupOfGame(%s) = %q, %v", g.GameCode, grp, ok)
 		}
 	}

@@ -52,7 +52,7 @@ func seedSuperadmin(t *testing.T, app *fiber.App) (models.UserAgent, string) {
 		curs = append(curs, models.AgentCurrency{AgentID: sa.ID, Currency: c})
 	}
 	var games []models.AgentGameSetting
-	for _, g := range agentManagementCore.GamesOf(agentManagementCore.PTGroupGame) {
+	for _, g := range agentManagementCore.GamesOf(agentManagementCore.PTGroupMinigame) {
 		games = append(games, models.AgentGameSetting{AgentID: sa.ID, GameCode: g.GameCode, Category: g.Category,
 			PTFromParentBP: 10000, Status: true, StatusGame: true})
 	}
@@ -72,7 +72,7 @@ func readyToken(t *testing.T, app *fiber.App, at models.AccountType, id uint, us
 }
 
 func childPT(give, force, remain, commission float64) map[string]any {
-	return map[string]any{"game": map[string]any{"pt_from_parent": give, "force": force, "remain_quota": remain,
+	return map[string]any{"minigame": map[string]any{"pt_from_parent": give, "force": force, "remain_quota": remain,
 		"commission_percent": commission, "status": true}}
 }
 
@@ -87,7 +87,7 @@ func agentBody(userType, username string, currencies []string, pt map[string]any
 
 func memberBody(username string, commission float64) map[string]any {
 	return map[string]any{"request_id": newRequestID(), "username": username, "password": mgPassword, "name": "Name" + username,
-		"phone": "", "pt": map[string]any{"game": map[string]any{"commission_percent": commission}}}
+		"phone": "", "pt": map[string]any{"minigame": map[string]any{"commission_percent": commission}}}
 }
 
 type created struct {
@@ -218,7 +218,7 @@ func TestCreateValidation(t *testing.T) { // MGMT-05, MGMT-08, MGMT-12, MGMT-14,
 		{"B2B ไม่ส่งสกุล", c.comTok, share(func(b map[string]any) { b["user_type"] = "SHARE_B2B"; delete(b, "currencies") }), 422},
 		{"B2C 2 สกุล", c.comTok, share(func(b map[string]any) { b["currencies"] = []string{"THB", "USD"} }), 422},
 		{"Agent ใต้ B2B เลือก JPY", b2bTok, agentBody("AGENT", "agjpy", []string{"JPY"}, childPT(10, 0, 0, 0)), 402310},
-		{"force null", c.comTok, share(func(b map[string]any) { b["pt"].(map[string]any)["game"].(map[string]any)["force"] = nil }), 422},
+		{"force null", c.comTok, share(func(b map[string]any) { b["pt"].(map[string]any)["minigame"].(map[string]any)["force"] = nil }), 422},
 		{"phone null", c.comTok, share(func(b map[string]any) { b["phone"] = nil }), 422},
 		{"ไม่ส่งกลุ่ม game", c.comTok, share(func(b map[string]any) { b["pt"] = map[string]any{} }), 422},
 		{"ถือ 30.25", c.comTok, share(func(b map[string]any) { b["pt"] = childPT(30.25, 0, 0, 0) }), 422},

@@ -26,6 +26,10 @@ type profilePT struct {
 	RemainQuota       json.Number `json:"remain_quota"`
 	CommissionPercent json.Number `json:"commission_percent"`
 	Status            bool        `json:"status"`
+	CreatedAt         string      `json:"created_at"`
+	CreatedBy         string      `json:"created_by"`
+	UpdatedAt         string      `json:"updated_at"`
+	UpdatedBy         string      `json:"updated_by"`
 }
 
 type profileData struct {
@@ -88,7 +92,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	// SUPERADMIN: ได้รับ 100 · ถือ 0 · ครบ 27 สกุล · มี rate
 	d, _ := getProfile(t, app, c.saTok)
 	if d.UserType != "SUPERADMIN" || len(d.Currencies) != 27 || len(d.Balances) != 27 ||
-		d.PT["game"].PTFromParent != "100" || d.PT["game"].PT != "0" || d.Permissions["rate"] != "edit" {
+		d.PT["minigame"].PTFromParent != "100" || d.PT["minigame"].PT != "0" || d.Permissions["rate"] != "edit" {
 		t.Fatalf("superadmin %+v", d)
 	}
 	allLevel(t, d.Permissions, "edit")
@@ -99,8 +103,9 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	if d.Role != "COMPANY" || d.UserType != "COMPANY_TRANSFER" || len(d.Currencies) != 27 || d.IsSubaccount || d.OwnerUsername != "" {
 		t.Fatalf("company %+v", d)
 	}
-	g := d.PT["game"]
-	if g.PTFromParent != "90" || g.PT != "90" || g.CommissionPercent != "0.5" || g.Force != "0" || !g.Status {
+	g := d.PT["minigame"]
+	if g.PTFromParent != "90" || g.PT != "90" || g.CommissionPercent != "0.5" || g.Force != "0" || !g.Status ||
+		g.CreatedBy == "" || g.CreatedBy != g.UpdatedBy || g.CreatedAt == "" || g.CreatedAt != g.UpdatedAt {
 		t.Fatalf("company pt %+v", g)
 	}
 	if len(d.StatusGame) != 3 || !d.StatusGame["scratch_card"] {
@@ -128,7 +133,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	// Share B2C: 1 สกุล · ยอดสกุลที่ยังไม่มี = 0.00
 	d, _ = getProfile(t, app, c.shareTok)
 	if d.UserType != "SHARE_B2C" || len(d.Currencies) != 1 || d.Currencies[0] != "THB" ||
-		len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"THB","amount":0.00}` || d.PT["game"].PTFromParent != "70" {
+		len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"THB","amount":0.00}` || d.PT["minigame"].PTFromParent != "70" {
 		t.Fatalf("share %+v %s", d, d.Balances)
 	}
 
@@ -145,7 +150,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	// Company Seamless Master: ถือล็อก 0 · Seamless 1 to 1: ยอด 0 (ACC-12, ACC-19)
 	_, masterTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
 	d, _ = getProfile(t, app, masterTok)
-	if d.UserType != "COMPANY_SEAMLESS_MASTER" || d.PT["game"].PT != "0" || d.PT["game"].PTFromParent != "80" {
+	if d.UserType != "COMPANY_SEAMLESS_MASTER" || d.PT["minigame"].PT != "0" || d.PT["minigame"].PTFromParent != "80" {
 		t.Fatalf("master %+v", d)
 	}
 	_, oneTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_1TO1", "one2one", []string{"JPY"}, childPT(80, 0, 0, 0)))
@@ -180,7 +185,7 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 
 	d, _ := getProfile(t, app, tok)
 	if d.Username != "share01@staff" || !d.IsSubaccount || d.OwnerUsername != "share01" || d.Role != "SHAREHOLDER" ||
-		d.UserType != "SHARE_B2C" || len(d.Currencies) != 1 || d.PT["game"].PTFromParent != "70" {
+		d.UserType != "SHARE_B2C" || len(d.Currencies) != 1 || d.PT["minigame"].PTFromParent != "70" {
 		t.Fatalf("unexpected %+v", d)
 	}
 	if len(d.Permissions) != 9 || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" || d.Permissions["account"] != "off" {

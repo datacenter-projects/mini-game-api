@@ -15,7 +15,7 @@
 |---|---|---|
 | phase 1 — migration, models, core rules, error codes, `RequirePermission` | ✅ | table test ครบ |
 | phase 2 — สร้างบัญชี `POST /manage/agents/create` · `/manage/members/create` | ✅ | ยอดเงินตั้งต้น + ledger + `request_id` · Superadmin วงเงินไม่จำกัด |
-| phase 3 — รายชื่อ / รายละเอียด / copy-sources | ✅ | `POST /manage/downlines/list` · `/manage/agents/detail` · `/manage/members/detail` · `GET /manage/agents/copy-sources` |
+| phase 3 — รายชื่อ / รายละเอียด / copy-sources / ค้นหาทั้งสาย | ✅ | `POST /manage/downlines/list` · `/manage/downlines/search` (MGMT-27A) · `/manage/agents/detail` · `/manage/members/detail` · `GET /manage/agents/copy-sources` |
 | phase 4 — แก้บัญชี | ✅ | `update-info` · `update-status` · `update-pt` (MGMT-24) · `update-commission` · `update-hold` |
 | phase 5 — sub | ✅ | `/manage/subaccounts/list` (รายชื่อ) · `/detail` · `/create` · `/update-info` · `/update-status` · `RequireMainAccount` |
 | เครื่องมือ test (`scripts/testenv.ps1`, `.env.test`, k6) | ✅ | อยู่ในทุก branch (เลิกใช้ `boiledegg/test-infra` แล้ว) |
@@ -33,6 +33,7 @@
    - หัวข้อ 1: ยอดเงินตั้งต้นตอนสร้างอยู่ใน module นี้ (ให้ตรงกับ MGMT-15A)
    - ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` · sub `/detail` `/create` `/update-info` `/update-status`
    - id ของบัญชีส่งใน body ทุกเส้น (ผู้เรียกมาจาก token) — รายชื่อ / รายละเอียดจึงเป็น `POST` · `page` / `limit` ใน body
+   - MGMT-27A (ใหม่) ค้นหาทั้งสายใต้ตัวเอง `POST /manage/downlines/search` — username 2–32 ตัว · มี `parent_username`
    - MGMT-53 บัญชีหลักได้ `edit` ทุกเมนู (รวม `dashboard` / `report`) — เพดาน `view` ใช้จำกัดสิทธิ์ที่ให้ sub
 2. **แก้กฎข้อ 19 ใน `CLAUDE.md`:** list ที่รับ `page` / `limit` ใน body ใช้ `utils.NewPage` (ค่าเริ่มต้น / เพดานเดียวกับ `ParsePage`) — ร่าง: "list ต้องใช้ `response.Page` · page / limit ใน query ใช้ `utils.ParsePage` · ใน body (เส้น POST) ใช้ `utils.NewPage`"
 3. **`status_game`** (เปิด / ปิดทีละเกม) — อยู่ module ไหน และใครตั้ง

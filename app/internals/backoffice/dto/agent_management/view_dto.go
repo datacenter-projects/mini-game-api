@@ -9,7 +9,7 @@ import (
 
 // รูปแบบที่ใช้แสดงบัญชี — รายชื่อดาวน์ไลน์ · รายละเอียด · copy-sources · account Profile (ACC-16, ACC-19)
 
-// PTGroupView — ค่าหุ้นส่วนฝั่ง agent 1 กลุ่ม (MGMT-16)
+// PTGroupView — ค่าหุ้นส่วนฝั่ง agent ชุดเดียวต่อระบบ (MGMT-16) · เวลาเป็น RFC 3339
 type PTGroupView struct {
 	PTFromParent      utils.Percent `json:"pt_from_parent"`
 	PT                utils.Percent `json:"pt"`
@@ -17,11 +17,19 @@ type PTGroupView struct {
 	RemainQuota       utils.Percent `json:"remain_quota"`
 	CommissionPercent utils.Percent `json:"commission_percent"`
 	Status            bool          `json:"status"`
+	CreatedAt         string        `json:"created_at"`
+	CreatedBy         string        `json:"created_by"`
+	UpdatedAt         string        `json:"updated_at"`
+	UpdatedBy         string        `json:"updated_by"`
 }
 
 // MemberPTGroupView — Member มีแค่ Commission (MGMT-21)
 type MemberPTGroupView struct {
 	CommissionPercent utils.Percent `json:"commission_percent"`
+	CreatedAt         string        `json:"created_at"`
+	CreatedBy         string        `json:"created_by"`
+	UpdatedAt         string        `json:"updated_at"`
+	UpdatedBy         string        `json:"updated_by"`
 }
 
 // BalanceView — ยอดแยกสกุล (account ACC-19)
@@ -114,3 +122,24 @@ type DetailRequest struct {
 }
 
 func (r *DetailRequest) Validate() error { return checkID(r.ID) }
+
+// DownlineSearchRequest — POST /manage/downlines/search (MGMT-27A) · ค้นทุกชั้นใต้ตัวเอง
+type DownlineSearchRequest struct {
+	Q     string `json:"q"` // บังคับ 2–32 ตัว
+	Page  int    `json:"page"`
+	Limit int    `json:"limit"`
+}
+
+func (r *DownlineSearchRequest) Validate() error {
+	r.Q = strings.ToLower(strings.TrimSpace(r.Q))
+	if n := len([]rune(r.Q)); n < 2 || n > 32 {
+		return apperr.ErrValidation.WithMessage("q ต้องยาว 2–32 ตัว", "q must be 2–32 characters")
+	}
+	return nil
+}
+
+// DownlineSearchRow — 1 แถวของผลค้นทั้งสาย = แถวรายชื่อ + ผู้สร้างตรง (MGMT-27A)
+type DownlineSearchRow struct {
+	DownlineRow
+	ParentUsername string `json:"parent_username"`
+}

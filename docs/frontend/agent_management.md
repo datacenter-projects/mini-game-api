@@ -38,10 +38,19 @@ spec เต็ม: `docs/modules/agent_management.md` · พื้นฐาน�
 
 ### 1.4 ค่าหุ้นส่วน `pt`
 
-ส่ง / แสดงชุดเดียวต่อกลุ่ม (ตอนนี้มีกลุ่ม `game` = ทุกเกม minigame) · หลังบ้านกระจายลงทุกเกมเอง
+key ของระบบคือ `minigame` (ทุกเกม minigame · ระบบอื่น เช่น `askmelotto` จะเพิ่มข้างๆ ภายหลัง)
 
+**ตอนส่ง (สร้าง / `update-pt`)** — ชุดเดียวต่อระบบ หลังบ้านกระจายลงทุกเกมเอง:
 ```json
-"pt": { "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true } },
+"pt": { "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true } },
+"status_game": { "scratch_card": false }
+```
+
+**ตอนแสดง (ทุกเส้น)** — ชุดเดียวต่อระบบ + วันที่ / คนสร้าง / คนแก้ล่าสุด · `status_game` แยกต่อเกม:
+```json
+"pt": {
+  "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+},
 "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
 ```
 
@@ -51,10 +60,13 @@ spec เต็ม: `docs/modules/agent_management.md` · พื้นฐาน�
 | `pt` | ค่าถือจาก Member ใต้ตัวเอง (ไม่เกิน `pt_from_parent`) | บัญชีนั้นเอง (`update-hold`) |
 | `force` · `remain_quota` | บังคับถือสู้ · เอาส่วนที่เหลือ (ไม่เกินค่าที่ให้) | ผู้สร้าง |
 | `commission_percent` | Commission 0–1 | ผู้สร้าง |
-| `status` | เปิด / ปิดทั้งกลุ่ม | ผู้สร้าง |
-| `status_game` | เปิด / ปิดทีละเกม | ผู้สร้าง (ตอนสร้าง) |
+| `status` | status ของ PT (ไม่ใช่สถานะเกม) — ❓ รอ lead ยืนยันความหมาย | ผู้สร้าง |
+| `status_game` | เปิด / ปิดทีละเกม (อยู่นอก `pt`) | ผู้สร้าง (ตอนสร้าง) |
+| `created_at` · `created_by` | เวลา / username ของผู้สร้างค่า PT (ไม่เปลี่ยนหลังสร้าง) | ระบบตั้งให้ |
+| `updated_at` · `updated_by` | เวลา / username ของคนที่แก้ค่า PT ล่าสุด (รวม sub) | ระบบตั้งให้ |
 
-Member มีแค่ `{ "game": { "commission_percent": 0.3 } }` · ผู้เรียกไม่มีสิทธิ์ `pt` อย่างน้อย `view` = response ไม่มี field `pt`
+Member ตอนส่ง `{ "minigame": { "commission_percent": 0.3 } }` · ตอนแสดงมีแค่ `commission_percent` · `created_at` · `created_by` · `updated_at` · `updated_by` ·
+ผู้เรียกไม่มีสิทธิ์ `pt` อย่างน้อย `view` = response ไม่มี field `pt`
 
 ### 1.5 ข้อมูลตัวอย่างในเอกสารนี้
 
@@ -87,6 +99,7 @@ sub ของ comp01 = `comp01@staff` (id 30)
 | 3.1 | POST | `/api/v1/bo/pr/manage/agents/create` | สร้าง Company / Share / Agent | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) |
 | 3.2 | POST | `/api/v1/bo/pr/manage/members/create` | สร้าง Member | เหมือน 3.1 |
 | 3.3 | POST | `/api/v1/bo/pr/manage/downlines/list` | รายชื่อลูกตรง (กรองด้วย `q` ได้) | `member` view |
+| 3.3A | POST | `/api/v1/bo/pr/manage/downlines/search` | ค้นหาทั้งสายใต้ตัวเอง (username) | `member` view |
 | 3.4 | POST | `/api/v1/bo/pr/manage/agents/detail` | รายละเอียดบัญชีฝั่ง agent | `member` view |
 | 3.5 | POST | `/api/v1/bo/pr/manage/members/detail` | รายละเอียด Member | `member` view |
 | 3.6 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | ลูกตรง + ค่า PT สำหรับ "คัดลอกการตั้งค่าจาก" | `pt` view |
@@ -119,7 +132,7 @@ sub ของ comp01 = `comp01@staff` (id 30)
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/create" \
   -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
-  -d '{"request_id":"6f1c2a1e-3b7d-4c55-9a40-0f7f3c2d8e11","user_type":"SHARE_B2C","username":"Share01","password":"aA4b4c4d4e4f","name":"share01","phone":"0812345678","currencies":["THB"],"balance":{"THB":10000.00},"pt":{"game":{"pt_from_parent":70,"force":0,"remain_quota":0,"commission_percent":0.5,"status":true}},"status_game":{"scratch_card":false}}'
+  -d '{"request_id":"6f1c2a1e-3b7d-4c55-9a40-0f7f3c2d8e11","user_type":"SHARE_B2C","username":"Share01","password":"aA4b4c4d4e4f","name":"share01","phone":"0812345678","currencies":["THB"],"balance":{"THB":10000.00},"pt":{"minigame":{"pt_from_parent":70,"force":0,"remain_quota":0,"commission_percent":0.5,"status":true}},"status_game":{"scratch_card":false}}'
 ```
 
 Request:
@@ -134,7 +147,7 @@ Request:
   "currencies": ["THB"],
   "balance": { "THB": 10000.00 },
   "pt": {
-    "game": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+    "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
   },
   "status_game": { "scratch_card": false }
 }
@@ -166,7 +179,7 @@ Error: `422`, `402301`, `402303`, `402305`, `402307`, `402308`, `402309`, `40231
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/members/create" \
   -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
-  -d '{"request_id":"0b9c5a77-2d1e-4f3a-8c61-5e4d3c2b1a09","username":"Mem01","password":"aA4b4c4d4e4f","name":"ใจดี","phone":"","balance":{"THB":100.00},"pt":{"game":{"commission_percent":0.3}}}'
+  -d '{"request_id":"0b9c5a77-2d1e-4f3a-8c61-5e4d3c2b1a09","username":"Mem01","password":"aA4b4c4d4e4f","name":"ใจดี","phone":"","balance":{"THB":100.00},"pt":{"minigame":{"commission_percent":0.3}}}'
 ```
 
 Request:
@@ -178,7 +191,7 @@ Request:
   "name": "ใจดี",
   "phone": "",
   "balance": { "THB": 100.00 },
-  "pt": { "game": { "commission_percent": 0.3 } }
+  "pt": { "minigame": { "commission_percent": 0.3 } }
 }
 ```
 
@@ -225,8 +238,9 @@ Response `data` (ลูกตรงของ share01 · หัวสาย comp0
       "phone": "0898765432",
       "status": "SUSPENDED",
       "pt": {
-        "game": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+        "minigame": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" }
       },
+      "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
       "balances": [ { "currency": "THB", "amount": 5000.00 } ]
     },
     {
@@ -237,7 +251,9 @@ Response `data` (ลูกตรงของ share01 · หัวสาย comp0
       "name": "ใจดี",
       "phone": "",
       "status": "SUSPENDED",
-      "pt": { "game": { "commission_percent": 0.3 } },
+      "pt": {
+        "minigame": { "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
+      },
       "balances": [ { "currency": "THB", "amount": 100.00 } ]
     }
   ]
@@ -253,6 +269,88 @@ Response `data` (ลูกตรงของ share01 · หัวสาย comp0
 | `balances` | 1 รายการต่อสกุลของบัญชี · ยังไม่มียอด / บัญชี Seamless = `0.00` |
 
 เรียง username A→Z · Error: `402303`, `402402`
+
+### 3.3A POST /api/v1/bo/pr/manage/downlines/search
+
+```
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/downlines/search" \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d '{"q":"sh","page":1,"limit":20}'
+```
+
+Request:
+```json
+{ "q": "sh", "page": 1, "limit": 20 }
+```
+
+Response `data` (comp01 ค้น `sh`):
+```json
+{
+  "current_page": 1,
+  "total_page": 1,
+  "total_count": 3,
+  "limit": 20,
+  "has_next": false,
+  "has_prev": false,
+  "data": [
+    {
+      "id": 12,
+      "role": "SHAREHOLDER",
+      "user_type": "SHARE_B2C",
+      "username": "sh1",
+      "name": "sh1",
+      "phone": "",
+      "status": "ACTIVE",
+      "parent_username": "comp01",
+      "pt": {
+        "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+      },
+      "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
+      "balances": [ { "currency": "THB", "amount": 10000.00 } ]
+    },
+    {
+      "id": 13,
+      "role": "SHAREHOLDER",
+      "user_type": "SHARE_B2B",
+      "username": "sh2",
+      "name": "sh2",
+      "phone": "",
+      "status": "ACTIVE",
+      "parent_username": "comp01",
+      "pt": {
+        "minigame": { "pt_from_parent": 50, "pt": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+      },
+      "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
+      "balances": [ { "currency": "THB", "amount": 0.00 }, { "currency": "USD", "amount": 0.00 } ]
+    },
+    {
+      "id": 21,
+      "role": "AGENT",
+      "user_type": "AGENT",
+      "username": "sh3agent",
+      "name": "sh3agent",
+      "phone": "",
+      "status": "SUSPENDED",
+      "parent_username": "sh1",
+      "pt": {
+        "minigame": { "pt_from_parent": 40, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "sh1", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "sh1" }
+      },
+      "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
+      "balances": [ { "currency": "THB", "amount": 500.00 } ]
+    }
+  ]
+}
+```
+
+| field | ความหมาย |
+|---|---|
+| `q` | บังคับ · username บางส่วน 2–32 ตัว ไม่สนตัวพิมพ์ |
+| ขอบเขต | **ทุกชั้นใต้ตัวเอง** (ทั้งฝั่ง agent และ Member) · ไม่เห็นตัวเอง ชั้นบน และสายข้างเคียง |
+| `parent_username` | ผู้สร้างตรงของแถวนั้น (บอกว่าอยู่ใต้ใคร) |
+| อื่นๆ | เหมือนแถวของ 3.3 |
+
+ต่างจาก 3.3: 3.3 ดูทีละชั้น (ลูกตรงของ `parent_id`) · 3.3A ค้นรวดเดียวทุกชั้น · Error: `422`, `402303`
 
 ### 3.4 POST /api/v1/bo/pr/manage/agents/detail
 
@@ -282,7 +380,7 @@ Response `data`:
   "currencies": ["THB"],
   "balances": [ { "currency": "THB", "amount": 10000.00 } ],
   "pt": {
-    "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+    "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "passcode_set": true,
@@ -324,7 +422,9 @@ Response `data`:
   "parent_username": "agent01",
   "currencies": ["THB"],
   "balances": [ { "currency": "THB", "amount": 100.00 } ],
-  "pt": { "game": { "commission_percent": 0.3 } },
+  "pt": {
+    "minigame": { "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
+  },
   "last_login_at": "",
   "last_login_ip": "",
   "created_at": "2026-10-02T14:30:00+07:00"
@@ -352,7 +452,7 @@ Response `data` (ของ comp01):
     "username": "share01",
     "user_type": "SHARE_B2C",
     "pt": {
-      "game": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+      "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
     },
     "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
   },
@@ -361,7 +461,7 @@ Response `data` (ของ comp01):
     "username": "share02",
     "user_type": "SHARE_B2B",
     "pt": {
-      "game": { "pt_from_parent": 50, "pt": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true }
+      "minigame": { "pt_from_parent": 50, "pt": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
     },
     "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true }
   }
@@ -457,7 +557,7 @@ Response: `{ "code": 200, "msg": "สำเร็จ" }`
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/update-pt" \
   -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
-  -d '{"id":12,"pt":{"game":{"pt_from_parent":60,"force":0,"remain_quota":0,"commission_percent":0.5,"status":true}}}'
+  -d '{"id":12,"pt":{"minigame":{"pt_from_parent":60,"force":0,"remain_quota":0,"commission_percent":0.5,"status":true}}}'
 ```
 
 Request (ส่งเฉพาะกลุ่มที่จะแก้ · ในกลุ่มต้องครบ 5 ค่า):
@@ -465,7 +565,7 @@ Request (ส่งเฉพาะกลุ่มที่จะแก้ · ใ�
 {
   "id": 12,
   "pt": {
-    "game": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
+    "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true }
   }
 }
 ```
@@ -475,7 +575,7 @@ Response: `{ "code": 200, "msg": "สำเร็จ" }`
 - **ลดได้ไม่ต่ำกว่าที่ลูกใช้อยู่** = ค่าที่มากที่สุดระหว่าง ค่าถือของลูก และค่าที่ลูกให้ลูกของมันแต่ละคน
   — ตัวอย่าง: share01 ถือ 30 และให้ agent01 60 → ตั้งต่ำสุด 60 · ตั้ง 55 ได้ error:
   ```json
-  { "code": 402306, "msg": "pt.game.pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด 60" }
+  { "code": 402306, "msg": "pt.minigame.pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด 60" }
   ```
 - ห้ามส่ง `pt` (ค่าถือที่ลูกตั้งเอง) = `422`
 
@@ -487,12 +587,12 @@ Error: `422`, `402303`, `402304`, `402305`, `402306`, `402307`, `402308`, `40230
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/members/update-commission" \
   -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
-  -d '{"id":501,"pt":{"game":{"commission_percent":0.3}}}'
+  -d '{"id":501,"pt":{"minigame":{"commission_percent":0.3}}}'
 ```
 
 Request:
 ```json
-{ "id": 501, "pt": { "game": { "commission_percent": 0.3 } } }
+{ "id": 501, "pt": { "minigame": { "commission_percent": 0.3 } } }
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ" }`
 
@@ -506,12 +606,12 @@ Error: `422`, `402303`, `402304`, `402309`, `402402`
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/update-hold" \
   -H "Authorization: Bearer {{TOKEN}}" \
   -H "Content-Type: application/json" \
-  -d '{"pt":{"game":{"pt":40}}}'
+  -d '{"pt":{"minigame":{"pt":40}}}'
 ```
 
 Request (ไม่ส่ง `id` — แก้บัญชีใน token):
 ```json
-{ "pt": { "game": { "pt": 40 } } }
+{ "pt": { "minigame": { "pt": 40 } } }
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ" }`
 
