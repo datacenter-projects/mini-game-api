@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -23,11 +24,19 @@ type Config struct {
 	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
 	MetricsAddr string
 
-	DB    DBConfig
-	Redis RedisConfig
-	Auth  AuthConfig
+	DB      DBConfig
+	Redis   RedisConfig
+	Auth    AuthConfig
+	Account AccountConfig
 
 	MigrateOnStart bool
+}
+
+// AccountConfig — docs/modules/account.md (ACC-04)
+type AccountConfig struct {
+	// APIKeyEncryptionKey — กุญแจ AES-256 (32 byte) สำหรับเข้ารหัส Key ของข้อมูลรับรอง API
+	// env API_KEY_ENCRYPTION_KEY เป็น base64 · บังคับใน dev / uat / prod · local ไม่ตั้งได้ (เส้น 1.3 จะใช้ไม่ได้)
+	APIKeyEncryptionKey []byte
 }
 
 // AuthConfig — ค่าตาม spec docs/modules/agent_auth.md (AUTH-07, AUTH-10, AUTH-11)
@@ -134,6 +143,10 @@ func Load() error {
 		MigrateOnStart: getEnvBool("MIGRATE_ON_START", false),
 	}
 
+	if err := loadAPIKeyEncryptionKey(cfg, required); err != nil {
+		return err
+	}
+
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required env: %s", strings.Join(missing, ", "))
 	}
@@ -207,4 +220,25 @@ func getEnvList(key string) []string {
 		}
 	}
 	return out
+}
+
+// loadAPIKeyEncryptionKey — API_KEY_ENCRYPTION_KEY ต้องเป็น base64 ของ 32 byte (AES-256 — account ACC-04)
+// บังคับใน dev / uat / prod · local (รวม CI และ test env) ไม่ตั้งได้
+func loadAPIKeyEncryptionKey(cfg *Config, required func(string) string) error {
+	var raw string
+	switch cfg.AppEnv {
+	case "dev", "uat", "prod":
+		raw = required("API_KEY_ENCRYPTION_KEY")
+	default:
+		raw = os.Getenv("API_KEY_ENCRYPTION_KEY")
+	}
+	if raw == "" {
+		return nil
+	}
+	key, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil || len(key) != 32 {
+		return fmt.Errorf("API_KEY_ENCRYPTION_KEY must be base64 of exactly 32 bytes")
+	}
+	cfg.Account.APIKeyEncryptionKey = key
+	return nil
 }

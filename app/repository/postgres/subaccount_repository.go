@@ -93,6 +93,16 @@ func CreateSubaccountRepository(db *gorm.DB, s *models.Subaccount) error {
 	return err
 }
 
+// GetSubaccountProfileRepository — คอลัมน์ของหน้า Profile (account ACC-12) · ไม่พบคืน apperr.ErrNotFound
+func GetSubaccountProfileRepository(db *gorm.DB, id uint) (models.Subaccount, error) {
+	var s models.Subaccount
+	err := db.Select("id", "agent_id", "username", "last_login_at", "last_login_ip", "created_at").Where("id = ?", id).Take(&s).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return s, apperr.ErrNotFound
+	}
+	return s, err
+}
+
 // GetSubaccountPermissionsRepository — สิทธิ์ของ sub เป็น JSON (MGMT-50) · ไม่พบคืน apperr.ErrNotFound
 func GetSubaccountPermissionsRepository(db *gorm.DB, id uint) (string, error) {
 	var s models.Subaccount

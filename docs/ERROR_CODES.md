@@ -41,7 +41,8 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | bb | Module | ไฟล์ | Spec |
 |---|---|---|---|
 | 01 | agent_auth (backoffice auth) | `pkg/apperr/agent_auth_errors.go` | `docs/modules/agent_auth.md`, `docs/modules/agent_auth_phase2.md` |
-| 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` (DRAFT) |
+| 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` |
+| 03 | account (บัญชี) | `pkg/apperr/account_errors.go` | `docs/modules/account.md` |
 
 ## agent_auth (01)
 
@@ -63,6 +64,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 401308 | 403 | ไม่มีสิทธิ์ใช้งานส่วนของ admin — phase 2 |
 | 401309 | 403 | ระงับ login เพราะ passcode ผิดหลายครั้ง — phase 2 |
 | 401310 | 403 | ค่าชั่วคราวหมดอายุ กรุณาติดต่อ admin — phase 2 |
+| 401311 | 403 | บัญชีถูกระงับ ใช้งานได้เฉพาะหน้าประวัติของฉันและรายงาน — AUTH-54 |
 | 401401 | 200 | ตั้ง passcode ไว้แล้ว — phase 2 |
 | 401402 | 200 | รหัสผ่านใหม่ซ้ำกับรหัสที่เคยใช้ — phase 2 |
 | 401403 | 200 | passcode ใหม่ซ้ำกับตัวเดิม — phase 2 |
@@ -71,7 +73,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 401406 | 200 | ไม่สามารถรีเซ็ตบัญชีนี้ได้ — phase 2 |
 | 401407 | 200 | บัญชีเป้าหมายถูกล็อก — phase 2 |
 
-## agent_management (02) — DRAFT
+## agent_management (02)
 
 | Code | HTTP | ความหมาย |
 |---|---|---|
@@ -90,3 +92,10 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 402402 | 200 | ไม่พบบัญชีในสายของคุณ |
 | 402403 | 200 | เบอร์โทรนี้ถูกใช้แล้ว |
 | 402404 | 200 | ไม่พบบัญชีย่อยของคุณ |
+
+## account (03)
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 403301 | 200 | บัญชีนี้ไม่มีข้อมูลรับรอง API |
+| 403302 | — | จองถาวร (ตัดก่อนปล่อยใช้ — AUTH-54 กันที่ middleware แทน) |
