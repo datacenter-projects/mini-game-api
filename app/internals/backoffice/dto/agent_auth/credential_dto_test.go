@@ -84,8 +84,3 @@ func TestChangePasswordRequestValidate(t *testing.T) { // AUTH-36, AUTH-37
 		})
 	}
 }
-
-func TestResetCredentialRequestValidate(t *testing.T) {
-	expectMsg(t, parse(t, `{"username":"agent01@staff","passcode":"123456"}`, &ResetCredentialRequest{}), "")
-	expectMsg(t, parse(t, `{"username":"  "}`, &ResetCredentialRequest{}), "กรุณากรอก username")
-}

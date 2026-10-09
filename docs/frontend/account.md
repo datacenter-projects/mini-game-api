@@ -144,7 +144,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | `pt_from_parent` | PT ที่ได้รับจากผู้สร้าง |
 | `pt` | PT ที่ถือจาก Member ใต้ตัวเอง |
 | `force` · `remain_quota` · `commission_percent` | บังคับถือสู้ · เอาส่วนที่เหลือ · Commission |
-| `status` | status ของ PT (ไม่ใช่สถานะเกม) — ❓ รอ lead ยืนยันความหมาย |
+| `status` | `true` = บัญชีนี้รับ PT ในระบบนั้น · `false` = ไม่รับ (ไม่ใช่สถานะเกม — เปิด/ปิดเกมดูที่ `status_game`) |
 | `created_at` · `created_by` | เวลา / username ของผู้สร้างค่า PT (ไม่เปลี่ยนหลังสร้าง) |
 | `updated_at` · `updated_by` | เวลา / username ของคนที่แก้ค่า PT ล่าสุด (รวม sub) |
 | `status_game` | อยู่นอก `pt` · รหัสเกม `coin_toss` · `rock_paper_scissors` · `scratch_card` (หน้าบ้านแปลงเป็นชื่อแสดงเอง) → `true` เปิด / `false` ปิด (Member ในสายเล่นเกมนั้นไม่ได้) |
