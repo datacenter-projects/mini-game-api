@@ -151,7 +151,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		rows := []models.AccountChangeLog{created}
 		if len(req.BalanceAmounts) > 0 {
 			row, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeInitialBalance, nil,
-				map[string]any{"amounts_minor": req.BalanceAmounts}, now)
+				map[string]any{"amounts": req.BalanceAmounts}, now)
 			if err != nil {
 				return err
 			}

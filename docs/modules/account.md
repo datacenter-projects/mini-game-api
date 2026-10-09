@@ -6,6 +6,7 @@
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ACC-01 ทุกบัญชี Company / Share / Agent มี Key · ACC-02 ไม่มีสิทธิ์เมนู `account` (เจ้าของและ sub เปิดได้เสมอ) · ถูกระงับดูหน้า 1.3 ได้ (บันทึกไม่ได้) · migration สร้าง Key ให้บัญชีเดิมทุกบัญชี
 - แก้หลังอนุมัติ (2026-10-09 · lead (zerph) review BO Account — [docs/reviews/bo-account.md](../reviews/bo-account.md)): Dashboard ออกจาก scope รอบนี้ (A1 → หัวข้อ 10) · ACC-02 sub ต้องมีสิทธิ์เมนูใหม่ `api_credential` (A5 / A6 / A9) · ACC-07 ห้ามช่วงกว้างกว่า `/16` และ IP ภายใน / พิเศษ · CIDR ต้องเป็นที่อยู่เครือข่าย (A7 / A8)
 - ตรวจรอบที่ 1 (2026-10-09 · lead): ไม่มีเมนู `api_credential` สำหรับ Superadmin / ADMIN (A10 — revert 7430394) · ACC-07 ห้าม multicast / reserved / broadcast เพิ่ม (A11)
+- แก้ 2026-10-09 (lead review agent_management P4 · S13): `permissions` ไม่มีเมนู `pt` แล้ว — Superadmin 7 เมนู · Company / Share / Agent 8 เมนู (รวม `api_credential`) · `pt` แสดงใน Profile เสมอ
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API** · 1.1 ภาพรวม (Dashboard) ไม่อยู่ใน scope รอบนี้ (หัวข้อ 10)
 - ที่มาของ rule: ภาพหน้าจอตัวอย่าง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg + review comments (2026-10-05) ·
@@ -130,7 +131,7 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
-    "dashboard": "off", "member": "off", "pt": "off", "report": "view",
+    "dashboard": "off", "member": "off", "report": "view",
     "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off", "api_credential": "view"
   }
 }
@@ -242,12 +243,12 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt_from_parent` = ค่าที่ Superadmin ให้ · ไม่มี field `pt` (ลบ 2026-10-09) |
 | ACC-15 | sub ของ Share B2C เรียก profile | `user_type`, `currencies`, `balances`, `pt` เท่าของผู้สร้าง · `permissions` = ที่ผู้สร้างให้ |
 | ACC-16 | ADMIN เรียก profile | `pt = {}` · ไม่มี field `status_game` |
-| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `permissions` 8 เมนู ไม่มี `api_credential` |
+| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `permissions` 7 เมนู (ไม่มี `pt` · ไม่มี `api_credential`) |
 | ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game.scratch_card = false` · เกมอื่น `true` · `pt.minigame` ไม่เปลี่ยน |
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
 | ACC-19 | Share สร้างพร้อมยอดเงินตั้งต้น THB 10,000 (module ② MGMT-15A) | `balances` THB `amount = 10000` |
-| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 9 เมนู (รวม `api_credential`) ค่า `edit` ทั้งหมด (ไม่มี `account`) |
+| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 8 เมนู (รวม `api_credential` · ไม่มี `pt` · ไม่มี `account`) ค่า `edit` ทั้งหมด |
 | ACC-15 | sub ที่ได้แค่ `report` = `view` | `permissions.report = "view"` · เมนูอื่น `"off"` |
 | ACC-18 | Commission 0.5% | profile ได้ `0.5` · DB เก็บ `0.5` (float — ACC-18) |
 | ACC-14 | login แล้วเรียก profile | `last_login_at` / `last_login_ip` ตรงกับ login นี้ |
