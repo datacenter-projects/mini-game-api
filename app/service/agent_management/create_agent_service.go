@@ -2,6 +2,7 @@ package agentmanagement
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	accountCore "app/app/core/account"
@@ -81,11 +82,15 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			}
 		}
 
+		cnf, err := json.Marshal(agentManagementCore.ChildChain(c.Chain, c.Agent.ID, c.Agent.Role)) // MGMT-61
+		if err != nil {
+			return err
+		}
 		now := time.Now()
 		name := req.Name
 		a := models.UserAgent{ParentID: &c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: &name,
 			Phone: OptionalString(req.Phone), AgentType: newAcc.AgentType, Role: newAcc.Role, Status: models.AgentStatusActive,
-			CreatedAt: now, UpdatedAt: now}
+			Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
 		if err := agentAuthPostgres.CreateUserAgentRepository(tx, &a); err != nil {
 			return err
 		}
@@ -110,7 +115,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 					on = true // ไม่ส่ง = เปิด
 				}
 				statusGame[game.GameCode] = on
-				settings = append(settings, models.AgentGameSetting{AgentID: a.ID, GameCode: game.GameCode, Category: game.Category,
+				settings = append(settings, models.AgentGameSetting{AgentID: a.ID, ParentID: &c.Agent.ID, GameCode: game.GameCode, Category: game.Category,
 					PTFromParentBP: v.PTFromParentBP, PTBP: agentManagementCore.InitialOwnPT(v.PTFromParentBP, newIsMaster),
 					ForceBP: v.ForceBP, RemainBP: v.RemainBP, CommissionBP: v.CommissionBP,
 					Status: groupOn, StatusGame: on, CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})

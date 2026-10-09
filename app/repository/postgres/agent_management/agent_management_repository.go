@@ -29,6 +29,16 @@ func GetAgentProfileRepository(db *gorm.DB, id uint) (models.UserAgent, error) {
 	return a, err
 }
 
+// GetAgentChainRepository — user_agents.cnf (JSON สายชั้นบน — MGMT-61) · ไม่พบคืน apperr.ErrNotFound
+func GetAgentChainRepository(db *gorm.DB, id uint) (string, error) {
+	var a models.UserAgent
+	err := db.Select("id", "cnf").Where("id = ?", id).Take(&a).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", apperr.ErrNotFound
+	}
+	return a.Cnf, err
+}
+
 // GetChainCompanyTypeRepository — agent_type ของ Company หัวสาย (รวมตัวเอง) · ไม่อยู่ใต้ Company (เช่น Superadmin) = nil
 func GetChainCompanyTypeRepository(db *gorm.DB, agentID uint) (*models.AgentType, error) {
 	var rows []struct{ AgentType *models.AgentType }

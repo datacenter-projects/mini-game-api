@@ -5,6 +5,7 @@
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
 - แก้ 2026-10-09 (boiledegg ตัดสิน): ลำดับเช็คบนลงล่างตาม field ใน body และข้อความ error บอก field + ค่าที่ตั้งได้ (หัวข้อ 7.1)
+- แก้ 2026-10-09 (boiledegg · lead (zerph) อนุมัติ 2026-10-09): เก็บสายชั้นบน `user_agents.cnf` (MGMT-61) และ `agent_game_settings.parent_id` (MGMT-62)
 - แก้หลังอนุมัติ (2026-10-08 · maofoy · boiledegg ยืนยัน 2026-10-09): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261009000000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`) · เส้น `/manage/members/*` แยกไปที่ `member_management` (`controllers/` `dto/` `service/member_management` — lead อนุมัติ 2026-10-08 · spec [member_management.md](member_management.md) แยกเอกสาร 2026-10-09) · กฎ business ยังอยู่ที่ `core/agent_management` และ spec ฉบับนี้
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
@@ -69,6 +70,8 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-08 | เบอร์โทร: ไม่บังคับ (ไม่กรอกส่ง `""` · ห้าม `null` — account ACC-32) · 8–15 ตัว ตัวเลขเท่านั้น (ห้าม `+`) · ห้ามซ้ำภายในตารางเดียวกัน (unique index ต่อตาราง) · ยกเว้น sub ซ้ำได้ (MGMT-41) |
 | MGMT-09 | แก้ได้: ชื่อ · เบอร์โทร · สถานะ (MGMT-30) · ค่าหุ้นส่วนและเปิด / ปิดเกม (MGMT-20) · แก้ไม่ได้: username · ประเภท · สกุลเงิน · ไม่มีการลบบัญชีฝั่ง agent และ Member |
 | MGMT-09A | แก้ไข Member ได้: ชื่อ · เบอร์โทร · สถานะ · Commission (แต่ละอย่างใช้เส้นของตัวเอง — หัวข้อ 5) |
+| MGMT-61 | **สายชั้นบน** `user_agents.cnf` (JSONB — เพิ่ม 2026-10-09): `{"parent": [{"id": 1, "position": "superadmin"}, {"id": 4754, "position": "company"}, …]}` · เรียงจาก Superadmin ลงมาถึงผู้สร้างตรง · **ไม่รวมตัวเอง** (ตัวสุดท้าย = `parent_id`) · `position` = role ตัวเล็ก (`superadmin` · `company` · `shareholder` · `agent`) · Superadmin / ADMIN = `{"parent": []}` · ตั้งตอนสร้าง = `parent` ของผู้สร้าง + ผู้สร้าง · ไม่เปลี่ยนหลังสร้าง (ย้ายสายไม่ได้ — ถ้าวันหน้ามีต้องแก้ทั้งสายใต้บัญชีนั้น) · **ไม่ส่งใน API** · ใช้ไล่สายขึ้น (อ่านแถวตัวเอง) และค้นทั้งสายลง (`cnf @> '{"parent":[{"id":X}]}'` ใช้ GIN index) · บัญชีเดิม backfill ใน migration · Member (`user_members.cnf` — สายถึง agent ที่สร้าง) ทำใน module `member_management` |
+| MGMT-62 | `agent_game_settings.parent_id` (เพิ่ม 2026-10-09) = id ผู้สร้างของบัญชีเจ้าของแถว (ค่าเดียวกับ `user_agents.parent_id`) · Superadmin = `NULL` · ตั้งตอนสร้าง · แถวเดิม backfill ใน migration · ใช้หาค่าตั้งของลูกตรงทุกคนของบัญชีหนึ่ง |
 
 ### สกุลเงิน
 
@@ -828,10 +831,17 @@ CREATE TABLE account_change_logs (               -- MGMT-60
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, target_id, created_at);
+
+-- migration ใหม่ (2026-10-09) — MGMT-61, MGMT-62
+ALTER TABLE user_agents ADD COLUMN cnf JSONB NOT NULL DEFAULT '{"parent": []}';
+CREATE INDEX idx_user_agents_cnf ON user_agents USING GIN (cnf jsonb_path_ops);          -- cnf @> '{"parent":[{"id":X}]}'
+ALTER TABLE agent_game_settings ADD COLUMN parent_id BIGINT REFERENCES user_agents(id);
+CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, game_code);
+-- backfill: cnf ด้วย recursive CTE ตาม parent_id · agent_game_settings.parent_id = user_agents.parent_id ของเจ้าของแถว
 ```
 
 - Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent_bp = 10000` · ไม่มี Member ตรง) · ADMIN ไม่มี · `pt_bp` = ค่าถือจาก Member ใต้ตัวเอง (MGMT-22) · ผู้สร้างถือในสายของลูก = `pt_from_parent_bp` ของผู้สร้าง − ของลูก (คำนวณตอนคิดเงิน ไม่เก็บ)
-- สายล่างใช้ recursive CTE ตาม `parent_id` (แบบ `ListAncestorStatusesRepository`) · `idx_user_agents_parent_id` มีแล้ว
+- สายล่างใช้ recursive CTE ตาม `parent_id` (แบบ `ListAncestorStatusesRepository`) · `idx_user_agents_parent_id` มีแล้ว · เส้นที่มีอยู่ยังใช้ CTE เดิม · query ใหม่ใช้ `cnf` ได้ (MGMT-61)
 - รายการสกุล 27 สกุล · กลุ่ม PT · รหัสเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · เมนูสิทธิ์ เป็นค่าคงที่ใน `app/core`
 
 ## 7. Test cases
