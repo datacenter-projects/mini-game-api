@@ -26,17 +26,35 @@ func joinTypes(ts []agentManagementCore.UserType) string {
 	return strings.Join(s, ", ")
 }
 
-// CannotCreateTypeError — 402301 บอกค่าที่ส่งมา และรายการ user_type ที่ผู้สร้างส่งได้ (MGMT-02)
+// CannotCreateTypeError — 402301 บอกค่าที่ส่งมา · เหตุผลที่ส่งไม่ได้ · รายการ user_type ที่ผู้สร้างส่งได้ (MGMT-02)
 func CannotCreateTypeError(creator agentManagementCore.UserType, sent string) error {
-	allowed := agentManagementCore.CreatableTypes(creator)
-	if len(allowed) == 0 {
-		return apperr.ErrCannotCreateType.WithMessage(
-			"user_type: ส่ง "+sent+" ไม่ได้ · "+string(creator)+" สร้างบัญชีฝั่ง agent ไม่ได้",
-			"user_type: "+sent+" is not allowed · "+string(creator)+" cannot create agent-side accounts")
+	whyTH, whyEN := cannotCreateReason(creator, agentManagementCore.UserType(sent))
+	c := string(creator)
+	allowedTH, allowedEN := c+" สร้างบัญชีฝั่ง agent ไม่ได้", c+" cannot create agent-side accounts"
+	if allowed := agentManagementCore.CreatableTypes(creator); len(allowed) > 0 {
+		allowedTH, allowedEN = c+" สร้างได้เฉพาะ "+joinTypes(allowed), c+" can only create "+joinTypes(allowed)
 	}
 	return apperr.ErrCannotCreateType.WithMessage(
-		"user_type: ส่ง "+sent+" ไม่ได้ · "+string(creator)+" สร้างได้เฉพาะ "+joinTypes(allowed),
-		"user_type: "+sent+" is not allowed · "+string(creator)+" can only create "+joinTypes(allowed))
+		"user_type: ส่ง "+sent+" ไม่ได้ · "+whyTH+" · "+allowedTH,
+		"user_type: "+sent+" is not allowed · "+whyEN+" · "+allowedEN)
+}
+
+func cannotCreateReason(creator, sent agentManagementCore.UserType) (string, string) {
+	s := string(sent)
+	if creators := agentManagementCore.CreatorsOf(sent); len(creators) > 0 {
+		return s + " สร้างได้โดย " + joinTypes(creators) + " เท่านั้น แต่คุณเป็น " + string(creator),
+			s + " can only be created by " + joinTypes(creators) + ", you are " + string(creator)
+	}
+	switch sent {
+	case agentManagementCore.UserTypeMember:
+		return "สร้าง MEMBER ใช้เส้น /api/v1/bo/pr/manage/members/create", "create MEMBER via /api/v1/bo/pr/manage/members/create"
+	case agentManagementCore.UserTypeShareReseller, agentManagementCore.UserTypeShareMaster:
+		return "ให้ส่ง SHARE_B2C ระบบตั้งเป็น " + s + " เองตามประเภท Company ที่สร้าง",
+			"send SHARE_B2C, the system sets " + s + " from the creating Company type"
+	case agentManagementCore.UserTypeSuperadmin, agentManagementCore.UserTypeAdmin:
+		return s + " สร้างผ่าน API ไม่ได้", s + " cannot be created via the API"
+	}
+	return "ไม่มีประเภท " + s, s + " is not a user type"
 }
 
 // CurrencyError — 422 / 402310 พร้อมกฎ currencies ของประเภทบัญชีใหม่ (MGMT-10 – MGMT-14)

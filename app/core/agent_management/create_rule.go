@@ -154,3 +154,21 @@ func CreatableTypes(creator UserType) []UserType {
 	}
 	return nil
 }
+
+// creatorOrder — ลำดับผู้สร้างที่ใช้ตอนบอกใน msg (บนลงล่างตามสายงาน)
+var creatorOrder = []UserType{UserTypeSuperadmin, UserTypeCompanyTransfer, UserTypeCompanySeamlessReseller, UserTypeCompanySeamlessMaster,
+	UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent}
+
+// CreatorsOf — ผู้สร้างที่ส่ง user_type นี้ในเส้นสร้างฝั่ง agent ได้ (MGMT-02) · ใช้บอกเหตุผลใน msg ของ 402301
+// nil = ไม่มีใครส่งค่านี้ได้ (ไม่มีประเภทนี้ / MEMBER / SUPERADMIN / ADMIN / SHARE_RESELLER / SHARE_MASTER)
+func CreatorsOf(t UserType) []UserType {
+	var out []UserType
+	for _, c := range creatorOrder {
+		for _, nt := range CreatableTypes(c) {
+			if nt == t {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
+}

@@ -73,3 +73,30 @@ func TestCurrencyRequirementOf(t *testing.T) { // MGMT-10 – MGMT-13
 		}
 	}
 }
+
+func TestCreatorsOf(t *testing.T) { // MGMT-02
+	tests := []struct {
+		newType UserType
+		want    []UserType
+	}{
+		{UserTypeCompanyTransfer, []UserType{UserTypeSuperadmin}},
+		{UserTypeShareB2B, []UserType{UserTypeCompanyTransfer}},
+		{UserTypeShareB2C, []UserType{UserTypeCompanyTransfer, UserTypeCompanySeamlessReseller, UserTypeCompanySeamlessMaster}},
+		{UserTypeAgent, []UserType{UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent}},
+		{UserTypeShareReseller, nil},
+		{UserTypeMember, nil},
+		{UserTypeSuperadmin, nil},
+		{"SHARE_B2", nil},
+	}
+	for _, tt := range tests {
+		got := CreatorsOf(tt.newType)
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: got %v, want %v", tt.newType, got, tt.want)
+		}
+		for _, c := range got { // ทุกผู้สร้างที่บอกต้องสร้างได้จริง
+			if _, ok := ResolveNewAgent(c, tt.newType); !ok {
+				t.Errorf("บอกว่า %s สร้าง %s ได้ แต่ ResolveNewAgent ปฏิเสธ", c, tt.newType)
+			}
+		}
+	}
+}

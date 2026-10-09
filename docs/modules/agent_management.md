@@ -919,7 +919,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 
 ค่าที่เป็น object (`pt`, `balance`, `status_game`, `permissions`) ไล่ key ตามลำดับตัวอักษร — error ออกตัวเดียวกันทุกครั้ง
 
-**ข้อความ error บอก field และค่าที่ตั้งได้** (code เดิม): เช่น `402301` → `user_type: ส่ง SHARE_B2C ไม่ได้ · SUPERADMIN สร้างได้เฉพาะ COMPANY_TRANSFER, …` ·
+**ข้อความ error บอก field และค่าที่ตั้งได้** (code เดิม): เช่น `402301` → `user_type: ส่ง SHARE_B2C ไม่ได้ · SHARE_B2C สร้างได้โดย COMPANY_TRANSFER, … เท่านั้น แต่คุณเป็น SUPERADMIN · SUPERADMIN สร้างได้เฉพาะ COMPANY_TRANSFER, …` (บอกเหตุผล: ใครสร้างได้ · ไม่มีประเภทนี้ · MEMBER ใช้เส้น members/create · SHARE_RESELLER / SHARE_MASTER ให้ส่ง SHARE_B2C) ·
 `422` currencies → `currencies: COMPANY_TRANSFER ได้ครบทุกสกุล ห้ามส่ง currencies` · `402305` → `pt.minigame.pt_from_parent ตั้งได้ไม่เกิน 90 (ค่าที่คุณได้รับ)` ·
 `402308` → `pt.minigame.force ตั้งได้ไม่เกิน 50 (ค่าที่ให้ลูก)` · `402312` → `balance.THB ยอดของคุณไม่พอ (มี 0.00)` · สิทธิ์ sub → `permissions.rate ไม่มีเมนูนี้ · เมนูที่ให้ได้: …`
 
