@@ -98,7 +98,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	allLevel(t, d.Permissions, "edit")
 
 	// Company Transfer: ประเภทย่อย · ค่าที่ Superadmin ให้ · ถือเริ่มต้น = ที่ได้รับ (MGMT-22)
-	setBalance(t, c.com.ID, "THB", 96205600)
+	setBalance(t, c.com.ID, "THB", 962056)
 	d, _ = getProfile(t, app, c.comTok)
 	if d.Role != "COMPANY" || d.UserType != "COMPANY_TRANSFER" || len(d.Currencies) != 27 || d.IsSubaccount || d.OwnerUsername != "" {
 		t.Fatalf("company %+v", d)
@@ -122,8 +122,8 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 			thb = string(x.Amount)
 		}
 	}
-	if thb != "962056.00" {
-		t.Fatalf("THB amount = %s, want 962056.00", thb)
+	if thb != "962056" {
+		t.Fatalf("THB amount = %s, want 962056", thb)
 	}
 	at, err := time.Parse(time.RFC3339Nano, d.LastLoginAt)
 	if err != nil || time.Since(at) > time.Minute || d.LastLoginIP == "" || d.CreatedAt == "" {
@@ -133,7 +133,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	// Share B2C: 1 สกุล · ยอดสกุลที่ยังไม่มี = 0.00
 	d, _ = getProfile(t, app, c.shareTok)
 	if d.UserType != "SHARE_B2C" || len(d.Currencies) != 1 || d.Currencies[0] != "THB" ||
-		len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"THB","amount":0.00}` || d.PT["minigame"].PTFromParent != "70" {
+		len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"THB","amount":0}` || d.PT["minigame"].PTFromParent != "70" {
 		t.Fatalf("share %+v %s", d, d.Balances)
 	}
 
@@ -155,7 +155,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	}
 	_, oneTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_1TO1", "one2one", []string{"JPY"}, childPT(80, 0, 0, 0)))
 	d, _ = getProfile(t, app, oneTok)
-	if d.UserType != "COMPANY_SEAMLESS_1TO1" || len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"JPY","amount":0.00}` {
+	if d.UserType != "COMPANY_SEAMLESS_1TO1" || len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"JPY","amount":0}` {
 		t.Fatalf("1to1 %+v %s", d, d.Balances)
 	}
 }

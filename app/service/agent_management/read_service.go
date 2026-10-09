@@ -136,15 +136,15 @@ func downlineRow(r agentManagementPostgres.DownlineRow, status models.AgentStatu
 // rowExtras — สกุล ยอด และค่าหุ้นส่วนของทุกแถวในหน้า (query ละครั้ง ไม่ N+1 — กฎข้อ 23)
 type rowExtras struct {
 	agentCurrencies map[uint][]string
-	agentBalance    map[uint]map[string]int64
+	agentBalance    map[uint]map[string]float64
 	agentSettings   map[uint][]models.AgentGameSetting
-	memberBalance   map[uint]map[string]int64
+	memberBalance   map[uint]map[string]float64
 	memberSettings  map[uint][]models.UserMemberGameSetting
 }
 
 func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
-	e := rowExtras{map[uint][]string{}, map[uint]map[string]int64{}, map[uint][]models.AgentGameSetting{},
-		map[uint]map[string]int64{}, map[uint][]models.UserMemberGameSetting{}}
+	e := rowExtras{map[uint][]string{}, map[uint]map[string]float64{}, map[uint][]models.AgentGameSetting{},
+		map[uint]map[string]float64{}, map[uint][]models.UserMemberGameSetting{}}
 	curs, err := agentManagementPostgres.ListAgentCurrenciesByIDsRepository(db, agentIDs)
 	if err != nil {
 		return e, err
@@ -158,7 +158,7 @@ func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
 	}
 	for _, b := range abs {
 		if e.agentBalance[b.AgentID] == nil {
-			e.agentBalance[b.AgentID] = map[string]int64{}
+			e.agentBalance[b.AgentID] = map[string]float64{}
 		}
 		e.agentBalance[b.AgentID][b.Currency] = b.Amount
 	}
@@ -174,7 +174,7 @@ func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
 		return e, err
 	}
 	for _, m := range mbs {
-		e.memberBalance[m.ID] = map[string]int64{m.Currency: utils.CreditToMinor(m.Credit)}
+		e.memberBalance[m.ID] = map[string]float64{m.Currency: m.Credit}
 	}
 	mgs, err := memberManagementPostgres.ListUserMemberGameSettingsByIDsRepository(db, memberIDs)
 	if err != nil {

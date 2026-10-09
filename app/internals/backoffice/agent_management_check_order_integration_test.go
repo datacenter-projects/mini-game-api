@@ -59,7 +59,7 @@ func TestCreateCheckOrderAndMessages(t *testing.T) {
 	b["balance"] = map[string]any{"THB": 100}
 	r = call(t, app, "POST", createAgentPath, b, c.agentTok)
 	expect(t, r, 200, 402312)
-	expectMsgHas(t, r.Msg, "balance.THB", "0.00")
+	expectMsgHas(t, r.Msg, "balance.THB", "(มี 0)")
 
 	// update-hold บอกค่าที่ได้รับ
 	r = call(t, app, "POST", updateHoldPath, holdBody(65), c.agentTok)

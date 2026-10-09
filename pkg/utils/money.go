@@ -5,28 +5,11 @@ import (
 	"strconv"
 )
 
-// Money — จำนวนเงินหน่วยย่อยที่สุด (1/100 ของสกุล) เก็บเป็น int64 ตามกฎข้อ 9
-// ตอนส่งออก JSON เป็น number ทศนิยม 2 ตำแหน่ง เช่น 96205600 → 962056.00 (docs/modules/account.md ACC-18)
-// แปลงด้วยการต่อข้อความ ไม่ผ่าน float
-type Money int64
+// เงินและ % เป็น float64 ทศนิยม ปัด 4 ตำแหน่ง (CLAUDE.md กฎข้อ 9 — แก้ 2026-10-09 · docs/modules/account.md ACC-18)
+// JSON ส่งค่าตามที่เก็บ (encoding/json ตัด 0 ท้ายให้เอง เช่น 10000.5) · หน้าบ้านปัด 3 ตำแหน่งตอนแสดง
 
-func (m Money) MarshalJSON() ([]byte, error) {
-	v := int64(m)
-	sign := ""
-	if v < 0 {
-		sign = "-"
-		v = -v
-	}
-	frac := v % 100
-	s := sign + strconv.FormatInt(v/100, 10) + "."
-	if frac < 10 {
-		s += "0"
-	}
-	return []byte(s + strconv.FormatInt(frac, 10)), nil
-}
+// Round4 — ปัดเป็น 4 ตำแหน่ง (ครึ่งขึ้น) · ใช้ก่อนบันทึกทุกครั้ง และหลังบวก / ลบ ก่อนเอาไปเทียบ
+func Round4(v float64) float64 { return math.Round(v*10000) / 10000 }
 
-// MinorToCredit / CreditToMinor — แปลงหน่วยย่อย 1/100 (int64 · ledger / ยอดฝั่ง agent) ↔ user_members.credit (float64 หน่วยสกุล)
-// credit เป็น float ตามที่ทีมตกลง 2026-10-09 · แปลงกลับปัดเป็นหน่วยย่อยที่ใกล้ที่สุด
-func MinorToCredit(minor int64) float64 { return float64(minor) / 100 }
-
-func CreditToMinor(credit float64) int64 { return int64(math.Round(credit * 100)) }
+// FormatNum — ตัวเลขสำหรับข้อความ error เช่น 90 → "90" · 0.5 → "0.5" · 10000.1234 → "10000.1234"
+func FormatNum(v float64) string { return strconv.FormatFloat(Round4(v), 'f', -1, 64) }

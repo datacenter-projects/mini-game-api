@@ -44,7 +44,7 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	mustCreate(t, app, c.agentTok, agentBody("AGENT", "zagent", nil, childPT(10, 0, 0, 0)))
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("bmember", 0.3), c.agentTok), 200, 200)
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("amember", 0.2), c.agentTok), 200, 200)
-	setBalance(t, c.agent.ID, "THB", 5000)
+	setBalance(t, c.agent.ID, "THB", 50)
 
 	get := func(tok string, body map[string]any, query string) downlinePage {
 		t.Helper()
@@ -62,7 +62,7 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	if p.Total != 1 || p.Items[0].Username != "agent01" || p.Items[0].UserType != "AGENT" || p.Items[0].Status != "ACTIVE" {
 		t.Fatalf("share downlines %+v", p)
 	}
-	if string(p.Items[0].Balances[0]) != `{"currency":"THB","amount":50.00}` {
+	if string(p.Items[0].Balances[0]) != `{"currency":"THB","amount":50}` {
 		t.Fatalf("balances %s", p.Items[0].Balances[0])
 	}
 

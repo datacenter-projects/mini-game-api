@@ -115,7 +115,7 @@ func seedSuperadmin(tx *gorm.DB, agentID uint) error {
 	for _, g := range agentManagementCore.Groups() {
 		for _, game := range agentManagementCore.GamesOf(g) {
 			settings = append(settings, models.AgentGameSetting{AgentID: agentID, GameCode: game.GameCode, Category: game.Category,
-				PTFromParentBP: agentManagementCore.FullPTBP, Status: true, StatusGame: true})
+				PTFromParent: agentManagementCore.FullPT, Status: true, StatusGame: true})
 		}
 	}
 	return agentManagementPostgres.CreateAgentGameSettingsRepository(tx, settings)

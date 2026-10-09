@@ -10,7 +10,6 @@ import (
 	"app/app/models"
 	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	agentAuthService "app/app/service/agent_auth"
-	"app/pkg/utils"
 
 	"gorm.io/gorm"
 )
@@ -34,8 +33,8 @@ func AgentPTViews(settings []models.AgentGameSetting) (map[string]agentManagemen
 		}
 		latest[string(g)] = s.UpdatedAt
 		pt[string(g)] = agentManagementDto.PTGroupView{
-			PTFromParent: utils.Percent(s.PTFromParentBP), PT: utils.Percent(s.PTBP), Force: utils.Percent(s.ForceBP),
-			RemainQuota: utils.Percent(s.RemainBP), CommissionPercent: utils.Percent(s.CommissionBP), Status: s.Status,
+			PTFromParent: s.PTFromParent, PT: s.PT, Force: s.Force,
+			RemainQuota: s.Remain, CommissionPercent: s.Commission, Status: s.Status,
 			CreatedAt: formatTime(s.CreatedAt), CreatedBy: s.CreatedBy, UpdatedAt: formatTime(s.UpdatedAt), UpdatedBy: s.UpdatedBy,
 		}
 	}
@@ -55,17 +54,17 @@ func MemberPTViews(settings []models.UserMemberGameSetting) map[string]agentMana
 			continue
 		}
 		latest[string(g)] = s.UpdatedAt
-		pt[string(g)] = agentManagementDto.MemberPTGroupView{PT: utils.Percent(s.PTBP), RemainQuota: utils.Percent(s.RemainBP), CommissionPercent: utils.Percent(s.CommissionBP),
+		pt[string(g)] = agentManagementDto.MemberPTGroupView{PT: s.PT, RemainQuota: s.Remain, CommissionPercent: s.Commission,
 			CreatedAt: formatTime(s.CreatedAt), CreatedBy: s.CreatedBy, UpdatedAt: formatTime(s.UpdatedAt), UpdatedBy: s.UpdatedBy}
 	}
 	return pt
 }
 
 // BalanceViews — 1 รายการต่อสกุลของบัญชี · ไม่มียอด = 0 (account ACC-19)
-func BalanceViews(currencies []string, amount map[string]int64) []agentManagementDto.BalanceView {
+func BalanceViews(currencies []string, amount map[string]float64) []agentManagementDto.BalanceView {
 	out := make([]agentManagementDto.BalanceView, len(currencies))
 	for i, c := range currencies {
-		out[i] = agentManagementDto.BalanceView{Currency: c, Amount: utils.Money(amount[c])}
+		out[i] = agentManagementDto.BalanceView{Currency: c, Amount: amount[c]}
 	}
 	return out
 }

@@ -29,7 +29,7 @@ const (
 func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.CreateAgentRequest,
 	meta agentAuthService.RequestMeta) (agentManagementDto.CreateAgentResponse, error) {
 	var res agentManagementDto.CreateAgentResponse
-	if len(req.BalanceMinor) > 0 {
+	if len(req.BalanceAmounts) > 0 {
 		if err := CheckPermissionService(ctx, actor, agentManagementCore.MenuPayment, agentManagementCore.LevelEdit); err != nil {
 			return res, err
 		}
@@ -68,15 +68,15 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		if cv != agentManagementCore.CurrencyOK {
 			return CurrencyError(c.UserType, newAcc.UserType, cv, c.Currencies)
 		}
-		if err := CheckInitialBalance(req.BalanceMinor, c.newAccountSeamless(newAcc.UserType), currencies); err != nil {
+		if err := CheckInitialBalance(req.BalanceAmounts, c.newAccountSeamless(newAcc.UserType), currencies); err != nil {
 			return err
 		}
-		if err := CheckCreatorBalance(tx, c, req.BalanceMinor); err != nil {
+		if err := CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {
 			return err
 		}
 		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
 		for _, g := range SortedGroups(req.PT) {
-			is := agentManagementCore.CheckChildPT(req.PT[g].Parsed, c.ReceivedBP[agentManagementCore.PTGroup(g)], creatorIsMaster)
+			is := agentManagementCore.CheckChildPT(req.PT[g].Parsed, c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster)
 			if err := ChildPTError(g, is); err != nil {
 				return err
 			}
@@ -116,8 +116,8 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 				}
 				statusGame[game.GameCode] = on
 				settings = append(settings, models.AgentGameSetting{AgentID: a.ID, ParentID: &c.Agent.ID, GameCode: game.GameCode, Category: game.Category,
-					PTFromParentBP: v.PTFromParentBP, PTBP: agentManagementCore.InitialOwnPT(v.PTFromParentBP, newIsMaster),
-					ForceBP: v.ForceBP, RemainBP: v.RemainBP, CommissionBP: v.CommissionBP,
+					PTFromParent: v.PTFromParent, PT: agentManagementCore.InitialOwnPT(v.PTFromParent, newIsMaster),
+					Force: v.Force, Remain: v.Remain, Commission: v.Commission,
 					Status: groupOn, StatusGame: on, CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}
 		}
@@ -125,7 +125,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			return err
 		}
 
-		if err := TransferInitialBalance(tx, c, models.BalanceOwnerAgent, a.ID, req.BalanceMinor, req.RequestID, actor, now); err != nil {
+		if err := TransferInitialBalance(tx, c, models.BalanceOwnerAgent, a.ID, req.BalanceAmounts, req.RequestID, actor, now); err != nil {
 			return err
 		}
 		// MGMT-04: เจ้าของ Key ของ account 1.3 ได้ Key ใน tx เดียวกัน
@@ -145,14 +145,14 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		}
 		created, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeCreate, nil,
 			map[string]any{"user_type": newAcc.UserType, "username": a.Username, "name": req.Name, "phone": req.Phone,
-				"parent_id": c.Agent.ID, "currencies": currencies, "pt_bp": ptLog, "status_game": statusGame}, now)
+				"parent_id": c.Agent.ID, "currencies": currencies, "pt": ptLog, "status_game": statusGame}, now)
 		if err != nil {
 			return err
 		}
 		rows := []models.AccountChangeLog{created}
-		if len(req.BalanceMinor) > 0 {
+		if len(req.BalanceAmounts) > 0 {
 			row, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeInitialBalance, nil,
-				map[string]any{"amounts_minor": req.BalanceMinor}, now)
+				map[string]any{"amounts_minor": req.BalanceAmounts}, now)
 			if err != nil {
 				return err
 			}

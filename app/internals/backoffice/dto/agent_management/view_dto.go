@@ -4,40 +4,39 @@ import (
 	"strings"
 
 	"app/pkg/apperr"
-	"app/pkg/utils"
 )
 
 // รูปแบบที่ใช้แสดงบัญชี — รายชื่อดาวน์ไลน์ · รายละเอียด · copy-sources · account Profile (ACC-16, ACC-19)
 
 // PTGroupView — ค่าหุ้นส่วนฝั่ง agent ชุดเดียวต่อระบบ (MGMT-16) · เวลาเป็น RFC 3339
 type PTGroupView struct {
-	PTFromParent      utils.Percent `json:"pt_from_parent"`
-	PT                utils.Percent `json:"pt"`
-	Force             utils.Percent `json:"force"`
-	RemainQuota       utils.Percent `json:"remain_quota"`
-	CommissionPercent utils.Percent `json:"commission_percent"`
-	Status            bool          `json:"status"`
-	CreatedAt         string        `json:"created_at"`
-	CreatedBy         string        `json:"created_by"`
-	UpdatedAt         string        `json:"updated_at"`
-	UpdatedBy         string        `json:"updated_by"`
+	PTFromParent      float64 `json:"pt_from_parent"`
+	PT                float64 `json:"pt"`
+	Force             float64 `json:"force"`
+	RemainQuota       float64 `json:"remain_quota"`
+	CommissionPercent float64 `json:"commission_percent"`
+	Status            bool    `json:"status"`
+	CreatedAt         string  `json:"created_at"`
+	CreatedBy         string  `json:"created_by"`
+	UpdatedAt         string  `json:"updated_at"`
+	UpdatedBy         string  `json:"updated_by"`
 }
 
 // MemberPTGroupView — pt ที่ผู้สร้างถือสู้กับ Member · remain_quota (ระบบคิด) · Commission (MGMT-21 แก้ 2026-10-09)
 type MemberPTGroupView struct {
-	PT                utils.Percent `json:"pt"`
-	RemainQuota       utils.Percent `json:"remain_quota"`
-	CommissionPercent utils.Percent `json:"commission_percent"`
-	CreatedAt         string        `json:"created_at"`
-	CreatedBy         string        `json:"created_by"`
-	UpdatedAt         string        `json:"updated_at"`
-	UpdatedBy         string        `json:"updated_by"`
+	PT                float64 `json:"pt"`
+	RemainQuota       float64 `json:"remain_quota"`
+	CommissionPercent float64 `json:"commission_percent"`
+	CreatedAt         string  `json:"created_at"`
+	CreatedBy         string  `json:"created_by"`
+	UpdatedAt         string  `json:"updated_at"`
+	UpdatedBy         string  `json:"updated_by"`
 }
 
 // BalanceView — ยอดแยกสกุล (account ACC-19)
 type BalanceView struct {
-	Currency string      `json:"currency"`
-	Amount   utils.Money `json:"amount"`
+	Currency string  `json:"currency"`
+	Amount   float64 `json:"amount"`
 }
 
 // DownlineRow — 1 แถวของ POST /manage/downlines/list (MGMT-28)

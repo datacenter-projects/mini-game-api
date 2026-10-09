@@ -29,9 +29,9 @@ type UserMemberGameSetting struct {
 	UserMemberID uint      `gorm:"column:user_member_id;primaryKey"`
 	GameCode     string    `gorm:"column:game_code;primaryKey"`
 	Category     string    `gorm:"column:category"`
-	PTBP         int       `gorm:"column:pt_bp"`     // ผู้สร้างถือสู้กับ Member คนนี้
-	RemainBP     int       `gorm:"column:remain_bp"` // ค่าที่ผู้สร้างได้รับ − pt_bp (ระบบคิด)
-	CommissionBP int       `gorm:"column:commission_bp"`
+	PT           float64   `gorm:"column:pt"`     // ผู้สร้างถือสู้กับ Member คนนี้
+	Remain       float64   `gorm:"column:remain"` // ค่าที่ผู้สร้างได้รับ − pt (ระบบคิด)
+	Commission   float64   `gorm:"column:commission"`
 	CreatedBy    string    `gorm:"column:created_by"`
 	CreatedAt    time.Time `gorm:"column:created_at"`
 	UpdatedBy    string    `gorm:"column:updated_by"`

@@ -62,15 +62,15 @@ func TestUpdatePT(t *testing.T) { // MGMT-18 – MGMT-25
 	if !strings.Contains(r.Msg, "60") {
 		t.Fatalf("msg ต้องบอกค่าต่ำสุด 60: %s", r.Msg)
 	}
-	if s := gameSetting(t, c.share.ID); s.PTFromParentBP != 7000 {
-		t.Fatalf("ถูกปฏิเสธต้องไม่เปลี่ยน ได้ %d", s.PTFromParentBP)
+	if s := gameSetting(t, c.share.ID); s.PTFromParent != 70 {
+		t.Fatalf("ถูกปฏิเสธต้องไม่เปลี่ยน ได้ %v", s.PTFromParent)
 	}
 	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 60, 5, 5, 0.3), c.comTok), 200, 200)
 	s := gameSetting(t, c.share.ID)
-	if s.PTFromParentBP != 6000 || s.PTBP != 3000 || s.ForceBP != 500 || s.RemainBP != 500 || s.CommissionBP != 30 {
+	if s.PTFromParent != 60 || s.PT != 30 || s.Force != 5 || s.Remain != 5 || s.Commission != 0.3 {
 		t.Fatalf("after update %+v", s)
 	}
-	if g := gameSetting(t, c.agent.ID); g.PTFromParentBP != 6000 {
+	if g := gameSetting(t, c.agent.ID); g.PTFromParent != 60 {
 		t.Fatal("ลูกของลูกต้องไม่เปลี่ยน")
 	}
 
@@ -127,8 +127,8 @@ func TestUpdateHold(t *testing.T) { // MGMT-19, MGMT-22
 	app := setup2(t)
 	c := buildChain(t, app)
 	expect(t, call(t, app, "POST", updateHoldPath, holdBody(40), c.agentTok), 200, 200)
-	if s := gameSetting(t, c.agent.ID); s.PTBP != 4000 {
-		t.Fatalf("pt_bp %d", s.PTBP)
+	if s := gameSetting(t, c.agent.ID); s.PT != 40 {
+		t.Fatalf("pt %v", s.PT)
 	}
 	expect(t, call(t, app, "POST", updateHoldPath, holdBody(61), c.agentTok), 200, 402305)
 	expect(t, call(t, app, "POST", updateHoldPath, holdBody(40.25), c.agentTok), 200, 422)
@@ -214,8 +214,8 @@ func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, 
 	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(m.ID, 0, 0.5), c.agentTok), 200, 200)
 	var ms models.UserMemberGameSetting
 	database.DBConn.Where("user_member_id = ?", m.ID).Take(&ms)
-	if ms.CommissionBP != 50 {
-		t.Fatalf("commission %d", ms.CommissionBP)
+	if ms.Commission != 0.5 {
+		t.Fatalf("commission %v", ms.Commission)
 	}
 	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(m.ID, 0, 1.1), c.agentTok), 200, 402309)
 	b := memberPTBody(m.ID, 0, 0.5)
@@ -265,7 +265,7 @@ func TestMemberPT(t *testing.T) { // MGMT-21 แก้ 2026-10-09 (agent ถื�
 	expect(t, r, 200, 200)
 	var mb created
 	_ = json.Unmarshal(r.Data, &mb)
-	if s := memberSetting(t, mb.ID); s.PTBP != 2000 || s.RemainBP != 4000 {
+	if s := memberSetting(t, mb.ID); s.PT != 20 || s.Remain != 40 {
 		t.Fatalf("memb %+v", s)
 	}
 	var rows []models.UserMemberGameSetting
@@ -274,14 +274,14 @@ func TestMemberPT(t *testing.T) { // MGMT-21 แก้ 2026-10-09 (agent ถื�
 		t.Fatalf("ต้องกระจายครบ 3 เกม ได้ %d", len(rows))
 	}
 	for _, s := range rows {
-		if s.PTBP != 5000 || s.RemainBP != 1000 || s.CommissionBP != 30 {
+		if s.PT != 50 || s.Remain != 10 || s.Commission != 0.3 {
 			t.Fatalf("mema %s %+v", s.GameCode, s)
 		}
 	}
 
 	// update-pt: เฉพาะผู้สร้างโดยตรง · pt ไม่เกินที่ได้รับ (60) · remain คิดใหม่ · ต้องครบ pt + commission_percent
 	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(ma.ID, 60, 0.2), c.agentTok), 200, 200)
-	if s := memberSetting(t, ma.ID); s.PTBP != 6000 || s.RemainBP != 0 || s.CommissionBP != 20 || s.UpdatedBy != "agent01" {
+	if s := memberSetting(t, ma.ID); s.PT != 60 || s.Remain != 0 || s.Commission != 0.2 || s.UpdatedBy != "agent01" {
 		t.Fatalf("update-pt %+v", s)
 	}
 	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(ma.ID, 60.5, 0.2), c.agentTok), 200, 402305)
@@ -320,8 +320,8 @@ func TestUpdateSubPermission(t *testing.T) { // MGMT-51
 	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"pt":"edit"}`})
 	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 200)
 	expect(t, call(t, app, "POST", updateHoldPath, holdBody(50), tok), 200, 200) // ค่าถือของเจ้าของ
-	if s := gameSetting(t, c.com.ID); s.PTBP != 5000 {
-		t.Fatalf("owner pt_bp %d", s.PTBP)
+	if s := gameSetting(t, c.com.ID); s.PT != 50 {
+		t.Fatalf("owner pt %v", s.PT)
 	}
 	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "name": "share01", "phone": ""}, tok), 200, 402303)
 }

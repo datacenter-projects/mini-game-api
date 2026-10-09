@@ -6,5 +6,5 @@
 //     (รับ input เป็นค่า คืน output เป็นค่า — ไม่มี side effect)
 //   - ทุกฟังก์ชันต้องมี table test ที่ใส่ตัวเลข input/output ชัดเจน ให้คนอ่าน spec เช็คเองได้
 //   - rule ทุกข้อต้องอ้างถึง spec ที่อนุมัติแล้วใน docs/modules/{module}.md
-//   - เงินเป็น int64 หน่วยย่อยที่สุดเสมอ ห้ามใช้ float กับเงิน
+//   - เงินและ % เป็น float64 ปัด 4 ตำแหน่ง (CLAUDE.md กฎข้อ 9 — แก้ 2026-10-09)
 package core

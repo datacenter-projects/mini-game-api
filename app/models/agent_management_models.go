@@ -12,32 +12,32 @@ type AgentCurrency struct {
 
 func (AgentCurrency) TableName() string { return "agent_currencies" }
 
-// AgentGameSetting — ค่าหุ้นส่วนและเปิด / ปิดเกม ต่อเกม (MGMT-16, MGMT-20) · ค่า % เป็น bp
+// AgentGameSetting — ค่าหุ้นส่วนและเปิด / ปิดเกม ต่อเกม (MGMT-16, MGMT-20) · ค่า % เป็น float64 ปัด 4 ตำแหน่ง (กฎข้อ 9)
 type AgentGameSetting struct {
-	AgentID        uint      `gorm:"column:agent_id;primaryKey"`
-	ParentID       *uint     `gorm:"column:parent_id"` // ผู้สร้างของเจ้าของแถว · Superadmin = nil (MGMT-62)
-	GameCode       string    `gorm:"column:game_code;primaryKey"`
-	Category       string    `gorm:"column:category"`
-	PTFromParentBP int       `gorm:"column:pt_from_parent_bp"` // ได้รับจากผู้สร้าง
-	PTBP           int       `gorm:"column:pt_bp"`             // ถือจาก Member ใต้ตัวเอง
-	ForceBP        int       `gorm:"column:force_bp"`
-	RemainBP       int       `gorm:"column:remain_bp"`
-	CommissionBP   int       `gorm:"column:commission_bp"`
-	Status         bool      `gorm:"column:status"`      // รับ PT ไหม (MGMT-20)
-	StatusGame     bool      `gorm:"column:status_game"` // เปิด / ปิดทีละเกม
-	CreatedBy      string    `gorm:"column:created_by"`  // username ผู้สร้างค่า PT
-	CreatedAt      time.Time `gorm:"column:created_at"`
-	UpdatedBy      string    `gorm:"column:updated_by"` // username คนที่แก้ค่า PT ล่าสุด (sub = owner@name)
-	UpdatedAt      time.Time `gorm:"column:updated_at"`
+	AgentID      uint      `gorm:"column:agent_id;primaryKey"`
+	ParentID     *uint     `gorm:"column:parent_id"` // ผู้สร้างของเจ้าของแถว · Superadmin = nil (MGMT-62)
+	GameCode     string    `gorm:"column:game_code;primaryKey"`
+	Category     string    `gorm:"column:category"`
+	PTFromParent float64   `gorm:"column:pt_from_parent"` // ได้รับจากผู้สร้าง
+	PT           float64   `gorm:"column:pt"`             // ถือจาก Member ใต้ตัวเอง
+	Force        float64   `gorm:"column:force"`
+	Remain       float64   `gorm:"column:remain"`
+	Commission   float64   `gorm:"column:commission"`
+	Status       bool      `gorm:"column:status"`      // รับ PT ไหม (MGMT-20)
+	StatusGame   bool      `gorm:"column:status_game"` // เปิด / ปิดทีละเกม
+	CreatedBy    string    `gorm:"column:created_by"`  // username ผู้สร้างค่า PT
+	CreatedAt    time.Time `gorm:"column:created_at"`
+	UpdatedBy    string    `gorm:"column:updated_by"` // username คนที่แก้ค่า PT ล่าสุด (sub = owner@name)
+	UpdatedAt    time.Time `gorm:"column:updated_at"`
 }
 
 func (AgentGameSetting) TableName() string { return "agent_game_settings" }
 
-// AgentBalance — ยอดเงินของบัญชีฝั่ง agent ต่อสกุล หน่วยย่อย 1/100 (MGMT-15A)
+// AgentBalance — ยอดเงินของบัญชีฝั่ง agent ต่อสกุล ทศนิยม ปัด 4 ตำแหน่ง (MGMT-15A · กฎข้อ 9)
 type AgentBalance struct {
 	AgentID   uint      `gorm:"column:agent_id;primaryKey"`
 	Currency  string    `gorm:"column:currency;primaryKey"`
-	Amount    int64     `gorm:"column:amount"`
+	Amount    float64   `gorm:"column:amount"`
 	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
 
@@ -66,8 +66,8 @@ type BalanceLedger struct {
 	OwnerType    BalanceOwnerType `gorm:"column:owner_type"`
 	OwnerID      uint             `gorm:"column:owner_id"`
 	Currency     string           `gorm:"column:currency"`
-	Amount       int64            `gorm:"column:amount"` // + เข้า / − ออก
-	BalanceAfter int64            `gorm:"column:balance_after"`
+	Amount       float64          `gorm:"column:amount"` // + เข้า / − ออก
+	BalanceAfter float64          `gorm:"column:balance_after"`
 	Reason       LedgerReason     `gorm:"column:reason"`
 	RefType      *string          `gorm:"column:ref_type"`
 	RefID        *uint            `gorm:"column:ref_id"`

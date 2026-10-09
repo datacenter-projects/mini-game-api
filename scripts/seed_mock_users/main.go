@@ -30,6 +30,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	agentAuthCore "app/app/core/agent_auth"
@@ -153,7 +154,7 @@ func run(rootName, prefix string) error {
 	s := &seeder{ctx: context.Background(), prefix: prefix, password: password, meta: agentAuthService.RequestMeta{IP: "127.0.0.1", UserAgent: "seed_mock_users"}}
 	rootActor := actorOf(r.ID, r.ParentID, r.Username, r.Role)
 	for _, n := range tree() {
-		if err := s.create(rootActor, agentManagementCore.UserTypeSuperadmin, agentManagementCore.FullPTBP, false, n, 1); err != nil {
+		if err := s.create(rootActor, agentManagementCore.UserTypeSuperadmin, agentManagementCore.FullPT, false, n, 1); err != nil {
 			return err
 		}
 	}
@@ -175,14 +176,14 @@ func requestID(username string) string {
 }
 
 // give — ค่า pt_from_parent ที่ให้ลูก: ชั้นละ 10 ลดลง (90, 80, 70 …) · ใต้ Seamless Master ต้องเท่าที่ Master ได้รับ (MGMT-19)
-func give(creator agentManagementCore.UserType, creatorReceived, depth int) int {
+func give(creator agentManagementCore.UserType, creatorReceived float64, depth int) float64 {
 	if creator == agentManagementCore.UserTypeCompanySeamlessMaster {
 		return creatorReceived
 	}
-	return min(agentManagementCore.FullPTBP-depth*1000, creatorReceived)
+	return min(agentManagementCore.FullPT-float64(depth*10), creatorReceived)
 }
 
-func pct(bp int) json.Number { return json.Number(fmt.Sprintf("%d.%02d", bp/100, bp%100)) }
+func pct(v float64) json.Number { return json.Number(strconv.FormatFloat(v, 'f', -1, 64)) }
 
 func money(baht int64) json.Number { return json.Number(fmt.Sprintf("%d.00", baht)) }
 
@@ -197,7 +198,7 @@ func decode(body map[string]any, out interface{ Validate() error }) error {
 	return out.Validate()
 }
 
-func (s *seeder) create(creator agentAuthService.Actor, creatorType agentManagementCore.UserType, creatorReceived int,
+func (s *seeder) create(creator agentAuthService.Actor, creatorType agentManagementCore.UserType, creatorReceived float64,
 	seamless bool, n node, depth int) error {
 	username := s.prefix + n.suffix
 	var balance map[string]any

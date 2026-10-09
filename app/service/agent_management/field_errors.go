@@ -13,10 +13,7 @@ import (
 
 // error ที่บอกชื่อ field และค่าที่ตั้งได้ (แก้ 2026-10-09) — code เดิม เปลี่ยนแค่ msg
 
-func pct(bp int) string {
-	b, _ := utils.Percent(bp).MarshalJSON()
-	return string(b)
-}
+func pct(v float64) string { return utils.FormatNum(v) }
 
 func joinTypes(ts []agentManagementCore.UserType) string {
 	s := make([]string, len(ts))
@@ -92,41 +89,41 @@ func ChildPTError(group string, is agentManagementCore.PTIssue) error {
 		}
 		return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – 100 ทีละ 0.5", f+" must be 0 – 100 in steps of 0.5")
 	case agentManagementCore.PTExceedsReceived:
-		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.LimitBP)+" (ค่าที่คุณได้รับ)",
-			f+" must not exceed "+pct(is.LimitBP)+" (what you received)")
+		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่คุณได้รับ)",
+			f+" must not exceed "+pct(is.Limit)+" (what you received)")
 	case agentManagementCore.PTSeamlessMasterLock:
 		if is.Field == "pt_from_parent" {
-			return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเท่ากับ "+pct(is.LimitBP)+" (ค่าที่ได้รับทั้งหมด)",
-				f+" must equal "+pct(is.LimitBP)+" for Company Seamless Master")
+			return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเท่ากับ "+pct(is.Limit)+" (ค่าที่ได้รับทั้งหมด)",
+				f+" must equal "+pct(is.Limit)+" for Company Seamless Master")
 		}
 		return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเป็น 0", f+" must be 0 for Company Seamless Master")
 	case agentManagementCore.PTForceRemainExceeded:
-		return apperr.ErrForceRemainExceeded.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.LimitBP)+" (ค่าที่ให้ลูก)",
-			f+" must not exceed "+pct(is.LimitBP)+" (pt_from_parent)")
+		return apperr.ErrForceRemainExceeded.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่ให้ลูก)",
+			f+" must not exceed "+pct(is.Limit)+" (pt_from_parent)")
 	default:
 		return apperr.ErrCommissionExceeded.WithMessage(f+" ตั้งได้ 0 – 1", f+" must be 0 – 1")
 	}
 }
 
 // OwnPTError — ค่าถือของตัวเอง (MGMT-19, MGMT-22)
-func OwnPTError(group string, v agentManagementCore.PTViolation, receivedBP int) error {
+func OwnPTError(group string, v agentManagementCore.PTViolation, received float64) error {
 	f := "pt." + group + ".pt"
 	switch v {
 	case agentManagementCore.PTOK:
 		return nil
 	case agentManagementCore.PTInvalidStep:
-		return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – "+pct(receivedBP)+" ทีละ 0.5", f+" must be 0 – "+pct(receivedBP)+" in steps of 0.5")
+		return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – "+pct(received)+" ทีละ 0.5", f+" must be 0 – "+pct(received)+" in steps of 0.5")
 	case agentManagementCore.PTSeamlessMasterLock:
 		return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเป็น 0", f+" must be 0 for Company Seamless Master")
 	default:
-		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(receivedBP)+" (ค่าที่คุณได้รับ)",
-			f+" must not exceed "+pct(receivedBP)+" (what you received)")
+		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(received)+" (ค่าที่คุณได้รับ)",
+			f+" must not exceed "+pct(received)+" (what you received)")
 	}
 }
 
 // CheckCreatorBalance — ยอดของผู้สร้างพอสำหรับยอดเงินตั้งต้นไหม (MGMT-15A) · เช็คก่อนค่าหุ้นส่วนตามลำดับ field
 // lock แถวยอดของผู้สร้างใน tx เดียวกัน · TransferInitialBalance เช็คซ้ำตอนโอนจริง · Superadmin ไม่จำกัด
-func CheckCreatorBalance(tx *gorm.DB, c Creator, amounts map[string]int64) error {
+func CheckCreatorBalance(tx *gorm.DB, c Creator, amounts map[string]float64) error {
 	if len(amounts) == 0 || c.UserType == agentManagementCore.UserTypeSuperadmin {
 		return nil
 	}
@@ -135,15 +132,15 @@ func CheckCreatorBalance(tx *gorm.DB, c Creator, amounts map[string]int64) error
 	if err != nil {
 		return err
 	}
-	have := map[string]int64{}
+	have := map[string]float64{}
 	for _, b := range locked {
 		have[b.Currency] = b.Amount
 	}
 	for _, cur := range currencies {
 		if have[cur] < amounts[cur] {
-			b, _ := utils.Money(have[cur]).MarshalJSON()
-			return apperr.ErrInsufficientInitial.WithMessage("balance."+cur+" ยอดของคุณไม่พอ (มี "+string(b)+")",
-				"balance."+cur+" exceeds your balance ("+string(b)+")")
+			b := utils.FormatNum(have[cur])
+			return apperr.ErrInsufficientInitial.WithMessage("balance."+cur+" ยอดของคุณไม่พอ (มี "+b+")",
+				"balance."+cur+" exceeds your balance ("+b+")")
 		}
 	}
 	return nil

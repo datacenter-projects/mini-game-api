@@ -23,8 +23,8 @@ type Creator struct {
 	UserType    agentManagementCore.UserType
 	CompanyType agentManagementCore.UserType // Company หัวสาย รวมตัวเอง · "" = ไม่อยู่ใต้ Company (Superadmin)
 	Currencies  []string
-	ReceivedBP  map[agentManagementCore.PTGroup]int // ค่าที่ผู้สร้างได้รับต่อกลุ่ม (MGMT-22)
-	Chain       agentManagementCore.Chain           // สายชั้นบนของผู้สร้าง (MGMT-61)
+	Received    map[agentManagementCore.PTGroup]float64 // ค่าที่ผู้สร้างได้รับต่อกลุ่ม (MGMT-22)
+	Chain       agentManagementCore.Chain               // สายชั้นบนของผู้สร้าง (MGMT-61)
 }
 
 func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
@@ -57,10 +57,10 @@ func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
 	if err != nil {
 		return c, err
 	}
-	c.ReceivedBP = map[agentManagementCore.PTGroup]int{}
+	c.Received = map[agentManagementCore.PTGroup]float64{}
 	for _, s := range settings { // ค่าของเกมในกลุ่มเท่ากันเสมอ (MGMT-16)
 		if g, ok := agentManagementCore.GroupOfGame(s.GameCode); ok {
-			c.ReceivedBP[g] = s.PTFromParentBP
+			c.Received[g] = s.PTFromParent
 		}
 	}
 	return c, nil
@@ -75,7 +75,7 @@ func (c Creator) newAccountSeamless(newType agentManagementCore.UserType) bool {
 }
 
 // CheckInitialBalance — ตรวจยอดเงินตั้งต้นก่อนเปิด tx (MGMT-15, MGMT-15A, MGMT-51)
-func CheckInitialBalance(amounts map[string]int64, seamless bool, accountCurrencies []string) error {
+func CheckInitialBalance(amounts map[string]float64, seamless bool, accountCurrencies []string) error {
 	if len(amounts) == 0 {
 		return nil
 	}
@@ -96,7 +96,7 @@ func CheckInitialBalance(amounts map[string]int64, seamless bool, accountCurrenc
 
 // TransferInitialBalance — โอนยอดเงินตั้งต้นจากผู้สร้างให้บัญชีใหม่ใน tx เดียวกับการสร้าง (MGMT-15A · กฎข้อ 10–12)
 // Superadmin วงเงินไม่จำกัด: ไม่หักยอด · ledger เฉพาะฝั่งที่ได้รับ
-func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerType, ownerID uint, amounts map[string]int64,
+func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerType, ownerID uint, amounts map[string]float64,
 	requestID string, actor agentAuthService.Actor, now time.Time) error {
 	if len(amounts) == 0 {
 		return nil
@@ -108,7 +108,7 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 	sort.Strings(currencies)
 
 	var ledger []models.BalanceLedger
-	entry := func(ot models.BalanceOwnerType, id uint, cur string, amount, after int64, reason models.LedgerReason, refType string, refID uint) {
+	entry := func(ot models.BalanceOwnerType, id uint, cur string, amount, after float64, reason models.LedgerReason, refType string, refID uint) {
 		ledger = append(ledger, models.BalanceLedger{OwnerType: ot, OwnerID: id, Currency: cur, Amount: amount, BalanceAfter: after,
 			Reason: reason, RefType: &refType, RefID: &refID, RequestID: requestID,
 			ActorType: actor.AccountType, ActorID: actor.AccountID(), CreatedAt: now})
@@ -121,12 +121,12 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 		if err != nil {
 			return err
 		}
-		have := map[string]int64{}
+		have := map[string]float64{}
 		for _, b := range locked {
 			have[b.Currency] = b.Amount
 		}
 		for _, cur := range currencies {
-			after := have[cur] - amounts[cur]
+			after := utils.Round4(have[cur] - amounts[cur])
 			if after < 0 {
 				return apperr.ErrInsufficientInitial
 			}
@@ -148,7 +148,7 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 		}
 	case models.BalanceOwnerMember: // ยอดอยู่ที่ user_members.credit (Member มี 1 สกุล — MGMT-13) · แถว Member เพิ่งสร้างใน tx นี้
 		for _, cur := range currencies {
-			if err := memberManagementPostgres.UpdateUserMemberCreditRepository(tx, ownerID, utils.MinorToCredit(amounts[cur]), now); err != nil {
+			if err := memberManagementPostgres.UpdateUserMemberCreditRepository(tx, ownerID, amounts[cur], now); err != nil {
 				return err
 			}
 		}

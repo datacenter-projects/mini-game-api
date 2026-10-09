@@ -95,7 +95,7 @@ type UpdateOwnPTGroup struct {
 	CommissionPercent utils.Decimal `json:"commission_percent"`
 	Status            *bool         `json:"status"`
 
-	PTBP int `json:"-"`
+	PT float64 `json:"-"`
 }
 
 // UpdateOwnPTRequest — POST /manage/agents/update-hold (ไม่มี id — บัญชีของ token) (MGMT-22)
@@ -114,7 +114,7 @@ func (r *UpdateOwnPTRequest) Validate() error {
 			return Invalid("pt."+g, "เส้นนี้แก้ได้แค่ pt (ค่าอื่นผู้สร้างเป็นคนตั้ง)", "only pt can be set here (other values are set by the creator)")
 		}
 		var err error
-		if v.PTBP, err = PercentBP(p+"pt", v.OwnPT); err != nil {
+		if v.PT, err = Percent(p+"pt", v.OwnPT); err != nil {
 			return err
 		}
 		r.PT[g] = v

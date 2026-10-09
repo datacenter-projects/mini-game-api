@@ -11,20 +11,20 @@ func TestCheckChildPT(t *testing.T) { // MGMT-18, MGMT-19, MGMT-25 · ไล่�
 	tests := []struct {
 		name     string
 		v        ChildPT
-		received int
+		received float64
 		master   bool
 		want     PTIssue
 	}{
-		{"ผ่าน", ChildPT{9000, 0, 0, 50}, 10000, false, PTIssue{Violation: PTOK}},
-		{"ให้ลูกเกินที่ได้รับ", ChildPT{9000, 0, 0, 0}, 0, false, PTIssue{PTExceedsReceived, "pt_from_parent", 0}},
-		{"ให้ลูกไม่ลง step", ChildPT{9025, 0, 0, 0}, 10000, false, PTIssue{PTInvalidStep, "pt_from_parent", FullPTBP}},
-		{"force เกินที่ให้ลูก", ChildPT{6000, 7000, 0, 0}, 10000, false, PTIssue{PTForceRemainExceeded, "force", 6000}},
-		{"remain เกินที่ให้ลูก", ChildPT{6000, 0, 6500, 0}, 10000, false, PTIssue{PTForceRemainExceeded, "remain_quota", 6000}},
-		{"commission เกิน 1%", ChildPT{6000, 0, 0, 110}, 10000, false, PTIssue{PTCommissionExceeded, "commission_percent", MaxCommissionBP}},
-		{"commission ไม่ลง step", ChildPT{6000, 0, 0, 15}, 10000, false, PTIssue{PTInvalidStep, "commission_percent", MaxCommissionBP}},
-		{"field บนผิดก่อน", ChildPT{9000, 9500, 0, 200}, 8000, false, PTIssue{PTExceedsReceived, "pt_from_parent", 8000}},
-		{"master ให้ไม่เท่าที่ได้รับ", ChildPT{7000, 0, 0, 0}, 8000, true, PTIssue{PTSeamlessMasterLock, "pt_from_parent", 8000}},
-		{"master ตั้ง force", ChildPT{8000, 500, 0, 0}, 8000, true, PTIssue{PTSeamlessMasterLock, "force", 0}},
+		{"ผ่าน", ChildPT{90, 0, 0, 0.5}, 100, false, PTIssue{Violation: PTOK}},
+		{"ให้ลูกเกินที่ได้รับ", ChildPT{90, 0, 0, 0}, 0, false, PTIssue{PTExceedsReceived, "pt_from_parent", 0}},
+		{"ให้ลูกไม่ลง step", ChildPT{90.25, 0, 0, 0}, 100, false, PTIssue{PTInvalidStep, "pt_from_parent", FullPT}},
+		{"force เกินที่ให้ลูก", ChildPT{60, 70, 0, 0}, 100, false, PTIssue{PTForceRemainExceeded, "force", 60}},
+		{"remain เกินที่ให้ลูก", ChildPT{60, 0, 65, 0}, 100, false, PTIssue{PTForceRemainExceeded, "remain_quota", 60}},
+		{"commission เกิน 1%", ChildPT{60, 0, 0, 1.1}, 100, false, PTIssue{PTCommissionExceeded, "commission_percent", MaxCommission}},
+		{"commission ไม่ลง step", ChildPT{60, 0, 0, 0.15}, 100, false, PTIssue{PTInvalidStep, "commission_percent", MaxCommission}},
+		{"field บนผิดก่อน", ChildPT{90, 95, 0, 2}, 80, false, PTIssue{PTExceedsReceived, "pt_from_parent", 80}},
+		{"master ให้ไม่เท่าที่ได้รับ", ChildPT{70, 0, 0, 0}, 80, true, PTIssue{PTSeamlessMasterLock, "pt_from_parent", 80}},
+		{"master ตั้ง force", ChildPT{80, 5, 0, 0}, 80, true, PTIssue{PTSeamlessMasterLock, "force", 0}},
 	}
 	for _, tt := range tests {
 		if got := CheckChildPT(tt.v, tt.received, tt.master); got != tt.want {

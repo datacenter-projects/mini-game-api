@@ -121,7 +121,7 @@ func LockAgentBalancesRepository(db *gorm.DB, agentID uint, currencies []string)
 	return out, err
 }
 
-func UpdateAgentBalanceRepository(db *gorm.DB, agentID uint, currency string, amount int64, at time.Time) error {
+func UpdateAgentBalanceRepository(db *gorm.DB, agentID uint, currency string, amount float64, at time.Time) error {
 	return db.Model(&models.AgentBalance{}).Where("agent_id = ? AND currency = ?", agentID, currency).
 		Updates(map[string]any{"amount": amount, "updated_at": at}).Error
 }

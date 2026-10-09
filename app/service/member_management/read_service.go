@@ -11,7 +11,6 @@ import (
 	agentAuthService "app/app/service/agent_auth"
 	agentManagementService "app/app/service/agent_management"
 	"app/pkg/apperr"
-	"app/pkg/utils"
 	"app/platform/database"
 )
 
@@ -40,7 +39,7 @@ func GetMemberDetailService(ctx context.Context, actor agentAuthService.Actor, i
 	if err != nil {
 		return res, err
 	}
-	amount := map[string]int64{m.Currency: utils.CreditToMinor(m.Credit)} // ยอด = user_members.credit
+	amount := map[string]float64{m.Currency: m.Credit} // ยอด = user_members.credit
 	member := string(agentManagementCore.UserTypeMember)
 	res = memberManagementDto.MemberDetailResponse{ID: m.ID, Role: member, UserType: member, Username: m.Username, Name: m.Name,
 		Phone: agentManagementService.StringOrEmpty(m.Phone), Status: string(agentAuthCore.WorstStatus(creatorStatus, m.Status)),

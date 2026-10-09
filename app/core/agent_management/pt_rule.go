@@ -1,13 +1,23 @@
 package agentmanagement
 
-// กฎค่าหุ้นส่วน (MGMT-16 – MGMT-25) · ทุกค่าเป็น bp (1% = 100 bp)
+import "math"
+
+// กฎค่าหุ้นส่วน (MGMT-16 – MGMT-25) · ทุกค่าเป็น % แบบ float64 ปัด 4 ตำแหน่ง (กฎข้อ 9 — แก้ 2026-10-09)
 
 const (
-	FullPTBP         = 10000 // 100% — Superadmin ได้รับ (MGMT-22)
-	PTStepBP         = 50    // 0.5% (MGMT-18)
-	MaxCommissionBP  = 100   // 1% (MGMT-18)
-	CommissionStepBP = 10    // 0.1% (MGMT-18)
+	FullPT         = 100.0 // Superadmin ได้รับ (MGMT-22)
+	PTStep         = 0.5   // MGMT-18
+	MaxCommission  = 1.0   // MGMT-18
+	CommissionStep = 0.1   // MGMT-18
 )
+
+// round4 — ปัด 4 ตำแหน่ง (ตรงกับ utils.Round4 · core ห้าม import pkg/utils เพราะดึง fiber มาด้วย)
+func round4(v float64) float64 { return math.Round(v*10000) / 10000 }
+
+// isStep — v ลงตาม step ไหม · เทียบเป็นจำนวนเต็มของหน่วย 0.0001 กันเศษ float
+func isStep(v, step float64) bool {
+	return math.Mod(math.Round(v*10000), math.Round(step*10000)) == 0
+}
 
 // PTGroup — กลุ่ม PT ใน API (MGMT-16)
 type PTGroup string
@@ -48,11 +58,11 @@ func GroupOfGame(gameCode string) (PTGroup, bool) {
 }
 
 // IsPTStep — 0 ถึง max ทีละ 0.5%
-func IsPTStep(bp int) bool { return bp >= 0 && bp <= FullPTBP && bp%PTStepBP == 0 }
+func IsPTStep(v float64) bool { return v >= 0 && v <= FullPT && isStep(v, PTStep) }
 
 // IsCommissionStep — 0 ถึง 1% ทีละ 0.1%
-func IsCommissionStep(bp int) bool {
-	return bp >= 0 && bp <= MaxCommissionBP && bp%CommissionStepBP == 0
+func IsCommissionStep(v float64) bool {
+	return v >= 0 && v <= MaxCommission && isStep(v, CommissionStep)
 }
 
 // PTViolation — ผลการตรวจค่าหุ้นส่วน · service แปลงเป็น apperr
@@ -69,111 +79,111 @@ const (
 
 // ChildPT — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม (MGMT-16)
 type ChildPT struct {
-	PTFromParentBP int
-	ForceBP        int
-	RemainBP       int
-	CommissionBP   int
+	PTFromParent float64
+	Force        float64
+	Remain       float64
+	Commission   float64
 }
 
 // ValidateChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก (MGMT-18, MGMT-19, MGMT-25)
-// creatorReceivedBP = ค่าที่ผู้สร้างได้รับในกลุ่มนี้ · creatorIsSeamlessMaster = ผู้สร้างเป็น Company Seamless Master
-func ValidateChildPT(v ChildPT, creatorReceivedBP int, creatorIsSeamlessMaster bool) PTViolation {
-	return CheckChildPT(v, creatorReceivedBP, creatorIsSeamlessMaster).Violation
+// creatorReceived = ค่าที่ผู้สร้างได้รับในกลุ่มนี้ · creatorIsSeamlessMaster = ผู้สร้างเป็น Company Seamless Master
+func ValidateChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster bool) PTViolation {
+	return CheckChildPT(v, creatorReceived, creatorIsSeamlessMaster).Violation
 }
 
 // PTIssue — ผลตรวจค่าหุ้นส่วนพร้อม field ที่ผิดและค่าที่ตั้งได้ (ใช้สร้างข้อความ error)
 type PTIssue struct {
 	Violation PTViolation
-	Field     string // pt_from_parent · force · remain_quota · commission_percent
-	LimitBP   int    // ค่าสูงสุดที่ตั้งได้ · PTSeamlessMasterLock = ค่าที่ต้องเป็น
+	Field     string  // pt_from_parent · force · remain_quota · commission_percent
+	Limit     float64 // ค่าสูงสุดที่ตั้งได้ · PTSeamlessMasterLock = ค่าที่ต้องเป็น
 }
 
 // CheckChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก ไล่ตามลำดับ field ใน body (pt_from_parent → force → remain_quota → commission_percent)
-func CheckChildPT(v ChildPT, creatorReceivedBP int, creatorIsSeamlessMaster bool) PTIssue {
-	if !IsPTStep(v.PTFromParentBP) {
-		return PTIssue{PTInvalidStep, "pt_from_parent", FullPTBP}
+func CheckChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster bool) PTIssue {
+	if !IsPTStep(v.PTFromParent) {
+		return PTIssue{PTInvalidStep, "pt_from_parent", FullPT}
 	}
-	if creatorIsSeamlessMaster && v.PTFromParentBP != creatorReceivedBP {
-		return PTIssue{PTSeamlessMasterLock, "pt_from_parent", creatorReceivedBP}
+	if creatorIsSeamlessMaster && v.PTFromParent != creatorReceived {
+		return PTIssue{PTSeamlessMasterLock, "pt_from_parent", creatorReceived}
 	}
-	if v.PTFromParentBP > creatorReceivedBP {
-		return PTIssue{PTExceedsReceived, "pt_from_parent", creatorReceivedBP}
+	if v.PTFromParent > creatorReceived {
+		return PTIssue{PTExceedsReceived, "pt_from_parent", creatorReceived}
 	}
 	for _, f := range []struct {
 		name string
-		bp   int
-	}{{"force", v.ForceBP}, {"remain_quota", v.RemainBP}} {
-		if !IsPTStep(f.bp) {
-			return PTIssue{PTInvalidStep, f.name, v.PTFromParentBP}
+		v    float64
+	}{{"force", v.Force}, {"remain_quota", v.Remain}} {
+		if !IsPTStep(f.v) {
+			return PTIssue{PTInvalidStep, f.name, v.PTFromParent}
 		}
-		if creatorIsSeamlessMaster && f.bp != 0 {
+		if creatorIsSeamlessMaster && f.v != 0 {
 			return PTIssue{PTSeamlessMasterLock, f.name, 0}
 		}
-		if f.bp > v.PTFromParentBP {
-			return PTIssue{PTForceRemainExceeded, f.name, v.PTFromParentBP}
+		if f.v > v.PTFromParent {
+			return PTIssue{PTForceRemainExceeded, f.name, v.PTFromParent}
 		}
 	}
-	if v.CommissionBP < 0 || v.CommissionBP%CommissionStepBP != 0 {
-		return PTIssue{PTInvalidStep, "commission_percent", MaxCommissionBP}
+	if v.Commission < 0 || !isStep(v.Commission, CommissionStep) {
+		return PTIssue{PTInvalidStep, "commission_percent", MaxCommission}
 	}
-	if v.CommissionBP > MaxCommissionBP {
-		return PTIssue{PTCommissionExceeded, "commission_percent", MaxCommissionBP}
+	if v.Commission > MaxCommission {
+		return PTIssue{PTCommissionExceeded, "commission_percent", MaxCommission}
 	}
 	return PTIssue{Violation: PTOK}
 }
 
 // ValidateMemberCommission — Member มีแค่ Commission (MGMT-21)
-func ValidateMemberCommission(bp int) PTViolation {
-	if bp < 0 || bp%CommissionStepBP != 0 {
+func ValidateMemberCommission(v float64) PTViolation {
+	if v < 0 || !isStep(v, CommissionStep) {
 		return PTInvalidStep
 	}
-	if bp > MaxCommissionBP {
+	if v > MaxCommission {
 		return PTCommissionExceeded
 	}
 	return PTOK
 }
 
 // ValidateOwnPT — ค่าถือ pt ที่บัญชีตั้งเอง (MGMT-22) · Company Seamless Master ล็อกที่ 0 (MGMT-19)
-func ValidateOwnPT(ptBP, receivedBP int, isSeamlessMaster bool) PTViolation {
-	if !IsPTStep(ptBP) {
+func ValidateOwnPT(pt, received float64, isSeamlessMaster bool) PTViolation {
+	if !IsPTStep(pt) {
 		return PTInvalidStep
 	}
-	if isSeamlessMaster && ptBP != 0 {
+	if isSeamlessMaster && pt != 0 {
 		return PTSeamlessMasterLock
 	}
-	if ptBP > receivedBP {
+	if pt > received {
 		return PTExceedsReceived
 	}
 	return PTOK
 }
 
 // InitialOwnPT — บัญชีใหม่เริ่มถือทั้งหมดที่ได้รับ (MGMT-22) · Company Seamless Master = 0 (MGMT-19)
-func InitialOwnPT(receivedBP int, isSeamlessMaster bool) int {
+func InitialOwnPT(received float64, isSeamlessMaster bool) float64 {
 	if isSeamlessMaster {
 		return 0
 	}
-	return receivedBP
+	return received
 }
 
 // ValidateMemberPT — ค่าที่ผู้สร้างถือสู้กับ Member คนนี้ (MGMT-21 แก้ 2026-10-09) · 0 ถึงค่าที่ผู้สร้างได้รับ ทีละ 0.5%
-func ValidateMemberPT(ptBP, creatorReceivedBP int) PTViolation {
-	if !IsPTStep(ptBP) {
+func ValidateMemberPT(pt, creatorReceived float64) PTViolation {
+	if !IsPTStep(pt) {
 		return PTInvalidStep
 	}
-	if ptBP > creatorReceivedBP {
+	if pt > creatorReceived {
 		return PTExceedsReceived
 	}
 	return PTOK
 }
 
 // MemberRemain — ส่วนที่ผู้สร้างไม่ได้ถือสู้กับ Member คนนี้ = ค่าที่ผู้สร้างได้รับ − pt (MGMT-21 แก้ 2026-10-09)
-func MemberRemain(creatorReceivedBP, ptBP int) int { return creatorReceivedBP - ptBP }
+func MemberRemain(creatorReceived, pt float64) float64 { return round4(creatorReceived - pt) }
 
 // MinPTFromParent — ค่าต่ำสุดที่ผู้สร้างตั้งให้ลูกได้ (MGMT-24)
 // = ค่าที่มากที่สุดระหว่าง pt ของลูก และค่าที่ลูกให้ลูกของมันแต่ละคน
-func MinPTFromParent(childOwnPTBP int, grandchildrenPTFromParentBP []int) int {
-	m := childOwnPTBP
-	for _, v := range grandchildrenPTFromParentBP {
+func MinPTFromParent(childOwnPT float64, grandchildrenPTFromParent []float64) float64 {
+	m := childOwnPT
+	for _, v := range grandchildrenPTFromParent {
 		if v > m {
 			m = v
 		}

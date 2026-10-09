@@ -88,10 +88,10 @@ func UpdateMemberPTService(ctx context.Context, actor agentAuthService.Actor, re
 		if err != nil {
 			return err
 		}
-		received := map[agentManagementCore.PTGroup]int{}
+		received := map[agentManagementCore.PTGroup]float64{}
 		for _, s := range creatorSettings { // ค่าของเกมในกลุ่มเท่ากันเสมอ (MGMT-16)
 			if g, ok := agentManagementCore.GroupOfGame(s.GameCode); ok {
-				received[g] = s.PTFromParentBP
+				received[g] = s.PTFromParent
 			}
 		}
 		settings, err := memberManagementPostgres.LockUserMemberGameSettingsRepository(tx, m.ID)
@@ -103,23 +103,23 @@ func UpdateMemberPTService(ctx context.Context, actor agentAuthService.Actor, re
 		for _, g := range agentManagementService.SortedGroups(req.PT) {
 			v := req.PT[g]
 			group := agentManagementCore.PTGroup(g)
-			if err := agentManagementService.OwnPTError(g, agentManagementCore.ValidateMemberPT(v.PTBP, received[group]), received[group]); err != nil {
+			if err := agentManagementService.OwnPTError(g, agentManagementCore.ValidateMemberPT(v.PT, received[group]), received[group]); err != nil {
 				return err
 			}
-			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.CommissionBP)); err != nil {
+			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.Commission)); err != nil {
 				return err
 			}
 			for _, s := range settings {
 				if gg, ok := agentManagementCore.GroupOfGame(s.GameCode); ok && gg == group {
-					oldLog[g] = memberPTValue{PTBP: s.PTBP, RemainBP: s.RemainBP, CommissionBP: s.CommissionBP}
+					oldLog[g] = memberPTValue{PT: s.PT, Remain: s.Remain, Commission: s.Commission}
 				}
 			}
-			remain := agentManagementCore.MemberRemain(received[group], v.PTBP)
+			remain := agentManagementCore.MemberRemain(received[group], v.PT)
 			if err := memberManagementPostgres.UpdateUserMemberPTRepository(tx, m.ID, agentManagementService.GameCodes(group),
-				v.PTBP, remain, v.CommissionBP, actor.Username, now); err != nil {
+				v.PT, remain, v.Commission, actor.Username, now); err != nil {
 				return err
 			}
-			newLog[g] = memberPTValue{PTBP: v.PTBP, RemainBP: remain, CommissionBP: v.CommissionBP}
+			newLog[g] = memberPTValue{PT: v.PT, Remain: remain, Commission: v.Commission}
 		}
 		return agentManagementService.WriteLog(ctx, tx, actor, meta, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeUpdatePT,
 			oldLog, newLog, now)

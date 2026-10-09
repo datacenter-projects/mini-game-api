@@ -24,16 +24,16 @@ import (
 
 // memberPTValue — ค่า PT ของ Member 1 กลุ่มใน account_change_logs (MGMT-60)
 type memberPTValue struct {
-	PTBP         int `json:"pt_bp"`
-	RemainBP     int `json:"remain_bp"`
-	CommissionBP int `json:"commission_bp"`
+	PT         float64 `json:"pt"`
+	Remain     float64 `json:"remain"`
+	Commission float64 `json:"commission"`
 }
 
 // CreateMemberService — POST /api/v1/bo/pr/manage/members/create (MGMT-02, MGMT-05 – MGMT-15A, MGMT-21, MGMT-60)
 // pt ของ Member ไม่เกินค่าที่ผู้สร้างได้รับ (lock แถวผู้สร้าง FOR SHARE ใน LoadCreator) · remain = ค่าที่ผู้สร้างได้รับ − pt
 func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.CreateMemberRequest, meta agentAuthService.RequestMeta) (memberManagementDto.CreateMemberResponse, error) {
 	var res memberManagementDto.CreateMemberResponse
-	if len(req.BalanceMinor) > 0 {
+	if len(req.BalanceAmounts) > 0 {
 		if err := agentManagementService.CheckPermissionService(ctx, actor, agentManagementCore.MenuPayment, agentManagementCore.LevelEdit); err != nil {
 			return res, err
 		}
@@ -68,15 +68,15 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			return apperr.ErrInternal.Wrap(fmt.Errorf("creator %d has %d currencies, want 1", c.Agent.ID, len(currencies)))
 		}
 		for g, v := range req.PT { // ไล่ตาม field: pt → commission_percent
-			received := c.ReceivedBP[agentManagementCore.PTGroup(g)]
-			if err := agentManagementService.OwnPTError(g, agentManagementCore.ValidateMemberPT(v.PTBP, received), received); err != nil {
+			received := c.Received[agentManagementCore.PTGroup(g)]
+			if err := agentManagementService.OwnPTError(g, agentManagementCore.ValidateMemberPT(v.PT, received), received); err != nil {
 				return err
 			}
-			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.CommissionBP)); err != nil {
+			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.Commission)); err != nil {
 				return err
 			}
 		}
-		if err := agentManagementService.CheckInitialBalance(req.BalanceMinor, agentManagementCore.IsSeamless(c.CompanyType), currencies); err != nil {
+		if err := agentManagementService.CheckInitialBalance(req.BalanceAmounts, agentManagementCore.IsSeamless(c.CompanyType), currencies); err != nil {
 			return err
 		}
 		if err := agentManagementService.LockAndCheckIdentity(tx, req.Username, req.Phone, true); err != nil {
@@ -99,11 +99,11 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		ptLog := map[string]memberPTValue{}
 		for _, g := range agentManagementCore.Groups() {
 			v := req.PT[string(g)]
-			remain := agentManagementCore.MemberRemain(c.ReceivedBP[g], v.PTBP)
-			ptLog[string(g)] = memberPTValue{PTBP: v.PTBP, RemainBP: remain, CommissionBP: v.CommissionBP}
+			remain := agentManagementCore.MemberRemain(c.Received[g], v.PT)
+			ptLog[string(g)] = memberPTValue{PT: v.PT, Remain: remain, Commission: v.Commission}
 			for _, game := range agentManagementCore.GamesOf(g) {
 				settings = append(settings, models.UserMemberGameSetting{UserMemberID: m.ID, GameCode: game.GameCode, Category: game.Category,
-					PTBP: v.PTBP, RemainBP: remain, CommissionBP: v.CommissionBP,
+					PT: v.PT, Remain: remain, Commission: v.Commission,
 					CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}
 		}
@@ -111,7 +111,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			return err
 		}
 
-		if err := agentManagementService.TransferInitialBalance(tx, c, models.BalanceOwnerMember, m.ID, req.BalanceMinor, req.RequestID, actor, now); err != nil {
+		if err := agentManagementService.TransferInitialBalance(tx, c, models.BalanceOwnerMember, m.ID, req.BalanceAmounts, req.RequestID, actor, now); err != nil {
 			return err
 		}
 		if err := agentManagementPostgres.CreateCreateRequestRepository(tx, &models.CreateRequest{RequestID: req.RequestID, CreatorType: actor.AccountType,
@@ -126,9 +126,9 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			return err
 		}
 		rows := []models.AccountChangeLog{created}
-		if len(req.BalanceMinor) > 0 {
+		if len(req.BalanceAmounts) > 0 {
 			row, err := agentManagementService.ChangeLog(actor, meta, req.RequestID, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeInitialBalance, nil,
-				map[string]any{"amounts_minor": req.BalanceMinor}, now)
+				map[string]any{"amounts_minor": req.BalanceAmounts}, now)
 			if err != nil {
 				return err
 			}

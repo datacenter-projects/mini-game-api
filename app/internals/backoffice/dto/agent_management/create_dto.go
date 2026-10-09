@@ -23,7 +23,7 @@ type ChildPTRequest struct {
 	CommissionPercent utils.Decimal `json:"commission_percent"`
 	Status            *bool         `json:"status"`
 
-	Parsed agentManagementCore.ChildPT `json:"-"` // bp หลัง Validate
+	Parsed agentManagementCore.ChildPT `json:"-"` // % (float ปัด 4 ตำแหน่ง) หลัง Validate
 }
 
 // CreateAgentRequest — POST /api/v1/bo/pr/manage/agents/create
@@ -39,7 +39,7 @@ type CreateAgentRequest struct {
 	PT         map[string]ChildPTRequest `json:"pt"`
 	StatusGame map[string]bool           `json:"status_game"`
 
-	BalanceMinor map[string]int64 `json:"-"` // หน่วยย่อย 1/100 หลัง Validate
+	BalanceAmounts map[string]float64 `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
 }
 
 type CreateAgentResponse struct {
@@ -79,18 +79,18 @@ func ValidateAccountFields(requestID string, username *string, password, name st
 	return nil
 }
 
-// ParseBalance — ยอดเงินตั้งต้นต่อสกุล (MGMT-15A) · มากกว่า 0 · ทศนิยมไม่เกิน 2 ตำแหน่ง
-func ParseBalance(in map[string]utils.Decimal) (map[string]int64, error) {
-	out := make(map[string]int64, len(in))
+// ParseBalance — ยอดเงินตั้งต้นต่อสกุล (MGMT-15A) · มากกว่า 0 · ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9)
+func ParseBalance(in map[string]utils.Decimal) (map[string]float64, error) {
+	out := make(map[string]float64, len(in))
 	for _, cur := range sortedKeys(in) {
 		d := in[cur]
 		field := "balance." + cur
 		if !agentManagementCore.IsSupportedCurrency(cur) {
 			return nil, Invalid(field, "สกุลเงินไม่ถูกต้อง", "is not a supported currency")
 		}
-		v, ok := d.Fixed2()
+		v, ok := d.Float4()
 		if !ok {
-			return nil, Invalid(field, "ต้องเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง", "must be a number with at most 2 decimals")
+			return nil, Invalid(field, "ต้องเป็นตัวเลข ทศนิยมไม่เกิน 4 ตำแหน่ง", "must be a number with at most 4 decimals")
 		}
 		if v <= 0 {
 			return nil, Invalid(field, "ต้องมากกว่า 0", "must be greater than 0")
@@ -100,19 +100,19 @@ func ParseBalance(in map[string]utils.Decimal) (map[string]int64, error) {
 	return out, nil
 }
 
-// PercentBP — ค่า % ใน API → bp (MGMT-17) · ต้องส่ง ต้องเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง
-func PercentBP(field string, d utils.Decimal) (int, error) {
+// Percent — ค่า % ใน API (MGMT-17) · ต้องส่ง ต้องเป็นตัวเลข ทศนิยมไม่เกิน 4 ตำแหน่ง · 0 – 100
+func Percent(field string, d utils.Decimal) (float64, error) {
 	if !d.Present {
 		return 0, Invalid(field, "ต้องส่ง", "is required")
 	}
-	v, ok := d.Fixed2()
+	v, ok := d.Float4()
 	if !ok {
-		return 0, Invalid(field, "ต้องเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง", "must be a number with at most 2 decimals")
+		return 0, Invalid(field, "ต้องเป็นตัวเลข ทศนิยมไม่เกิน 4 ตำแหน่ง", "must be a number with at most 4 decimals")
 	}
-	if v < 0 || v > agentManagementCore.FullPTBP {
+	if v < 0 || v > agentManagementCore.FullPT {
 		return 0, Invalid(field, "ต้องอยู่ระหว่าง 0 ถึง 100", "must be between 0 and 100")
 	}
-	return int(v), nil
+	return v, nil
 }
 
 // CheckGroups — ต้องส่งครบทุกกลุ่มที่มี และไม่มีกลุ่มที่ไม่รู้จัก (MGMT-21)
@@ -147,7 +147,7 @@ func (r *CreateAgentRequest) Validate() error {
 		}
 	}
 	var err error
-	if r.BalanceMinor, err = ParseBalance(r.Balance); err != nil {
+	if r.BalanceAmounts, err = ParseBalance(r.Balance); err != nil {
 		return err
 	}
 	if err := CheckGroups(r.PT); err != nil {
@@ -168,19 +168,19 @@ func (r *CreateAgentRequest) Validate() error {
 	return nil
 }
 
-// parseChildPT — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม ต้องครบ 5 ค่า → bp ใน v.Parsed (MGMT-16, MGMT-17)
+// parseChildPT — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม ต้องครบ 5 ค่า → % (ปัด 4 ตำแหน่ง) ใน v.Parsed (MGMT-16, MGMT-17)
 func parseChildPT(prefix string, v *ChildPTRequest) error {
 	var err error
-	if v.Parsed.PTFromParentBP, err = PercentBP(prefix+"pt_from_parent", v.PTFromParent); err != nil {
+	if v.Parsed.PTFromParent, err = Percent(prefix+"pt_from_parent", v.PTFromParent); err != nil {
 		return err
 	}
-	if v.Parsed.ForceBP, err = PercentBP(prefix+"force", v.Force); err != nil {
+	if v.Parsed.Force, err = Percent(prefix+"force", v.Force); err != nil {
 		return err
 	}
-	if v.Parsed.RemainBP, err = PercentBP(prefix+"remain_quota", v.RemainQuota); err != nil {
+	if v.Parsed.Remain, err = Percent(prefix+"remain_quota", v.RemainQuota); err != nil {
 		return err
 	}
-	if v.Parsed.CommissionBP, err = PercentBP(prefix+"commission_percent", v.CommissionPercent); err != nil {
+	if v.Parsed.Commission, err = Percent(prefix+"commission_percent", v.CommissionPercent); err != nil {
 		return err
 	}
 	if v.Status == nil {

@@ -27,25 +27,25 @@ func TestValidateChildPT(t *testing.T) { // MGMT-18, MGMT-19, MGMT-25
 	tests := []struct {
 		name     string
 		v        ChildPT
-		received int
+		received float64
 		master   bool
 		want     PTViolation
 	}{
-		{"ปกติ", ChildPT{7000, 0, 0, 50}, 9000, false, PTOK},
-		{"ให้เท่าที่ได้รับ", ChildPT{9000, 9000, 9000, 100}, 9000, false, PTOK},
-		{"0 ทั้งหมด", ChildPT{0, 0, 0, 0}, 9000, false, PTOK},
-		{"30.25 ไม่ลง 0.5", ChildPT{3025, 0, 0, 0}, 9000, false, PTInvalidStep},
-		{"ติดลบ", ChildPT{-50, 0, 0, 0}, 9000, false, PTInvalidStep},
-		{"force ไม่ลง step", ChildPT{5000, 10, 0, 0}, 9000, false, PTInvalidStep},
-		{"commission 0.05", ChildPT{5000, 0, 0, 5}, 9000, false, PTInvalidStep},
-		{"commission 1.01 → ไม่ลง step", ChildPT{5000, 0, 0, 101}, 9000, false, PTInvalidStep},
-		{"commission 1.1", ChildPT{5000, 0, 0, 110}, 9000, false, PTCommissionExceeded},
-		{"ได้รับ 80 ให้ 80.5", ChildPT{8050, 0, 0, 0}, 8000, false, PTExceedsReceived},
-		{"ให้ 60 force 70", ChildPT{6000, 7000, 0, 0}, 9000, false, PTForceRemainExceeded},
-		{"ให้ 60 remain 60.5", ChildPT{6000, 0, 6050, 0}, 9000, false, PTForceRemainExceeded},
-		{"Seamless Master ให้เท่าที่ได้รับ", ChildPT{8000, 0, 0, 30}, 8000, true, PTOK},
-		{"Seamless Master ให้น้อยกว่า", ChildPT{7500, 0, 0, 0}, 8000, true, PTSeamlessMasterLock},
-		{"Seamless Master ตั้ง force", ChildPT{8000, 500, 0, 0}, 8000, true, PTSeamlessMasterLock},
+		{"ปกติ", ChildPT{70, 0, 0, 0.5}, 90, false, PTOK},
+		{"ให้เท่าที่ได้รับ", ChildPT{90, 90, 90, 1}, 90, false, PTOK},
+		{"0 ทั้งหมด", ChildPT{0, 0, 0, 0}, 90, false, PTOK},
+		{"30.25 ไม่ลง 0.5", ChildPT{30.25, 0, 0, 0}, 90, false, PTInvalidStep},
+		{"ติดลบ", ChildPT{-0.5, 0, 0, 0}, 90, false, PTInvalidStep},
+		{"force ไม่ลง step", ChildPT{50, 0.1, 0, 0}, 90, false, PTInvalidStep},
+		{"commission 0.05", ChildPT{50, 0, 0, 0.05}, 90, false, PTInvalidStep},
+		{"commission 1.01 → ไม่ลง step", ChildPT{50, 0, 0, 1.01}, 90, false, PTInvalidStep},
+		{"commission 1.1", ChildPT{50, 0, 0, 1.1}, 90, false, PTCommissionExceeded},
+		{"ได้รับ 80 ให้ 80.5", ChildPT{80.5, 0, 0, 0}, 80, false, PTExceedsReceived},
+		{"ให้ 60 force 70", ChildPT{60, 70, 0, 0}, 90, false, PTForceRemainExceeded},
+		{"ให้ 60 remain 60.5", ChildPT{60, 0, 60.5, 0}, 90, false, PTForceRemainExceeded},
+		{"Seamless Master ให้เท่าที่ได้รับ", ChildPT{80, 0, 0, 0.3}, 80, true, PTOK},
+		{"Seamless Master ให้น้อยกว่า", ChildPT{75, 0, 0, 0}, 80, true, PTSeamlessMasterLock},
+		{"Seamless Master ตั้ง force", ChildPT{80, 5, 0, 0}, 80, true, PTSeamlessMasterLock},
 	}
 	for _, tt := range tests {
 		if got := ValidateChildPT(tt.v, tt.received, tt.master); got != tt.want {
@@ -56,85 +56,85 @@ func TestValidateChildPT(t *testing.T) { // MGMT-18, MGMT-19, MGMT-25
 
 func TestValidateMemberCommission(t *testing.T) { // MGMT-21
 	tests := []struct {
-		bp   int
+		bp   float64
 		want PTViolation
 	}{
 		{0, PTOK},
-		{60, PTOK},
-		{100, PTOK},
-		{110, PTCommissionExceeded},
-		{15, PTInvalidStep},
-		{-10, PTInvalidStep},
+		{0.6, PTOK},
+		{1, PTOK},
+		{1.1, PTCommissionExceeded},
+		{0.15, PTInvalidStep},
+		{-0.1, PTInvalidStep},
 	}
 	for _, tt := range tests {
 		if got := ValidateMemberCommission(tt.bp); got != tt.want {
-			t.Errorf("ValidateMemberCommission(%d) = %v, want %v", tt.bp, got, tt.want)
+			t.Errorf("ValidateMemberCommission(%v) = %v, want %v", tt.bp, got, tt.want)
 		}
 	}
 }
 
 func TestValidateOwnPT(t *testing.T) { // MGMT-22, MGMT-19
 	tests := []struct {
-		pt, received int
+		pt, received float64
 		master       bool
 		want         PTViolation
 	}{
-		{4000, 6000, false, PTOK},
-		{6000, 6000, false, PTOK},
-		{6100, 6000, false, PTExceedsReceived},
-		{4025, 6000, false, PTInvalidStep},
-		{0, 8000, true, PTOK},
-		{100, 8000, true, PTSeamlessMasterLock},
+		{40, 60, false, PTOK},
+		{60, 60, false, PTOK},
+		{61, 60, false, PTExceedsReceived},
+		{40.25, 60, false, PTInvalidStep},
+		{0, 80, true, PTOK},
+		{1, 80, true, PTSeamlessMasterLock},
 	}
 	for _, tt := range tests {
 		if got := ValidateOwnPT(tt.pt, tt.received, tt.master); got != tt.want {
-			t.Errorf("ValidateOwnPT(%d, %d, %v) = %v, want %v", tt.pt, tt.received, tt.master, got, tt.want)
+			t.Errorf("ValidateOwnPT(%v, %v, %v) = %v, want %v", tt.pt, tt.received, tt.master, got, tt.want)
 		}
 	}
 }
 
 func TestInitialOwnPT(t *testing.T) { // MGMT-22, MGMT-19
-	if got := InitialOwnPT(7000, false); got != 7000 {
-		t.Errorf("InitialOwnPT(7000) = %d, want 7000", got)
+	if got := InitialOwnPT(70, false); got != 70 {
+		t.Errorf("InitialOwnPT(7000) = %v, want 7000", got)
 	}
-	if got := InitialOwnPT(8000, true); got != 0 {
-		t.Errorf("InitialOwnPT(master) = %d, want 0", got)
+	if got := InitialOwnPT(80, true); got != 0 {
+		t.Errorf("InitialOwnPT(master) = %v, want 0", got)
 	}
 }
 
 func TestValidateMemberPT(t *testing.T) { // MGMT-21 แก้ 2026-10-09
 	tests := []struct {
 		name     string
-		pt       int
-		received int
+		pt       float64
+		received float64
 		want     PTViolation
 	}{
-		{"ถือทั้งหมด", 6000, 6000, PTOK},
-		{"ไม่ถือ", 0, 6000, PTOK},
-		{"ถือบางส่วน", 3050, 6000, PTOK},
-		{"เกินที่ได้รับ", 6500, 6000, PTExceedsReceived},
-		{"ไม่ลง step", 3025, 6000, PTInvalidStep},
-		{"ติดลบ", -50, 6000, PTInvalidStep},
-		{"เกิน 100", 10050, 10000, PTInvalidStep},
+		{"ถือทั้งหมด", 60, 60, PTOK},
+		{"ไม่ถือ", 0, 60, PTOK},
+		{"ถือบางส่วน", 30.5, 60, PTOK},
+		{"เกินที่ได้รับ", 65, 60, PTExceedsReceived},
+		{"ไม่ลง step", 30.25, 60, PTInvalidStep},
+		{"ติดลบ", -0.5, 60, PTInvalidStep},
+		{"เกิน 100", 100.5, 100, PTInvalidStep},
 	}
 	for _, tt := range tests {
 		if got := ValidateMemberPT(tt.pt, tt.received); got != tt.want {
-			t.Errorf("%s: ValidateMemberPT(%d, %d) = %v, want %v", tt.name, tt.pt, tt.received, got, tt.want)
+			t.Errorf("%s: ValidateMemberPT(%v, %v) = %v, want %v", tt.name, tt.pt, tt.received, got, tt.want)
 		}
 	}
 }
 
 func TestMemberRemain(t *testing.T) { // MGMT-21 แก้ 2026-10-09
 	tests := []struct {
-		received, pt, want int
+		received, pt, want float64
 	}{
-		{6000, 5000, 1000},
-		{6000, 6000, 0},
-		{6000, 0, 6000},
+		{60, 50, 10},
+		{60, 60, 0},
+		{60, 0, 60},
 	}
 	for _, tt := range tests {
 		if got := MemberRemain(tt.received, tt.pt); got != tt.want {
-			t.Errorf("MemberRemain(%d, %d) = %d, want %d", tt.received, tt.pt, got, tt.want)
+			t.Errorf("MemberRemain(%v, %v) = %v, want %v", tt.received, tt.pt, got, tt.want)
 		}
 	}
 }
@@ -142,19 +142,19 @@ func TestMemberRemain(t *testing.T) { // MGMT-21 แก้ 2026-10-09
 func TestMinPTFromParent(t *testing.T) { // MGMT-24
 	tests := []struct {
 		name  string
-		pt    int
-		grand []int
-		want  int
+		pt    float64
+		grand []float64
+		want  float64
 	}{
-		{"ตัวอย่าง spec share1: ให้ agent1 60 · pt 30", 3000, []int{6000}, 6000},
-		{"ไม่มีลูก", 3000, nil, 3000},
-		{"pt มากกว่าลูกทุกคน", 7000, []int{5000, 2000}, 7000},
-		{"หลายลูก", 1000, []int{5000, 7500, 2000}, 7500},
+		{"ตัวอย่าง spec share1: ให้ agent1 60 · pt 30", 30, []float64{60}, 60},
+		{"ไม่มีลูก", 30, nil, 30},
+		{"pt มากกว่าลูกทุกคน", 70, []float64{50, 20}, 70},
+		{"หลายลูก", 10, []float64{50, 75, 20}, 75},
 		{"ไม่ถือไม่มีลูก", 0, nil, 0},
 	}
 	for _, tt := range tests {
 		if got := MinPTFromParent(tt.pt, tt.grand); got != tt.want {
-			t.Errorf("%s: MinPTFromParent = %d, want %d", tt.name, got, tt.want)
+			t.Errorf("%s: MinPTFromParent = %v, want %v", tt.name, got, tt.want)
 		}
 	}
 }

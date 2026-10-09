@@ -18,8 +18,8 @@ type MemberPTRequest struct {
 	RemainQuota       utils.Decimal `json:"remain_quota"`
 	Status            *bool         `json:"status"`
 
-	PTBP         int `json:"-"` // bp หลัง Validate
-	CommissionBP int `json:"-"`
+	PT         float64 `json:"-"` // % หลัง Validate
+	Commission float64 `json:"-"`
 }
 
 // parseMemberPT — ตรวจ 1 กลุ่ม: field ที่ Member ไม่มี → pt → commission_percent
@@ -30,10 +30,10 @@ func parseMemberPT(group string, v *MemberPTRequest) error {
 			"a Member only has pt and commission_percent (remain_quota is computed)")
 	}
 	var err error
-	if v.PTBP, err = agentManagementDto.PercentBP(p+".pt", v.OwnPT); err != nil {
+	if v.PT, err = agentManagementDto.Percent(p+".pt", v.OwnPT); err != nil {
 		return err
 	}
-	if v.CommissionBP, err = agentManagementDto.PercentBP(p+".commission_percent", v.CommissionPercent); err != nil {
+	if v.Commission, err = agentManagementDto.Percent(p+".commission_percent", v.CommissionPercent); err != nil {
 		return err
 	}
 	return nil
@@ -49,7 +49,7 @@ type CreateMemberRequest struct {
 	Balance   map[string]utils.Decimal   `json:"balance"`
 	PT        map[string]MemberPTRequest `json:"pt"`
 
-	BalanceMinor map[string]int64 `json:"-"` // หน่วยย่อย 1/100 หลัง Validate
+	BalanceAmounts map[string]float64 `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
 }
 
 type CreateMemberResponse struct {
@@ -62,7 +62,7 @@ func (r *CreateMemberRequest) Validate() error {
 		return err
 	}
 	var err error
-	if r.BalanceMinor, err = agentManagementDto.ParseBalance(r.Balance); err != nil {
+	if r.BalanceAmounts, err = agentManagementDto.ParseBalance(r.Balance); err != nil {
 		return err
 	}
 	if err := agentManagementDto.CheckGroups(r.PT); err != nil {

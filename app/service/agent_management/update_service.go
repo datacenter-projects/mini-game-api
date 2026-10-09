@@ -154,7 +154,7 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 			v := req.PT[g].Parsed
 			group := agentManagementCore.PTGroup(g)
 			// ไล่ตาม field: pt_from_parent (เพดาน → ต่ำสุดที่ลูกใช้ MGMT-24) → force → remain_quota → commission_percent
-			is := agentManagementCore.CheckChildPT(v, c.ReceivedBP[group], creatorIsMaster)
+			is := agentManagementCore.CheckChildPT(v, c.Received[group], creatorIsMaster)
 			if is.Field == "pt_from_parent" {
 				return ChildPTError(g, is)
 			}
@@ -162,27 +162,27 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 			if !ok {
 				continue // บัญชีไม่มีแถวของกลุ่มนี้ (ข้อมูลก่อน module ②) — ไม่มีอะไรให้แก้
 			}
-			var grand []int
+			var grand []float64
 			for _, s := range grandSettings {
 				if gg, ok := agentManagementCore.GroupOfGame(s.GameCode); ok && gg == group {
-					grand = append(grand, s.PTFromParentBP)
+					grand = append(grand, s.PTFromParent)
 				}
 			}
-			if min := agentManagementCore.MinPTFromParent(cur.PTBP, grand); v.PTFromParentBP < min { // MGMT-24
-				p, _ := utils.Percent(min).MarshalJSON()
+			if min := agentManagementCore.MinPTFromParent(cur.PT, grand); v.PTFromParent < min { // MGMT-24
+				p := utils.FormatNum(min)
 				return apperr.ErrPTBelowChildUsage.WithMessage(
-					"pt."+g+".pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด "+string(p),
-					"pt."+g+".pt_from_parent is lower than what the child uses, minimum is "+string(p))
+					"pt."+g+".pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด "+p,
+					"pt."+g+".pt_from_parent is lower than what the child uses, minimum is "+p)
 			}
 			if err := ChildPTError(g, is); err != nil {
 				return err
 			}
 			if err := agentManagementPostgres.UpdateChildPTRepository(tx, child.ID, GameCodes(group), models.AgentGameSetting{
-				PTFromParentBP: v.PTFromParentBP, ForceBP: v.ForceBP, RemainBP: v.RemainBP, CommissionBP: v.CommissionBP,
+				PTFromParent: v.PTFromParent, Force: v.Force, Remain: v.Remain, Commission: v.Commission,
 				Status: *req.PT[g].Status}, actor.Username, now); err != nil {
 				return err
 			}
-			oldLog[g] = agentManagementCore.ChildPT{PTFromParentBP: cur.PTFromParentBP, ForceBP: cur.ForceBP, RemainBP: cur.RemainBP, CommissionBP: cur.CommissionBP}
+			oldLog[g] = agentManagementCore.ChildPT{PTFromParent: cur.PTFromParent, Force: cur.Force, Remain: cur.Remain, Commission: cur.Commission}
 			newLog[g] = v
 		}
 		return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdatePT, oldLog, newLog, now)
@@ -204,24 +204,24 @@ func UpdateOwnHoldService(ctx context.Context, actor agentAuthService.Actor, req
 		}
 		isMaster := agentManagementCore.UserTypeOf(me.Role, me.AgentType) == agentManagementCore.UserTypeCompanySeamlessMaster
 		now := time.Now()
-		oldLog, newLog := map[string]int{}, map[string]int{}
+		oldLog, newLog := map[string]float64{}, map[string]float64{}
 		for _, g := range SortedGroups(req.PT) {
 			group := agentManagementCore.PTGroup(g)
 			cur, ok := groupSetting(settings, group)
 			if !ok {
 				return OwnPTError(g, agentManagementCore.PTExceedsReceived, 0) // ไม่มีค่าที่ได้รับในกลุ่มนี้
 			}
-			bp := req.PT[g].PTBP
-			if err := OwnPTError(g, agentManagementCore.ValidateOwnPT(bp, cur.PTFromParentBP, isMaster), cur.PTFromParentBP); err != nil {
+			pt := req.PT[g].PT
+			if err := OwnPTError(g, agentManagementCore.ValidateOwnPT(pt, cur.PTFromParent, isMaster), cur.PTFromParent); err != nil {
 				return err
 			}
-			if err := agentManagementPostgres.UpdateOwnPTRepository(tx, me.ID, GameCodes(group), bp, actor.Username, now); err != nil {
+			if err := agentManagementPostgres.UpdateOwnPTRepository(tx, me.ID, GameCodes(group), pt, actor.Username, now); err != nil {
 				return err
 			}
-			oldLog[g], newLog[g] = cur.PTBP, bp
+			oldLog[g], newLog[g] = cur.PT, pt
 		}
 		return WriteLog(ctx, tx, actor, meta, targetAgent, me.ID, me.Username, models.ChangeUpdatePT,
-			map[string]any{"pt_bp": oldLog}, map[string]any{"pt_bp": newLog}, now)
+			map[string]any{"pt": oldLog}, map[string]any{"pt": newLog}, now)
 	})
 }
 

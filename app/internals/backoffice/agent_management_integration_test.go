@@ -54,7 +54,7 @@ func seedSuperadmin(t *testing.T, app *fiber.App) (models.UserAgent, string) {
 	var games []models.AgentGameSetting
 	for _, g := range agentManagementCore.GamesOf(agentManagementCore.PTGroupMinigame) {
 		games = append(games, models.AgentGameSetting{AgentID: sa.ID, GameCode: g.GameCode, Category: g.Category,
-			PTFromParentBP: 10000, Status: true, StatusGame: true})
+			PTFromParent: 100, Status: true, StatusGame: true})
 	}
 	if err := database.DBConn.Create(&curs).Error; err != nil {
 		t.Fatal(err)
@@ -108,14 +108,14 @@ func mustCreate(t *testing.T, app *fiber.App, tok string, body map[string]any) (
 	return d, readyToken(t, app, models.AccountTypeAgent, d.ID, d.Username)
 }
 
-func setBalance(t *testing.T, agentID uint, currency string, amount int64) {
+func setBalance(t *testing.T, agentID uint, currency string, amount float64) {
 	t.Helper()
 	if err := database.DBConn.Save(&models.AgentBalance{AgentID: agentID, Currency: currency, Amount: amount}).Error; err != nil {
 		t.Fatal(err)
 	}
 }
 
-func agentBalance(t *testing.T, agentID uint, currency string) int64 {
+func agentBalance(t *testing.T, agentID uint, currency string) float64 {
 	t.Helper()
 	var b models.AgentBalance
 	database.DBConn.Where("agent_id = ? AND currency = ?", agentID, currency).Take(&b)
@@ -222,7 +222,7 @@ func TestCreateValidation(t *testing.T) { // MGMT-05, MGMT-08, MGMT-12, MGMT-14,
 		{"phone null", c.comTok, share(func(b map[string]any) { b["phone"] = nil }), 422},
 		{"ไม่ส่งกลุ่ม game", c.comTok, share(func(b map[string]any) { b["pt"] = map[string]any{} }), 422},
 		{"ถือ 30.25", c.comTok, share(func(b map[string]any) { b["pt"] = childPT(30.25, 0, 0, 0) }), 422},
-		{"ถือ 30.123", c.comTok, share(func(b map[string]any) { b["pt"] = childPT(30.123, 0, 0, 0) }), 422},
+		{"ถือ 30.12345 (ทศนิยมเกิน 4)", c.comTok, share(func(b map[string]any) { b["pt"] = childPT(30.12345, 0, 0, 0) }), 422},
 		{"commission 1.01", c.comTok, share(func(b map[string]any) { b["pt"] = childPT(30, 0, 0, 1.01) }), 422},
 		{"commission 1.1", c.comTok, share(func(b map[string]any) { b["pt"] = childPT(30, 0, 0, 1.1) }), 402309},
 		{"ได้รับ 90 ให้ 90.5", c.comTok, share(func(b map[string]any) { b["pt"] = childPT(90.5, 0, 0, 0) }), 402305},
@@ -272,7 +272,7 @@ func TestCreatePTSettings(t *testing.T) { // MGMT-16, MGMT-19, MGMT-20, MGMT-22
 		t.Fatalf("game settings = %d rows, want 3", len(rows))
 	}
 	for _, r := range rows {
-		if r.PTFromParentBP != 7000 || r.PTBP != 7000 || r.CommissionBP != 50 || !r.Status || !r.StatusGame || r.Category != "minigame" {
+		if r.PTFromParent != 70 || r.PT != 70 || r.Commission != 0.5 || !r.Status || !r.StatusGame || r.Category != "minigame" {
 			t.Fatalf("row %+v", r)
 		}
 	}
@@ -290,7 +290,7 @@ func TestCreatePTSettings(t *testing.T) { // MGMT-16, MGMT-19, MGMT-20, MGMT-22
 	master, masterTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
 	var ms models.AgentGameSetting
 	database.DBConn.Where("agent_id = ?", master.ID).Take(&ms)
-	if ms.PTFromParentBP != 8000 || ms.PTBP != 0 {
+	if ms.PTFromParent != 80 || ms.PT != 0 {
 		t.Fatalf("master %+v", ms)
 	}
 	expect(t, call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, childPT(75, 0, 0, 0)), masterTok), 200, 402307)
@@ -302,7 +302,7 @@ func TestCreatePTSettings(t *testing.T) { // MGMT-16, MGMT-19, MGMT-20, MGMT-22
 func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	app := setup2(t)
 	c := buildChain(t, app)
-	setBalance(t, c.com.ID, "THB", 5000000) // 50,000.00
+	setBalance(t, c.com.ID, "THB", 50000) // 50,000.00
 
 	b := agentBody("SHARE_B2C", "sharebal", []string{"THB"}, childPT(50, 0, 0, 0))
 	b["balance"] = map[string]any{"THB": 10000}
@@ -310,11 +310,11 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	expect(t, r, 200, 200)
 	var d created
 	_ = json.Unmarshal(r.Data, &d)
-	if got := agentBalance(t, c.com.ID, "THB"); got != 4000000 {
-		t.Fatalf("company THB = %d, want 4000000", got)
+	if got := agentBalance(t, c.com.ID, "THB"); got != 40000 {
+		t.Fatalf("company THB = %v, want 40000", got)
 	}
-	if got := agentBalance(t, d.ID, "THB"); got != 1000000 {
-		t.Fatalf("share THB = %d, want 1000000", got)
+	if got := agentBalance(t, d.ID, "THB"); got != 10000 {
+		t.Fatalf("share THB = %v, want 10000", got)
 	}
 	if n := countRows(t, &models.BalanceLedger{}, "request_id = ?", b["request_id"]); n != 2 {
 		t.Fatalf("ledger rows = %d, want 2", n)
@@ -325,15 +325,15 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	expect(t, r2, 200, 200)
 	var d2 created
 	_ = json.Unmarshal(r2.Data, &d2)
-	if d2.ID != d.ID || agentBalance(t, c.com.ID, "THB") != 4000000 {
-		t.Fatalf("replay id %d (want %d) company %d", d2.ID, d.ID, agentBalance(t, c.com.ID, "THB"))
+	if d2.ID != d.ID || agentBalance(t, c.com.ID, "THB") != 40000 {
+		t.Fatalf("replay id %v (want %v) company %v", d2.ID, d.ID, agentBalance(t, c.com.ID, "THB"))
 	}
 
 	// ยอดไม่พอ
 	b = agentBody("SHARE_B2C", "sharepoor", []string{"THB"}, childPT(50, 0, 0, 0))
 	b["balance"] = map[string]any{"THB": 40000.01}
 	expect(t, call(t, app, "POST", createAgentPath, b, c.comTok), 200, 402312)
-	if n := countRows(t, &models.UserAgent{}, "username = ?", "sharepoor"); n != 0 || agentBalance(t, c.com.ID, "THB") != 4000000 {
+	if n := countRows(t, &models.UserAgent{}, "username = ?", "sharepoor"); n != 0 || agentBalance(t, c.com.ID, "THB") != 40000 {
 		t.Fatal("ยอดไม่พอต้องไม่สร้างบัญชีและไม่แตะยอด")
 	}
 
@@ -343,7 +343,7 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	r = call(t, app, "POST", createAgentPath, b, c.saTok)
 	expect(t, r, 200, 200)
 	_ = json.Unmarshal(r.Data, &d)
-	if agentBalance(t, d.ID, "THB") != 100000000 || countRows(t, &models.BalanceLedger{}, "request_id = ?", b["request_id"]) != 1 {
+	if agentBalance(t, d.ID, "THB") != 1000000 || countRows(t, &models.BalanceLedger{}, "request_id = ?", b["request_id"]) != 1 {
 		t.Fatal("superadmin initial balance")
 	}
 	if countRows(t, &models.BalanceLedger{}, "request_id = ? AND reason = ?", b["request_id"], models.LedgerInitialFromSuperadmin) != 1 {
@@ -351,7 +351,7 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	}
 
 	// 422: Seamless · สกุลที่บัญชีใหม่ไม่มี · 0 · ติดลบ
-	bad := []map[string]any{{"THB": 0}, {"THB": -5}, {"USD": 10}, {"THB": 1.001}}
+	bad := []map[string]any{{"THB": 0}, {"THB": -5}, {"USD": 10}, {"THB": 1.00001}}
 	for _, bal := range bad {
 		b = agentBody("SHARE_B2C", "sharebad", []string{"THB"}, childPT(50, 0, 0, 0))
 		b["balance"] = bal
@@ -362,14 +362,14 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	expect(t, call(t, app, "POST", createAgentPath, b, c.saTok), 200, 422)
 
 	// Member ได้ยอดเงินตั้งต้นจาก Agent
-	setBalance(t, c.agent.ID, "THB", 10000)
+	setBalance(t, c.agent.ID, "THB", 100)
 	mb := memberBody("memrich", 0)
 	mb["balance"] = map[string]any{"THB": 25.5}
 	expect(t, call(t, app, "POST", createMemberPath, mb, c.agentTok), 200, 200)
 	var mbal models.UserMember // ยอดของ Member = user_members.credit
 	database.DBConn.Select("id", "credit", "cnf").Where("username = ?", "memrich").Take(&mbal)
-	if mbal.Credit != 25.5 || agentBalance(t, c.agent.ID, "THB") != 7450 {
-		t.Fatalf("member %v agent %d", mbal.Credit, agentBalance(t, c.agent.ID, "THB"))
+	if mbal.Credit != 25.5 || agentBalance(t, c.agent.ID, "THB") != 74.5 {
+		t.Fatalf("member %v agent %v", mbal.Credit, agentBalance(t, c.agent.ID, "THB"))
 	}
 	// cnf ของ Member = สายของผู้สร้าง + ผู้สร้าง: superadmin → comp01 → share01 → agent01
 	var chain struct {
@@ -388,7 +388,7 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 func TestCreateConcurrentBalance(t *testing.T) { // MGMT-15A: ยอดพอแค่คำขอเดียว
 	app := setup2(t)
 	c := buildChain(t, app)
-	setBalance(t, c.com.ID, "THB", 1000000)
+	setBalance(t, c.com.ID, "THB", 10000)
 
 	codes := make([]int, 2)
 	var wg sync.WaitGroup
@@ -422,8 +422,8 @@ func TestCreateConcurrentBalance(t *testing.T) { // MGMT-15A: ยอดพอแ
 			poor++
 		}
 	}
-	if ok != 1 || poor != 1 || agentBalance(t, c.com.ID, "THB") != 200000 {
-		t.Fatalf("codes %v balance %d", codes, agentBalance(t, c.com.ID, "THB"))
+	if ok != 1 || poor != 1 || agentBalance(t, c.com.ID, "THB") != 2000 {
+		t.Fatalf("codes %v balance %v", codes, agentBalance(t, c.com.ID, "THB"))
 	}
 }
 
@@ -454,7 +454,7 @@ func TestCreateSubPermission(t *testing.T) { // MGMT-51
 	}
 
 	// ส่ง balance ต้องมี payment = edit
-	setBalance(t, com.ID, "THB", 100000)
+	setBalance(t, com.ID, "THB", 1000)
 	b := agentBody("SHARE_B2C", "subbal", []string{"THB"}, childPT(50, 0, 0, 0))
 	b["balance"] = map[string]any{"THB": 10}
 	expect(t, call(t, app, "POST", createAgentPath, b, tok), 200, 402303)

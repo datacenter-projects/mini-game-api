@@ -8,7 +8,7 @@ import (
 )
 
 // Decimal — ตัวเลขทศนิยมใน request (ค่า % และจำนวนเงิน — ACC-18) เก็บข้อความเดิมไว้
-// แปลงเป็นจำนวนเต็มด้วย Fixed2 โดยไม่ผ่าน float (กฎข้อ 9)
+// แปลงด้วย Float4: ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9 — แก้ 2026-10-09)
 // ส่งเป็นชนิดอื่น parse ผ่านแต่ IsNumber = false ให้ Validate() ตอบ 422 พร้อมบอก field ได้
 type Decimal struct {
 	Raw      string
@@ -28,31 +28,22 @@ func (d *Decimal) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// maxFixed2IntDigits — กันเลขยาวเกิน int64 (10^15 × 100 ยังอยู่ในช่วง)
-const maxFixed2IntDigits = 15
+// maxIntDigits — กันเลขยาวเกินที่ float64 เก็บได้ตรงทุกหลักเมื่อมีทศนิยม 4 ตำแหน่ง
+const maxIntDigits = 11
 
-// Fixed2 — ค่า × 100 เป็นจำนวนเต็ม (70 → 7000 · 0.5 → 50 · 1234.56 → 123456)
-// ok = false เมื่อไม่ใช่ตัวเลข, ทศนิยมเกิน 2 ตำแหน่ง, ใช้รูป exponent หรือยาวเกิน
-func (d Decimal) Fixed2() (int64, bool) {
+// Float4 — ค่าเป็น float64 ปัด 4 ตำแหน่ง (70 → 70 · 0.5 → 0.5 · 10000.1234 → 10000.1234)
+// ok = false เมื่อไม่ใช่ตัวเลข, ทศนิยมเกิน 4 ตำแหน่ง, ใช้รูป exponent หรือส่วนจำนวนเต็มยาวเกิน 11 หลัก
+func (d Decimal) Float4() (float64, bool) {
 	if !d.IsNumber {
 		return 0, false
 	}
-	s := d.Raw
-	neg := strings.HasPrefix(s, "-")
-	s = strings.TrimPrefix(s, "-")
-	intPart, frac, _ := strings.Cut(s, ".")
-	if len(frac) > 2 || len(intPart) > maxFixed2IntDigits {
+	intPart, frac, _ := strings.Cut(strings.TrimPrefix(d.Raw, "-"), ".")
+	if len(frac) > 4 || len(intPart) > maxIntDigits {
 		return 0, false
 	}
-	for len(frac) < 2 {
-		frac += "0"
-	}
-	v, err := strconv.ParseInt(intPart+frac, 10, 64)
+	v, err := strconv.ParseFloat(d.Raw, 64)
 	if err != nil {
 		return 0, false
 	}
-	if neg {
-		v = -v
-	}
-	return v, true
+	return Round4(v), true
 }
