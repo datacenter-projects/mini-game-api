@@ -15,7 +15,7 @@
 |---|---|---|
 | แยก `/manage/members/*` ออกจาก `agent_management` เป็น `member_management` | ✅ | `create` · `detail` · `update-info` · `update-status` · ใช้ helper ร่วมจาก `service/agent_management` · เข้า `dev` แล้ว |
 | เปลี่ยนชื่อตาราง `members*` → `user_members*` | ✅ | migration `20261009000000_member_tables_rename` · รันบน `dev_minigame` แล้ว |
-| PT ต่อ Member: `pt` + `remain_quota` · `update-commission` → `update-pt` | ✅ รออนุมัติ | migration `20261009040811_member_management_member_pt` (ยังไม่รันกับ DB ใด) |
+| PT ต่อ Member: `pt` + `remain_quota` · `update-commission` → `update-pt` | ✅ รออนุมัติ | migration `20261009120050_member_management_member_pt` (ยังไม่รันกับ DB ใด) |
 | `agents/update-pt` กันลดต่ำกว่า `pt` ของ Member + sync `remain_quota` (R1–R3) | ⏳ | อยู่ใน `agent_management` — รอผู้ดูแล module นั้น (spec หัวข้อ 7) |
 | integration test ของ Member | ⏳ | เขียนแล้ว (`TestMemberPT` และแก้ test เดิม) ยังไม่ได้รัน |
 | `user_members.cnf` (สายชั้นบน) + `user_members.credit` (ยอดเงิน float) · DROP `user_member_balances` | ✅ รออนุมัติ | migration `20261009120100_member_management_member_cnf_credit` (ยังไม่รันกับ DB ใด) · แก้ `TransferInitialBalance` (กรณี Member) และยอด Member ในดาวน์ไลน์ใน `agent_management` |

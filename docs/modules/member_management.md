@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED** — กฎอนุมัติพร้อม spec `agent_management` (lead (zerph) 2026-10-07 · แก้ 2026-10-08) · แยก module ในโค้ด lead อนุมัติ 2026-10-08 · แยกเอกสารออกจาก [agent_management.md](agent_management.md) 2026-10-09
 - แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ**): agent ถือ PT สู้กับ Member **แต่ละคนแยกกัน** — เก็บที่แถวของ Member (`pt` · `remain_quota` ระบบคิด) แทน `pt` ค่าเดียวของ agent ·
-  เส้น `update-commission` → `update-pt` · migration `20261009040811_member_management_member_pt` · **ต้องทำต่อที่ `agent_management` (ยังไม่ทำ)** ดูหัวข้อ 7
+  เส้น `update-commission` → `update-pt` · migration `20261009120050_member_management_member_pt` · **ต้องทำต่อที่ `agent_management` (ยังไม่ทำ)** ดูหัวข้อ 7
 - แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ** · `credit` เป็น float ทีมตกลงแล้ว — CLAUDE.md กฎข้อ 9 ยังต้องแก้): `user_members.cnf` สายชั้นบน (รูปแบบเดียวกับ MGMT-61) ·
   ยอดของ Member ย้ายไป `user_members.credit` (float หน่วยสกุล) · เลิกใช้และ DROP `user_member_balances` · migration `20261009120100_member_management_member_cnf_credit`
 - ผู้ดูแล: maofoy
@@ -196,7 +196,7 @@ CREATE TABLE user_member_game_settings (        -- PT ที่ผู้สร�
     user_member_id BIGINT      NOT NULL REFERENCES user_members(id),
     category      VARCHAR(30) NOT NULL,
     game_code     VARCHAR(50) NOT NULL,
-    pt_bp         INT         NOT NULL DEFAULT 0 CHECK (pt_bp BETWEEN 0 AND 10000),      -- ผู้สร้างถือสู้กับ Member คนนี้ (migration 20261009040811)
+    pt_bp         INT         NOT NULL DEFAULT 0 CHECK (pt_bp BETWEEN 0 AND 10000),      -- ผู้สร้างถือสู้กับ Member คนนี้ (migration 20261009120050)
     remain_bp     INT         NOT NULL DEFAULT 0 CHECK (remain_bp BETWEEN 0 AND 10000),  -- ค่าที่ผู้สร้างได้รับ − pt_bp (ระบบคิดตอน create / update-pt · sync เมื่อค่าที่ได้รับเปลี่ยน = R2 หัวข้อ 7 ยังไม่ทำ)
     commission_bp INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
     created_by    VARCHAR(71) NOT NULL DEFAULT '',   -- username ผู้สร้าง (migration 20261008120000)
