@@ -58,9 +58,10 @@ const (
 // MinAllowedPrefix — ช่วงที่กว้างที่สุดที่ตั้งได้ (ACC-07 · lead A7)
 const MinAllowedPrefix = 16
 
-// ReservedRanges — IP ภายใน / พิเศษที่ห้ามใส่ (ACC-07 · lead A7) · ทุกช่วงกว้างไม่น้อยกว่า /16
+// ReservedRanges — IP ภายใน / พิเศษที่ห้ามใส่ (ACC-07 · lead A7 / A11) · ทุกช่วงยกเว้น broadcast กว้างไม่น้อยกว่า /16
 // จึงเช็คแค่ว่าที่อยู่เครือข่ายของรายการอยู่ในช่วงไหนก็พอ (รายการกว้างสุดคือ /16)
-var ReservedRanges = []string{"0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16"}
+var ReservedRanges = []string{"0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16",
+	"224.0.0.0/4", "240.0.0.0/4", "255.255.255.255/32"} // multicast · reserved · broadcast — lead A11
 
 var reservedNets = func() []*net.IPNet {
 	out := make([]*net.IPNet, len(ReservedRanges))

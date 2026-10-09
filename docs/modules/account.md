@@ -5,6 +5,7 @@
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ACC-12 บัญชีที่ถูกระงับ `permissions` แสดงตามที่ใช้ได้จริง · ACC-16 `pt` แสดงชุดเดียวต่อระบบ (`minigame`) พร้อม `status` `created_at` `created_by` `updated_at` `updated_by` · `status_game` แยกทีละเกมด้านนอก `pt` · ACC-04 เก็บ Key ตรงๆ ไม่เข้ารหัส (lead ตัดสิน)
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ACC-01 ทุกบัญชี Company / Share / Agent มี Key · ACC-02 ไม่มีสิทธิ์เมนู `account` (เจ้าของและ sub เปิดได้เสมอ) · ถูกระงับดูหน้า 1.3 ได้ (บันทึกไม่ได้) · migration สร้าง Key ให้บัญชีเดิมทุกบัญชี
 - แก้หลังอนุมัติ (2026-10-09 · lead (zerph) review BO Account — [docs/reviews/bo-account.md](../reviews/bo-account.md)): Dashboard ออกจาก scope รอบนี้ (A1 → หัวข้อ 10) · ACC-02 sub ต้องมีสิทธิ์เมนูใหม่ `api_credential` (A5 / A6 / A9) · ACC-07 ห้ามช่วงกว้างกว่า `/16` และ IP ภายใน / พิเศษ · CIDR ต้องเป็นที่อยู่เครือข่าย (A7 / A8)
+- ตรวจรอบที่ 1 (2026-10-09 · lead): ไม่มีเมนู `api_credential` สำหรับ Superadmin / ADMIN (A10 — revert 7430394) · ACC-07 ห้าม multicast / reserved / broadcast เพิ่ม (A11)
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
 - เมนู: **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API** · 1.1 ภาพรวม (Dashboard) ไม่อยู่ใน scope รอบนี้ (หัวข้อ 10)
 - ที่มาของ rule: ภาพหน้าจอตัวอย่าง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg + review comments (2026-10-05) ·
@@ -80,12 +81,12 @@
 | ID | Rule |
 |---|---|
 | ACC-01 | เจ้าของ Key = **ทุกบัญชี Company / Share / Agent ทุกประเภท** (แก้ 2026-10-08 — เดิมเฉพาะ Seamless 1 to 1 / Share Master / Share Reseller) · แต่ละบัญชีมี Key, ลิงก์ตอบกลับ และรายการ IP **ของตัวเอง** · Superadmin / ADMIN ไม่มี (`403301`) |
-| ACC-02 | **sub ต้องมีสิทธิ์เมนู `api_credential`** (lead A5 / A6 / A9 2026-10-09 — แทนกฎเดิม "ไม่มีสิทธิ์ต่อเมนู"): `view` = ดูหน้า 1.3 (เห็น Key เต็ม) · `edit` = บันทึก (ยังต้อง passcode) · ไม่มีสิทธิ์ = `402303` · **บัญชีหลักได้ `edit` อัตโนมัติและไม่ถูกเช็ค** (`RequireSubPermission`) · ทุกบัญชีหลักมีเมนูนี้ รวม Superadmin (boiledegg 2026-10-09) แต่ Superadmin / ADMIN และ sub ของ Superadmin ยังได้ `403301` เพราะไม่มี Key (ACC-01) · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) · ถูกระงับ: ดูได้ บันทึกไม่ได้ |
+| ACC-02 | **sub ต้องมีสิทธิ์เมนู `api_credential`** (lead A5 / A6 / A9 2026-10-09 — แทนกฎเดิม "ไม่มีสิทธิ์ต่อเมนู"): `view` = ดูหน้า 1.3 (เห็น Key เต็ม) · `edit` = บันทึก (ยังต้อง passcode) · ไม่มีสิทธิ์ = `402303` · **บัญชีหลักได้ `edit` อัตโนมัติและไม่ถูกเช็ค** (`RequireSubPermission`) — Superadmin / ADMIN ยังได้ `403301` ตาม ACC-01 และ sub ของ Superadmin ให้เมนูนี้ไม่ได้ (Superadmin ไม่มี Key) · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) · ถูกระงับ: ดูได้ บันทึกไม่ได้ |
 | ACC-03 | Key สร้างอัตโนมัติ 1 ค่าต่อเจ้าของ: สุ่ม 32 byte ด้วย `crypto/rand` แสดงเป็น hex ตัวพิมพ์เล็ก 64 ตัว · **สร้างใหม่ไม่ได้** · ใช้ทั้งระบุตัวและคำนวณ `sign` |
 | ACC-04 | Key ดูซ้ำได้ (ปุ่มคัดลอก) → **เก็บ Key ตรงๆ** ในคอลัมน์ `api_key` (unique — ใช้ค้นตอนลูกค้าเรียก API) ไม่เข้ารหัส (lead ตัดสิน 2026-10-08 — ใช้ IP whitelist ACC-07 ป้องกันการเรียก API แทน · ไม่มี `API_KEY_ENCRYPTION_KEY`) · response ใส่ `Cache-Control: no-store` · ห้าม log Key |
 | ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่มีอยู่ก่อนได้ Key จาก migration `20261008170000_account_api_keys_for_all` (แก้ 2026-10-08) · ถ้ายังไม่มี Key (กันไว้) สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
 | ACC-06 | ลิงก์ตอบกลับ: ต้องเป็น URL `https://` ที่มี host · ยาวไม่เกิน 500 ตัว · เว้นว่างได้ (= ยังไม่ตั้ง): ส่ง `""` (ตัดช่องว่างแล้วว่าง) → เก็บเป็น `NULL` · response ส่ง `""` · ส่ง `null` = `422` (ACC-32) · ไม่ส่ง field = `422` (บันทึกแทนทั้งชุด — ACC-08) |
-| ACC-07 | IP ที่อนุญาต: IPv4 หรือช่วง CIDR ของ IPv4 (IP เดี่ยวเก็บเป็น `/32`) · ไม่เกิน **50** รายการ · ห้ามซ้ำ · **ไม่มีเลย = ลูกค้าเรียก API ของเราไม่ได้** · **ห้ามช่วงกว้างกว่า `/16`** เช่น `0.0.0.0/0` · `8.0.0.0/8` → `422` (lead A7) · **ห้าม IP ภายใน / พิเศษ** (IP เดี่ยวหรือช่วงที่อยู่ใน) `0.0.0.0/8` · `10.0.0.0/8` · `100.64.0.0/10` · `127.0.0.0/8` · `169.254.0.0/16` · `172.16.0.0/12` · `192.168.0.0/16` → `422` (lead A7) · CIDR ต้องเป็น**ที่อยู่เครือข่าย** — `198.51.100.5/24` → `422` "ต้องเป็นที่อยู่เครือข่าย" ให้ใช้ `198.51.100.0/24` (lead A8) · ลำดับเช็คต่อรายการ: รูปแบบ → host bits → กว้างเกิน → IP ภายใน → ซ้ำ |
+| ACC-07 | IP ที่อนุญาต: IPv4 หรือช่วง CIDR ของ IPv4 (IP เดี่ยวเก็บเป็น `/32`) · ไม่เกิน **50** รายการ · ห้ามซ้ำ · **ไม่มีเลย = ลูกค้าเรียก API ของเราไม่ได้** · **ห้ามช่วงกว้างกว่า `/16`** เช่น `0.0.0.0/0` · `8.0.0.0/8` → `422` (lead A7) · **ห้าม IP ภายใน / พิเศษ** (IP เดี่ยวหรือช่วงที่อยู่ใน) `0.0.0.0/8` · `10.0.0.0/8` · `100.64.0.0/10` · `127.0.0.0/8` · `169.254.0.0/16` · `172.16.0.0/12` · `192.168.0.0/16` · `224.0.0.0/4` (multicast) · `240.0.0.0/4` (reserved) · `255.255.255.255` (broadcast) → `422` (lead A7 / A11) · CIDR ต้องเป็น**ที่อยู่เครือข่าย** — `198.51.100.5/24` → `422` "ต้องเป็นที่อยู่เครือข่าย" ให้ใช้ `198.51.100.0/24` (lead A8) · ลำดับเช็คต่อรายการ: รูปแบบ → host bits → กว้างเกิน → IP ภายใน → ซ้ำ |
 | ACC-08 | บันทึก = แทนทั้งชุด (ลิงก์ + รายการ IP) · ต้องส่ง `passcode` ของผู้กด (`RequirePasscode`) · tx + `SELECT ... FOR UPDATE` แถว credential |
 | ACC-09 | ทุกการบันทึกเก็บประวัติ `api_credential_logs` (ผู้แก้, ลิงก์เก่า → ใหม่, IP เก่า → ใหม่, ip, request_id, เวลา) ใน tx เดียวกัน · ห้ามเก็บ Key ในประวัติ |
 | ACC-10 | ชื่อผู้ใช้ในหน้านี้ = username ของเจ้าของ (อ่านอย่างเดียว) |
@@ -241,7 +242,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt_from_parent` = ค่าที่ Superadmin ให้ · ไม่มี field `pt` (ลบ 2026-10-09) |
 | ACC-15 | sub ของ Share B2C เรียก profile | `user_type`, `currencies`, `balances`, `pt` เท่าของผู้สร้าง · `permissions` = ที่ผู้สร้างให้ |
 | ACC-16 | ADMIN เรียก profile | `pt = {}` · ไม่มี field `status_game` |
-| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `permissions` 9 เมนู รวม `api_credential` = `edit` |
+| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `permissions` 8 เมนู ไม่มี `api_credential` |
 | ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game.scratch_card = false` · เกมอื่น `true` · `pt.minigame` ไม่เปลี่ยน |
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
@@ -257,7 +258,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-02 | sub ไม่มีสิทธิ์ `api_credential` | GET / POST `402303` |
 | ACC-02 | sub `api_credential` = `view` | GET ได้ Key เต็มของเจ้าของ · POST `402303` |
 | ACC-02 | sub `api_credential` = `edit` | POST สำเร็จ · log บันทึก actor เป็น sub |
-| ACC-02 | Superadmin · sub ของ Superadmin ที่มี `api_credential` เรียก GET | `403301` (ไม่มี Key) |
+| ACC-02 | sub ของ Superadmin ได้สิทธิ์ `api_credential` | `422` (เมนูไม่มีในประเภทนี้) |
 | ACC-02 | เจ้าของ SUSPENDED กดบันทึก | ถูกปฏิเสธที่ middleware (ACC-31 / AUTH-54) |
 | ACC-03 | เจ้าของ GET ครั้งแรก | Key hex ตัวพิมพ์เล็ก 64 ตัว |
 | ACC-04 | GET ซ้ำ | Key เดิม · header `Cache-Control: no-store` · `api_credentials.api_key` = Key ที่ได้ |
@@ -269,7 +270,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-07 | `2001:db8::1` / `300.1.1.1` / `1.2.3.4/33` | `422` |
 | ACC-07 | 51 รายการ / IP ซ้ำ (`1.2.3.4` กับ `1.2.3.4/32`) | `422` |
 | ACC-07 | `1.2.3.4` | GET ได้ `1.2.3.4/32` |
-| ACC-07 | `8.0.0.0/8` · `0.0.0.0/0` · `10.1.2.3` · `192.168.1.0/24` · `127.0.0.1` · `198.51.100.5/24` | `422` |
+| ACC-07 | `8.0.0.0/8` · `0.0.0.0/0` · `10.1.2.3` · `192.168.1.0/24` · `127.0.0.1` · `198.51.100.5/24` · `224.0.0.1` · `240.0.0.1` · `255.255.255.255` | `422` |
 | ACC-07 | `8.8.0.0/16` · `203.0.113.7` | สำเร็จ |
 | ACC-08 | ไม่ส่ง `passcode` / ผิด | `422` / `401204` |
 | ACC-08 | บันทึกรายการใหม่ | IP เดิมที่ไม่อยู่ในรายการใหม่ถูกลบ |
@@ -281,7 +282,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 - สถานะส่ง key เดียว `status` = สถานะที่ใช้งานจริง (ACC-30) · ไม่มี `effective_status`
 - **ไม่มี `null` ใน API** (ACC-32): ข้อความว่าง = `""` · ตัวเลขว่าง = `0` · request ส่ง `null` = `422`
 - Profile มี `user_type`, `currencies`, `balances`, `pt` (ชุดเดียวต่อระบบ `minigame` — รวม `pt_from_parent`, `status`, `created_at`, `created_by`, `updated_at`, `updated_by` · แก้ 2026-10-08), `status_game` (ทีละเกม), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
-- **(2026-10-09 lead review)** เมนูสิทธิ์ใหม่ `api_credential` ใน `permissions` (ทุกบัญชีหลัก) · sub ต้องมี `view` ถึงเปิดหน้า 1.3 · `edit` ถึงบันทึก (ไม่มี = `402303`) · `allowed_ips` มี error `422` ใหม่ 2 แบบ: ช่วงกว้างกว่า `/16` · IP ภายใน / พิเศษ · Dashboard ยังไม่มี (หัวข้อ 10)
+- **(2026-10-09 lead review)** เมนูสิทธิ์ใหม่ `api_credential` ใน `permissions` (Company / Share / Agent) · sub ต้องมี `view` ถึงเปิดหน้า 1.3 · `edit` ถึงบันทึก (ไม่มี = `402303`) · `allowed_ips` มี error `422` ใหม่ 2 แบบ: ช่วงกว้างกว่า `/16` · IP ภายใน / พิเศษ · Dashboard ยังไม่มี (หัวข้อ 10)
 - หน้า 1.3 แสดงทุกบัญชี Company / Share / Agent (ACC-01) และ sub ที่มีสิทธิ์ `api_credential` · `callback_url` ว่างส่ง `""`
 - `balances` ส่งยอดจริงจาก `agent_balances` · `permissions` เป็น object `{ menu: off | view | edit }`
 

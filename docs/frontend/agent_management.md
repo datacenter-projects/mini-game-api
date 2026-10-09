@@ -558,7 +558,7 @@ Response `data`:
 | `owner_id` | ไม่ส่ง = sub ของตัวเอง · ชั้นบนดู sub ของบัญชีในสายล่างได้ · นอกสาย = `402402` |
 | `q` / `page` / `limit` | เหมือน 3.3 |
 | `status` | `ACTIVE` / `INACTIVE` · เจ้าของหรือหัวสายถูกระงับ / ล็อก = แสดงสถานะนั้น |
-| `permissions` | ครบทุกเมนูของประเภทเจ้าของ (Superadmin มี `rate` แทน `announcement` · ทุกประเภทมี `api_credential` เพิ่ม 9 ต.ค.) |
+| `permissions` | ครบทุกเมนูของประเภทเจ้าของ (Superadmin มี `rate` แทน `announcement` · Company / Share / Agent มี `api_credential` เพิ่ม 9 ต.ค.) |
 
 Error: `402311` (sub เรียก), `402402`
 

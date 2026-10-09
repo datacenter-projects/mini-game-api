@@ -68,6 +68,13 @@ func TestNormalizeAllowedIPs(t *testing.T) { // ACC-07
 		{"100.64/10", []string{"100.127.0.1"}, nil, IPReserved, 0},
 		{"100.128 นอกช่วง", []string{"100.128.0.1"}, []string{"100.128.0.1/32"}, IPOK, -1},
 		{"กว้างตรวจก่อนภายใน", []string{"10.0.0.0/8"}, nil, IPTooWide, 0},
+		// lead A11 (2026-10-09): multicast · reserved · broadcast
+		{"multicast 224.0.0.1", []string{"224.0.0.1"}, nil, IPReserved, 0},
+		{"multicast ขอบบน", []string{"239.255.255.255"}, nil, IPReserved, 0},
+		{"multicast CIDR", []string{"230.1.0.0/16"}, nil, IPReserved, 0},
+		{"reserved 240", []string{"240.0.0.1"}, nil, IPReserved, 0},
+		{"broadcast", []string{"255.255.255.255"}, nil, IPReserved, 0},
+		{"223.x ก่อน multicast ได้", []string{"223.255.255.254"}, []string{"223.255.255.254/32"}, IPOK, -1},
 	}
 	for _, tt := range tests {
 		got, v, idx := NormalizeAllowedIPs(tt.in)
