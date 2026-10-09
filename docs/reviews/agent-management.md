@@ -96,3 +96,18 @@
 | B4 | `agents/detail/update` ไม่ส่ง section เลย (`{ "id": 12 }`) | **`422` "ต้องส่งอย่างน้อย 1 section"** (= MN2 ของ member-management) |
 | B5 | action ของ log ตอนระบบปรับ Share Master ตาม CSM | **`SYNC_FROM_CSM`** (แยกจากการแก้ที่คนกด · ผู้ทำ = คนที่แก้ CSM) · เก็บ id ของ CSM + `request_id` เดียวกับการแก้ CSM ใน log |
 | B6 | เบอร์ agent ที่แปลงแล้วซ้ำกัน (เช่น `0812345678` กับ `66812345678`) | **บัญชี id น้อยสุดเก็บเบอร์ไว้** · บัญชีอื่นล้างเป็น `""` · บันทึกใน `migration_phone_cleared` พร้อมเหตุผล "ซ้ำกับบัญชี id X" |
+
+## ตรวจงานรอบที่ 1 (2026-10-10 · commit 8325515 + c9cc1a5 + 7bd675c)
+ผลตรวจเต็ม: E1–E6, N1, P3–P5, H1, Q-R1/H2/H3, B1–B4, C1–C10 ✅ · เส้นเดิมถูกลบหมด · CSM → Share Master ปรับใน tx เดียว + sync `remain_quota` + log `SYNC_FROM_CSM` ✅ · build / vet / unit / check-structure ผ่าน · **integration ยังไม่ได้รัน**
+
+| # | เรื่อง | lead ตัดสิน |
+|---|---|---|
+| V1 | `agents/status/update` ส่งสถานะเดิมยังเขียน log (`update_service.go:158`) — MQ5 ตัดสินทีหลัง | **แก้: ค่าเดิม = 200 ไม่เขียน log** · ทำพร้อมงาน member ของ maofoy (DTO ร่วม) |
+| V2 | migration `20261009170000_…_share_master_follow_csm.sql:100-105` ข้ามแถวที่ `pt_from_parent` ใหม่ < `pt` ของ Member แบบเงียบ | **บันทึกแถวพวกนี้ลงตาราง log** (แบบ `migration_phone_cleared`) ให้มีคนตาม · ไม่ต้องให้ migration ล้ม (ยังไม่มี prod) |
+| V3 | Agent เก่าใต้ Share Reseller / Share Master (สร้างก่อน H1) — ตอนลด PT ของ CSM ไม่ได้เช็คชั้นนี้ | **รัน query ตรวจบน dev ก่อน** · ไม่มี = จบ · มี (ข้อมูลทดสอบ) = ลบหรือย้ายทิ้ง |
+| V4 | เบอร์ของ sub ซ้ำได้ (MGMT-41) vs E1-5 "ใช้ทุกที่" | **sub ซ้ำได้ตามเดิม** · ใช้รูปแบบ `phone_country_code` + `phone` เหมือนกัน (E1-5 "ห้ามซ้ำที่คู่" ใช้กับ agent และ Member ใต้ parent เดียวกัน — MQ1) |
+| V5 | test ที่ยังขาด | เพิ่ม: Share Master สร้าง Agent = `402301` (integration) · migration เบอร์ · ปรับ Share Master ตาม CSM · ยิงพร้อมกัน · B5 `request_id` + `csm_id` · **รัน integration ให้ผ่าน แนบผล** ก่อนส่ง tester |
+| V6 | B5 log `SYNC_FROM_CSM` ยังไม่เก็บ id ของ CSM | ใส่ `csm_id` ใน `new_value` (`update_service.go:302-307`, `:478`) + test |
+| V7 | B6 `migration_phone_cleared` reason แค่ `DUPLICATE` (VARCHAR(20)) ไม่บอกว่าซ้ำกับใคร | **อนุญาตให้แก้ไฟล์ migration เดิม** (ยังไม่มี prod — เหมือน MA6): เพิ่มคอลัมน์ `kept_agent_id` (บัญชีที่ได้เก็บเบอร์) · reset DB ของ dev แล้วรันใหม่ · **แจ้งทุกคนที่มี DB dev ในเครื่องให้ reset** |
+
+**ประสานกับ maofoy** (งาน Member): SQL ของ `downlines/list` สำหรับเบอร์ Member 2 field (`agent_management_repository.go:178,274`) · `UpdateInfoRequest` / `CheckPhoneFree` ที่ใช้ร่วมกัน · `CanSeePT` shim · `amounts_minor` ฝั่ง Member — รายละเอียดใน verify report หัวข้อ 5
