@@ -68,6 +68,17 @@ func TestStatusUpdatePath(t *testing.T) { // MGMT-30 · lead E5
 	expect(t, call(t, app, "POST", agentStatusPath, map[string]any{"id": c.agent.ID, "status": "SUSPENDED"}, c.comTok), 200, 402304) // หลาน
 	expect(t, call(t, app, "POST", agentStatusPath, map[string]any{"id": c.share.ID, "status": "LOCKED"}, c.comTok), 200, 200)
 	expect(t, call(t, app, "POST", agentStatusPath, map[string]any{"id": c.share.ID, "status": "ACTIVE"}, c.comTok), 200, 200)
+	logs := func() int64 {
+		return countRows(t, &models.AccountChangeLog{}, "action = ? AND target_id = ?", models.ChangeUpdateStatus, c.share.ID)
+	}
+	if n := logs(); n != 2 {
+		t.Fatalf("logs %d", n)
+	}
+	// ส่งสถานะเดิม = 200 ไม่เขียน log (lead MQ5 / V1)
+	expect(t, call(t, app, "POST", agentStatusPath, map[string]any{"id": c.share.ID, "status": "ACTIVE"}, c.comTok), 200, 200)
+	if n := logs(); n != 2 {
+		t.Fatalf("สถานะเดิมต้องไม่เขียน log ได้ %d", n)
+	}
 }
 
 func TestDetailStatusGameEffective(t *testing.T) { // MGMT-20 · MGMT-29 · lead E3-1
@@ -96,6 +107,17 @@ func TestShareResellerMasterCreateMemberOnly(t *testing.T) { // MGMT-02 · lead 
 	expect(t, r, 200, 402301)
 	expectMsgHas(t, r.Msg, "SHARE_RESELLER", "MEMBER", "members/create")
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("memres01", 0), shareResTok), 200, 200)
+
+	// Share Master (ใต้ CSM) ก็สร้างได้แค่ Member เหมือนกัน (lead V5)
+	_, csmTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
+	_, smTok := mustCreate(t, app, csmTok, agentBody("SHARE_B2C", "sharemas01", []string{"THB"}, commissionOnly(0)))
+	r = call(t, app, "POST", createAgentPath, agentBody("AGENT", "agentmas01", nil, childPT(60, 0, 0, 0)), smTok)
+	expect(t, r, 200, 402301)
+	expectMsgHas(t, r.Msg, "SHARE_MASTER", "MEMBER", "members/create")
+	expect(t, call(t, app, "POST", createMemberPath, memberBody("memmas01", 0), smTok), 200, 200)
+	if n := countRows(t, &models.UserAgent{}, "username IN ?", []string{"agentres01", "agentmas01"}); n != 0 {
+		t.Fatalf("ต้องไม่สร้าง Agent %d", n)
+	}
 }
 
 func TestRemovedPaths(t *testing.T) { // spec หัวข้อ 5: เส้นที่ลบได้ 404 (ไม่คง alias)

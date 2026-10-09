@@ -107,7 +107,7 @@ func ListSubaccountsService(ctx context.Context, actor agentAuthService.Actor, r
 	return out, total, nil
 }
 
-// GetSubaccountService — POST /manage/subaccounts/detail (MGMT-46) · sub ของตัวเองหรือของสายล่าง · อื่น = 402404
+// GetSubaccountService — POST /manage/subaccounts/detail/get (MGMT-46) · sub ของตัวเองหรือของสายล่าง · อื่น = 402404
 func GetSubaccountService(ctx context.Context, actor agentAuthService.Actor, id uint) (agentManagementDto.SubView, error) {
 	db := database.DBConn.WithContext(ctx)
 	s, err := agentManagementPostgres.GetSubaccountViewRepository(db, id)
@@ -210,7 +210,7 @@ func UpdateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 	})
 }
 
-// UpdateSubaccountStatusService — POST /manage/subaccounts/update-status (MGMT-43)
+// UpdateSubaccountStatusService — POST /manage/subaccounts/status/update (MGMT-43)
 func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.SubStatusRequest,
 	meta agentAuthService.RequestMeta) error {
 	next := models.AgentStatusActive

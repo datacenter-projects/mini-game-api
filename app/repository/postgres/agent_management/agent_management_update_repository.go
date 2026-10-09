@@ -38,10 +38,12 @@ func UpdateChildPTRepository(db *gorm.DB, agentID uint, gameCodes []string, v mo
 	}).Error
 }
 
-// LockUserAgentRowRepository — SELECT ... FOR UPDATE ข้อมูลที่แก้ได้ของบัญชีฝั่ง agent · ไม่พบ = ผลว่าง (id 0)
+// LockUserAgentRowRepository — SELECT ... FOR NO KEY UPDATE ข้อมูลที่แก้ได้ของบัญชีฝั่ง agent · ไม่พบ = ผลว่าง (id 0)
+// NO KEY UPDATE (ไม่แก้ id): ไม่ขวาง FOR KEY SHARE ของ FK ตอนสร้างลูก / Member ใต้บัญชีนี้ — FOR UPDATE ทำ deadlock กับ
+// CSM สร้าง Share Master ระหว่าง Superadmin แก้ CSM (lead V5 ยิงพร้อมกัน)
 func LockUserAgentRowRepository(db *gorm.DB, id uint) (models.UserAgent, error) {
 	var a models.UserAgent
-	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "parent_id", "username", "name", "phone_country_code", "phone", "role", "agent_type", "status").
+	err := db.Clauses(clause.Locking{Strength: "NO KEY UPDATE"}).Select("id", "parent_id", "username", "name", "phone_country_code", "phone", "role", "agent_type", "status").
 		Where("id = ?", id).Limit(1).Find(&a).Error
 	return a, err
 }
