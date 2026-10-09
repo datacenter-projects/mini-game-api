@@ -1,4 +1,4 @@
-package agentauth
+package adminmanagement
 
 import (
 	"strings"

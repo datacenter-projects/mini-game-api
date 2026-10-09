@@ -3,8 +3,6 @@ package agentmanagement
 import (
 	"strings"
 
-	agentAuthCore "app/app/core/agent_auth"
-
 	"app/pkg/apperr"
 	"app/pkg/utils"
 )
@@ -128,34 +126,4 @@ func (r *DownlineSearchRequest) Validate() error {
 type DownlineSearchRow struct {
 	DownlineRow
 	ParentUsername string `json:"parent_username"`
-}
-
-// AdminAccountSearchRequest — POST /admin/accounts/search (MGMT-27B) · username ตรงทั้งคำ ไม่สนตัวพิมพ์
-type AdminAccountSearchRequest struct {
-	Username string `json:"username"`
-}
-
-func (r *AdminAccountSearchRequest) Validate() error {
-	r.Username = agentAuthCore.NormalizeUsername(r.Username)
-	if r.Username == "" {
-		return Invalid("username", "ต้องกรอก", "is required")
-	}
-	if len([]rune(r.Username)) > 71 {
-		return Invalid("username", "ยาวเกิน 71 ตัว", "must be at most 71 characters")
-	}
-	return nil
-}
-
-// AdminAccountRow — 1 บัญชีที่พบ (MGMT-27B) · ข้อมูลระบุตัวตนเท่านั้น ไม่มียอดเงิน / PT
-// sub: role / user_type = ของเจ้าของ · parent_username = เจ้าของ · SUPERADMIN / ADMIN: parent_username = ""
-type AdminAccountRow struct {
-	Username       string `json:"username"`
-	Role           string `json:"role"`
-	UserType       string `json:"user_type"`
-	IsSubaccount   bool   `json:"is_subaccount"`
-	Status         string `json:"status"`
-	ParentUsername string `json:"parent_username"`
-	CreatedAt      string `json:"created_at"`
-	LastLoginAt    string `json:"last_login_at"`
-	LastLoginIP    string `json:"last_login_ip"`
 }

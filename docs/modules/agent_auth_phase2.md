@@ -15,14 +15,14 @@
 - subaccount login (เส้น login เดิม)
 - passcode: ตั้งครั้งแรก, เปลี่ยนเอง, middleware `RequirePasscode`, ตัวนับผิดระดับบัญชี
 - เปลี่ยนรหัสผ่านเอง
-- role `ADMIN`: รีเซ็ต passcode / รหัสผ่านให้ COMPANY / SHAREHOLDER / AGENT / sub ที่จำไม่ได้ + `RequireRole`
+- role `ADMIN`: รีเซ็ต passcode / รหัสผ่านให้ COMPANY / SHAREHOLDER / AGENT / sub ที่จำไม่ได้ (เส้นอยู่ module `admin_management` · middleware `adminMw.RequireAdmin` — แยก 2026-10-09)
 - บังคับเปลี่ยนรหัสผ่าน / passcode หลังถูกรีเซ็ต (ค่าชั่วคราวหมดอายุ 24 ชม.)
 - ตาราง `auth_audit_logs` (เหตุการณ์ที่เปลี่ยนข้อมูลบัญชี — AUTH-49)
 - scripts: `create_admin`, `reset_credentials` (สำหรับ SUPERADMIN / ADMIN) และแก้ `create_superadmin` ให้ใช้กติการหัสผ่านกลาง
 - ปรับของ Phase 1 ที่กระทบ: JWT claims, session JSON, logout, middleware `Authenticated`, `Actor`
 
 **แยกออกไปเป็นงานอื่น:** quick-start, การเข้าถึง agent ในสาย (`/agents/:agent_id`), role/permission guard
-(รอบนี้มีแค่ `RequireRole(ADMIN)`), สร้าง/จัดการ subaccount
+(รอบนี้มีแค่ `adminMw.RequireAdmin()` (module admin_management)), สร้าง/จัดการ subaccount
 
 ## 2. คำศัพท์
 
@@ -97,7 +97,7 @@
 | ID | Rule |
 |---|---|
 | AUTH-43 | admin เป็นบัญชีใน `user_agents` role `ADMIN` · **ไม่มี parent** · **สร้าง sub ไม่ได้** · **ถูกกรองออกจาก query สายงาน, รายงาน และ list agent ทุกที่** · สร้างด้วย `scripts/create_admin` เท่านั้น (รหัสผ่านอ่านจาก stdin ตรวจตาม AUTH-36) · login และด่าน AUTH-29 เหมือนบัญชีอื่น |
-| AUTH-44 | route ของ admin ใช้ได้เฉพาะ role `ADMIN` (`RequireRole(ADMIN)`) — role อื่นรวม SUPERADMIN ตอบ `401308` · ต้องส่ง `passcode` ของ admin เองใน body (`RequirePasscode`) |
+| AUTH-44 | route ของ admin ใช้ได้เฉพาะ role `ADMIN` (`adminMw.RequireAdmin()` — module admin_management) — role อื่นรวม SUPERADMIN ตอบ `401308` · ต้องส่ง `passcode` ของ admin เองใน body (`RequirePasscode`) |
 | AUTH-45 | ระบุเป้าหมายด้วย `username` (ตาม AUTH-18 · ผ่าน AUTH-01) · ไม่พบ → `401404` · เป้าหมายได้เฉพาะ COMPANY / SHAREHOLDER / AGENT และ sub · SUPERADMIN, ADMIN และตัวเอง → `401406` · เป้าหมาย `LOCKED` (รวม sub ที่ผู้สร้างหรือ upline ล็อก) → `401407` |
 | AUTH-46 | ระบบสุ่มค่าชั่วคราวด้วย `crypto/rand` (admin ไม่ได้กรอกเอง) · แสดงใน response ครั้งเดียว เก็บแค่ hash · หมดอายุใน 24 ชม. · response ใส่ `Cache-Control: no-store` · ห้าม log response body · รหัสผ่านชั่วคราว: 12 ตัว ตัวอักษรกับตัวเลขเท่านั้น ไม่ใช้ `0 O o 1 l I` และต้องผ่าน AUTH-36 · passcode ชั่วคราว: ตัวเลข 6 หลัก |
 | AUTH-47 | รีเซ็ต passcode: เป้าหมายที่ยังไม่เคยตั้ง passcode → `401405` · บันทึกค่าชั่วคราว (ถ้าสุ่มได้ซ้ำกับ passcode ปัจจุบันให้สุ่มใหม่ภายใน) · `must_change_passcode = true` · ล้างตัวนับและบล็อก passcode (AUTH-35) ของเป้าหมาย · session ของเป้าหมายถูกลบทันที |
@@ -131,10 +131,10 @@
 | POST | `/api/v1/bo/pr/auth/passcode/setup` | ข้อ 3 | — | **ใหม่** |
 | POST | `/api/v1/bo/pr/auth/passcode/change` | ผ่านครบ หรือข้อ 2 | — | **ใหม่** |
 | POST | `/api/v1/bo/pr/auth/password/change` | ผ่านครบ (+ `RequirePasscode`) หรือข้อ 1 | — | **ใหม่** |
-| POST | `/api/v1/bo/pr/admin/passcode/reset` | ผ่านครบ | `RequireRole(ADMIN)` + `RequirePasscode` | **ใหม่** |
-| POST | `/api/v1/bo/pr/admin/password/reset` | ผ่านครบ | `RequireRole(ADMIN)` + `RequirePasscode` | **ใหม่** |
 
-ลำดับ middleware ใน `routes.go`: `Authenticated` → ด่าน AUTH-29 → `RequireRole` (ถ้ามี) → `RequirePasscode` (ถ้ามี)
+ลำดับ middleware ใน `routes.go`: `Authenticated` → ด่าน AUTH-29 → `RequirePasscode` (ถ้ามี)
+
+เส้นของ ADMIN (`/admin/passcode/reset` · `/admin/password/reset`) ย้ายไป [admin_management.md](admin_management.md) (แยก module 2026-10-09) — กฎ AUTH-43 – AUTH-52 ยังอยู่ในเอกสารนี้
 — เขียนไว้บรรทัดเดียวกับ route ทุกเส้น
 
 **error ของทุก route ใต้ `/bo/pr` ที่ผ่าน `Authenticated`** (ไม่เขียนซ้ำในแต่ละเส้นด้านล่าง):
@@ -231,49 +231,6 @@ Response:
 
 Error codes: `422` (ไม่กรอก / `confirm_password` ไม่ตรง / ผิดกติกา AUTH-36 — msg บอกว่าผิดกฎข้อไหน), `401204`,
 `401205`, `401206`, `401303`, `401402`, `401310`, `401304`, `401307`
-
-### POST /api/v1/bo/pr/admin/passcode/reset (ใหม่ — admin รีเซ็ต passcode)
-
-Header `Authorization: Bearer <token ของ admin>`
-
-Request:
-```json
-{ "username": "agent01@staff", "passcode": "123456" }
-```
-`passcode` = passcode ของ admin เอง
-
-Response `data` (แสดงครั้งเดียว · header `Cache-Control: no-store`):
-```json
-{
-  "username": "agent01@staff",
-  "temp_passcode": "482913",
-  "temp_expires_at": "2026-10-06T10:00:00+07:00"
-}
-```
-
-Error codes: `422`, `401308`, `401404`, `401405`, `401406`, `401407`, `401204`, `401205`, `401304`, `401306`,
-`401307`
-
-### POST /api/v1/bo/pr/admin/password/reset (ใหม่ — admin รีเซ็ตรหัสผ่าน)
-
-Header `Authorization: Bearer <token ของ admin>`
-
-Request:
-```json
-{ "username": "agent01", "passcode": "123456" }
-```
-`passcode` = passcode ของ admin เอง
-
-Response `data` (แสดงครั้งเดียว · header `Cache-Control: no-store`):
-```json
-{
-  "username": "agent01",
-  "temp_password": "Xk7mPq4RtW9z",
-  "temp_expires_at": "2026-10-06T10:00:00+07:00"
-}
-```
-
-Error codes: `422`, `401308`, `401404`, `401406`, `401407`, `401204`, `401205`, `401304`, `401306`, `401307`
 
 ## 6. Schema
 
@@ -495,5 +452,5 @@ Redis:
 เมื่อได้ 401 — ใส่ผิดครั้งเดียวไม่ควรถูกเด้งออก
 
 4. **บัญชีทดสอบ sub** — integration test insert ลง DB เอง ไม่ทำ script
-5. **role/permission guard เต็มรูปแบบ** แยกเป็นงานอื่น — รอบนี้มีแค่ `RequireRole(ADMIN)` เพื่อให้ route admin
+5. **role/permission guard เต็มรูปแบบ** แยกเป็นงานอื่น — รอบนี้มีแค่ `adminMw.RequireAdmin()` (module admin_management) เพื่อให้ route admin
    ระบุสิทธิ์บรรทัดเดียวกับ route ได้ตามกฎข้อ 28

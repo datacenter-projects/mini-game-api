@@ -17,7 +17,7 @@ import (
 	"os/user"
 	"time"
 
-	agentAuthService "app/app/service/agent_auth"
+	adminManagementService "app/app/service/admin_management"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -60,7 +60,7 @@ func run(username string, password, passcode bool) error {
 		return err
 	}
 
-	res, err := agentAuthService.ScriptResetCredentialsService(ctx, agentAuthService.ScriptResetRequest{
+	res, err := adminManagementService.ScriptResetCredentialsService(ctx, adminManagementService.ScriptResetRequest{
 		Username: username, Password: password, Passcode: passcode, Operator: operator(),
 	})
 	if err != nil {
