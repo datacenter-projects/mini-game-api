@@ -77,7 +77,7 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	}
 	var mpt map[string]map[string]any
 	_ = json.Unmarshal(p.Items[0].PT, &mpt)
-	if len(mpt["minigame"]) != 5 || mpt["minigame"]["commission_percent"] != 0.2 || mpt["minigame"]["created_by"] != "agent01" {
+	if len(mpt["minigame"]) != 7 || mpt["minigame"]["pt"] != float64(0) || mpt["minigame"]["remain_quota"] != float64(60) || mpt["minigame"]["commission_percent"] != 0.2 || mpt["minigame"]["created_by"] != "agent01" {
 		t.Fatalf("member pt %s", p.Items[0].PT)
 	}
 	var apt map[string]map[string]any
@@ -210,7 +210,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	var memPT map[string]map[string]any
 	_ = json.Unmarshal(raw["pt"], &memPT)
 	mg := memPT["minigame"]
-	if string(raw["parent_username"]) != `"agent01"` || string(raw["role"]) != `"MEMBER"` || len(memPT) != 1 || len(mg) != 5 ||
+	if string(raw["parent_username"]) != `"agent01"` || string(raw["role"]) != `"MEMBER"` || len(memPT) != 1 || len(mg) != 7 || mg["pt"] != float64(0) || mg["remain_quota"] != float64(60) ||
 		mg["commission_percent"] != 0.3 || mg["created_by"] != "agent01" || mg["updated_by"] != "agent01" ||
 		mg["created_at"] == "" || mg["created_at"] != mg["updated_at"] {
 		t.Fatalf("member detail %s", r.Data)

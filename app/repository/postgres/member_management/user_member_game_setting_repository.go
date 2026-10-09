@@ -27,15 +27,15 @@ func ListUserMemberGameSettingsByIDsRepository(db *gorm.DB, ids []uint) ([]model
 	return out, err
 }
 
-// LockUserMemberGameSettingsRepository — SELECT ... FOR UPDATE แถว Commission ของ Member
+// LockUserMemberGameSettingsRepository — SELECT ... FOR UPDATE แถว PT / Commission ของ Member
 func LockUserMemberGameSettingsRepository(db *gorm.DB, memberID uint) ([]models.UserMemberGameSetting, error) {
 	var out []models.UserMemberGameSetting
 	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_member_id = ?", memberID).Order("game_code").Find(&out).Error
 	return out, err
 }
 
-// UpdateUserMemberCommissionRepository — Commission ของ Member ทุกเกมในกลุ่ม (MGMT-21)
-func UpdateUserMemberCommissionRepository(db *gorm.DB, memberID uint, gameCodes []string, bp int, by string, at time.Time) error {
+// UpdateUserMemberPTRepository — PT · remain · Commission ของ Member ทุกเกมในกลุ่ม (MGMT-21 แก้ 2026-10-09)
+func UpdateUserMemberPTRepository(db *gorm.DB, memberID uint, gameCodes []string, ptBP, remainBP, commissionBP int, by string, at time.Time) error {
 	return db.Model(&models.UserMemberGameSetting{}).Where("user_member_id = ? AND game_code IN ?", memberID, gameCodes).
-		Updates(map[string]any{"commission_bp": bp, "updated_by": by, "updated_at": at}).Error
+		Updates(map[string]any{"pt_bp": ptBP, "remain_bp": remainBP, "commission_bp": commissionBP, "updated_by": by, "updated_at": at}).Error
 }

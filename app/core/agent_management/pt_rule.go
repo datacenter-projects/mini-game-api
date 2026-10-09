@@ -155,6 +155,20 @@ func InitialOwnPT(receivedBP int, isSeamlessMaster bool) int {
 	return receivedBP
 }
 
+// ValidateMemberPT — ค่าที่ผู้สร้างถือสู้กับ Member คนนี้ (MGMT-21 แก้ 2026-10-09) · 0 ถึงค่าที่ผู้สร้างได้รับ ทีละ 0.5%
+func ValidateMemberPT(ptBP, creatorReceivedBP int) PTViolation {
+	if !IsPTStep(ptBP) {
+		return PTInvalidStep
+	}
+	if ptBP > creatorReceivedBP {
+		return PTExceedsReceived
+	}
+	return PTOK
+}
+
+// MemberRemain — ส่วนที่ผู้สร้างไม่ได้ถือสู้กับ Member คนนี้ = ค่าที่ผู้สร้างได้รับ − pt (MGMT-21 แก้ 2026-10-09)
+func MemberRemain(creatorReceivedBP, ptBP int) int { return creatorReceivedBP - ptBP }
+
 // MinPTFromParent — ค่าต่ำสุดที่ผู้สร้างตั้งให้ลูกได้ (MGMT-24)
 // = ค่าที่มากที่สุดระหว่าง pt ของลูก และค่าที่ลูกให้ลูกของมันแต่ละคน
 func MinPTFromParent(childOwnPTBP int, grandchildrenPTFromParentBP []int) int {

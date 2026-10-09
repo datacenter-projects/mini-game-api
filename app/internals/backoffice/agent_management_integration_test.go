@@ -87,7 +87,7 @@ func agentBody(userType, username string, currencies []string, pt map[string]any
 
 func memberBody(username string, commission float64) map[string]any {
 	return map[string]any{"request_id": newRequestID(), "username": username, "password": mgPassword, "name": "Name" + username,
-		"phone": "", "pt": map[string]any{"minigame": map[string]any{"commission_percent": commission}}}
+		"phone": "", "pt": map[string]any{"minigame": map[string]any{"pt": 0, "commission_percent": commission}}}
 }
 
 type created struct {

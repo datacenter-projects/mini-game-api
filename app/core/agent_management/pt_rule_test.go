@@ -102,6 +102,43 @@ func TestInitialOwnPT(t *testing.T) { // MGMT-22, MGMT-19
 	}
 }
 
+func TestValidateMemberPT(t *testing.T) { // MGMT-21 แก้ 2026-10-09
+	tests := []struct {
+		name     string
+		pt       int
+		received int
+		want     PTViolation
+	}{
+		{"ถือทั้งหมด", 6000, 6000, PTOK},
+		{"ไม่ถือ", 0, 6000, PTOK},
+		{"ถือบางส่วน", 3050, 6000, PTOK},
+		{"เกินที่ได้รับ", 6500, 6000, PTExceedsReceived},
+		{"ไม่ลง step", 3025, 6000, PTInvalidStep},
+		{"ติดลบ", -50, 6000, PTInvalidStep},
+		{"เกิน 100", 10050, 10000, PTInvalidStep},
+	}
+	for _, tt := range tests {
+		if got := ValidateMemberPT(tt.pt, tt.received); got != tt.want {
+			t.Errorf("%s: ValidateMemberPT(%d, %d) = %v, want %v", tt.name, tt.pt, tt.received, got, tt.want)
+		}
+	}
+}
+
+func TestMemberRemain(t *testing.T) { // MGMT-21 แก้ 2026-10-09
+	tests := []struct {
+		received, pt, want int
+	}{
+		{6000, 5000, 1000},
+		{6000, 6000, 0},
+		{6000, 0, 6000},
+	}
+	for _, tt := range tests {
+		if got := MemberRemain(tt.received, tt.pt); got != tt.want {
+			t.Errorf("MemberRemain(%d, %d) = %d, want %d", tt.received, tt.pt, got, tt.want)
+		}
+	}
+}
+
 func TestMinPTFromParent(t *testing.T) { // MGMT-24
 	tests := []struct {
 		name  string

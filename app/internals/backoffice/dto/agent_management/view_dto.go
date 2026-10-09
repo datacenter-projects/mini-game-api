@@ -25,8 +25,10 @@ type PTGroupView struct {
 	UpdatedBy         string        `json:"updated_by"`
 }
 
-// MemberPTGroupView — Member มีแค่ Commission (MGMT-21)
+// MemberPTGroupView — pt ที่ผู้สร้างถือสู้กับ Member · remain_quota (ระบบคิด) · Commission (MGMT-21 แก้ 2026-10-09)
 type MemberPTGroupView struct {
+	PT                utils.Percent `json:"pt"`
+	RemainQuota       utils.Percent `json:"remain_quota"`
 	CommissionPercent utils.Percent `json:"commission_percent"`
 	CreatedAt         string        `json:"created_at"`
 	CreatedBy         string        `json:"created_by"`

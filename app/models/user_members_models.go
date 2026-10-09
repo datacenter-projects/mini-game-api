@@ -22,11 +22,13 @@ type UserMember struct {
 
 func (UserMember) TableName() string { return "user_members" }
 
-// UserMemberGameSetting — Commission ของ UserMember ต่อเกม (MGMT-21)
+// UserMemberGameSetting — PT ที่ผู้สร้างถือสู้กับ UserMember คนนี้ + Commission ต่อเกม (MGMT-21 แก้ 2026-10-09)
 type UserMemberGameSetting struct {
 	UserMemberID uint      `gorm:"column:user_member_id;primaryKey"`
 	GameCode     string    `gorm:"column:game_code;primaryKey"`
 	Category     string    `gorm:"column:category"`
+	PTBP         int       `gorm:"column:pt_bp"`     // ผู้สร้างถือสู้กับ Member คนนี้
+	RemainBP     int       `gorm:"column:remain_bp"` // ค่าที่ผู้สร้างได้รับ − pt_bp (ระบบคิด)
 	CommissionBP int       `gorm:"column:commission_bp"`
 	CreatedBy    string    `gorm:"column:created_by"`
 	CreatedAt    time.Time `gorm:"column:created_at"`

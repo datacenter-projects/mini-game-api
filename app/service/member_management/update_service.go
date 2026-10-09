@@ -7,6 +7,7 @@ import (
 	agentManagementCore "app/app/core/agent_management"
 	memberManagementDto "app/app/internals/backoffice/dto/member_management"
 	"app/app/models"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	memberManagementPostgres "app/app/repository/postgres/member_management"
 	agentAuthService "app/app/service/agent_auth"
 	agentManagementService "app/app/service/agent_management"
@@ -73,37 +74,54 @@ func UpdateMemberStatusService(ctx context.Context, actor agentAuthService.Actor
 	})
 }
 
-// UpdateMemberCommissionService — POST /manage/members/update-commission (MGMT-21)
-func UpdateMemberCommissionService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.UpdateMemberPTRequest,
+// UpdateMemberPTService — POST /manage/members/update-pt (MGMT-21 แก้ 2026-10-09)
+// lock: แถว Member → ค่าที่ผู้สร้างได้รับ (agent_game_settings FOR SHARE) → แถวของ Member (FOR UPDATE)
+// ลำดับ agent_game_settings ก่อน user_member_game_settings เหมือน agents/update-pt — กัน deadlock
+func UpdateMemberPTService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.UpdateMemberPTRequest,
 	meta agentAuthService.RequestMeta) error {
 	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		m, err := lockMemberChild(tx, actor, req.ID)
+		m, err := lockMemberChild(tx, actor, req.ID) // ผ่าน = ผู้เรียกเป็นผู้สร้าง (m.AgentID)
 		if err != nil {
 			return err
+		}
+		creatorSettings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, []uint{m.AgentID}, "SHARE")
+		if err != nil {
+			return err
+		}
+		received := map[agentManagementCore.PTGroup]int{}
+		for _, s := range creatorSettings { // ค่าของเกมในกลุ่มเท่ากันเสมอ (MGMT-16)
+			if g, ok := agentManagementCore.GroupOfGame(s.GameCode); ok {
+				received[g] = s.PTFromParentBP
+			}
 		}
 		settings, err := memberManagementPostgres.LockUserMemberGameSettingsRepository(tx, m.ID)
 		if err != nil {
 			return err
 		}
 		now := time.Now()
-		oldLog, newLog := map[string]int{}, map[string]int{}
+		oldLog, newLog := map[string]memberPTValue{}, map[string]memberPTValue{}
 		for _, g := range agentManagementService.SortedGroups(req.PT) {
-			bp := req.PT[g].CommissionBP
-			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(bp)); err != nil {
+			v := req.PT[g]
+			group := agentManagementCore.PTGroup(g)
+			if err := agentManagementService.OwnPTError(g, agentManagementCore.ValidateMemberPT(v.PTBP, received[group]), received[group]); err != nil {
 				return err
 			}
-			group := agentManagementCore.PTGroup(g)
+			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.CommissionBP)); err != nil {
+				return err
+			}
 			for _, s := range settings {
 				if gg, ok := agentManagementCore.GroupOfGame(s.GameCode); ok && gg == group {
-					oldLog[g] = s.CommissionBP
+					oldLog[g] = memberPTValue{PTBP: s.PTBP, RemainBP: s.RemainBP, CommissionBP: s.CommissionBP}
 				}
 			}
-			if err := memberManagementPostgres.UpdateUserMemberCommissionRepository(tx, m.ID, agentManagementService.GameCodes(group), bp, actor.Username, now); err != nil {
+			remain := agentManagementCore.MemberRemain(received[group], v.PTBP)
+			if err := memberManagementPostgres.UpdateUserMemberPTRepository(tx, m.ID, agentManagementService.GameCodes(group),
+				v.PTBP, remain, v.CommissionBP, actor.Username, now); err != nil {
 				return err
 			}
-			newLog[g] = bp
+			newLog[g] = memberPTValue{PTBP: v.PTBP, RemainBP: remain, CommissionBP: v.CommissionBP}
 		}
 		return agentManagementService.WriteLog(ctx, tx, actor, meta, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeUpdatePT,
-			map[string]any{"commission_bp": oldLog}, map[string]any{"commission_bp": newLog}, now)
+			oldLog, newLog, now)
 	})
 }

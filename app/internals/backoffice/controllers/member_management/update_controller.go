@@ -28,13 +28,13 @@ func UpdateMemberStatusController(c *fiber.Ctx) error {
 	return result(c, memberManagementService.UpdateMemberStatusService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }
 
-// UpdateMemberCommissionController — POST /api/v1/bo/pr/manage/members/update-commission
-func UpdateMemberCommissionController(c *fiber.Ctx) error {
+// UpdateMemberPTController — POST /api/v1/bo/pr/manage/members/update-pt
+func UpdateMemberPTController(c *fiber.Ctx) error {
 	var req memberManagementDto.UpdateMemberPTRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
 		return response.Error(c, err)
 	}
-	return result(c, memberManagementService.UpdateMemberCommissionService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
+	return result(c, memberManagementService.UpdateMemberPTService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }
 
 // result — เส้นแก้ไม่มี data

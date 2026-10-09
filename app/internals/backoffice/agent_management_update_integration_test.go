@@ -15,14 +15,14 @@ import (
 )
 
 const (
-	agentInfoPath        = "/api/v1/bo/pr/manage/agents/update-info"
-	memberInfoPath       = "/api/v1/bo/pr/manage/members/update-info"
-	agentStatusPath      = "/api/v1/bo/pr/manage/agents/update-status"
-	memberStatusPath     = "/api/v1/bo/pr/manage/members/update-status"
-	updatePTPath         = "/api/v1/bo/pr/manage/agents/update-pt"
-	updateCommissionPath = "/api/v1/bo/pr/manage/members/update-commission"
-	updateHoldPath       = "/api/v1/bo/pr/manage/agents/update-hold"
-	updateGamesPath      = "/api/v1/bo/pr/manage/agents/update-games"
+	agentInfoPath      = "/api/v1/bo/pr/manage/agents/update-info"
+	memberInfoPath     = "/api/v1/bo/pr/manage/members/update-info"
+	agentStatusPath    = "/api/v1/bo/pr/manage/agents/update-status"
+	memberStatusPath   = "/api/v1/bo/pr/manage/members/update-status"
+	updatePTPath       = "/api/v1/bo/pr/manage/agents/update-pt"
+	updateMemberPTPath = "/api/v1/bo/pr/manage/members/update-pt"
+	updateHoldPath     = "/api/v1/bo/pr/manage/agents/update-hold"
+	updateGamesPath    = "/api/v1/bo/pr/manage/agents/update-games"
 )
 
 func ptBody(id uint, give, force, remain, commission float64) map[string]any {
@@ -31,6 +31,17 @@ func ptBody(id uint, give, force, remain, commission float64) map[string]any {
 
 func holdBody(pt float64) map[string]any {
 	return map[string]any{"pt": map[string]any{"minigame": map[string]any{"pt": pt}}}
+}
+
+func memberPTBody(id uint, pt, commission float64) map[string]any {
+	return map[string]any{"id": id, "pt": map[string]any{"minigame": map[string]any{"pt": pt, "commission_percent": commission}}}
+}
+
+func memberSetting(t *testing.T, memberID uint) models.UserMemberGameSetting {
+	t.Helper()
+	var s models.UserMemberGameSetting
+	database.DBConn.Where("user_member_id = ? AND game_code = ?", memberID, "coin_toss").Take(&s)
+	return s
 }
 
 func gameSetting(t *testing.T, agentID uint) models.AgentGameSetting {
@@ -200,14 +211,16 @@ func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, 
 	var m created
 	_ = json.Unmarshal(r.Data, &m)
 	expect(t, call(t, app, "POST", memberInfoPath, map[string]any{"id": m.ID, "name": "ใจดี", "phone": ""}, c.agentTok), 200, 200)
-	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"minigame": map[string]any{"commission_percent": 0.5}}}, c.agentTok), 200, 200)
+	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(m.ID, 0, 0.5), c.agentTok), 200, 200)
 	var ms models.UserMemberGameSetting
 	database.DBConn.Where("user_member_id = ?", m.ID).Take(&ms)
 	if ms.CommissionBP != 50 {
 		t.Fatalf("commission %d", ms.CommissionBP)
 	}
-	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"minigame": map[string]any{"commission_percent": 1.1}}}, c.agentTok), 200, 402309)
-	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"minigame": map[string]any{"commission_percent": 0.5, "pt_from_parent": 10}}}, c.agentTok), 200, 422)
+	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(m.ID, 0, 1.1), c.agentTok), 200, 402309)
+	b := memberPTBody(m.ID, 0, 0.5)
+	b["pt"].(map[string]any)["minigame"].(map[string]any)["pt_from_parent"] = 10
+	expect(t, call(t, app, "POST", updateMemberPTPath, b, c.agentTok), 200, 422)
 
 	// MGMT-60: ทุกการแก้มี log ค่าเก่า / ใหม่ · ไม่มีรหัสผ่าน
 	var logs []models.AccountChangeLog
@@ -217,6 +230,76 @@ func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, 
 	}
 	if logs[0].OldValue == nil || !strings.Contains(*logs[0].NewValue, "สมชาย01") || logs[0].ActorUsername != "share01" {
 		t.Fatalf("log %+v", logs[0])
+	}
+}
+
+func TestMemberPT(t *testing.T) { // MGMT-21 แก้ 2026-10-09 (agent ถือสู้ Member แต่ละคนแยกกัน)
+	app := setup2(t)
+	c := buildChain(t, app) // agent01 ได้รับ 60
+
+	// สร้าง: pt 0 ถึงค่าที่ผู้สร้างได้รับ ทีละ 0.5 · remain = ได้รับ − pt · ส่ง remain_quota / ไม่ส่ง pt = 422
+	withPT := func(username string, pt any, extra map[string]any) map[string]any {
+		b := memberBody(username, 0.3)
+		g := b["pt"].(map[string]any)["minigame"].(map[string]any)
+		if pt == nil {
+			delete(g, "pt")
+		} else {
+			g["pt"] = pt
+		}
+		for k, v := range extra {
+			g[k] = v
+		}
+		return b
+	}
+	expect(t, call(t, app, "POST", createMemberPath, withPT("memover", 60.5, nil), c.agentTok), 200, 402305)
+	expect(t, call(t, app, "POST", createMemberPath, withPT("memstep", 30.25, nil), c.agentTok), 200, 422)
+	expect(t, call(t, app, "POST", createMemberPath, withPT("memnopt", nil, nil), c.agentTok), 200, 422)
+	expect(t, call(t, app, "POST", createMemberPath, withPT("memremain", 30, map[string]any{"remain_quota": 10}), c.agentTok), 200, 422)
+	expect(t, call(t, app, "POST", createMemberPath, withPT("memforce", 30, map[string]any{"force": 0}), c.agentTok), 200, 422)
+
+	r := call(t, app, "POST", createMemberPath, withPT("mema", 50, nil), c.agentTok)
+	expect(t, r, 200, 200)
+	var ma created
+	_ = json.Unmarshal(r.Data, &ma)
+	r = call(t, app, "POST", createMemberPath, withPT("memb", 20, nil), c.agentTok)
+	expect(t, r, 200, 200)
+	var mb created
+	_ = json.Unmarshal(r.Data, &mb)
+	if s := memberSetting(t, mb.ID); s.PTBP != 2000 || s.RemainBP != 4000 {
+		t.Fatalf("memb %+v", s)
+	}
+	var rows []models.UserMemberGameSetting
+	database.DBConn.Where("user_member_id = ?", ma.ID).Find(&rows)
+	if len(rows) != 3 {
+		t.Fatalf("ต้องกระจายครบ 3 เกม ได้ %d", len(rows))
+	}
+	for _, s := range rows {
+		if s.PTBP != 5000 || s.RemainBP != 1000 || s.CommissionBP != 30 {
+			t.Fatalf("mema %s %+v", s.GameCode, s)
+		}
+	}
+
+	// update-pt: เฉพาะผู้สร้างโดยตรง · pt ไม่เกินที่ได้รับ (60) · remain คิดใหม่ · ต้องครบ pt + commission_percent
+	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(ma.ID, 60, 0.2), c.agentTok), 200, 200)
+	if s := memberSetting(t, ma.ID); s.PTBP != 6000 || s.RemainBP != 0 || s.CommissionBP != 20 || s.UpdatedBy != "agent01" {
+		t.Fatalf("update-pt %+v", s)
+	}
+	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(ma.ID, 60.5, 0.2), c.agentTok), 200, 402305)
+	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(ma.ID, 30, 0.2), c.shareTok), 200, 402304)
+	b := memberPTBody(ma.ID, 30, 0.2)
+	b["pt"].(map[string]any)["minigame"].(map[string]any)["remain_quota"] = 40
+	expect(t, call(t, app, "POST", updateMemberPTPath, b, c.agentTok), 200, 422)
+	expect(t, call(t, app, "POST", updateMemberPTPath, map[string]any{"id": ma.ID, "pt": map[string]any{"minigame": map[string]any{"pt": 30}}}, c.agentTok), 200, 422)
+
+	// detail แสดง pt · remain_quota · commission_percent
+	r = call(t, app, "POST", memberDetailPath, map[string]any{"id": ma.ID}, c.agentTok)
+	expect(t, r, 200, 200)
+	var d struct {
+		PT map[string]map[string]any `json:"pt"`
+	}
+	_ = json.Unmarshal(r.Data, &d)
+	if mg := d.PT["minigame"]; mg["pt"] != float64(60) || mg["remain_quota"] != float64(0) || mg["commission_percent"] != 0.2 {
+		t.Fatalf("detail pt %+v", d.PT)
 	}
 }
 
