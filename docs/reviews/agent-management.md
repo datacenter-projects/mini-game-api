@@ -89,3 +89,10 @@
 | B1 | migration เบอร์เดิม (E1-5) ที่ไม่ได้ขึ้นต้น 0 | ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` และยาว 11 หลัก → `66` + ส่วนที่เหลือ · **แบบอื่นทั้งหมด → ล้างเป็น `""`** (ไม่เดาประเทศ) · migration log จำนวน/รายการที่ถูกล้าง |
 | B2 | CSM แก้ Share Master ผ่าน `agents/detail/update` | ใช่ — `pt.minigame` ส่งได้แค่ `commission_percent` · ส่ง `status_game` = `422` · section `info` (ชื่อ/เบอร์) แก้ได้ปกติ · Superadmin แก้ PT/`status_game` ของ CSM → ระบบปรับ Share Master ทุกคนตาม (Q-R1) |
 | B3 | ลบเมนู `pt` กระทบเส้น member_management (`members/create`, `update-pt`) | ได้ — **เปลี่ยนแค่สิทธิ์ใน `routes.go` เป็น `member` edit** (ไม่งั้น build ไม่ผ่าน) · **ยังไม่เปลี่ยน path ของ member** (N1) — module ของ maofoy และยังไม่ได้ review · แจ้ง maofoy |
+
+## คำถามจาก boiledegg ระหว่างทำ (2026-10-10) — lead ตอบ
+| # | คำถาม | lead ตัดสิน |
+|---|---|---|
+| B4 | `agents/detail/update` ไม่ส่ง section เลย (`{ "id": 12 }`) | **`422` "ต้องส่งอย่างน้อย 1 section"** (= MN2 ของ member-management) |
+| B5 | action ของ log ตอนระบบปรับ Share Master ตาม CSM | **`SYNC_FROM_CSM`** (แยกจากการแก้ที่คนกด · ผู้ทำ = คนที่แก้ CSM) · เก็บ id ของ CSM + `request_id` เดียวกับการแก้ CSM ใน log |
+| B6 | เบอร์ agent ที่แปลงแล้วซ้ำกัน (เช่น `0812345678` กับ `66812345678`) | **บัญชี id น้อยสุดเก็บเบอร์ไว้** · บัญชีอื่นล้างเป็น `""` · บันทึกใน `migration_phone_cleared` พร้อมเหตุผล "ซ้ำกับบัญชี id X" |
