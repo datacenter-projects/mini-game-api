@@ -274,6 +274,16 @@ func TestAPICredentialSubPermission(t *testing.T) { // ACC-02 · lead A5 / A6 / 
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 403, 401311)
 }
 
+// Superadmin มีเมนู api_credential (ทุกบัญชีหลัก — boiledegg 2026-10-09) แต่ไม่มี Key → 403301 ทั้งตัวเองและ sub ที่ได้สิทธิ์
+func TestAPICredentialSuperadminSub(t *testing.T) {
+	app := setup2(t)
+	c := buildChain(t, app)
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, c.saTok), 200, 403301)
+	sub := createSubAPI(t, app, c.saTok, "sakey", map[string]string{"api_credential": "edit"})
+	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 403301)
+}
+
 func TestAPICredentialIPRanges(t *testing.T) { // ACC-07 · lead A7 / A8 (2026-10-09)
 	app := setup2(t)
 	o := buildOwners(t, app)

@@ -95,7 +95,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 		d.PT["minigame"].PTFromParent != "100" || d.PT["minigame"].PT != "" || d.Permissions["rate"] != "edit" {
 		t.Fatalf("superadmin %+v", d)
 	}
-	allLevel(t, d.Permissions, "edit", 8) // Superadmin ไม่มี api_credential (ไม่มี Key)
+	allLevel(t, d.Permissions, "edit", 9) // รวม api_credential (ทุกบัญชีหลัก — Superadmin ยังได้ 403301 เพราะไม่มี Key)
 
 	// Company Transfer: ประเภทย่อย · ค่าที่ Superadmin ให้ · ไม่มี pt ของบัญชี
 	setBalance(t, c.com.ID, "THB", 962056)

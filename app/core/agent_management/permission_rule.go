@@ -62,7 +62,7 @@ func MaxLevel(m Menu) Level {
 }
 
 var (
-	superadminMenus = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuRate}
+	superadminMenus = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuRate, MenuAPICredential}
 	agentMenus      = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuAnnouncement, MenuAPICredential}
 )
 

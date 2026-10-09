@@ -80,7 +80,7 @@
 | ID | Rule |
 |---|---|
 | ACC-01 | เจ้าของ Key = **ทุกบัญชี Company / Share / Agent ทุกประเภท** (แก้ 2026-10-08 — เดิมเฉพาะ Seamless 1 to 1 / Share Master / Share Reseller) · แต่ละบัญชีมี Key, ลิงก์ตอบกลับ และรายการ IP **ของตัวเอง** · Superadmin / ADMIN ไม่มี (`403301`) |
-| ACC-02 | **sub ต้องมีสิทธิ์เมนู `api_credential`** (lead A5 / A6 / A9 2026-10-09 — แทนกฎเดิม "ไม่มีสิทธิ์ต่อเมนู"): `view` = ดูหน้า 1.3 (เห็น Key เต็ม) · `edit` = บันทึก (ยังต้อง passcode) · ไม่มีสิทธิ์ = `402303` · **บัญชีหลักได้ `edit` อัตโนมัติและไม่ถูกเช็ค** (`RequireSubPermission`) — Superadmin / ADMIN ยังได้ `403301` ตาม ACC-01 และ sub ของ Superadmin ให้เมนูนี้ไม่ได้ (Superadmin ไม่มี Key) · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) · ถูกระงับ: ดูได้ บันทึกไม่ได้ |
+| ACC-02 | **sub ต้องมีสิทธิ์เมนู `api_credential`** (lead A5 / A6 / A9 2026-10-09 — แทนกฎเดิม "ไม่มีสิทธิ์ต่อเมนู"): `view` = ดูหน้า 1.3 (เห็น Key เต็ม) · `edit` = บันทึก (ยังต้อง passcode) · ไม่มีสิทธิ์ = `402303` · **บัญชีหลักได้ `edit` อัตโนมัติและไม่ถูกเช็ค** (`RequireSubPermission`) · ทุกบัญชีหลักมีเมนูนี้ รวม Superadmin (boiledegg 2026-10-09) แต่ Superadmin / ADMIN และ sub ของ Superadmin ยังได้ `403301` เพราะไม่มี Key (ACC-01) · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) · ถูกระงับ: ดูได้ บันทึกไม่ได้ |
 | ACC-03 | Key สร้างอัตโนมัติ 1 ค่าต่อเจ้าของ: สุ่ม 32 byte ด้วย `crypto/rand` แสดงเป็น hex ตัวพิมพ์เล็ก 64 ตัว · **สร้างใหม่ไม่ได้** · ใช้ทั้งระบุตัวและคำนวณ `sign` |
 | ACC-04 | Key ดูซ้ำได้ (ปุ่มคัดลอก) → **เก็บ Key ตรงๆ** ในคอลัมน์ `api_key` (unique — ใช้ค้นตอนลูกค้าเรียก API) ไม่เข้ารหัส (lead ตัดสิน 2026-10-08 — ใช้ IP whitelist ACC-07 ป้องกันการเรียก API แทน · ไม่มี `API_KEY_ENCRYPTION_KEY`) · response ใส่ `Cache-Control: no-store` · ห้าม log Key |
 | ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่มีอยู่ก่อนได้ Key จาก migration `20261008170000_account_api_keys_for_all` (แก้ 2026-10-08) · ถ้ายังไม่มี Key (กันไว้) สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
@@ -241,7 +241,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt_from_parent` = ค่าที่ Superadmin ให้ · ไม่มี field `pt` (ลบ 2026-10-09) |
 | ACC-15 | sub ของ Share B2C เรียก profile | `user_type`, `currencies`, `balances`, `pt` เท่าของผู้สร้าง · `permissions` = ที่ผู้สร้างให้ |
 | ACC-16 | ADMIN เรียก profile | `pt = {}` · ไม่มี field `status_game` |
-| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `permissions` 8 เมนู ไม่มี `api_credential` |
+| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `permissions` 9 เมนู รวม `api_credential` = `edit` |
 | ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game.scratch_card = false` · เกมอื่น `true` · `pt.minigame` ไม่เปลี่ยน |
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
@@ -257,7 +257,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-02 | sub ไม่มีสิทธิ์ `api_credential` | GET / POST `402303` |
 | ACC-02 | sub `api_credential` = `view` | GET ได้ Key เต็มของเจ้าของ · POST `402303` |
 | ACC-02 | sub `api_credential` = `edit` | POST สำเร็จ · log บันทึก actor เป็น sub |
-| ACC-02 | sub ของ Superadmin ได้สิทธิ์ `api_credential` | `422` (เมนูไม่มีในประเภทนี้) |
+| ACC-02 | Superadmin · sub ของ Superadmin ที่มี `api_credential` เรียก GET | `403301` (ไม่มี Key) |
 | ACC-02 | เจ้าของ SUSPENDED กดบันทึก | ถูกปฏิเสธที่ middleware (ACC-31 / AUTH-54) |
 | ACC-03 | เจ้าของ GET ครั้งแรก | Key hex ตัวพิมพ์เล็ก 64 ตัว |
 | ACC-04 | GET ซ้ำ | Key เดิม · header `Cache-Control: no-store` · `api_credentials.api_key` = Key ที่ได้ |
@@ -281,7 +281,7 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 - สถานะส่ง key เดียว `status` = สถานะที่ใช้งานจริง (ACC-30) · ไม่มี `effective_status`
 - **ไม่มี `null` ใน API** (ACC-32): ข้อความว่าง = `""` · ตัวเลขว่าง = `0` · request ส่ง `null` = `422`
 - Profile มี `user_type`, `currencies`, `balances`, `pt` (ชุดเดียวต่อระบบ `minigame` — รวม `pt_from_parent`, `status`, `created_at`, `created_by`, `updated_at`, `updated_by` · แก้ 2026-10-08), `status_game` (ทีละเกม), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
-- **(2026-10-09 lead review)** เมนูสิทธิ์ใหม่ `api_credential` ใน `permissions` (Company / Share / Agent) · sub ต้องมี `view` ถึงเปิดหน้า 1.3 · `edit` ถึงบันทึก (ไม่มี = `402303`) · `allowed_ips` มี error `422` ใหม่ 2 แบบ: ช่วงกว้างกว่า `/16` · IP ภายใน / พิเศษ · Dashboard ยังไม่มี (หัวข้อ 10)
+- **(2026-10-09 lead review)** เมนูสิทธิ์ใหม่ `api_credential` ใน `permissions` (ทุกบัญชีหลัก) · sub ต้องมี `view` ถึงเปิดหน้า 1.3 · `edit` ถึงบันทึก (ไม่มี = `402303`) · `allowed_ips` มี error `422` ใหม่ 2 แบบ: ช่วงกว้างกว่า `/16` · IP ภายใน / พิเศษ · Dashboard ยังไม่มี (หัวข้อ 10)
 - หน้า 1.3 แสดงทุกบัญชี Company / Share / Agent (ACC-01) และ sub ที่มีสิทธิ์ `api_credential` · `callback_url` ว่างส่ง `""`
 - `balances` ส่งยอดจริงจาก `agent_balances` · `permissions` เป็น object `{ menu: off | view | edit }`
 

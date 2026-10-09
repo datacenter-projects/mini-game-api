@@ -35,7 +35,7 @@ func TestMenusForRole(t *testing.T) { // MGMT-52
 		return false
 	}
 	sa := MenusForRole(models.AgentRoleSuperAdmin)
-	if len(sa) != 8 || !has(sa, MenuRate) || has(sa, MenuAnnouncement) || has(sa, MenuAPICredential) { // Superadmin ไม่มี Key (account ACC-01)
+	if len(sa) != 9 || !has(sa, MenuRate) || has(sa, MenuAnnouncement) || !has(sa, MenuAPICredential) { // api_credential ทุกบัญชีหลัก (boiledegg 2026-10-09)
 		t.Errorf("Superadmin menus = %v", sa)
 	}
 	for _, r := range []models.AgentRole{models.AgentRoleCompany, models.AgentRoleShareholder, models.AgentRoleAgent} {
@@ -75,7 +75,7 @@ func TestNormalizeSubPermissions(t *testing.T) { // MGMT-50, MGMT-52
 		{"Company ให้ rate", models.AgentRoleCompany, map[string]string{"rate": "view"}, false, "rate", "menu"},
 		{"เมนูไม่รู้จัก", models.AgentRoleAgent, map[string]string{"foo": "view"}, false, "foo", "menu"},
 		{"Company ให้ api_credential edit", models.AgentRoleCompany, map[string]string{"api_credential": "edit"}, true, "", ""},
-		{"sub ของ Superadmin ได้ api_credential", models.AgentRoleSuperAdmin, map[string]string{"api_credential": "view"}, false, "api_credential", "menu"},
+		{"sub ของ Superadmin ได้ api_credential", models.AgentRoleSuperAdmin, map[string]string{"api_credential": "view"}, true, "", ""},
 	}
 	for _, tt := range tests {
 		out, v, ok := NormalizeSubPermissions(tt.role, tt.in)

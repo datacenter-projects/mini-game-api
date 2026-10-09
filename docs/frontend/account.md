@@ -163,7 +163,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | `asset` | การจัดการ Asset | off / view / edit |
 | `announcement` | ประกาศ / เนื้อหา (Company / Share / Agent) | off / view / edit |
 | `rate` | อัตราแพ้ชนะ (Superadmin เท่านั้น) | off / view / edit |
-| `api_credential` | 1.3 ข้อมูลรับรอง API (Company / Share / Agent · **ใหม่ 9 ต.ค.**) · view = ดู Key · edit = บันทึก | off / view / edit |
+| `api_credential` | 1.3 ข้อมูลรับรอง API (ทุกบัญชีหลัก · **ใหม่ 9 ต.ค.** · Superadmin มีเมนูแต่ไม่มี Key → `403301`) · view = ดู Key · edit = บันทึก | off / view / edit |
 
 ระดับในตาราง = ระดับสูงสุดที่เจ้าของให้ sub ได้ · บัญชีหลักได้ `edit` ทุกเมนู · ใช้ซ่อน / แสดงเมนูในหน้าบ้านได้ · หลังบ้านเช็คซ้ำทุกเส้น (ไม่มีสิทธิ์ = `402303`)
 
