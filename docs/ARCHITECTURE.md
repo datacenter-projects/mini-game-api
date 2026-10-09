@@ -89,7 +89,7 @@ package note
 
 type CreateNoteRequest struct {
 	Title  string `json:"title"`
-	Amount int64  `json:"amount"` // เงิน = int64 หน่วยย่อยที่สุด
+	Amount float64 `json:"amount"` // เงิน = float64 ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9)
 }
 
 // Validate ตรวจรูปแบบของ request — utils.ParseBody เรียกให้อัตโนมัติ
@@ -109,9 +109,9 @@ func (r *CreateNoteRequest) Validate() error {
 }
 
 type NoteResponse struct {
-	ID     uint   `json:"id"`
-	Title  string `json:"title"`
-	Amount int64  `json:"amount"`
+	ID     uint    `json:"id"`
+	Title  string  `json:"title"`
+	Amount float64 `json:"amount"`
 }
 ```
 

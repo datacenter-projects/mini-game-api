@@ -5,6 +5,7 @@
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
 - แก้ 2026-10-09 (boiledegg ตัดสิน): ลำดับเช็คบนลงล่างตาม field ใน body และข้อความ error บอก field + ค่าที่ตั้งได้ (หัวข้อ 7.1)
+- แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 รอ lead review): **เงินและ % เก็บเป็นทศนิยม float ปัด 4 ตำแหน่ง** แทนจำนวนเต็ม (bp / หน่วยย่อย) · request รับไม่เกิน 4 ตำแหน่ง · API ส่งค่าตามที่เก็บ หน้าบ้านปัด 3 ตำแหน่งเอง · column ตัด `_bp` (MGMT-17, MGMT-15A, หัวข้อ 6)
 - แก้ 2026-10-09 (boiledegg · lead (zerph) อนุมัติ 2026-10-09): เก็บสายชั้นบน `user_agents.cnf` (MGMT-61) และ `agent_game_settings.parent_id` (MGMT-62)
 - แก้หลังอนุมัติ (2026-10-08 · maofoy · boiledegg ยืนยัน 2026-10-09): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261009000000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`) · เส้น `/manage/members/*` แยกไปที่ `member_management` (`controllers/` `dto/` `service/member_management` — lead อนุมัติ 2026-10-08 · spec [member_management.md](member_management.md) แยกเอกสาร 2026-10-09) · กฎ business ยังอยู่ที่ `core/agent_management` และ spec ฉบับนี้
@@ -38,7 +39,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | `user_type` | ประเภทบัญชี (MGMT-01) — ตรงกับ account ACC-12 |
 | กลุ่ม PT | ระบบที่มีเรื่อง PT ใช้เป็น key ของ `pt` (`minigame` = ทุกเกม minigame · ระบบอื่น เช่น `askmelotto` เพิ่มได้โดยไม่เปลี่ยนโครงสร้าง) · รับค่าชุดเดียวต่อระบบ · เก็บและแสดงต่อเกม |
 | ได้รับ / ถือ / ให้ลูก | ได้รับ (`pt_from_parent`) = PT ที่ผู้สร้างให้ · ให้ลูก = PT ที่แบ่งให้ลูกแต่ละคน (ไม่เกินที่ได้รับ) · ถือ (`pt`) = ส่วนที่ถือจาก Member ใต้ตัวเองตรงๆ (ตั้งเอง) · ผู้สร้างถือในสายของลูก = ได้รับ − ให้ลูกคนนั้น |
-| bp | % × 100 เป็นจำนวนเต็ม เช่น 95.50% = `9550` — ใช้ภายใน DB / Go เท่านั้น · API ส่ง % เป็น JSON number (ACC-18) |
+| ทศนิยม 4 ตำแหน่ง | เงินและ % เก็บเป็น `float64` / `DOUBLE PRECISION` ปัด 4 ตำแหน่ง เช่น 95.5% = `95.5` · 10,000.50 บาท = `10000.5` (กฎข้อ 9 — แก้ 2026-10-09 · เดิมเก็บ bp / หน่วยย่อย ×100) |
 | `status` | สถานะที่ใช้งานจริง key เดียว (account ACC-30) = เข้มที่สุดของสถานะที่ตั้งกับบัญชีเอง, ผู้สร้าง (sub) และหัวสายทุกชั้น (AUTH-53) · DB เก็บสถานะที่ตั้งกับบัญชีเองแยกไว้ |
 
 ## 3. Business rules
@@ -76,7 +77,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 ### สกุลเงิน
 
 ระบบมี 27 สกุล: ARS AUD BDT BOB BRL CLP CNY EUR GBP HKD IDR INR JPY KHR KRW LAK MMK MXN MYR NGN PHP PKR THB TWD USD USDT VND ·
-ทุกสกุลทศนิยม 2 ตำแหน่ง (ACC-18)
+ทุกสกุลทศนิยมไม่เกิน 4 ตำแหน่ง (ACC-18 · แก้ 2026-10-09)
 
 | ID | Rule |
 |---|---|
@@ -86,7 +87,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-13 | Agent ที่ Share B2B สร้าง: 1 สกุล · Agent ที่ Share B2C / Reseller / Master หรือ Agent สร้าง และ Member: ใช้สกุลของผู้สร้าง (ไม่ต้องส่ง) |
 | MGMT-14 | สกุลที่เลือกต้องอยู่ในสกุลของผู้สร้าง · เปลี่ยนหลังสร้างไม่ได้ |
 | MGMT-15 | บัญชีฝั่ง Seamless ทุกชั้น (Company Seamless ทุกประเภท และสายล่าง) ไม่มียอดเงิน · ส่ง `balance` ตอนสร้าง = `422` |
-| MGMT-15A | **ยอดเงินตั้งต้นตอนสร้าง** (`balance` ในเส้นสร้าง · ไม่บังคับ · บัญชีฝั่ง Transfer เท่านั้น): ต่อสกุล · ต้องเป็นสกุลของบัญชีใหม่ · มากกว่า 0 · ทศนิยมไม่เกิน 2 ตำแหน่ง · **โอนจากยอดของผู้สร้าง** ในสกุลเดียวกัน (ผู้สร้างลด · บัญชีใหม่เพิ่ม) · ยอดผู้สร้างไม่พอ = ปฏิเสธทั้งคำสั่ง (`402312`) |
+| MGMT-15A | **ยอดเงินตั้งต้นตอนสร้าง** (`balance` ในเส้นสร้าง · ไม่บังคับ · บัญชีฝั่ง Transfer เท่านั้น): ต่อสกุล · ต้องเป็นสกุลของบัญชีใหม่ · มากกว่า 0 · ทศนิยมไม่เกิน 4 ตำแหน่ง (แก้ 2026-10-09) · **โอนจากยอดของผู้สร้าง** ในสกุลเดียวกัน (ผู้สร้างลด · บัญชีใหม่เพิ่ม) · ยอดผู้สร้างไม่พอ = ปฏิเสธทั้งคำสั่ง (`402312`) |
 | | • ทำตามกฎเงิน: สร้างบัญชี + โอนใน **transaction เดียวกัน** · lock แถวยอดของผู้สร้างก่อนอ่าน (`FOR UPDATE` เรียงตาม id) · ledger ทั้งสองฝั่งใน tx เดียวกัน (กฎข้อ 10–11) |
 | | • กันยิงซ้ำ: ส่ง `request_id` จากหน้าบ้าน (unique ใน DB) · ส่งซ้ำด้วย `request_id` เดิม = ได้ผลเดิม ไม่สร้างซ้ำ ไม่โอนซ้ำ (กฎข้อ 12) |
 | | • **ไม่ต้องยืนยัน passcode** แม้ส่ง `balance` (ตัดสิน 2026-10-07) |
@@ -106,7 +107,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | | • `status` = **รับ PT ในระบบนั้นไหม** (ไม่ใช่สถานะเกม — เกมใช้ `status_game`) · ความหมายตาม MGMT-20 |
 | | • `created_at` / `created_by` = เวลา / username ของผู้สร้างค่า PT (ตอนสร้างบัญชี · ไม่เปลี่ยนอีก) · `updated_at` / `updated_by` = เวลา / username ของคนที่แก้ล่าสุด (รวม sub) · ตอนสร้าง = ผู้สร้าง |
 | | • เกมใหม่ที่เพิ่มเข้าหมวดภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
-| MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 2 ตำแหน่ง (เช่น `30`, `0.5`) · ภายใน DB / Go เป็นจำนวนเต็ม bp (ACC-18) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
+| MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 4 ตำแหน่ง (เช่น `30`, `0.5`) · ภายใน DB / Go เป็น `float64` ปัด 4 ตำแหน่ง (แก้ 2026-10-09 — กฎข้อ 9) · step เดิมไม่เปลี่ยน (MGMT-18) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ค่าที่ให้ลูก (`pt_from_parent`) และค่าถือ (`pt`): 0 ถึง**ค่าที่ตัวเองได้รับ** ทีละ 0.5% · Force / Remain: 0 ถึงค่าที่ให้ลูกคนนั้น ทีละ 0.5% · Commission: 0–1% ทีละ 0.1% · Commission ของลูกตั้ง**เกินของผู้สร้างได้** (เช่น ผู้สร้างได้ 0.5% ตั้งให้ลูก 0.6% ได้) แต่ไม่เกิน 1% |
 | MGMT-19 | Company Seamless Master: `pt` ล็อกที่ 0 · ค่าที่ให้ Share Master ต้อง**เท่ากับค่าที่ตัวเองได้รับ** · Force และ Remain ที่ให้ Share Master = 0 · แก้ได้แค่ Commission (เอกสาร PT) |
 | MGMT-20 | **`status` ใน `pt` กับ `status_game` แยกหน้าที่กัน** (boiledegg ตัดสิน 2026-10-08): |
@@ -832,6 +833,11 @@ CREATE TABLE account_change_logs (               -- MGMT-60
 );
 CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, target_id, created_at);
 
+-- migration ใหม่ (2026-10-09) — เงินและ % เป็นทศนิยม (กฎข้อ 9 แก้ 2026-10-09) · แปลงค่าเดิม ÷100 ไปด้วย · CHECK ช่วงเดิมเป็นหน่วย %
+--   agent_game_settings: pt_from_parent_bp → pt_from_parent · pt_bp → pt · force_bp → force · remain_bp → remain · commission_bp → commission
+--                        ทุกตัว DOUBLE PRECISION · CHECK 0–100 (commission 0–1) · pt <= pt_from_parent
+--   user_member_game_settings: pt_bp → pt · remain_bp → remain · commission_bp → commission (DOUBLE PRECISION)
+--   agent_balances.amount · balance_ledger.amount / balance_after → DOUBLE PRECISION
 -- migration ใหม่ (2026-10-09) — MGMT-61, MGMT-62
 ALTER TABLE user_agents ADD COLUMN cnf JSONB NOT NULL DEFAULT '{"parent": []}';
 CREATE INDEX idx_user_agents_cnf ON user_agents USING GIN (cnf jsonb_path_ops);          -- cnf @> '{"parent":[{"id":X}]}'
@@ -840,7 +846,7 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 -- backfill: cnf ด้วย recursive CTE ตาม parent_id · agent_game_settings.parent_id = user_agents.parent_id ของเจ้าของแถว
 ```
 
-- Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent_bp = 10000` · ไม่มี Member ตรง) · ADMIN ไม่มี · `pt_bp` = ค่าถือจาก Member ใต้ตัวเอง (MGMT-22) · ผู้สร้างถือในสายของลูก = `pt_from_parent_bp` ของผู้สร้าง − ของลูก (คำนวณตอนคิดเงิน ไม่เก็บ)
+- Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent = 100` · ไม่มี Member ตรง) · ADMIN ไม่มี · `pt` = ค่าถือจาก Member ใต้ตัวเอง (MGMT-22) · ผู้สร้างถือในสายของลูก = `pt_from_parent` ของผู้สร้าง − ของลูก (คำนวณตอนคิดเงิน ไม่เก็บ)
 - สายล่างใช้ recursive CTE ตาม `parent_id` (แบบ `ListAncestorStatusesRepository`) · `idx_user_agents_parent_id` มีแล้ว · เส้นที่มีอยู่ยังใช้ CTE เดิม · query ใหม่ใช้ `cnf` ได้ (MGMT-61)
 - รายการสกุล 27 สกุล · กลุ่ม PT · รหัสเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · เมนูสิทธิ์ เป็นค่าคงที่ใน `app/core`
 
@@ -862,7 +868,8 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 | MGMT-14 | Agent ใต้ Share B2B (THB, USD) เลือก JPY | `402310` |
 | MGMT-17 | ส่ง `"force": null` | `422` |
 | ACC-32 | ส่ง `"phone": null` · รายละเอียดของบัญชีที่ไม่มีเบอร์ / ไม่เคย login | `422` · response `"phone": ""` · `"last_login_at": ""` |
-| MGMT-18 | ถือ `30.25` (ไม่ลง 0.5%) · commission `1.01` · ถือ `30.123` (ทศนิยมเกิน 2) | `422` |
+| MGMT-18 | ถือ `30.25` (ไม่ลง 0.5%) · commission `1.01` · ถือ `30.12345` (ทศนิยมเกิน 4) · `balance` `10.12345` | `422` |
+| กฎข้อ 9 | `balance.THB = 10000.1234` | สำเร็จ · `agent_balances.amount = 10000.1234` · detail ส่ง `10000.1234` |
 | MGMT-18 | ได้รับ 80 · ให้ลูก `80.5` · ตั้ง `pt` ของตัวเอง `80.5` | `402305` |
 | MGMT-18 | ผู้สร้างมี commission 0.5% ตั้งให้ลูก 0.6% | สำเร็จ |
 | MGMT-19 | Company Seamless Master ตั้ง `pt` ของตัวเอง = 1 · ให้ Share Master น้อยกว่าที่ตัวเองได้รับ | `402307` |
@@ -880,7 +887,7 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 | MGMT-27B | ADMIN ค้น `"  COMP01 "` · `"comp"` · `"comp01@staff"` · `"mem01"` · `"superadmin"` | comp01 1 แถว · `[]` · sub (`role` ของเจ้าของ `parent_username = comp01`) · Member · SUPERADMIN `parent_username = ""` |
 | MGMT-27B | หัวสายถูกระงับ · SUPERADMIN / Company เรียก · `username` ว่าง / `null` | ลูก `status = SUSPENDED` · `401308` · `422` |
 | MGMT-29 | ดูรายละเอียด | ไม่มี field รหัสผ่าน / passcode / hash |
-| MGMT-16 | comp01 สร้างด้วย `pt.minigame.pt_from_parent = 70` | `agent_game_settings` มี 3 แถว ค่า `pt_from_parent_bp = 7000` · `pt_bp = 7000` (เริ่มถือทั้งหมด — MGMT-22) · รายละเอียดแสดง `pt.minigame.pt_from_parent = 70` · `pt = 70` · `created_by` = `updated_by` = `"comp01"` · `status_game` ครบ 3 เกม |
+| MGMT-16 | comp01 สร้างด้วย `pt.minigame.pt_from_parent = 70` | `agent_game_settings` มี 3 แถว ค่า `pt_from_parent = 70` · `pt = 70` (เริ่มถือทั้งหมด — MGMT-22) · รายละเอียดแสดง `pt.minigame.pt_from_parent = 70` · `pt = 70` · `created_by` = `updated_by` = `"comp01"` · `status_game` ครบ 3 เกม |
 | MGMT-16 | sub `comp01@staff` แก้ PT ให้ลูก | `pt.minigame.updated_by = "comp01@staff"` · `updated_at` เปลี่ยน · `created_by` ยังเป็น `"comp01"` |
 | MGMT-30 | Share แก้สถานะ Agent ของ Agent ลูก (ไม่ใช่ผู้สร้างโดยตรง) | `402304` |
 | MGMT-30 | LOCKED → ACTIVE โดยผู้สร้าง | สำเร็จ |

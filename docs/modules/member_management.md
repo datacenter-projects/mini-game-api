@@ -5,6 +5,7 @@
   เส้น `update-commission` → `update-pt` · migration `20261009120050_member_management_member_pt` · **ต้องทำต่อที่ `agent_management` (ยังไม่ทำ)** ดูหัวข้อ 7
 - แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ** · `credit` เป็น float ทีมตกลงแล้ว — CLAUDE.md กฎข้อ 9 ยังต้องแก้): `user_members.cnf` สายชั้นบน (รูปแบบเดียวกับ MGMT-61) ·
   ยอดของ Member ย้ายไป `user_members.credit` (float หน่วยสกุล) · เลิกใช้และ DROP `user_member_balances` · migration `20261009120100_member_management_member_cnf_credit`
+- แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 รอ lead review): % และ ledger เป็นทศนิยม float ปัด 4 ตำแหน่ง แบบเดียวกับ `credit` · column ตัด `_bp` (`pt` · `remain` · `commission`) · boiledegg แก้โค้ดฝั่ง Member ให้ (ต้องแจ้ง maofoy)
 - ผู้ดูแล: maofoy
 - ชื่อ module ในโค้ด: `member_management` (`controllers/member_management`, `dto/member_management`, `service/member_management`) · กฎ business ร่วมอยู่ที่ `core/agent_management`
 - rule ID ใช้ `MGMT-xx` ชุดเดียวกับ [agent_management.md](agent_management.md) (ไม่ตั้งเลขใหม่ — โค้ดและ test อ้างเลขเดิม) · error ใช้ `402xxx` ของ module `agent_management`
@@ -33,7 +34,7 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | MGMT-08 | เบอร์โทรไม่บังคับ (`""` = ไม่ตั้ง) ตัวเลข 8–15 ตัว · ห้ามซ้ำภายใน `user_members` (`402403`) |
 | MGMT-09A | แก้ได้: ชื่อ · เบอร์ · สถานะ · PT / Commission (คนละเส้น) · แก้ไม่ได้: username · สกุลเงิน · ผู้สร้าง |
 | MGMT-13 | สกุลเงิน = สกุลของผู้สร้าง (1 สกุล) ไม่ต้องส่ง |
-| MGMT-15A | ยอดเงินตั้งต้น (`balance` ไม่บังคับ · ฝั่ง Transfer เท่านั้น — สายที่เป็น Seamless ส่งแล้วได้ `422`) โอนจากผู้สร้าง · ต้องมี `request_id` (UUID) กันส่งซ้ำ · ผู้สร้างยอดไม่พอ `402312` · **แก้ 2026-10-09 (รอ lead อนุมัติ):** ยอดของ Member เก็บที่ `user_members.credit` (float หน่วยสกุล · Member มี 1 สกุล) · `balance_ledger` ยังเป็นหน่วยย่อย 1/100 (int64) แปลงตอนเขียน / อ่าน |
+| MGMT-15A | ยอดเงินตั้งต้น (`balance` ไม่บังคับ · ฝั่ง Transfer เท่านั้น — สายที่เป็น Seamless ส่งแล้วได้ `422`) โอนจากผู้สร้าง · ต้องมี `request_id` (UUID) กันส่งซ้ำ · ผู้สร้างยอดไม่พอ `402312` · **แก้ 2026-10-09 (รอ lead อนุมัติ):** ยอดของ Member เก็บที่ `user_members.credit` (float หน่วยสกุล · Member มี 1 สกุล) · `balance_ledger` เป็นทศนิยมเหมือนกัน (แก้ 2026-10-09 — กฎข้อ 9 · boiledegg) ไม่ต้องแปลง |
 | MGMT-61 | **แก้ 2026-10-09 (รอ lead อนุมัติ):** `user_members.cnf` = สายชั้นบนของ Member `{"parent": [{"id", "position"}, …]}` เรียงจาก Superadmin ลงมาถึง**ผู้สร้าง** (= `cnf` ของผู้สร้าง + ผู้สร้าง) · ตั้งตอนสร้าง |
 | MGMT-21 | **แก้ 2026-10-09 (รอ lead อนุมัติ)** ผู้สร้างตั้งให้ Member ต่อระบบ 2 ค่า: `pt` = ผู้สร้าง**ถือสู้กับ Member คนนี้** (0 ถึงค่าที่ผู้สร้างได้รับ ทีละ 0.5% · เกิน `402305`) · `commission_percent` 0–1% ทีละ 0.1% (`402309`) · Member แต่ละคน `pt` ต่างกันได้ · ไม่มี `force` · ส่ง `pt_from_parent` / `force` / `remain_quota` / `status` = `422` |
 | | • `remain_quota` = ค่าที่ผู้สร้างได้รับ − `pt` · **ระบบคิดและเก็บ** (ใช้คิด Remain ตอน settle) · คิดใหม่ทุกครั้งที่สร้าง / `update-pt` · หลังบ้านเก็บต่อเกม |
@@ -166,7 +167,7 @@ Error codes: `422`, `402303`, `402304`, `402305`, `402309`, `402402`
 
 ตารางของ Member (เปลี่ยนชื่อจาก `members` / `member_game_settings` / `member_balances` ด้วย migration `20261009000000_member_tables_rename` — 2026-10-08) ·
 ยอดของ Member อยู่ที่ `user_members.credit` (เลิกใช้ `user_member_balances` — DROP ใน migration `20261009120100` · 2026-10-09) ·
-ทุกการเปลี่ยนยอดยังเขียน `balance_ledger` (`owner_type = MEMBER` · หน่วยย่อย 1/100) ซึ่งอยู่ใน agent_management.md หัวข้อ 6
+ทุกการเปลี่ยนยอดยังเขียน `balance_ledger` (`owner_type = MEMBER` · ทศนิยม ปัด 4 ตำแหน่ง — แก้ 2026-10-09) ซึ่งอยู่ใน agent_management.md หัวข้อ 6
 
 ```sql
 CREATE TABLE user_members (                     -- เปลี่ยนชื่อจาก members 2026-10-08
@@ -196,9 +197,9 @@ CREATE TABLE user_member_game_settings (        -- PT ที่ผู้สร�
     user_member_id BIGINT      NOT NULL REFERENCES user_members(id),
     category      VARCHAR(30) NOT NULL,
     game_code     VARCHAR(50) NOT NULL,
-    pt_bp         INT         NOT NULL DEFAULT 0 CHECK (pt_bp BETWEEN 0 AND 10000),      -- ผู้สร้างถือสู้กับ Member คนนี้ (migration 20261009120050)
-    remain_bp     INT         NOT NULL DEFAULT 0 CHECK (remain_bp BETWEEN 0 AND 10000),  -- ค่าที่ผู้สร้างได้รับ − pt_bp (ระบบคิดตอน create / update-pt · sync เมื่อค่าที่ได้รับเปลี่ยน = R2 หัวข้อ 7 ยังไม่ทำ)
-    commission_bp INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
+    pt            DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (pt BETWEEN 0 AND 100),      -- ผู้สร้างถือสู้กับ Member คนนี้ (migration 20261009120050 · ทศนิยมแก้ 2026-10-09)
+    remain        DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (remain BETWEEN 0 AND 100),  -- ค่าที่ผู้สร้างได้รับ − pt (ระบบคิดตอน create / update-pt · sync เมื่อค่าที่ได้รับเปลี่ยน = R2 หัวข้อ 7 ยังไม่ทำ)
+    commission    DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (commission BETWEEN 0 AND 1),
     created_by    VARCHAR(71) NOT NULL DEFAULT '',   -- username ผู้สร้าง (migration 20261008120000)
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by    VARCHAR(71) NOT NULL DEFAULT '',   -- username คนที่แก้ PT / Commission ล่าสุด
@@ -220,7 +221,7 @@ test ของเส้น Member อยู่ในชุด test ของ age
 | MGMT-05 | สร้าง Member ชื่อเดียวกับ Agent ที่มีอยู่ | `402401` |
 | MGMT-13 | สร้าง Member | `currencies` = สกุลของผู้สร้าง |
 | MGMT-15A | สร้าง Member พร้อม `balance` · ส่งซ้ำด้วย `request_id` เดิม | ผู้สร้างยอดลด · Member ได้ยอด · ledger 2 แถว · ส่งซ้ำได้ `id` เดิม ไม่โอนซ้ำ |
-| MGMT-15A | สร้าง Member พร้อม `balance` 25.5 (2026-10-09) | `user_members.credit` = 25.5 · ledger เป็นหน่วยย่อย (2550) |
+| MGMT-15A | สร้าง Member พร้อม `balance` 25.5 (2026-10-09) | `user_members.credit` = 25.5 · ledger `amount` = 25.5 (ทศนิยม — แก้ 2026-10-09) |
 | MGMT-61 | Agent (ใต้ Share ใต้ Company) สร้าง Member | `cnf.parent` = superadmin → company → share → agent ผู้สร้าง |
 | MGMT-21 | Commission 0.3 · 1.1 · ส่ง `pt_from_parent` มาด้วย | สำเร็จ · `402309` · `422` |
 | MGMT-21 | ผู้สร้างได้รับ 60: `pt` 50 · 60.5 · 30.25 · ไม่ส่ง `pt` · ส่ง `remain_quota` | สำเร็จ (`remain_quota` 10) · `402305` · `422` · `422` · `422` |
