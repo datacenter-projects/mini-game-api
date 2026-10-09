@@ -84,8 +84,8 @@ login → must_change_password? → password/change
 | 3.3 | POST | `/api/v1/bo/pr/auth/passcode/setup` | ตั้ง passcode ครั้งแรก |
 | 3.4 | POST | `/api/v1/bo/pr/auth/passcode/change` | เปลี่ยน passcode |
 | 3.5 | POST | `/api/v1/bo/pr/auth/password/change` | เปลี่ยนรหัสผ่าน |
-| 3.6 | POST | `/api/v1/bo/pr/admin/passcode/reset` | ADMIN รีเซ็ต passcode ให้บัญชีอื่น |
-| 3.7 | POST | `/api/v1/bo/pr/admin/password/reset` | ADMIN รีเซ็ตรหัสผ่านให้บัญชีอื่น |
+
+เส้นของ ADMIN (รีเซ็ต passcode / รหัสผ่านให้บัญชีอื่น · ค้นหาบัญชี) ย้ายไป [admin_management.md](admin_management.md) (2026-10-09 · path ไม่เปลี่ยน)
 
 **error ที่เกิดได้กับทุกเส้นใต้ `/pr`** (ไม่เขียนซ้ำในแต่ละเส้น): `401202`, `401203`, `401301`, `401302` → พาไปหน้า login ·
 `401311` บัญชีถูกระงับ (ทุกเส้นยกเว้น logout, Profile และดูข้อมูลรับรอง API — หัวข้อ 2.1)
@@ -229,47 +229,6 @@ Request (ถูกบังคับเปลี่ยน `must_change_password 
 Response: `{ "code": 200, "msg": "สำเร็จ" }` · token เดิมใช้ต่อได้
 
 Error: `422`, `401204`, `401205`, `401206`, `401303`, `401402`, `401310`, `401304`, `401307`, `401311`
-
-### 3.6 POST /api/v1/bo/pr/admin/passcode/reset (เฉพาะ ADMIN)
-
-```
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/admin/passcode/reset" \
-  -H "Authorization: Bearer {{TOKEN}}" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"agent01@staff","passcode":"123456"}'
-```
-
-Request (`passcode` = passcode ของ **ADMIN เอง**):
-```json
-{ "username": "agent01@staff", "passcode": "123456" }
-```
-Response `data` (**แสดงครั้งเดียว** — ปิดหน้าแล้วดูซ้ำไม่ได้):
-```json
-{ "username": "agent01@staff", "temp_passcode": "482913", "temp_expires_at": "2026-10-07T10:00:00+07:00" }
-```
-Error: `422`, `401308`, `401404`, `401405`, `401406`, `401407`, `401204`, `401205`, `401304`, `401306`, `401307`, `401311`
-
-### 3.7 POST /api/v1/bo/pr/admin/password/reset (เฉพาะ ADMIN)
-
-```
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/admin/password/reset" \
-  -H "Authorization: Bearer {{TOKEN}}" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"agent01","passcode":"123456"}'
-```
-
-Request (`passcode` = passcode ของ **ADMIN เอง**):
-```json
-{ "username": "agent01", "passcode": "123456" }
-```
-Response `data` (**แสดงครั้งเดียว**):
-```json
-{ "username": "agent01", "temp_password": "Xk7mPq4RtW9z", "temp_expires_at": "2026-10-07T10:00:00+07:00" }
-```
-Error: `422`, `401308`, `401404`, `401406`, `401407`, `401204`, `401205`, `401304`, `401306`, `401307`, `401311`
-
-- รีเซ็ตได้เฉพาะ Company / Share / Agent และ sub · Superadmin, ADMIN และตัวเองรีเซ็ตไม่ได้ (`401406`)
-- ค่าชั่วคราวหมดอายุใน 24 ชม. · ผู้ถูกรีเซ็ต login แล้วจะได้ `must_change_password` / `must_change_passcode = true`
 
 ## 4. Error codes
 

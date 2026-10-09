@@ -8,11 +8,35 @@ import (
 	"app/pkg/utils"
 )
 
-// MemberPTRequest — Member มีแค่ commission_percent ต่อกลุ่ม (MGMT-21)
+// MemberPTRequest — ผู้สร้างตั้งให้ Member ต่อกลุ่ม: pt (ถือสู้กับ Member คนนี้) · commission_percent (MGMT-21 แก้ 2026-10-09)
+// remain_quota ระบบคิดเอง · field อื่นของฝั่ง agent = 422 · ใช้ทั้งเส้นสร้างและ update-pt
 type MemberPTRequest struct {
+	OwnPT             utils.Decimal `json:"pt"`
 	CommissionPercent utils.Decimal `json:"commission_percent"`
+	PTFromParent      utils.Decimal `json:"pt_from_parent"`
+	Force             utils.Decimal `json:"force"`
+	RemainQuota       utils.Decimal `json:"remain_quota"`
+	Status            *bool         `json:"status"`
 
-	CommissionBP int `json:"-"` // bp หลัง Validate
+	PTBP         int `json:"-"` // bp หลัง Validate
+	CommissionBP int `json:"-"`
+}
+
+// parseMemberPT — ตรวจ 1 กลุ่ม: field ที่ Member ไม่มี → pt → commission_percent
+func parseMemberPT(group string, v *MemberPTRequest) error {
+	p := "pt." + group
+	if v.PTFromParent.Present || v.Force.Present || v.RemainQuota.Present || v.Status != nil {
+		return agentManagementDto.Invalid(p, "Member มีแค่ pt และ commission_percent (remain_quota ระบบคิดให้)",
+			"a Member only has pt and commission_percent (remain_quota is computed)")
+	}
+	var err error
+	if v.PTBP, err = agentManagementDto.PercentBP(p+".pt", v.OwnPT); err != nil {
+		return err
+	}
+	if v.CommissionBP, err = agentManagementDto.PercentBP(p+".commission_percent", v.CommissionPercent); err != nil {
+		return err
+	}
+	return nil
 }
 
 // CreateMemberRequest — POST /api/v1/bo/pr/manage/members/create
@@ -45,7 +69,7 @@ func (r *CreateMemberRequest) Validate() error {
 		return err
 	}
 	for g, v := range r.PT {
-		if v.CommissionBP, err = agentManagementDto.PercentBP("pt."+g+".commission_percent", v.CommissionPercent); err != nil {
+		if err := parseMemberPT(g, &v); err != nil {
 			return err
 		}
 		r.PT[g] = v

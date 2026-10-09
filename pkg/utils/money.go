@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math"
 	"strconv"
 )
 
@@ -23,3 +24,9 @@ func (m Money) MarshalJSON() ([]byte, error) {
 	}
 	return []byte(s + strconv.FormatInt(frac, 10)), nil
 }
+
+// MinorToCredit / CreditToMinor — แปลงหน่วยย่อย 1/100 (int64 · ledger / ยอดฝั่ง agent) ↔ user_members.credit (float64 หน่วยสกุล)
+// credit เป็น float ตามที่ทีมตกลง 2026-10-09 · แปลงกลับปัดเป็นหน่วยย่อยที่ใกล้ที่สุด
+func MinorToCredit(minor int64) float64 { return float64(minor) / 100 }
+
+func CreditToMinor(credit float64) int64 { return int64(math.Round(credit * 100)) }

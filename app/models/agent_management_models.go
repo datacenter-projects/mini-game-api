@@ -15,6 +15,7 @@ func (AgentCurrency) TableName() string { return "agent_currencies" }
 // AgentGameSetting — ค่าหุ้นส่วนและเปิด / ปิดเกม ต่อเกม (MGMT-16, MGMT-20) · ค่า % เป็น bp
 type AgentGameSetting struct {
 	AgentID        uint      `gorm:"column:agent_id;primaryKey"`
+	ParentID       *uint     `gorm:"column:parent_id"` // ผู้สร้างของเจ้าของแถว · Superadmin = nil (MGMT-62)
 	GameCode       string    `gorm:"column:game_code;primaryKey"`
 	Category       string    `gorm:"column:category"`
 	PTFromParentBP int       `gorm:"column:pt_from_parent_bp"` // ได้รับจากผู้สร้าง
@@ -22,7 +23,7 @@ type AgentGameSetting struct {
 	ForceBP        int       `gorm:"column:force_bp"`
 	RemainBP       int       `gorm:"column:remain_bp"`
 	CommissionBP   int       `gorm:"column:commission_bp"`
-	Status         bool      `gorm:"column:status"`      // status ของ PT — ❓ ความหมายรอ lead (MGMT-20)
+	Status         bool      `gorm:"column:status"`      // รับ PT ไหม (MGMT-20)
 	StatusGame     bool      `gorm:"column:status_game"` // เปิด / ปิดทีละเกม
 	CreatedBy      string    `gorm:"column:created_by"`  // username ผู้สร้างค่า PT
 	CreatedAt      time.Time `gorm:"column:created_at"`

@@ -1,4 +1,4 @@
-package agentmanagement
+package adminmanagement
 
 import (
 	"app/app/models"
@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// repository ของเส้นค้นหาบัญชีของ ADMIN (MGMT-27B) · username ตรงทั้งคำ · ไม่พบ = ผลว่าง (id 0)
+// repository ของ module admin_management — เส้นค้นหาบัญชีของ ADMIN (MGMT-27B) · username ตรงทั้งคำ · ไม่พบ = ผลว่าง (id 0)
 
 // FindUserAgentByUsernameRepository — บัญชีฝั่ง agent ทุก role รวม SUPERADMIN / ADMIN
 func FindUserAgentByUsernameRepository(db *gorm.DB, username string) (models.UserAgent, error) {

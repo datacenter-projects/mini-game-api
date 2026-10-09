@@ -5,6 +5,7 @@
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
 - แก้ 2026-10-09 (boiledegg ตัดสิน): ลำดับเช็คบนลงล่างตาม field ใน body และข้อความ error บอก field + ค่าที่ตั้งได้ (หัวข้อ 7.1)
+- แก้ 2026-10-09 (boiledegg · lead (zerph) อนุมัติ 2026-10-09): เก็บสายชั้นบน `user_agents.cnf` (MGMT-61) และ `agent_game_settings.parent_id` (MGMT-62)
 - แก้หลังอนุมัติ (2026-10-08 · maofoy · boiledegg ยืนยัน 2026-10-09): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261009000000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`) · เส้น `/manage/members/*` แยกไปที่ `member_management` (`controllers/` `dto/` `service/member_management` — lead อนุมัติ 2026-10-08 · spec [member_management.md](member_management.md) แยกเอกสาร 2026-10-09) · กฎ business ยังอยู่ที่ `core/agent_management` และ spec ฉบับนี้
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
@@ -22,7 +23,7 @@
 ดูรายละเอียด, แก้ข้อมูล, แก้สถานะ, ตั้ง / แก้ค่าหุ้นส่วน (PT · Force · Remain · Commission) และเปิด / ปิดเกม,
 คัดลอกการตั้งค่า และกำหนดสิทธิ์ของ sub (ระบบสิทธิ์ของทั้งหลังบ้านกำหนดที่นี่ครั้งเดียว)
 
-**ไม่อยู่ใน module นี้:** การเติม / ถอน / โอนเงินหลังสร้างบัญชี (module การชำระเงิน — ใช้ตาราง `agent_balances` · `user_member_balances` · `balance_ledger` ที่สร้างใน module นี้ต่อ) · **ยอดเงินตั้งต้นตอนสร้างบัญชีอยู่ใน module นี้** (MGMT-15A — แก้ 2026-10-08) ·
+**ไม่อยู่ใน module นี้:** การเติม / ถอน / โอนเงินหลังสร้างบัญชี (module การชำระเงิน — ใช้ตาราง `agent_balances` · `user_members.credit` (ยอดของ Member — member_management.md · 2026-10-09 รอ lead อนุมัติ) · `balance_ledger` ที่สร้างใน module นี้ต่อ) · **ยอดเงินตั้งต้นตอนสร้างบัญชีอยู่ใน module นี้** (MGMT-15A — แก้ 2026-10-08) ·
 การคิด PT / Force / Remain / Commission ตอน settle (module เดิมพัน) · login ของ Member (module หน้าบ้าน) ·
 Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี้แค่สร้าง Key ตอนสร้างเจ้าของ ACC-05)
 
@@ -69,6 +70,8 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-08 | เบอร์โทร: ไม่บังคับ (ไม่กรอกส่ง `""` · ห้าม `null` — account ACC-32) · 8–15 ตัว ตัวเลขเท่านั้น (ห้าม `+`) · ห้ามซ้ำภายในตารางเดียวกัน (unique index ต่อตาราง) · ยกเว้น sub ซ้ำได้ (MGMT-41) |
 | MGMT-09 | แก้ได้: ชื่อ · เบอร์โทร · สถานะ (MGMT-30) · ค่าหุ้นส่วนและเปิด / ปิดเกม (MGMT-20) · แก้ไม่ได้: username · ประเภท · สกุลเงิน · ไม่มีการลบบัญชีฝั่ง agent และ Member |
 | MGMT-09A | แก้ไข Member ได้: ชื่อ · เบอร์โทร · สถานะ · Commission (แต่ละอย่างใช้เส้นของตัวเอง — หัวข้อ 5) |
+| MGMT-61 | **สายชั้นบน** `user_agents.cnf` (JSONB — เพิ่ม 2026-10-09): `{"parent": [{"id": 1, "position": "superadmin"}, {"id": 4754, "position": "company"}, …]}` · เรียงจาก Superadmin ลงมาถึงผู้สร้างตรง · **ไม่รวมตัวเอง** (ตัวสุดท้าย = `parent_id`) · `position` = role ตัวเล็ก (`superadmin` · `company` · `shareholder` · `agent`) · Superadmin / ADMIN = `{"parent": []}` · ตั้งตอนสร้าง = `parent` ของผู้สร้าง + ผู้สร้าง · ไม่เปลี่ยนหลังสร้าง (ย้ายสายไม่ได้ — ถ้าวันหน้ามีต้องแก้ทั้งสายใต้บัญชีนั้น) · **ไม่ส่งใน API** · ใช้ไล่สายขึ้น (อ่านแถวตัวเอง) และค้นทั้งสายลง (`cnf @> '{"parent":[{"id":X}]}'` ใช้ GIN index) · บัญชีเดิม backfill ใน migration · Member (`user_members.cnf` — สายถึง agent ที่สร้าง) ทำใน module `member_management` |
+| MGMT-62 | `agent_game_settings.parent_id` (เพิ่ม 2026-10-09) = id ผู้สร้างของบัญชีเจ้าของแถว (ค่าเดียวกับ `user_agents.parent_id`) · Superadmin = `NULL` · ตั้งตอนสร้าง · แถวเดิม backfill ใน migration · ใช้หาค่าตั้งของลูกตรงทุกคนของบัญชีหนึ่ง |
 
 ### สกุลเงิน
 
@@ -109,7 +112,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-20 | **`status` ใน `pt` กับ `status_game` แยกหน้าที่กัน** (boiledegg ตัดสิน 2026-10-08): |
 | | • `pt` → ระบบ → `status` (bool) = รับ PT ในระบบนั้นไหม · `false` = **เกมยังเปิดให้เล่น แต่บัญชีนี้ไม่รับ PT** ในระบบนั้น · ผู้สร้างตั้งให้ (สร้าง / `update-pt`) · ส่วน PT ที่บัญชีนี้ไม่รับไปอยู่กับใคร กำหนดตอนทำ module คิด PT |
 | | • `status_game` → รหัสเกม (bool) = **เปิด / ปิดเกมรายบัญชี** · `false` = Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ผู้สร้างตั้งให้ · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
-| MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`user_member_game_settings`) |
+| MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member: ผู้สร้างตั้ง `pt` (ถือสู้กับ Member คนนี้) + `commission_percent` ต่อกลุ่ม · `remain_quota` ระบบคิด — **แก้ 2026-10-09 รอ lead อนุมัติ** รายละเอียดใน [member_management.md](member_management.md) MGMT-21 · กระจายและเก็บต่อเกมแบบเดียวกัน (`user_member_game_settings`) |
 | MGMT-22 | **ผู้สร้างกำหนดค่าที่ให้ลูกแต่ละคนแยกกัน** (ทุกชั้น รวม Superadmin → Company): |
 | | • ลูกแต่ละคนได้รับไม่เท่ากันได้ · ค่าที่ให้ลูกแต่ละคน**ห้ามเกินค่าที่ผู้สร้างได้รับ** · Superadmin ได้รับ 100% |
 | | • ผู้สร้าง**ถือในสายของลูกคนนั้น** = ค่าที่ผู้สร้างได้รับ − ค่าที่ให้ลูกคนนั้น (ระบบคำนวณ ไม่ต้องส่ง) |
@@ -146,7 +149,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-26 | เส้นรายชื่อเส้นเดียว: แสดง**ลูกตรง**ของบัญชีที่ระบุ (ไม่ระบุ = ตัวเอง) ทั้งฝั่ง agent และ Member ปนกัน · ไล่ลงทีละชั้นได้ถึง Member · ระบุได้เฉพาะตัวเองหรือบัญชีในสายล่าง (`402402`) · ADMIN ไม่อยู่ในรายการใด (AUTH-43) |
 | MGMT-27 | ตัวกรองมีแค่ `page` / `limit` และค้นหา username บางส่วน (ไม่สนตัวพิมพ์) · เรียง username A→Z · `page` / `limit` อยู่ใน body (แก้ 2026-10-08) · `limit` ค่าเริ่มต้น 20 สูงสุด 100 (`utils.NewPage`) |
 | MGMT-27A | **ค้นหาทั้งสาย** (`/manage/downlines/search` — เพิ่ม 2026-10-08): ค้น username บางส่วน (ไม่สนตัวพิมพ์) ในบัญชี**ทุกชั้นใต้ตัวเอง** ทั้งฝั่ง agent และ Member · ไม่รวมตัวเอง ชั้นบน และสายข้างเคียง (ขอบเขตจาก token — กฎข้อ 22) · `q` บังคับ 2–32 ตัว (`422`) · เรียง username A→Z · `page` / `limit` เหมือน MGMT-27 · แต่ละแถวเหมือน MGMT-28 + `parent_username` (ผู้สร้างตรง) · `status` = สถานะที่ใช้งานจริง · ADMIN ไม่อยู่ในผล |
-| MGMT-27B | **ค้นหาบัญชีของ ADMIN** (`/admin/accounts/search` — เพิ่ม 2026-10-08 · boiledegg ตัดสิน): ADMIN เท่านั้น (`401308`) · ค้นบัญชี**ทั้งระบบ** (ADMIN ไม่มีสาย) ทุกประเภท รวม SUPERADMIN, ADMIN, sub และ Member · username **ตรงทั้งคำ** ไม่สนตัวพิมพ์ ตัดช่องว่าง (ไม่รับบางส่วน) · ผล 0–2 แถว (ฝั่ง agent / sub แล้วตามด้วย Member ที่ username ซ้ำได้) ไม่มี `page` · แต่ละแถวมีแค่ข้อมูลระบุตัวตน: `username` · `role` · `user_type` · `is_subaccount` · `status` (สถานะที่ใช้งานจริง · sub ตาม MGMT-43) · `parent_username` (ผู้สร้าง · sub = เจ้าของ · SUPERADMIN / ADMIN = `""`) · `created_at` · `last_login_at` · `last_login_ip` · **ไม่มี** ยอดเงิน, PT, id · sub ใช้ `role` / `user_type` ของเจ้าของ |
+| MGMT-27B | **ค้นหาบัญชีของ ADMIN** (`/admin/accounts/search` — เพิ่ม 2026-10-08 · boiledegg ตัดสิน) · **เส้นอยู่ module `admin_management`** ([admin_management.md](admin_management.md)): ADMIN เท่านั้น (`401308`) · ค้นบัญชี**ทั้งระบบ** (ADMIN ไม่มีสาย) ทุกประเภท รวม SUPERADMIN, ADMIN, sub และ Member · username **ตรงทั้งคำ** ไม่สนตัวพิมพ์ ตัดช่องว่าง (ไม่รับบางส่วน) · ผล 0–2 แถว (ฝั่ง agent / sub แล้วตามด้วย Member ที่ username ซ้ำได้) ไม่มี `page` · แต่ละแถวมีแค่ข้อมูลระบุตัวตน: `username` · `role` · `user_type` · `is_subaccount` · `status` (สถานะที่ใช้งานจริง · sub ตาม MGMT-43) · `parent_username` (ผู้สร้าง · sub = เจ้าของ · SUPERADMIN / ADMIN = `""`) · `created_at` · `last_login_at` · `last_login_ip` · **ไม่มี** ยอดเงิน, PT, id · sub ใช้ `role` / `user_type` ของเจ้าของ |
 | MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` (ACC-30) · `pt` (ตาม MGMT-51) · `balances` (ยอดแยกสกุลตาม account ACC-19 — ระหว่างยังไม่มี module การชำระเงินส่ง `0`) |
 | MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม (รวม `pt_from_parent` ในกลุ่ม — MGMT-16) ชุดเดียวต่อระบบ + `status_game` ต่อเกม (MGMT-16 · รูปแบบเดียวกับ account ACC-16) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
 
@@ -180,7 +183,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | ID | Rule |
 |---|---|
 | MGMT-50 | สิทธิ์ต่อเมนู ระดับ `off` (เข้าไม่ได้) / `view` (ดูอย่างเดียว) / `edit` (ดูและแก้) · **ไม่ติ๊ก = `off`** · บัญชีหลักได้ `edit` ทุกเมนูที่ประเภทนั้นมี · sub ได้ตามที่เจ้าของให้ · รูปแบบใน API เป็น object `{ "{menu}": "off" \| "view" \| "edit" }` ทั้ง request และ response (รวม Profile — account ACC-12) |
-| MGMT-51 | เช็คด้วย middleware แยก `RequirePermission(menu, level)` บรรทัดเดียวกับ route (กฎข้อ 28) · route ของ admin ใช้ middleware แยก `RequireRole(ADMIN)` (AUTH-44) · เมนู: |
+| MGMT-51 | เช็คด้วย middleware แยก `RequirePermission(menu, level)` บรรทัดเดียวกับ route (กฎข้อ 28) · route ของ admin ใช้ middleware แยก `adminMw.RequireAdmin()` ของ module admin_management (AUTH-44) · เมนู: |
 | | `dashboard` (off / view) — account 1.1 · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` · `rate` (อัตราแพ้ชนะ — เฉพาะ Superadmin) |
 | | ไม่มี `pt` ≥ view → response ไม่มี field `pt` · **สร้างบัญชี ต้องมี `member` = edit และ `pt` = edit** (ถ้าส่ง `balance` ต้องมี `payment` = edit ด้วย — MGMT-15A) · เปลี่ยนรหัสผ่าน / passcode ของตัวเองไม่ต้องใช้สิทธิ์ (แต่ถูก AUTH-54 กันตอนถูกระงับ) |
 | MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 8 เมนู — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · **Company · Share · Agent** = 8 เมนูเดียวกัน — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` (ไม่มี `rate` — ยืนยัน 2026-10-07) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
@@ -209,7 +212,6 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 | POST | `/api/v1/bo/pr/manage/agents/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Company / Share / Agent |
 | POST | `/api/v1/bo/pr/manage/downlines/list` | `member` view | รายชื่อลูกตรง (agent + Member) |
 | POST | `/api/v1/bo/pr/manage/downlines/search` | `member` view | ค้นหาทั้งสายใต้ตัวเอง (MGMT-27A) |
-| POST | `/api/v1/bo/pr/admin/accounts/search` | ADMIN เท่านั้น | ค้นหาบัญชีทั้งระบบด้วย username ตรงทั้งคำ (MGMT-27B) |
 | POST | `/api/v1/bo/pr/manage/agents/detail` | `member` view | รายละเอียดฝั่ง agent |
 | POST | `/api/v1/bo/pr/manage/agents/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
 | POST | `/api/v1/bo/pr/manage/agents/update-status` | `member` edit | แก้สถานะ |
@@ -403,33 +405,6 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
 - `status` = สถานะที่ใช้งานจริง รวมผลจากทุกชั้นด้านบน (ตัวอย่าง: sh1 ปกติ แต่ sh3agent ถูกระงับเอง)
 
 Error codes: `422`, `402303`
-
-### POST /api/v1/bo/pr/admin/accounts/search (ADMIN ค้นหาบัญชีทั้งระบบ)
-
-สิทธิ์: ADMIN เท่านั้น (ไม่ใช่ = `401308`) · MGMT-27B
-
-Request:
-```json
-{ "username": "Share01" }
-```
-Response `data` (0–2 แถว · ไม่พบ = `[]`):
-```json
-[
-  {
-    "username": "share01",
-    "role": "SHAREHOLDER",
-    "user_type": "SHARE_B2C",
-    "is_subaccount": false,
-    "status": "ACTIVE",
-    "parent_username": "comp01",
-    "created_at": "2026-10-01T09:00:00+07:00",
-    "last_login_at": "2026-10-08T10:00:00+07:00",
-    "last_login_ip": "203.0.113.10"
-  }
-]
-```
-
-Error codes: `422`, `401308`
 
 ### POST /api/v1/bo/pr/manage/agents/detail
 
@@ -783,7 +758,7 @@ CREATE TABLE agent_balances (
     PRIMARY KEY (agent_id, currency)
 );
 
--- user_member_balances อยู่ใน docs/modules/member_management.md หัวข้อ 4
+-- ยอดของ Member อยู่ที่ user_members.credit (เลิกใช้ user_member_balances 2026-10-09) — docs/modules/member_management.md หัวข้อ 4
 
 CREATE TABLE balance_ledger (                    -- ทุกการเปลี่ยนยอดต้องมีแถวที่นี่ใน tx เดียวกัน (กฎข้อ 11)
     id            BIGSERIAL   PRIMARY KEY,
@@ -828,10 +803,17 @@ CREATE TABLE account_change_logs (               -- MGMT-60
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, target_id, created_at);
+
+-- migration ใหม่ (2026-10-09) — MGMT-61, MGMT-62
+ALTER TABLE user_agents ADD COLUMN cnf JSONB NOT NULL DEFAULT '{"parent": []}';
+CREATE INDEX idx_user_agents_cnf ON user_agents USING GIN (cnf jsonb_path_ops);          -- cnf @> '{"parent":[{"id":X}]}'
+ALTER TABLE agent_game_settings ADD COLUMN parent_id BIGINT REFERENCES user_agents(id);
+CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, game_code);
+-- backfill: cnf ด้วย recursive CTE ตาม parent_id · agent_game_settings.parent_id = user_agents.parent_id ของเจ้าของแถว
 ```
 
 - Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent_bp = 10000` · ไม่มี Member ตรง) · ADMIN ไม่มี · `pt_bp` = ค่าถือจาก Member ใต้ตัวเอง (MGMT-22) · ผู้สร้างถือในสายของลูก = `pt_from_parent_bp` ของผู้สร้าง − ของลูก (คำนวณตอนคิดเงิน ไม่เก็บ)
-- สายล่างใช้ recursive CTE ตาม `parent_id` (แบบ `ListAncestorStatusesRepository`) · `idx_user_agents_parent_id` มีแล้ว
+- สายล่างใช้ recursive CTE ตาม `parent_id` (แบบ `ListAncestorStatusesRepository`) · `idx_user_agents_parent_id` มีแล้ว · เส้นที่มีอยู่ยังใช้ CTE เดิม · query ใหม่ใช้ `cnf` ได้ (MGMT-61)
 - รายการสกุล 27 สกุล · กลุ่ม PT · รหัสเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · เมนูสิทธิ์ เป็นค่าคงที่ใน `app/core`
 
 ## 7. Test cases

@@ -1,6 +1,6 @@
 //go:build integration
 
-// test ของ scripts/reset_credentials (AUTH-51) — เรียก service ตรงเพราะ script ไม่ใช่ HTTP route
+// test ของ scripts/reset_credentials (AUTH-51 — module admin_management) — เรียก service ตรงเพราะ script ไม่ใช่ HTTP route
 package backoffice_test
 
 import (
@@ -9,12 +9,13 @@ import (
 	"testing"
 
 	"app/app/models"
+	adminManagementService "app/app/service/admin_management"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
 )
 
-func scriptReset(username string, password, passcode bool) (agentAuthService.ScriptResetResult, error) {
-	return agentAuthService.ScriptResetCredentialsService(context.Background(), agentAuthService.ScriptResetRequest{
+func scriptReset(username string, password, passcode bool) (agentAuthService.ResetResult, error) {
+	return adminManagementService.ScriptResetCredentialsService(context.Background(), adminManagementService.ScriptResetRequest{
 		Username: username, Password: password, Passcode: passcode, Operator: "ops01",
 	})
 }

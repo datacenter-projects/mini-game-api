@@ -12,6 +12,7 @@ import (
 	memberManagementPostgres "app/app/repository/postgres/member_management"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
+	"app/pkg/utils"
 
 	"gorm.io/gorm"
 )
@@ -23,6 +24,7 @@ type Creator struct {
 	CompanyType agentManagementCore.UserType // Company หัวสาย รวมตัวเอง · "" = ไม่อยู่ใต้ Company (Superadmin)
 	Currencies  []string
 	ReceivedBP  map[agentManagementCore.PTGroup]int // ค่าที่ผู้สร้างได้รับต่อกลุ่ม (MGMT-22)
+	Chain       agentManagementCore.Chain           // สายชั้นบนของผู้สร้าง (MGMT-61)
 }
 
 func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
@@ -33,6 +35,13 @@ func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
 	}
 	c.Agent = a
 	c.UserType = agentManagementCore.UserTypeOf(a.Role, a.AgentType)
+	cnf, err := agentManagementPostgres.GetAgentChainRepository(db, a.ID)
+	if err != nil {
+		return c, err
+	}
+	if err := json.Unmarshal([]byte(cnf), &c.Chain); err != nil {
+		return c, err
+	}
 	companyAgentType, err := agentManagementPostgres.GetChainCompanyTypeRepository(db, a.ID)
 	if err != nil {
 		return c, err
@@ -137,13 +146,11 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 		if err := agentManagementPostgres.CreateAgentBalancesRepository(tx, rows); err != nil {
 			return err
 		}
-	case models.BalanceOwnerMember:
-		rows := make([]models.UserMemberBalance, 0, len(currencies))
+	case models.BalanceOwnerMember: // ยอดอยู่ที่ user_members.credit (Member มี 1 สกุล — MGMT-13) · แถว Member เพิ่งสร้างใน tx นี้
 		for _, cur := range currencies {
-			rows = append(rows, models.UserMemberBalance{UserMemberID: ownerID, Currency: cur, Amount: amounts[cur], UpdatedAt: now})
-		}
-		if err := memberManagementPostgres.CreateUserMemberBalancesRepository(tx, rows); err != nil {
-			return err
+			if err := memberManagementPostgres.UpdateUserMemberCreditRepository(tx, ownerID, utils.MinorToCredit(amounts[cur]), now); err != nil {
+				return err
+			}
 		}
 	}
 	for _, cur := range currencies {

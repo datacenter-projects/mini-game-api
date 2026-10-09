@@ -13,11 +13,12 @@ import (
 	agentAuthCore "app/app/core/agent_auth"
 	agentManagementCore "app/app/core/agent_management"
 	accountController "app/app/internals/backoffice/controllers/account"
+	adminManagementController "app/app/internals/backoffice/controllers/admin_management"
 	agentAuthController "app/app/internals/backoffice/controllers/agent_auth"
 	agentManagementController "app/app/internals/backoffice/controllers/agent_management"
 	memberManagementController "app/app/internals/backoffice/controllers/member_management"
 	mw "app/app/internals/backoffice/middleware"
-	"app/app/models"
+	adminMw "app/app/internals/backoffice/middleware/admin_management"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -42,9 +43,11 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/auth/passcode/setup", mw.PassedGates(agentAuthCore.GateSetupPasscode), agentAuthController.SetupPasscodeController)
 	pr.Post("/auth/passcode/change", mw.PassedGates(agentAuthCore.GateChangePasscode), agentAuthController.ChangePasscodeController)
 	pr.Post("/auth/password/change", mw.PassedGates(agentAuthCore.GateChangePassword), mw.RequirePasscodeUnlessMustChangePassword(), agentAuthController.ChangePasswordController)
-	pr.Post("/admin/passcode/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasscodeController)
-	pr.Post("/admin/password/reset", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), mw.RequirePasscode(), agentAuthController.ResetPasswordController)
-	pr.Post("/admin/accounts/search", mw.PassedGates(), mw.RequireRole(models.AgentRoleAdmin), agentManagementController.AdminSearchAccountsController) // MGMT-27B
+
+	// admin_management — docs/modules/admin_management.md · ADMIN เท่านั้น (adminMw.RequireAdmin — AUTH-44)
+	pr.Post("/admin/passcode/reset", mw.PassedGates(), adminMw.RequireAdmin(), mw.RequirePasscode(), adminManagementController.ResetPasscodeController)
+	pr.Post("/admin/password/reset", mw.PassedGates(), adminMw.RequireAdmin(), mw.RequirePasscode(), adminManagementController.ResetPasswordController)
+	pr.Post("/admin/accounts/search", mw.PassedGates(), adminMw.RequireAdmin(), adminManagementController.SearchAccountsController) // MGMT-27B
 
 	// account — docs/modules/account.md หัวข้อ 5 · ไม่มีสิทธิ์ต่อเมนู: เจ้าของและ sub เปิดได้เสมอ (ACC-02) · Profile และดู 1.3 เปิดได้ตอนบัญชีถูกระงับ (ACC-11, ACC-31, AUTH-54)
 	pr.Get("/account/profile", mw.PassedGatesAllowSuspended(), accountController.GetProfileController)
@@ -73,7 +76,7 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/manage/members/detail", mw.PassedGates(), memberView, memberManagementController.GetMemberDetailController)
 	pr.Post("/manage/members/update-info", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberInfoController)
 	pr.Post("/manage/members/update-status", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberStatusController)
-	pr.Post("/manage/members/update-commission", mw.PassedGates(), ptEdit, memberManagementController.UpdateMemberCommissionController)
+	pr.Post("/manage/members/update-pt", mw.PassedGates(), ptEdit, memberManagementController.UpdateMemberPTController)
 
 	// sub: เฉพาะบัญชีหลัก (sub เรียก = 402311 — MGMT-40) · ไม่ใช้สิทธิ์เมนู
 	pr.Post("/manage/subaccounts/list", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.ListSubaccountsController)

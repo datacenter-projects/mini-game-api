@@ -1,24 +1,24 @@
-package agentauth
+package adminmanagement
 
 import (
-	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
+	adminManagementDto "app/app/internals/backoffice/dto/admin_management"
 	"app/app/internals/backoffice/middleware"
-	agentAuthService "app/app/service/agent_auth"
+	adminManagementService "app/app/service/admin_management"
 	"app/pkg/response"
 	"app/pkg/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// ResetPasswordController — POST /api/v1/bo/pr/admin/password/reset
+// ResetPasscodeController — POST /api/v1/bo/pr/admin/passcode/reset
 // response มีค่าชั่วคราวที่แสดงครั้งเดียว — ห้าม cache และห้าม log body (AUTH-46)
-func ResetPasswordController(c *fiber.Ctx) error {
+func ResetPasscodeController(c *fiber.Ctx) error {
 	c.Set(fiber.HeaderCacheControl, "no-store")
-	var req agentAuthDto.ResetCredentialRequest
+	var req adminManagementDto.ResetCredentialRequest
 	if err := utils.ParseBody(c, &req); err != nil {
 		return response.Error(c, err)
 	}
-	res, err := agentAuthService.ResetPasswordService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c))
+	res, err := adminManagementService.ResetPasscodeService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c))
 	if err != nil {
 		return response.Error(c, err)
 	}

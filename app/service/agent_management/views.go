@@ -42,7 +42,7 @@ func AgentPTViews(settings []models.AgentGameSetting) (map[string]agentManagemen
 	return pt, statusGame
 }
 
-// MemberPTViews — Member มีแค่ Commission ต่อระบบ (MGMT-21)
+// MemberPTViews — pt · remain_quota · Commission ของ Member ชุดเดียวต่อระบบ (MGMT-21 แก้ 2026-10-09)
 func MemberPTViews(settings []models.UserMemberGameSetting) map[string]agentManagementDto.MemberPTGroupView {
 	pt := map[string]agentManagementDto.MemberPTGroupView{}
 	latest := map[string]time.Time{}
@@ -55,7 +55,7 @@ func MemberPTViews(settings []models.UserMemberGameSetting) map[string]agentMana
 			continue
 		}
 		latest[string(g)] = s.UpdatedAt
-		pt[string(g)] = agentManagementDto.MemberPTGroupView{CommissionPercent: utils.Percent(s.CommissionBP),
+		pt[string(g)] = agentManagementDto.MemberPTGroupView{PT: utils.Percent(s.PTBP), RemainQuota: utils.Percent(s.RemainBP), CommissionPercent: utils.Percent(s.CommissionBP),
 			CreatedAt: formatTime(s.CreatedAt), CreatedBy: s.CreatedBy, UpdatedAt: formatTime(s.UpdatedAt), UpdatedBy: s.UpdatedBy}
 	}
 	return pt

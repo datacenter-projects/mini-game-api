@@ -53,6 +53,7 @@ type UserAgent struct {
 	LastLoginAt           *time.Time  `gorm:"column:last_login_at"`
 	LastLoginIP           *string     `gorm:"column:last_login_ip"`
 	CreatedAt             time.Time   `gorm:"column:created_at"`
+	Cnf                   string      `gorm:"column:cnf;default:'{\"parent\": []}'"` // JSONB สายชั้นบน {"parent":[{"id","position"}]} ไม่รวมตัวเอง (module ② MGMT-61)
 	UpdatedAt             time.Time   `gorm:"column:updated_at"`
 }
 

@@ -169,15 +169,12 @@ func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
 	for _, s := range ags {
 		e.agentSettings[s.AgentID] = append(e.agentSettings[s.AgentID], s)
 	}
-	mbs, err := memberManagementPostgres.ListUserMemberBalancesByIDsRepository(db, memberIDs)
+	mbs, err := memberManagementPostgres.ListUserMemberCreditsByIDsRepository(db, memberIDs) // ยอดของ Member = user_members.credit
 	if err != nil {
 		return e, err
 	}
-	for _, b := range mbs {
-		if e.memberBalance[b.UserMemberID] == nil {
-			e.memberBalance[b.UserMemberID] = map[string]int64{}
-		}
-		e.memberBalance[b.UserMemberID][b.Currency] = b.Amount
+	for _, m := range mbs {
+		e.memberBalance[m.ID] = map[string]int64{m.Currency: utils.CreditToMinor(m.Credit)}
 	}
 	mgs, err := memberManagementPostgres.ListUserMemberGameSettingsByIDsRepository(db, memberIDs)
 	if err != nil {
