@@ -1,14 +1,19 @@
 # สถานะ — `maofoy/bo/member-management`
 
+> **สำหรับ lead (2026-10-09):** module `member_management` **ทำงานปกติแล้ว** — อยู่ใน `dev` และ `dev_minigame` migrate ครบ
+> ทดสอบบน dev ผ่าน: สร้าง Member · แก้ข้อมูล · แก้สถานะ · แก้ PT
+> **ขอให้อ่านและอนุมัติหัวข้อ 3 ข้อ 1–3, 5** (เปลี่ยนจาก spec ที่อนุมัติไว้) — spec เต็ม `docs/modules/member_management.md` · เอกสารหน้าบ้าน `docs/frontend/member_management.md`
+
 ## 1. ภาพรวม
 
 | | |
 |---|---|
-| branch | `maofoy/bo/member-management` · เท่ากับ `dev` @ `3603c50` |
+| branch | `maofoy/bo/member-management` · เท่ากับ `dev` @ `ba9cd5f` |
+| การทำงาน | ✅ ใช้งานได้ — ทดสอบมือบน dev 2026-10-09 (maofoy): `members/create` · `members/update-info` · `members/update-status` · `members/update-pt` |
 | spec | `docs/modules/member_management.md` — **APPROVED** (ร่วมกับ `agent_management` 2026-10-07) · ส่วนที่แก้ 2026-10-09 **รอ lead อนุมัติ** (หัวข้อ 3 ข้อ 1–3, 5) · กฎข้อ 9 (float) lead อนุมัติแล้ว 2026-10-09 |
 | merge | **เข้า `dev` แล้วทั้งหมด** (`625255a` · 2026-10-09) — เข้าก่อน lead อนุมัติ spec ส่วนที่แก้ |
-| migration dev | `dev_minigame` รันครบถึง `20261009140000` แล้ว · `20261009140100` (parent_id) รอรันหลัง merge |
-| test | `make check` ผ่าน · integration test **ยังไม่ได้รัน** (รอเครื่องที่มี test env) |
+| migration dev | `dev_minigame` รันครบถึง `20261009140100` แล้ว |
+| test | `make check` ผ่าน · ทดสอบมือบน dev ผ่าน (แถวการทำงาน) · integration test อัตโนมัติ **ยังไม่ได้รัน** (รอเครื่องที่มี test env) |
 
 ## 2. งาน
 
@@ -18,7 +23,7 @@
 | เปลี่ยนชื่อตาราง `members*` → `user_members*` | ✅ | migration `20261009000000_member_tables_rename` |
 | PT ต่อ Member: `pt` + `remain_quota` · `update-commission` → `update-pt` | ✅ รออนุมัติ | migration `20261009120050_member_management_member_pt` · คอลัมน์เป็น `pt` / `remain` / `commission` (float) หลัง `20261009130000` |
 | `user_members.cnf` (สายชั้นบน) + `user_members.credit` (ยอดเงิน float) · DROP `user_member_balances` | ✅ รออนุมัติ | migration `20261009120100_member_management_member_cnf_credit` |
-| `user_member_game_settings.parent_id` = agent ผู้สร้าง (MGMT-62 ของ Member) | ✅ lead อนุมัติ 2026-10-09 | migration `20261009140100_member_management_settings_parent` (ยังไม่รันบน dev — รันหลัง merge เพราะ NOT NULL) |
+| `user_member_game_settings.parent_id` = agent ผู้สร้าง (MGMT-62 ของ Member) | ✅ lead อนุมัติ 2026-10-09 | migration `20261009140100_member_management_settings_parent` · รันบน dev แล้ว |
 | `agents/update-pt` กันลดต่ำกว่า `pt` ของ Member + sync `remain_quota` (R1–R3) | ✅ | boiledegg ทำใน `agent_management` MGMT-24 (`3603c50`) |
 | ลบ `pt` ค่าเดียวของ agent และ `agents/update-hold` | ✅ | boiledegg (`20261009140000_agent_management_drop_own_pt`) |
 | เงินและ % เป็น float ปัด 4 ตำแหน่ง (กฎข้อ 9) | ✅ | boiledegg (`20261009130000_money_percent_float`) · lead อนุมัติ |
@@ -67,4 +72,5 @@
 | 2026-10-09 | `dbb15b7` | เปลี่ยนเลข migration member_pt เป็น `20261009120050` |
 | 2026-10-09 | `625255a` | merge เข้า `dev` (fast-forward) · migrate `dev_minigame` ถึง `20261009120100` |
 | 2026-10-09 | `3603c50` | merge `dev` เข้า branch: กฎข้อ 9 float (lead อนุมัติ) · R1–R3 · ลบ `pt` ของ agent / `update-hold` (boiledegg) |
-| 2026-10-09 | (ยังไม่ commit) | `user_member_game_settings.parent_id` (lead อนุมัติ) |
+| 2026-10-09 | `ba9cd5f` | `user_member_game_settings.parent_id` (lead อนุมัติ) |
+| 2026-10-09 | — | ทดสอบมือบน dev ผ่าน (create · update-info · update-status · update-pt) · module ทำงานปกติ ส่งให้ lead อ่าน |

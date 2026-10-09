@@ -3,7 +3,7 @@
 - สถานะ: **APPROVED** — กฎอนุมัติพร้อม spec `agent_management` (lead (zerph) 2026-10-07 · แก้ 2026-10-08) · แยก module ในโค้ด lead อนุมัติ 2026-10-08 · แยกเอกสารออกจาก [agent_management.md](agent_management.md) 2026-10-09
 - แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ**): agent ถือ PT สู้กับ Member **แต่ละคนแยกกัน** — เก็บที่แถวของ Member (`pt` · `remain_quota` ระบบคิด) แทน `pt` ค่าเดียวของ agent ·
   เส้น `update-commission` → `update-pt` · migration `20261009120050_member_management_member_pt` · **ต้องทำต่อที่ `agent_management`** (ทำแล้ว 2026-10-09) ดูหัวข้อ 7
-- แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ** · `credit` เป็น float ทีมตกลงแล้ว — CLAUDE.md กฎข้อ 9 ยังต้องแก้): `user_members.cnf` สายชั้นบน (รูปแบบเดียวกับ MGMT-61) ·
+- แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ** · `credit` เป็น float ตามกฎข้อ 9 (lead อนุมัติ 2026-10-09)): `user_members.cnf` สายชั้นบน (รูปแบบเดียวกับ MGMT-61) ·
   ยอดของ Member ย้ายไป `user_members.credit` (float หน่วยสกุล) · เลิกใช้และ DROP `user_member_balances` · migration `20261009120100_member_management_member_cnf_credit`
 - แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 lead (zerph) อนุมัติ 2026-10-09): % และ ledger เป็นทศนิยม float ปัด 4 ตำแหน่ง แบบเดียวกับ `credit` · column ตัด `_bp` (`pt` · `remain` · `commission`) · boiledegg แก้โค้ดฝั่ง Member ให้ (ต้องแจ้ง maofoy)
 - ผู้ดูแล: maofoy
