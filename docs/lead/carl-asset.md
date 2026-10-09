@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | branch | `carl/asset` (แตกจาก `dev` @ `65300f1`) · merge `dev` แล้ว (ล่าสุด `ceb3ac9` = `dev` @ `113abeb`) |
-| spec | `docs/modules/asset.md` — **DRAFT** รอ lead review (rule `AST-01`–`AST-50`) · การแก้รอบตรวจซ้ำหลัง merge `dev` ยังไม่ commit |
+| spec | `docs/modules/asset.md` — **DRAFT** รอ lead review (rule `AST-01`–`AST-53`) · ปรับตามเอกสารสรุปฉบับแก้ 2026-10-09 แล้ว (ยังไม่ commit) |
 | merge | ยังไม่ merge เข้า `dev` · มีแค่เอกสาร ยังไม่มีโค้ด |
 | test | `make check` ผ่าน (ไม่มีโค้ดใหม่) |
 
@@ -31,6 +31,9 @@
    5. ลบไฟล์โลโก้ / favicon เก่าตอนเขียนทับไหม · ต้องมี `asset_change_logs` แบบ MGMT-60 ไหม
    6. error module id `05` + ตาราง code ที่เสนอ
    7. รายชื่อช่อง / ขนาดใน seed และไฟล์ palette ของหน้าบ้าน (ต้องให้ทีมเกม / หน้าบ้านยืนยัน)
+   8. branding เก็บเป็นคอลัมน์ใน `user_agents` (แบบระบบเดิม) หรือตาราง 1:1 `site_brandings` (เสนอ — ไม่แก้ schema ของ module อื่น)
+   9. รายชื่อเกมของ lobby ต้องเป็น public / ต้อง login ไหม (เสนอ: อยู่ใน module หน้าบ้าน ใช้ service เดียวกับรูปปก AST-51)
+   10. ฝั่งผู้เล่นแยกเส้น theme ออกจาก bundle ไหม (เสนอ: รวมใน bundle)
 3. **`BodyLimit` 10 MB ทั้ง request** ชนกับเพดานไฟล์ 10 MB — เพิ่ม `BodyLimit` เป็น 11 MB (กระทบทุกเส้น) หรือลดเพดานไฟล์
 4. **อนุมัติการแก้ส่วนกลางตอน implement:** AWS SDK v2 (S3) ใน `go.mod` · config `S3_*` + `.env.example` · `platform/storage` ·
    helper multipart ใน `pkg/utils` · middleware `ResolveAssetTarget` / `RequireAssetTarget` · จอง module id ใน `ERROR_CODES.md` ·
@@ -42,4 +45,5 @@
 |---|---|---|
 | 2026-10-08 | `9e95aa8` | ร่าง spec `asset.md` (DRAFT) จากเอกสารสรุประบบเดิม + extract โค้ดเก่า |
 | 2026-10-08 | `91bacde` · `ceb3ac9` | merge `dev` (module ② · account · reset script) |
-| 2026-10-08 | — (ยังไม่ commit) | ตรวจ spec กับ `dev` ล่าสุด: แบ่งหน้า `library` / `banners/list` · แก้ข้อมูล `BodyLimit` · ลิงก์ spec · เพิ่มไฟล์สถานะนี้ |
+| 2026-10-08 | `78da326` | ตรวจ spec กับ `dev` ล่าสุด: แบ่งหน้า `library` / `banners/list` · แก้ข้อมูล `BodyLimit` · ลิงก์ spec · เพิ่มไฟล์สถานะนี้ |
+| 2026-10-09 | — (ยังไม่ commit) | ปรับตามเอกสารสรุปฉบับแก้: branding ไม่มี GLOBAL ไล่สายด้วย query เดียว (AST-41, AST-47) · อ่านของตัวเอง vs ประกอบ bundle แยก use case (AST-53) · รูปปก `game_cover` (AST-51) · ผู้เล่นอ่านอย่างเดียว (AST-52) · คำถามใหม่ข้อ 8–10 |

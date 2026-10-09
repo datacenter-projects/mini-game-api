@@ -4,7 +4,8 @@
 - อนุมัติโดย: — (รอ lead) · วันที่ร่าง: 2026-10-08
 - ชื่อ module ในโค้ด: `asset` (`controllers/asset`, `dto/asset`, `service/asset`, `core/asset`)
 - เมนูสิทธิ์: `asset` (off / view / edit — `agent_management.md` MGMT-50–52)
-- ที่มาของ rule: `ASSET_SYSTEM_SPEC.md` (เอกสารสรุประบบเดิมที่ทีมส่งมา 2026-10-08 — **ใช้เป็นข้อเสนอเท่านั้น**) ·
+- ที่มาของ rule: `ASSET_SYSTEM_SPEC.md` (เอกสารสรุประบบเดิมที่ทีมส่งมา 2026-10-08 · ฉบับแก้ 2026-10-09 เพิ่มเรื่อง
+  Site Branding / รูปปกเกม / ฝั่งผู้เล่น — **ใช้เป็นข้อเสนอเท่านั้น**) ·
   ตรวจเทียบกับ*โค้ด*เก่าตามขั้น Extract (ผลอยู่ในหัวข้อ 4)
 - โค้ดเก่าที่อ้างอิง (extract พฤติกรรมเท่านั้น): `askmelotto_minigame-api/app/services/asset/*.go`,
   `app/internals/backoffice/middleware/asset_target_middleware.go`, `app/internals/backoffice/routes/module_routes.go`,
@@ -146,7 +147,7 @@ Member
 
 | ID | Rule |
 |---|---|
-| AST-41 | branding เป็นของเว็บ (AST-02) เท่านั้น ไม่มี GLOBAL · สิทธิ์อ่าน / เขียนตาม AST-04 / AST-05 (❓ เมนู — หัวข้อ 9 ข้อ 3) |
+| AST-41 | branding เป็นของเว็บ (AST-02) เท่านั้น **ไม่มี GLOBAL และไม่มี scope** — "ยังไม่ตั้ง" = ทุก field ว่าง · fallback เป็นการไล่สาย (AST-47) **ห้ามใช้ query / service fallback ชุดเดียวกับ asset / theme** (ไม่มี GLOBAL ให้ query) · สิทธิ์อ่าน / เขียนตาม AST-04 / AST-05 (❓ เมนู — หัวข้อ 9 ข้อ 3 · ที่เก็บ — ข้อ 8) |
 | AST-42 | `branding/update` = แทนชุด `site_name` + `site_theme` · `site_name` บังคับ 1–50 ตัวอักษร · `site_theme` = `code` ที่ `is_active` ใน `site_themes` หรือ `""` (= ไม่ใช้ธีม) · ผิด → `422` msg บอก field |
 | AST-43 | โลโก้: ชนิด / ขนาดไฟล์ตาม AST-16 · favicon: `ico` หรือ `png` ≤ 10 MB ตรวจจากเนื้อไฟล์ · ไม่ตรวจขนาดภาพ · **เขียนทับ** (ไม่เก็บประวัติ) · ไฟล์เดิมใน storage ❓ หัวข้อ 9 ข้อ 5 |
 | AST-44 | banner: สร้างใหม่ 1 แถวต่อครั้ง · รูปตาม AST-16 · `link_url` = `""` หรือ URL `https://` ที่มี host ยาวไม่เกิน 500 (แบบ ACC-06) · `status` `ACTIVE` (ค่าเริ่มต้น) / `INACTIVE` · ลบ = soft delete · ลบ / เปลี่ยนสถานะได้โดยผู้มีสิทธิ์เขียนเว็บนั้น **ไม่ผูกกับคนอัป** · banner ไม่พบ / ของเว็บอื่น / ถูกลบ → `405404` ข้อความเดียวกัน · เรียงใหม่ → เก่า (ไม่มีการจัดลำดับรอบนี้) · รายชื่อแบ่งหน้าแบบเดียวกับ AST-27 |
@@ -157,8 +158,15 @@ Member
 |---|---|
 | AST-45 | bundle ของ (เว็บ, เกม) = `source` + `assets` (map `asset_type` → URL ตาม AST-25) + `theme` (AST-37 + shades) + `site` (branding) · **`assets` กับ `site` แยก key** — ช่อง asset ชื่ออะไรก็ไม่ชนกับ branding |
 | AST-46 | ไม่มี asset ทั้งของเว็บและ GLOBAL → `assets = {}` ตอบสำเร็จ (ไม่ใช่ error) · อ่าน branding ไม่สำเร็จ → `site` เป็นค่าว่างตาม ACC-32 + log warn — **asset คือส่วนที่จำเป็น branding ล้มต้องไม่ทำให้ทั้ง bundle ล้ม** |
-| AST-47 | branding ของ bundle: ใช้แถวของเว็บ · ถ้าเว็บไม่มีแถว → ไล่ขึ้นสายทีละชั้น ใช้**ทั้งแถว**ของชั้นแรกที่มี (ไม่ผสมทีละ field) · ไม่มีเลย → ค่าว่าง (❓ หัวข้อ 9 ข้อ 2) |
+| AST-47 | branding ของ bundle (**ไล่สาย ทั้งชุด**): เริ่มที่เว็บเอง แล้วไล่ขึ้นสายจากใกล้ → ไกล หยุดที่บัญชีแรกที่ "มี branding" = มีค่าอย่างน้อย 1 ใน 4 field (`site_name` · `site_theme` · โลโก้ · favicon) ที่ไม่ว่าง · ใช้**ทั้ง 4 field ของบัญชีนั้น** ห้ามผสม field จากคนละชั้น (ชื่อของลูก + โลโก้ของแม่ = ไม่ใช่ branding ของใคร) · ไล่สุดสายไม่เจอ → ทุก field `""` (ไม่ใช่ error · ไม่ใช่ `null` — หน้าบ้านใช้ค่า default ของตัวเอง) · ไล่ทั้งสายด้วย **query เดียว** (recursive CTE แบบเดียวกับ `ListAncestorStatusesRepository` / `IsInDownlineRepository` + ลำดับชั้น) ห้ามวน query ทีละชั้น (กฎข้อ 23) |
 | AST-48 | bundle ฝั่งผู้เล่น: เว็บของ Member ตามหัวข้อ 9 ข้อ 2 · implement ใน module หน้าบ้าน แต่ต้องเรียก service เดียวกับ preview หลังบ้าน (ห้ามเขียน logic รวมซ้ำ) |
+### รายชื่อเกม (รูปปก) และฝั่งผู้เล่น
+
+| ID | Rule |
+|---|---|
+| AST-51 | `game_cover` เป็น**ชื่อช่องสงวน** ต้องมีใน catalog ของทุกเกม (seed — หัวข้อ 6) · รายชื่อเกม (`asset/games` และเส้นของ lobby ถ้ามี — ❓ หัวข้อ 9 ข้อ 9) อ่านรูปปกจาก **GLOBAL เท่านั้น** ผ่าน service ตัวเดียวกับ `list` (AST-24 — เลือกใช้ชนะอัปล่าสุด) ห้ามเขียน query คู่ขนาน · เกมที่ยังไม่มีปก หรืออ่านปกไม่สำเร็จ → `game_cover = ""` (ACC-32) + log warn · **ห้ามทำให้ทั้งเส้นล้มเพราะเกมเดียว** |
+| AST-52 | ฝั่งผู้เล่น (Member) **อ่านอย่างเดียว** ไม่มีเส้นเขียนใดๆ · เว็บเป้าหมายมาจาก token ของผู้เล่นเท่านั้น (หัวข้อ 9 ข้อ 2) · **ไม่รับ `agent_id` จาก path / query / body** — ขอดูของเว็บอื่นไม่ได้ทุกกรณี |
+| AST-53 | **อ่าน branding มี 2 use case แยกกัน ห้ามรวม**: (ก) เจ้าของเว็บดูของตัวเอง (`branding/detail`) อ่านค่าที่ตั้งไว้ตรงๆ **ไม่ไล่สาย** — ต้องเห็นว่าตัวเองตั้งอะไรไว้ ไม่ใช่ค่าที่ไล่มาจากชั้นบน (ข) ประกอบ bundle (หลังบ้าน preview และผู้เล่น) **ไล่สายเสมอ** ตาม AST-47 |
 
 ### Storage และประวัติ
 
@@ -200,7 +208,7 @@ extract จากโค้ดเท่านั้น (ไม่อ่าน doc
 | 25 | ตาราง `minigame_asset_groups` สร้างไว้แต่ไม่มี service ใช้ | ตาย | ไม่สร้าง |
 | 26 | used เก็บ `asset_path` ซ้ำจาก config | — | ไม่เก็บซ้ำ join `asset_configs` (กันค่าไม่ตรงกัน) |
 | 27 | banner: `created_by` = username ของ**เว็บเป้าหมาย** แต่ลบต้อง `created_by` = ผู้เรียก → ชั้นบน / sub ที่อัปลบไม่ได้ · `link_url` ไม่ตรวจ · `sort_order` ไม่เคยตั้ง · ไม่มีเส้นแก้ / เส้นฝั่งผู้เล่น · อยู่ใต้ capability `announcement` | ผิดบางส่วน | ลบตามสิทธิ์เว็บ (AST-44) · ตรวจ `link_url` · ไม่มี sort · ❓ ข้อ 3 |
-| 28 | branding เป็นคอลัมน์ใน `user_agents` (`site_name`, `site_logo_path`, `site_favicon_path`, `site_theme`) · โลโก้ / favicon เขียนทับ path ไม่ลบไฟล์เดิม · favicon รับ `x-icon` / `png` · catalog ธีม `default dark light neon gold` | — | ตาราง `site_brandings` แยก (ไม่แก้ `user_agents`) · ❓ ข้อ 5 |
+| 28 | branding เป็นคอลัมน์ใน `user_agents` (`site_name`, `site_logo_path`, `site_favicon_path`, `site_theme`) · โลโก้ / favicon เขียนทับ path ไม่ลบไฟล์เดิม · favicon รับ `x-icon` / `png` · catalog ธีม `default dark light neon gold` | — | ไม่มี GLOBAL · ไล่สายทั้งชุด (AST-41, AST-47) · ที่เก็บ: เสนอตาราง 1:1 `site_brandings` แทนคอลัมน์ใน `user_agents` (❓ ข้อ 8) · ❓ ข้อ 5 |
 | 29 | bundle ผู้เล่น: data เป็น map แบน `{asset_type: url, ..., "site": {...}}` + header `X-Asset-Source` · ช่องชื่อ `site` จะชน · branding ไล่สายจากตัวเอง แถวแรกที่มีค่าใดๆ ชนะทั้งแถว · branding ล้มได้ค่าว่างเงียบๆ · ไม่มี asset ตอบ code แยก | ผิดบางส่วน | แยก key (AST-45) · `source` อยู่ใน body · ไม่มี asset = `{}` (AST-46) |
 | 30 | bundle หลังบ้านไม่มี `site` · ไม่มี asset ตอบ HTTP 404 | ไม่ตรงกับฝั่งผู้เล่น | preview ใช้ service เดียวกับผู้เล่น (AST-48) |
 | 31 | cache Redis ของ config / used / theme กลาง (bump version ตอนเขียน) | — | ไม่มี cache รอบนี้ — เพิ่มทีหลังถ้าวัดแล้วจำเป็น |
@@ -209,15 +217,20 @@ extract จากโค้ดเท่านั้น (ไม่อ่าน doc
 
 | ข้อเสนอ | rule | | ข้อเสนอ | rule | | ข้อเสนอ | rule |
 |---|---|---|---|---|---|---|---|
-| 1 | AST-01 | | 10 | AST-28 | | 19 | AST-33 |
-| 2 | AST-26 | | 11 | AST-29 | | 20 | AST-38 |
-| 3 | AST-23, AST-31 | | 12 | AST-30 | | 21 | AST-23, AST-31, AST-44 |
-| 4 | AST-23 | | 13 | AST-32 | | 22 | AST-07 |
-| 5 | AST-11, AST-18 | | 14 | AST-32 | | 23 | AST-08 · ❓ ข้อ 4 (เปลี่ยน) |
-| 6 | AST-13 | | 15 | AST-24 | | 24 | AST-08 |
-| 7 | AST-17 | | 16 | AST-34 | | 25 | AST-09 |
-| 8 | AST-15 | | 17 | AST-35 | | 26 | AST-09 |
-| 9 | AST-20 | | 18 | AST-36 | | 27 | AST-39, AST-40 |
+| 1 | AST-01 | | 11 | AST-29 | | 21 | AST-23, AST-31, AST-44 |
+| 2 | AST-26 | | 12 | AST-30 | | 22 | AST-07 |
+| 3 | AST-23, AST-31 | | 13 | AST-32 | | 23 | AST-08 · ❓ ข้อ 4 (เปลี่ยน) |
+| 4 | AST-23 | | 14 | AST-32 | | 24 | AST-08 |
+| 5 | AST-11, AST-18 | | 15 | AST-24 | | 25 | AST-09 |
+| 6 | AST-13 | | 16 | AST-34 | | 26 | AST-09 |
+| 7 | AST-17 | | 17 | AST-35 | | 27 | AST-41 · ❓ ข้อ 8 (ที่เก็บ) |
+| 8 | AST-15 | | 18 | AST-36 | | 28 | AST-47 |
+| 9 | AST-20 | | 19 | AST-33 | | 29 | AST-53 |
+| 10 | AST-28 | | 20 | AST-38 | | 30 | AST-39, AST-40 |
+
+หมวดอื่นของเอกสารสรุป: 1.4 fallback 3 แบบ → AST-25 · AST-37 · AST-47 · 3.1 รูปปกในรายชื่อเกม → AST-51 (ต่าง: เกมที่ไม่มีปกส่ง
+`""` ตาม ACC-32 ไม่ตัด key ทิ้ง · เส้น public ของ lobby ❓ ข้อ 9) · 3.5 ผู้เล่นอ่านอย่างเดียว → AST-52 (เส้น theme แยก ❓ ข้อ 10) ·
+หมวด 7 ข้อ 10 (branding เป็นคอลัมน์บนตาราง agent) → ❓ ข้อ 8 · ข้อ 11 → AST-51
 
 anti-pattern ทั้ง 9 ข้อของหมวด 6 ถูกห้ามไว้ที่ AST-11 · AST-20 · AST-25 · ตารางลบ · AST-28 · AST-23 · AST-24 · AST-08 · AST-40 ตามลำดับ
 
@@ -269,7 +282,8 @@ Response `data`:
   { "game_code": "rock_paper_scissors", "game_cover": "" }
 ]
 ```
-`game_cover` = ไฟล์ใช้งานจริงของช่อง `game_cover` ฝั่ง GLOBAL (AST-24) · ไม่มี = `""` · ชื่อเกมที่แสดงบนจอเป็นของหน้าบ้าน
+`game_cover` = ไฟล์ใช้งานจริงของช่อง `game_cover` ฝั่ง GLOBAL ผ่าน service เดียวกับ `list` (AST-51) · ไม่มี / อ่านไม่ได้ = `""`
+โดยเกมอื่นยังได้ปกตามปกติ · ชื่อเกมที่แสดงบนจอเป็นของหน้าบ้าน
 
 ### GET /api/v1/bo/pr/asset/slots?game_code=scratch_card
 
@@ -422,7 +436,7 @@ Response `data`:
 ```json
 { "site_name": "Share One", "site_theme": "dark", "logo": "https://cdn.example.com/sites/12/logo/1759900000000000000-0a1b2c3d.png", "favicon": "" }
 ```
-ไม่เคยตั้ง → ทุก field `""` (ไม่ไล่สาย — การไล่สายมีเฉพาะ bundle AST-47) · Error codes: `422`
+ไม่เคยตั้ง → ทุก field `""` · **ไม่ไล่สาย** (AST-53 ก — การไล่สายมีเฉพาะ bundle AST-47) · Error codes: `422`
 
 ### POST /api/v1/bo/pr/asset/branding/update
 
@@ -486,7 +500,8 @@ Error codes: `422`
 
 ### GET /api/v1/player/games/{game_code}/bundle (contract — implement ใน module หน้าบ้าน)
 
-ผู้เล่นใช้ token ของ Member · เว็บ = ตามหัวข้อ 9 ข้อ 2 · `data` รูปแบบเดียวกับ `POST /bo/pr/asset/bundle` ·
+ผู้เล่นใช้ token ของ Member · อ่านอย่างเดียว · เว็บมาจาก token เท่านั้น ไม่รับ `agent_id` ใดๆ (AST-52) · เว็บ = ตามหัวข้อ 9
+ข้อ 2 · `data` รูปแบบเดียวกับ `POST /bo/pr/asset/bundle` (มี `theme` อยู่ในตัว — เส้น theme แยก ❓ หัวข้อ 9 ข้อ 10) ·
 การเช็คเกมเปิด / ปิด (`status_game` — MGMT-20) เป็นของ module หน้าบ้าน
 
 ## 6. Schema
@@ -574,7 +589,7 @@ CREATE TABLE site_themes (                          -- catalog ธีมหน�
     is_active   BOOLEAN      NOT NULL DEFAULT true
 );
 
-CREATE TABLE site_brandings (                       -- 1 แถวต่อเว็บ (AST-41) — แยกจาก user_agents
+CREATE TABLE site_brandings (                       -- 1:1 กับเว็บ (AST-41) · ไม่มี scope / GLOBAL / ประวัติ · ❓ ข้อ 8: หรือเป็นคอลัมน์ใน user_agents
     agent_id    BIGINT       PRIMARY KEY REFERENCES user_agents(id),
     site_name   VARCHAR(50)  NOT NULL DEFAULT '',
     site_theme  VARCHAR(50)  NOT NULL DEFAULT '',     -- '' หรือ site_themes.code (ตรวจใน service)
@@ -714,6 +729,14 @@ CREATE INDEX idx_site_banners_agent ON site_banners(agent_id, created_at DESC) W
 | AST-46 | เกมที่ไม่มีไฟล์เลยทั้ง GLOBAL และเว็บ | สำเร็จ · `assets = {}` |
 | AST-46 | อ่าน `site_brandings` error | สำเร็จ · `site` ทุก field `""` · log warn |
 | AST-47 | agent01 ไม่มี branding · share01 มี | `bundle` ของ agent01 ได้ `site` ทั้งแถวของ share01 |
+| AST-47 | agent01 ตั้งแค่โลโก้ · share01 ตั้งครบ 4 field | `bundle` ของ agent01 ได้ของ agent01 (`site_name = ""`) — ไม่เอาชื่อของ share01 มาผสม |
+| AST-47 | ทั้งสายไม่มีใครตั้ง | `site` ทุก field `""` · สำเร็จ |
+| AST-47 | สายลึก 6 ชั้น | อ่าน branding ด้วย query เดียว |
+| AST-51 | `scratch_card` มีปก · `coin_toss` ยังไม่มีปก | `asset/games` สำเร็จ · `scratch_card` ได้ URL · `coin_toss` ได้ `""` |
+| AST-51 | GLOBAL มีปก 2 ไฟล์ เลือกใช้ตัวเก่าไว้ | `asset/games` ได้ตัวที่เลือก (ตรงกับ `list scope=GLOBAL`) |
+| AST-51 | catalog ของทุกเกม | มีช่อง `game_cover` |
+| AST-52 | ผู้เล่นใต้ share01 ส่ง `?agent_id=15` / body `agent_id` | ถูกเมิน · ได้ของเว็บตัวเองเสมอ |
+| AST-53 | agent01 ไม่ตั้ง branding · share01 ตั้งไว้ · agent01 เรียก `branding/detail` | ทุก field `""` (ไม่ไล่สาย) · แต่ `bundle` ของ agent01 ได้ของ share01 |
 | AST-48 | Member ใต้ share01 เรียก bundle ฝั่งผู้เล่น (เมื่อมี module หน้าบ้าน) | `data` เท่ากับ preview `POST /bo/pr/asset/bundle` ของ share01 |
 | AST-49 | `S3_CDN_BASE_URL = https://cdn.example.com/` | URL ไม่มี `//` ซ้อน |
 | AST-50 | `share01@design` อัป แล้ว share01 แก้ theme | config `created_by = share01@design` · theme `updated_by = share01` |
@@ -771,6 +794,15 @@ CREATE INDEX idx_site_banners_agent ON site_banners(agent_id, created_at DESC) W
    validation ทั่วไปใช้ `422` + msg บอก field · สิทธิ์ใช้ code ของ module ② (`402303`, `402402`)
 7. **ข้อมูลที่ต้องให้ทีมเกม / หน้าบ้านยืนยัน** — รายชื่อช่องและขนาดใน seed (มาจากโค้ดเก่า — `coin_toss` /
    `rock_paper_scissors` ยังไม่มีสเปกขนาด) · ไฟล์ palette จริงของหน้าบ้านสำหรับ fixture ของ AST-39 · ชื่อ / รูปตัวอย่างของ `site_themes`
+
+8. **ที่เก็บ branding** — เอกสารสรุป (ฉบับ 2026-10-09) ให้เป็นคอลัมน์บนตาราง agent (`user_agents`) เหมือนระบบเดิม ·
+   เสนอ: ตาราง 1:1 `site_brandings` (PK = `agent_id` · ไม่มี scope / GLOBAL / ประวัติ — พฤติกรรมเหมือนคอลัมน์ทุกอย่าง) เพราะ
+   `user_agents` เป็นของ module `agent_auth` / ② — เพิ่มคอลัมน์ = แก้ schema ของ module อื่น และ query ของ middleware ที่โหลด
+   `user_agents` ทุก request ไม่ต้องรู้จัก branding
+9. **รายชื่อเกมสำหรับ lobby** — ระบบเดิมเป็น public (ไม่ login) · spec นี้มีแค่ฝั่งหลังบ้าน (`asset/games` ต้องมีสิทธิ์ `asset`) ·
+   เสนอ: เส้นของ lobby อยู่ใน module หน้าบ้าน และต้องใช้ service เดียวกับ AST-51 · ต้องตัดสินว่า lobby ต้อง login ไหม
+10. **ฝั่งผู้เล่นแยกเส้น theme ไหม** — ระบบเดิม / เอกสารสรุปมี `GET /player/games/:type/theme` แยกจาก bundle ·
+    เสนอ: รวม `theme` ไว้ใน bundle (คำขอเดียว · แต่ละส่วนมี `source` ของตัวเองอยู่แล้ว) — แยกเพิ่มทีหลังได้ถ้าหน้าเกมต้องการ
 
 ### ต้องขออนุมัติก่อน implement (แตะส่วนกลางของโปรเจกต์)
 
