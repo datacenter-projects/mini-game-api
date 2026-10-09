@@ -38,11 +38,11 @@ superadmin1
 | MEMBER | mockmem1to1 | mockcom1to1 | — | — | — |
 | COMPANY_SEAMLESS_RESELLER | mockcomreseller | superadmin1 | 90 | — | mockcomreseller@staff |
 | SHARE_RESELLER | mocksharereseller | mockcomreseller | 80 | — | mocksharereseller@staff |
-| MEMBER | mockmemreseller | mocksharereseller | — | — | — |
+| ~~MEMBER~~ | ~~mockmemreseller~~ (ลบแล้ว 2026-10-10) | — | — | — | — |
 | COMPANY_SEAMLESS_MASTER | mockcommaster | superadmin1 | 90 | — | mockcommaster@staff |
 | SHARE_MASTER | mocksharemaster | mockcommaster | 90 | — | mocksharemaster@staff |
-| MEMBER | mockmemmaster | mocksharemaster | — | — | — |
+| ~~MEMBER~~ | ~~mockmemmaster~~ (ลบแล้ว 2026-10-10) | — | — | — | — |
 
 sub (`{username}@staff`) ได้สิทธิ์ `view` ทุกเมนูของเจ้าของ · Member ไม่มี sub
 
-หมายเหตุ (2026-10-09): Share Reseller / Share Master สร้างได้แค่ Member แล้ว (lead H1) · บน dev ยังมี `mockagentreseller` และ `mockagentmaster` ที่สร้างไว้ก่อนกฎนี้ (Member ของสองสายนี้อยู่ใต้ Agent ตัวนั้น) · รัน script ใหม่ด้วย `-prefix` อื่นจะได้สายตามตารางนี้
+หมายเหตุ (2026-10-10 · lead V3): Share Reseller / Share Master สร้างได้แค่ Member (lead H1) · `mockagentreseller` / `mockagentmaster` ที่สร้างไว้ก่อนกฎนี้ ถูกลบจาก dev แล้ว พร้อม Member ใต้มัน (`mockmemreseller` / `mockmemmaster`) และ sub · ตอนนี้ใต้ `mocksharereseller` / `mocksharemaster` ยังไม่มี Member · ต้องการให้รัน script ใหม่ด้วย `-prefix` อื่นจะได้สายตามตารางนี้
