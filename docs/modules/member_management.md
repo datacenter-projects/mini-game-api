@@ -38,7 +38,7 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | MGMT-61 | **แก้ 2026-10-09 (รอ lead อนุมัติ):** `user_members.cnf` = สายชั้นบนของ Member `{"parent": [{"id", "position"}, …]}` เรียงจาก Superadmin ลงมาถึง**ผู้สร้าง** (= `cnf` ของผู้สร้าง + ผู้สร้าง) · ตั้งตอนสร้าง |
 | MGMT-21 | **แก้ 2026-10-09 (รอ lead อนุมัติ)** ผู้สร้างตั้งให้ Member ต่อระบบ 2 ค่า: `pt` = ผู้สร้าง**ถือสู้กับ Member คนนี้** (0 ถึงค่าที่ผู้สร้างได้รับ ทีละ 0.5% · เกิน `402305`) · `commission_percent` 0–1% ทีละ 0.1% (`402309`) · Member แต่ละคน `pt` ต่างกันได้ · ไม่มี `force` · ส่ง `pt_from_parent` / `force` / `remain_quota` / `status` = `422` |
 | | • `remain_quota` = ค่าที่ผู้สร้างได้รับ − `pt` · **ระบบคิดและเก็บ** (ใช้คิด Remain ตอน settle) · คิดใหม่ทุกครั้งที่สร้าง / `update-pt` · หลังบ้านเก็บต่อเกม |
-| | • ค่าที่ผู้สร้างได้รับเปลี่ยน (`agents/update-pt`) → ต้อง sync `remain_quota` และกันลดต่ำกว่า `pt` ของ Member — อยู่ใน `agent_management` (หัวข้อ 7 · ยังไม่ทำ) |
+| | • ค่าที่ผู้สร้างได้รับเปลี่ยน (`agents/update-pt`) → sync `remain_quota` ของ Member ใน tx เดียวกัน และกันลดต่ำกว่า `pt` ของ Member (`402306`) — อยู่ใน `agent_management` MGMT-24 (หัวข้อ 7 · ทำแล้ว 2026-10-09) |
 | | • ผู้สร้างไม่มีแถว PT ของกลุ่มนั้น (ข้อมูลก่อน module ②) → ค่าที่ได้รับ = 0 → ตั้งได้แค่ `pt` 0 |
 | MGMT-29 | รายละเอียด: ทุก field ยกเว้น password / hash · ไม่มี `passcode_set` · `pt` ต่อระบบ = `pt` · `remain_quota` · `commission_percent` + `created_*` / `updated_*` |
 | MGMT-30 | สถานะ `ACTIVE` / `SUSPENDED` / `LOCKED` แก้ได้เฉพาะผู้สร้างโดยตรง (`402304`) · ตั้งกลับ `ACTIVE` ได้ · ไม่ต้อง passcode · `status` ที่แสดง = สถานะที่ใช้งานจริง (หัวสายถูกระงับ = `SUSPENDED`) |
