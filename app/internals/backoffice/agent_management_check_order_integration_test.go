@@ -25,7 +25,7 @@ func TestCreateCheckOrderAndMessages(t *testing.T) {
 	// 402301 บอก user_type ที่สร้างได้
 	r := call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "newshare", []string{"THB"}, childPT(50, 0, 0, 0)), c.saTok)
 	expect(t, r, 200, 402301)
-	expectMsgHas(t, r.Msg, "user_type", "COMPANY_TRANSFER", "COMPANY_SEAMLESS_1TO1")
+	expectMsgHas(t, r.Msg, "user_type", "ส่ง SHARE_B2C ไม่ได้", "COMPANY_TRANSFER", "COMPANY_SEAMLESS_1TO1")
 
 	// currencies ของ Company Transfer ห้ามส่ง — บอกเหตุผล
 	r = call(t, app, "POST", createAgentPath, agentBody("COMPANY_TRANSFER", "newcom", []string{"THB"}, childPT(90, 0, 0, 0)), c.saTok)

@@ -26,17 +26,17 @@ func joinTypes(ts []agentManagementCore.UserType) string {
 	return strings.Join(s, ", ")
 }
 
-// CannotCreateTypeError — 402301 พร้อมรายการ user_type ที่ผู้สร้างส่งได้ (MGMT-02)
-func CannotCreateTypeError(creator agentManagementCore.UserType) error {
+// CannotCreateTypeError — 402301 บอกค่าที่ส่งมา และรายการ user_type ที่ผู้สร้างส่งได้ (MGMT-02)
+func CannotCreateTypeError(creator agentManagementCore.UserType, sent string) error {
 	allowed := agentManagementCore.CreatableTypes(creator)
 	if len(allowed) == 0 {
 		return apperr.ErrCannotCreateType.WithMessage(
-			"user_type: "+string(creator)+" สร้างบัญชีฝั่ง agent ไม่ได้",
-			"user_type: "+string(creator)+" cannot create agent-side accounts")
+			"user_type: ส่ง "+sent+" ไม่ได้ · "+string(creator)+" สร้างบัญชีฝั่ง agent ไม่ได้",
+			"user_type: "+sent+" is not allowed · "+string(creator)+" cannot create agent-side accounts")
 	}
 	return apperr.ErrCannotCreateType.WithMessage(
-		"user_type: "+string(creator)+" สร้างได้เฉพาะ "+joinTypes(allowed),
-		"user_type: "+string(creator)+" can only create "+joinTypes(allowed))
+		"user_type: ส่ง "+sent+" ไม่ได้ · "+string(creator)+" สร้างได้เฉพาะ "+joinTypes(allowed),
+		"user_type: "+sent+" is not allowed · "+string(creator)+" can only create "+joinTypes(allowed))
 }
 
 // CurrencyError — 422 / 402310 พร้อมกฎ currencies ของประเภทบัญชีใหม่ (MGMT-10 – MGMT-14)

@@ -58,7 +58,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO) — หัวข้อ 7.1
 		newAcc, ok := agentManagementCore.ResolveNewAgent(c.UserType, agentManagementCore.UserType(req.UserType))
 		if !ok {
-			return CannotCreateTypeError(c.UserType)
+			return CannotCreateTypeError(c.UserType, req.UserType)
 		}
 		if err := LockAndCheckIdentity(tx, req.Username, req.Phone, false); err != nil {
 			return err
