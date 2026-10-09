@@ -200,6 +200,9 @@ Response `data` (ลูกตรงของ share01 · หัวสาย comp0
       "name": "agent01",
       "phone": "0898765432",
       "status": "SUSPENDED",
+      "last_login_at": "2026-10-08T21:00:00+07:00",
+      "last_login_ip": "203.0.113.10",
+      "created_at": "2026-10-01T09:00:00+07:00",
       "pt": {
         "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" }
       },
@@ -214,6 +217,9 @@ Response `data` (ลูกตรงของ share01 · หัวสาย comp0
       "name": "ใจดี",
       "phone": "",
       "status": "SUSPENDED",
+      "last_login_at": "2026-10-08T21:00:00+07:00",
+      "last_login_ip": "203.0.113.10",
+      "created_at": "2026-10-01T09:00:00+07:00",
       "pt": {
         "minigame": { "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
       },
@@ -265,6 +271,9 @@ Response `data` (comp01 ค้น `sh`):
       "name": "sh1",
       "phone": "",
       "status": "ACTIVE",
+      "last_login_at": "2026-10-08T21:00:00+07:00",
+      "last_login_ip": "203.0.113.10",
+      "created_at": "2026-10-01T09:00:00+07:00",
       "parent_username": "comp01",
       "pt": {
         "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
@@ -280,6 +289,9 @@ Response `data` (comp01 ค้น `sh`):
       "name": "sh2",
       "phone": "",
       "status": "ACTIVE",
+      "last_login_at": "2026-10-08T21:00:00+07:00",
+      "last_login_ip": "203.0.113.10",
+      "created_at": "2026-10-01T09:00:00+07:00",
       "parent_username": "comp01",
       "pt": {
         "minigame": { "pt_from_parent": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
@@ -295,6 +307,9 @@ Response `data` (comp01 ค้น `sh`):
       "name": "sh3agent",
       "phone": "",
       "status": "SUSPENDED",
+      "last_login_at": "2026-10-08T21:00:00+07:00",
+      "last_login_ip": "203.0.113.10",
+      "created_at": "2026-10-01T09:00:00+07:00",
       "parent_username": "sh1",
       "pt": {
         "minigame": { "pt_from_parent": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "sh1", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "sh1" }

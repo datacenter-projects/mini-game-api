@@ -41,15 +41,18 @@ type BalanceView struct {
 // DownlineRow — 1 แถวของ POST /manage/downlines/list (MGMT-28)
 // PT = nil เมื่อผู้เรียกไม่มีสิทธิ์ pt ≥ view → ไม่มี field pt (MGMT-51)
 type DownlineRow struct {
-	ID       uint          `json:"id"`
-	Role     string        `json:"role"` // MEMBER = แถว Member
-	UserType string        `json:"user_type"`
-	Username string        `json:"username"`
-	Name     string        `json:"name"`
-	Phone    string        `json:"phone"`
-	Status   string        `json:"status"` // สถานะที่ใช้งานจริง (ACC-30)
-	PT       any           `json:"pt,omitempty"`
-	Balances []BalanceView `json:"balances"`
+	ID          uint          `json:"id"`
+	Role        string        `json:"role"` // MEMBER = แถว Member
+	UserType    string        `json:"user_type"`
+	Username    string        `json:"username"`
+	Name        string        `json:"name"`
+	Phone       string        `json:"phone"`
+	Status      string        `json:"status"`        // สถานะที่ใช้งานจริง (ACC-30)
+	LastLoginAt string        `json:"last_login_at"` // RFC 3339 · ยังไม่เคย login = "" (เพิ่ม 2026-10-09)
+	LastLoginIP string        `json:"last_login_ip"`
+	CreatedAt   string        `json:"created_at"`
+	PT          any           `json:"pt,omitempty"`
+	Balances    []BalanceView `json:"balances"`
 }
 
 // AgentDetailResponse — GET /manage/agents/:id (MGMT-29)
