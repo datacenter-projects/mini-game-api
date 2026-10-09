@@ -7,7 +7,7 @@ import (
 
 	agentAuthCore "app/app/core/agent_auth"
 	"app/app/models"
-	redisRepo "app/app/repository/redis"
+	agentAuthRedis "app/app/repository/redis/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -26,7 +26,7 @@ func AuthenticateService(ctx context.Context, rawToken, ip string) (Actor, error
 	}
 	sid, accountID := claims.SessionID, claims.AccountID
 
-	session, err := redisRepo.GetBOSessionRepository(ctx, sid, accountType, accountID)
+	session, err := agentAuthRedis.GetBOSessionRepository(ctx, sid, accountType, accountID)
 	if errors.Is(err, apperr.ErrNotFound) {
 		return Actor{}, apperr.ErrSessionEnded
 	}
@@ -67,7 +67,7 @@ func AuthenticateService(ctx context.Context, rawToken, ip string) (Actor, error
 		logger.Ctx(ctx).Warnw("session ip mismatch", "account_type", acc.Type, "account_id", acc.ID, "login_ip", session.IP, "request_ip", ip)
 	}
 
-	if err := redisRepo.TouchBOSessionRepository(ctx, sid, ttl); err != nil {
+	if err := agentAuthRedis.TouchBOSessionRepository(ctx, sid, ttl); err != nil {
 		logger.Ctx(ctx).Warnw("touch session failed", "account_type", acc.Type, "account_id", acc.ID, "error", err)
 	}
 
@@ -91,13 +91,13 @@ func parseToken(rawToken string) (*utils.SessionClaims, models.AccountType, erro
 }
 
 func endSession(ctx context.Context, sid string, t models.AccountType, id uint) {
-	if err := redisRepo.DeleteBOSessionRepository(ctx, sid, t, id); err != nil {
+	if err := agentAuthRedis.DeleteBOSessionRepository(ctx, sid, t, id); err != nil {
 		logger.Ctx(ctx).Warnw("delete session failed", "account_type", t, "account_id", id, "error", err)
 	}
 }
 
 func endAllSessions(ctx context.Context, a account) {
-	if err := redisRepo.DeleteBOSessionsOfAccountRepository(ctx, a.Type, a.ID); err != nil {
+	if err := agentAuthRedis.DeleteBOSessionsOfAccountRepository(ctx, a.Type, a.ID); err != nil {
 		logger.Ctx(ctx).Warnw("delete sessions of account failed", "account_type", a.Type, "account_id", a.ID, "error", err)
 	}
 }

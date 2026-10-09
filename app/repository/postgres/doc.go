@@ -1,6 +1,8 @@
 // Package postgres คือที่เดียวที่ query PostgreSQL
 //
 // กฎ:
+//   - แยก folder ตาม module เจ้าของตาราง: postgres/{module}/ (package = ชื่อ folder ตัด _ · import alias {module}Postgres)
+//     root นี้มีแค่ doc.go — module อื่น import repository ของเจ้าของตารางมาใช้ได้ (docs/ARCHITECTURE.md)
 //   - ไฟล์: {table หรือ aggregate}_repository.go, ฟังก์ชัน: XxxRepository(db *gorm.DB, ...)
 //   - param แรกเป็น db *gorm.DB เสมอ — ห้ามอ้าง database.DBConn ในนี้ (service ส่ง DBConn หรือ tx มาให้)
 //   - ห้ามเปิด Transaction และห้ามมี business rule (เช็คสิทธิ์/เช็คยอด ทำใน service)

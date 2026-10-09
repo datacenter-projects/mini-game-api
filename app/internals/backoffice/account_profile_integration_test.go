@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/utils"
 	"app/platform/database"
 
@@ -75,8 +75,8 @@ func getProfile(t *testing.T, app *fiber.App, tok string) (profileData, map[stri
 
 func allLevel(t *testing.T, perms map[string]string, want string) {
 	t.Helper()
-	if len(perms) != 9 {
-		t.Fatalf("ต้องมีสิทธิ์ 9 เมนู ได้ %v", perms)
+	if len(perms) != 8 {
+		t.Fatalf("ต้องมีสิทธิ์ 8 เมนู ได้ %v", perms)
 	}
 	for m, lv := range perms {
 		if lv != want {
@@ -178,7 +178,7 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 	hash, _ := utils.HashPassword(mgPassword)
 	sub := models.Subaccount{AgentID: c.share.ID, Username: "share01@staff", PasswordHash: hash, Status: models.AgentStatusActive,
 		Permissions: `{"report":"view"}`}
-	if err := postgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
+	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
@@ -188,7 +188,7 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 		d.UserType != "SHARE_B2C" || len(d.Currencies) != 1 || d.PT["minigame"].PTFromParent != "70" {
 		t.Fatalf("unexpected %+v", d)
 	}
-	if len(d.Permissions) != 9 || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" || d.Permissions["account"] != "off" {
+	if len(d.Permissions) != 8 || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" || d.Permissions["account"] != "" {
 		t.Fatalf("permissions %v", d.Permissions)
 	}
 

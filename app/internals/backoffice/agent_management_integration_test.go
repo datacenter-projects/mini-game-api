@@ -14,7 +14,7 @@ import (
 
 	agentManagementCore "app/app/core/agent_management"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/testutil"
 	"app/pkg/utils"
 	"app/platform/database"
@@ -44,7 +44,7 @@ func seedSuperadmin(t *testing.T, app *fiber.App) (models.UserAgent, string) {
 		t.Fatal(err)
 	}
 	sa := models.UserAgent{Username: "superadmin", PasswordHash: hash, Role: models.AgentRoleSuperAdmin, Status: models.AgentStatusActive}
-	if err := postgres.CreateUserAgentRepository(database.DBConn, &sa); err != nil {
+	if err := agentAuthPostgres.CreateUserAgentRepository(database.DBConn, &sa); err != nil {
 		t.Fatal(err)
 	}
 	var curs []models.AgentCurrency
@@ -176,7 +176,7 @@ func TestCreateMatrix(t *testing.T) { // MGMT-02
 	for i := 1; i <= 3; i++ {
 		_, tok = mustCreate(t, app, tok, agentBody("AGENT", fmt.Sprintf("sub%dagent", i), nil, childPT(60, 0, 0, 0)))
 	}
-	var m models.Member
+	var m models.UserMember
 	database.DBConn.Where("username = ?", "memagent").Take(&m)
 	if m.Currency != "THB" || m.AgentID != c.agent.ID {
 		t.Fatalf("member currency %q agent %d", m.Currency, m.AgentID)
@@ -256,7 +256,7 @@ func TestCreateValidation(t *testing.T) { // MGMT-05, MGMT-08, MGMT-12, MGMT-14,
 	phone := "0899999999"
 	for _, n := range []string{"staff1", "staff2"} {
 		s := models.Subaccount{AgentID: c.agent.ID, Username: "agent01@" + n, PasswordHash: "x", Status: models.AgentStatusActive, Phone: &phone}
-		if err := postgres.CreateSubaccountRepository(database.DBConn, &s); err != nil {
+		if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &s); err != nil {
 			t.Fatalf("sub เบอร์ซ้ำต้องสร้างได้: %v", err)
 		}
 	}
@@ -366,8 +366,8 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	mb := memberBody("memrich", 0)
 	mb["balance"] = map[string]any{"THB": 25.5}
 	expect(t, call(t, app, "POST", createMemberPath, mb, c.agentTok), 200, 200)
-	var mbal models.MemberBalance
-	database.DBConn.Joins("JOIN members ON members.id = member_balances.member_id").Where("members.username = ?", "memrich").Take(&mbal)
+	var mbal models.UserMemberBalance
+	database.DBConn.Joins("JOIN user_members ON user_members.id = user_member_balances.user_member_id").Where("user_members.username = ?", "memrich").Take(&mbal)
 	if mbal.Amount != 2550 || agentBalance(t, c.agent.ID, "THB") != 7450 {
 		t.Fatalf("member %d agent %d", mbal.Amount, agentBalance(t, c.agent.ID, "THB"))
 	}
@@ -423,7 +423,7 @@ func TestCreateSubPermission(t *testing.T) { // MGMT-51
 	hash, _ := utils.HashPassword(mgPassword)
 	sub := models.Subaccount{AgentID: com.ID, Username: com.Username + "@staff", PasswordHash: hash, Status: models.AgentStatusActive,
 		Permissions: `{"member":"edit"}`}
-	if err := postgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
+	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)

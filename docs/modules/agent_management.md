@@ -2,8 +2,11 @@
 
 - สถานะ: **APPROVED**
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07
-- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead ยังไม่ได้รับทราบ): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
-- ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`)
+- แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
+- แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
+- แก้ 2026-10-09 (boiledegg ตัดสิน): ลำดับเช็คบนลงล่างตาม field ใน body และข้อความ error บอก field + ค่าที่ตั้งได้ (หัวข้อ 7.1)
+- แก้หลังอนุมัติ (2026-10-08 · maofoy · boiledegg ยืนยัน 2026-10-09): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261009000000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
+- ชื่อ module ในโค้ด: `agent_management` (`controllers/agent_management`, `dto/agent_management`, `service/agent_management`, `core/agent_management`) · เส้น `/manage/members/*` แยกไปที่ `member_management` (`controllers/` `dto/` `service/member_management` — lead อนุมัติ 2026-10-08 · spec [member_management.md](member_management.md) แยกเอกสาร 2026-10-09) · กฎ business ยังอยู่ที่ `core/agent_management` และ spec ฉบับนี้
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member) · แก้ไข · บัญชีย่อย (เพิ่ม · รายชื่อ · รายละเอียด · แก้ · เปลี่ยนสถานะ)
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) ·
   review ของ lead ต่อฉบับ 647d682 · ภาพหน้าจอตัวอย่าง + คำตอบของ boiledegg (2026-10-05 / 06) · ไม่ได้ extract จากโค้ดเก่า
@@ -19,7 +22,7 @@
 ดูรายละเอียด, แก้ข้อมูล, แก้สถานะ, ตั้ง / แก้ค่าหุ้นส่วน (PT · Force · Remain · Commission) และเปิด / ปิดเกม,
 คัดลอกการตั้งค่า และกำหนดสิทธิ์ของ sub (ระบบสิทธิ์ของทั้งหลังบ้านกำหนดที่นี่ครั้งเดียว)
 
-**ไม่อยู่ใน module นี้:** การเติม / ถอน / โอนเงินหลังสร้างบัญชี (module การชำระเงิน — ใช้ตาราง `agent_balances` · `member_balances` · `balance_ledger` ที่สร้างใน module นี้ต่อ) · **ยอดเงินตั้งต้นตอนสร้างบัญชีอยู่ใน module นี้** (MGMT-15A — แก้ 2026-10-08) ·
+**ไม่อยู่ใน module นี้:** การเติม / ถอน / โอนเงินหลังสร้างบัญชี (module การชำระเงิน — ใช้ตาราง `agent_balances` · `user_member_balances` · `balance_ledger` ที่สร้างใน module นี้ต่อ) · **ยอดเงินตั้งต้นตอนสร้างบัญชีอยู่ใน module นี้** (MGMT-15A — แก้ 2026-10-08) ·
 การคิด PT / Force / Remain / Commission ตอน settle (module เดิมพัน) · login ของ Member (module หน้าบ้าน) ·
 Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี้แค่สร้าง Key ตอนสร้างเจ้าของ ACC-05)
 
@@ -28,7 +31,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | คำ | ความหมาย |
 |---|---|
 | ฝั่ง agent | Superadmin · Company · Share · Agent (ตาราง `user_agents`) |
-| Member | ผู้เล่น (ตาราง `members` แยกจากฝั่ง agent) |
+| Member | ผู้เล่น (ตาราง `user_members` แยกจากฝั่ง agent) |
 | ผู้สร้าง | บัญชีที่สร้างบัญชีนั้น (`parent_id` / `agent_id` ของ member) — ลูกตรง = บัญชีที่ตัวเองสร้าง |
 | สายล่าง | ทุกบัญชีใต้ตัวเองทุกชั้น ไม่นับตัวเอง |
 | `user_type` | ประเภทบัญชี (MGMT-01) — ตรงกับ account ACC-12 |
@@ -43,7 +46,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 
 | ID | Rule |
 |---|---|
-| MGMT-01 | `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` · `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT` · `MEMBER` · เก็บเป็น `role` + `agent_type` ใน `user_agents` (Member อยู่ตาราง `members`) |
+| MGMT-01 | `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` · `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT` · `MEMBER` · เก็บเป็น `role` + `agent_type` ใน `user_agents` (Member อยู่ตาราง `user_members`) |
 | MGMT-02 | ใครสร้างอะไรได้: |
 | | • Superadmin → Company ทั้ง 4 ประเภท |
 | | • Company Transfer → Share B2B · Share B2C |
@@ -54,13 +57,13 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | | • Agent → Agent (ซ้อนได้ไม่จำกัดชั้น) หรือ Member |
 | | ADMIN สร้างไม่ได้ (AUTH-43) · ประเภทการเดิมพัน (Transfer / Seamless) ตามผู้สร้าง เลือกไม่ได้ |
 | MGMT-03 | ผู้สร้างต้อง `status = ACTIVE` (AUTH-54 บังคับที่ middleware) · บัญชีใหม่ `status = ACTIVE` |
-| MGMT-04 | สร้าง Company Seamless 1 to 1 · Share Reseller · Share Master → สร้าง Key ของ account 1.3 ใน tx เดียวกัน (ACC-05) |
+| MGMT-04 | สร้างบัญชีฝั่ง agent **ทุกประเภท** (Company / Share / Agent — แก้ 2026-10-08) → สร้าง Key ของ account 1.3 ใน tx เดียวกัน (ACC-05) |
 
 ### ข้อมูลบัญชี
 
 | ID | Rule |
 |---|---|
-| MGMT-05 | username (ฝั่ง agent และ Member): 3–32 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่แล้วแปลงเป็นเล็ก — AUTH-01) · **ห้ามซ้ำทั้งระบบ** ข้ามตาราง `user_agents` และ `members` (เช็คใน service ภายใน tx พร้อม `pg_advisory_xact_lock` ของ username กันสร้างพร้อมกัน) · แก้ไม่ได้ (AUTH-19) |
+| MGMT-05 | username (ฝั่ง agent และ Member): 3–32 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่แล้วแปลงเป็นเล็ก — AUTH-01) · **ห้ามซ้ำทั้งระบบ** ข้ามตาราง `user_agents` และ `user_members` (เช็คใน service ภายใน tx พร้อม `pg_advisory_xact_lock` ของ username กันสร้างพร้อมกัน) · แก้ไม่ได้ (AUTH-19) |
 | MGMT-06 | รหัสผ่านตาม AUTH-36 · ฝั่ง agent ตั้ง passcode ตอน login ครั้งแรก (AUTH-29) |
 | MGMT-07 | ชื่อ: บังคับ · 3–32 ตัวอักษร (นับเป็นตัวอักษร ไม่ใช่ byte) · ใช้ได้ภาษาไทย `A-Z` `a-z` `0-9` · ไม่มีช่องว่าง (แก้ 2026-10-08 — เดิม `A-Z` `a-z` `0-9` เท่านั้น) |
 | MGMT-08 | เบอร์โทร: ไม่บังคับ (ไม่กรอกส่ง `""` · ห้าม `null` — account ACC-32) · 8–15 ตัว ตัวเลขเท่านั้น (ห้าม `+`) · ห้ามซ้ำภายในตารางเดียวกัน (unique index ต่อตาราง) · ยกเว้น sub ซ้ำได้ (MGMT-41) |
@@ -106,7 +109,7 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-20 | **`status` ใน `pt` กับ `status_game` แยกหน้าที่กัน** (boiledegg ตัดสิน 2026-10-08): |
 | | • `pt` → ระบบ → `status` (bool) = รับ PT ในระบบนั้นไหม · `false` = **เกมยังเปิดให้เล่น แต่บัญชีนี้ไม่รับ PT** ในระบบนั้น · ผู้สร้างตั้งให้ (สร้าง / `update-pt`) · ส่วน PT ที่บัญชีนี้ไม่รับไปอยู่กับใคร กำหนดตอนทำ module คิด PT |
 | | • `status_game` → รหัสเกม (bool) = **เปิด / ปิดเกมรายบัญชี** · `false` = Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ผู้สร้างตั้งให้ · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
-| MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`member_game_settings`) |
+| MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member มีแค่ `commission_percent` ต่อกลุ่ม (Member ไม่ถือ PT — เอกสาร PT Commission) กระจายและเก็บต่อเกมแบบเดียวกัน (`user_member_game_settings`) |
 | MGMT-22 | **ผู้สร้างกำหนดค่าที่ให้ลูกแต่ละคนแยกกัน** (ทุกชั้น รวม Superadmin → Company): |
 | | • ลูกแต่ละคนได้รับไม่เท่ากันได้ · ค่าที่ให้ลูกแต่ละคน**ห้ามเกินค่าที่ผู้สร้างได้รับ** · Superadmin ได้รับ 100% |
 | | • ผู้สร้าง**ถือในสายของลูกคนนั้น** = ค่าที่ผู้สร้างได้รับ − ค่าที่ให้ลูกคนนั้น (ระบบคำนวณ ไม่ต้องส่ง) |
@@ -178,9 +181,9 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 |---|---|
 | MGMT-50 | สิทธิ์ต่อเมนู ระดับ `off` (เข้าไม่ได้) / `view` (ดูอย่างเดียว) / `edit` (ดูและแก้) · **ไม่ติ๊ก = `off`** · บัญชีหลักได้ `edit` ทุกเมนูที่ประเภทนั้นมี · sub ได้ตามที่เจ้าของให้ · รูปแบบใน API เป็น object `{ "{menu}": "off" \| "view" \| "edit" }` ทั้ง request และ response (รวม Profile — account ACC-12) |
 | MGMT-51 | เช็คด้วย middleware แยก `RequirePermission(menu, level)` บรรทัดเดียวกับ route (กฎข้อ 28) · route ของ admin ใช้ middleware แยก `RequireRole(ADMIN)` (AUTH-44) · เมนู: |
-| | `dashboard` (off / view) — account 1.1 · `account` — account 1.2 Profile, 1.3 API · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` · `rate` (อัตราแพ้ชนะ — เฉพาะ Superadmin) |
+| | `dashboard` (off / view) — account 1.1 · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` · `rate` (อัตราแพ้ชนะ — เฉพาะ Superadmin) |
 | | ไม่มี `pt` ≥ view → response ไม่มี field `pt` · **สร้างบัญชี ต้องมี `member` = edit และ `pt` = edit** (ถ้าส่ง `balance` ต้องมี `payment` = edit ด้วย — MGMT-15A) · เปลี่ยนรหัสผ่าน / passcode ของตัวเองไม่ต้องใช้สิทธิ์ (แต่ถูก AUTH-54 กันตอนถูกระงับ) |
-| MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 9 เมนู — `dashboard` · `account` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · **Company · Share · Agent** = 9 เมนูเดียวกัน — `dashboard` · `account` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` (ไม่มี `rate` — ยืนยัน 2026-10-07) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
+| MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 8 เมนู — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · **Company · Share · Agent** = 8 เมนูเดียวกัน — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` (ไม่มี `rate` — ยืนยัน 2026-10-07) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
 | MGMT-53 | Profile (account ACC-12) ส่ง `permissions` เป็น object รูปแบบเดียวกับ MGMT-50 · บัญชีหลักได้ `edit` ทุกเมนูของประเภทตัวเอง |
 
 ### ประวัติ
@@ -199,18 +202,18 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 สิทธิ์ของ sub ใช้ middleware `RequirePermission(menu, level)` บรรทัดเดียวกับ route ·
 error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, `401307`, `401311`, `402303`
 
+**เส้นของ Member** (`/manage/members/*`) ย้ายไป spec [member_management.md](member_management.md) (แยกเอกสาร 2026-10-09) · ตารางนี้เหลือเส้นของ module `agent_management`
+
 | Method | Path | สิทธิ์ (sub) | หมายเหตุ |
 |---|---|---|---|
 | POST | `/api/v1/bo/pr/manage/agents/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Company / Share / Agent |
-| POST | `/api/v1/bo/pr/manage/members/create` | `member` edit · `pt` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Member |
 | POST | `/api/v1/bo/pr/manage/downlines/list` | `member` view | รายชื่อลูกตรง (agent + Member) |
 | POST | `/api/v1/bo/pr/manage/downlines/search` | `member` view | ค้นหาทั้งสายใต้ตัวเอง (MGMT-27A) |
 | POST | `/api/v1/bo/pr/admin/accounts/search` | ADMIN เท่านั้น | ค้นหาบัญชีทั้งระบบด้วย username ตรงทั้งคำ (MGMT-27B) |
 | POST | `/api/v1/bo/pr/manage/agents/detail` | `member` view | รายละเอียดฝั่ง agent |
-| POST | `/api/v1/bo/pr/manage/members/detail` | `member` view | รายละเอียด Member |
-| POST | `/api/v1/bo/pr/manage/agents/update-info` · `/manage/members/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
-| POST | `/api/v1/bo/pr/manage/agents/update-status` · `/manage/members/update-status` | `member` edit | แก้สถานะ |
-| POST | `/api/v1/bo/pr/manage/agents/update-pt` · `/manage/members/update-commission` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
+| POST | `/api/v1/bo/pr/manage/agents/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
+| POST | `/api/v1/bo/pr/manage/agents/update-status` | `member` edit | แก้สถานะ |
+| POST | `/api/v1/bo/pr/manage/agents/update-pt` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
 | POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดเกมรายบัญชีให้ลูกตรง (MGMT-20) |
 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
@@ -267,33 +270,6 @@ Response:
 - `phone` ไม่ตั้งให้ส่ง `""` · `pt` ต้องส่งครบทุกกลุ่ม ครบ 5 ค่า · `status_game` ไม่บังคับ · เกมที่ไม่ส่ง = `true` (เปิด) · ไม่ส่งทั้ง field = เปิดทุกเกม · แก้ทีหลังที่ `update-games`
 
 Error codes: `422`, `402301`, `402303`, `402305`, `402307`, `402308`, `402309`, `402310`, `402312`, `402401`, `402403`
-
-### POST /api/v1/bo/pr/manage/members/create
-
-Request:
-```json
-{
-  "request_id": "0b9c5a77-2d1e-4f3a-8c61-5e4d3c2b1a09",
-  "username": "Mem01",
-  "password": "aA4b4c4d4e4f",
-  "name": "ใจดี",
-  "phone": "",
-  "balance": { "THB": 100.00 },
-  "pt": { "minigame": { "commission_percent": 0.3 } }
-}
-```
-Response:
-```json
-{
-  "code": 200,
-  "msg": "สำเร็จ",
-  "data": { "id": 501, "username": "mem01" }
-}
-```
-- ไม่มี `user_type` · `currencies` · `status_game` · สกุลเงิน = สกุลของผู้สร้าง (MGMT-13)
-- `pt` กลุ่มละ `commission_percent` เท่านั้น (MGMT-21)
-
-Error codes: `422`, `402301`, `402303`, `402309`, `402312`, `402401`, `402403`
 
 ### POST /api/v1/bo/pr/manage/downlines/list (รายชื่อลูกตรง)
 
@@ -494,41 +470,6 @@ Response:
 
 Error codes: `422`, `402303`, `402402`
 
-### POST /api/v1/bo/pr/manage/members/detail
-
-Request:
-```json
-{ "id": 501 }
-```
-Response:
-```json
-{
-  "code": 200,
-  "msg": "สำเร็จ",
-  "data": {
-    "id": 501,
-    "role": "MEMBER",
-    "user_type": "MEMBER",
-    "username": "mem01",
-    "name": "ใจดี",
-    "phone": "",
-    "status": "ACTIVE",
-    "parent_username": "agent01",
-    "currencies": ["THB"],
-    "balances": [ { "currency": "THB", "amount": 100.00 } ],
-    "pt": {
-      "minigame": { "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
-    },
-    "last_login_at": "",
-    "last_login_ip": "",
-    "created_at": "2026-10-02T14:30:00+07:00"
-  }
-}
-```
-- ดูได้: ผู้สร้าง Member และชั้นบนในสาย · ไม่มี `passcode_set` · `pt` ต่อเกมมีแค่ `commission_percent` · `created_at` · `created_by` · `updated_at` · `updated_by`
-
-Error codes: `422`, `402303`, `402402`
-
 ### GET /api/v1/bo/pr/manage/agents/copy-sources
 
 Request: ไม่มี body (ลูกตรงฝั่ง agent ของบัญชีใน token)
@@ -564,7 +505,7 @@ Response (ตัวอย่างของ comp01):
 
 Error codes: `402303`
 
-### POST /api/v1/bo/pr/manage/agents/update-info · /manage/members/update-info
+### POST /api/v1/bo/pr/manage/agents/update-info
 
 Request (แทนทั้งชุด — ต้องส่งครบ):
 ```json
@@ -575,11 +516,10 @@ Response:
 { "code": 200, "msg": "สำเร็จ" }
 ```
 - `id` = บัญชีที่จะแก้ (ลูกตรงเท่านั้น) · ผู้แก้มาจาก token · `phone` `""` = ไม่ตั้ง · ส่ง `null` หรือไม่ส่ง field = `422`
-- เส้น Member ใช้ body รูปแบบเดียวกัน (`"id": 501`)
 
 Error codes: `422`, `402303`, `402304`, `402402`, `402403`
 
-### POST /api/v1/bo/pr/manage/agents/update-status · /manage/members/update-status
+### POST /api/v1/bo/pr/manage/agents/update-status
 
 Request:
 ```json
@@ -613,20 +553,6 @@ Response:
 - ส่ง `pt` (ค่าถือที่ลูกตั้งเอง) มา = `422`
 
 Error codes: `422`, `402303`, `402304`, `402305`, `402306`, `402307`, `402308`, `402309`, `402402`
-
-### POST /api/v1/bo/pr/manage/members/update-commission
-
-Request:
-```json
-{ "id": 501, "pt": { "minigame": { "commission_percent": 0.3 } } }
-```
-Response:
-```json
-{ "code": 200, "msg": "สำเร็จ" }
-```
-- Member มีแค่ `commission_percent` (MGMT-21) · ส่ง field อื่นในกลุ่ม = `422`
-
-Error codes: `422`, `402303`, `402304`, `402309`, `402402`
 
 ### POST /api/v1/bo/pr/manage/agents/update-hold (บัญชีตั้งค่าถือของตัวเอง)
 
@@ -688,7 +614,7 @@ Response:
         "phone": "",
         "status": "ACTIVE",
         "permissions": {
-          "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
+          "dashboard": "view", "member": "edit", "pt": "view", "report": "view",
           "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
         },
         "created_at": "2026-10-06T12:26:43+07:00",
@@ -723,7 +649,7 @@ Response:
     "phone": "",
     "status": "ACTIVE",
     "permissions": {
-      "dashboard": "view", "account": "off", "member": "edit", "pt": "view", "report": "view",
+      "dashboard": "view", "member": "edit", "pt": "view", "report": "view",
       "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
     },
     "created_at": "2026-10-06T12:26:43+07:00",
@@ -830,7 +756,7 @@ CREATE TABLE agent_game_settings (               -- ค่าหุ้นส่�
     commission_bp     INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
     status            BOOLEAN     NOT NULL DEFAULT true,   -- รับ PT ไหม (false = เกมยังเปิด แต่ไม่รับ PT — MGMT-20)
     status_game       BOOLEAN     NOT NULL DEFAULT true,   -- เปิด / ปิดทีละเกม
-    created_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ผู้สร้าง (เพิ่ม 2026-10-08 — migration ใหม่ พร้อม created_at · member_game_settings ด้วย)
+    created_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ผู้สร้าง (เพิ่ม 2026-10-08 — migration ใหม่ พร้อม created_at · user_member_game_settings ด้วย)
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by        VARCHAR(71) NOT NULL DEFAULT '',     -- username ของคนที่แก้ล่าสุด
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -838,34 +764,8 @@ CREATE TABLE agent_game_settings (               -- ค่าหุ้นส่�
     CHECK (pt_bp <= pt_from_parent_bp)
 );
 
-CREATE TABLE members (
-    id            BIGSERIAL    PRIMARY KEY,
-    agent_id      BIGINT       NOT NULL REFERENCES user_agents(id),  -- ผู้สร้าง
-    username      VARCHAR(32)  NOT NULL,
-    password_hash VARCHAR(100) NOT NULL,
-    name          VARCHAR(32)  NOT NULL,
-    phone         VARCHAR(15),
-    currency      VARCHAR(4)   NOT NULL,
-    status        VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','LOCKED')),
-    last_login_at TIMESTAMPTZ,
-    last_login_ip VARCHAR(45),
-    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_members_username UNIQUE (username),
-    CONSTRAINT ck_members_username CHECK (username = lower(username) AND username ~ '^[a-z0-9]{3,32}$'),
-    CONSTRAINT ck_members_phone CHECK (phone IS NULL OR phone ~ '^[0-9]{8,15}$')
-);
-CREATE INDEX idx_members_agent_username ON members(agent_id, username);
-CREATE UNIQUE INDEX uq_members_phone ON members(phone) WHERE phone IS NOT NULL;
+-- ตาราง Member (user_members · user_member_game_settings) อยู่ใน docs/modules/member_management.md หัวข้อ 4
 
-CREATE TABLE member_game_settings (             -- Member มีแค่ Commission ต่อเกม (MGMT-21)
-    member_id     BIGINT      NOT NULL REFERENCES members(id),
-    category      VARCHAR(30) NOT NULL,
-    game_code     VARCHAR(50) NOT NULL,
-    commission_bp INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (member_id, game_code)
-);
 
 ALTER TABLE subaccounts
     ADD COLUMN name        VARCHAR(32),
@@ -883,13 +783,7 @@ CREATE TABLE agent_balances (
     PRIMARY KEY (agent_id, currency)
 );
 
-CREATE TABLE member_balances (
-    member_id  BIGINT      NOT NULL REFERENCES members(id),
-    currency   VARCHAR(4)  NOT NULL,
-    amount     BIGINT      NOT NULL DEFAULT 0 CHECK (amount >= 0),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (member_id, currency)
-);
+-- user_member_balances อยู่ใน docs/modules/member_management.md หัวข้อ 4
 
 CREATE TABLE balance_ledger (                    -- ทุกการเปลี่ยนยอดต้องมีแถวที่นี่ใน tx เดียวกัน (กฎข้อ 11)
     id            BIGSERIAL   PRIMARY KEY,
@@ -948,7 +842,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-02 | Company Seamless Reseller สร้าง `SHARE_B2C` | สำเร็จ · `user_type = SHARE_RESELLER` |
 | MGMT-02 | Company Seamless 1 to 1 สร้าง Share · Share B2B สร้าง Member | `402301` |
 | MGMT-02 | Share B2C สร้าง Member · Agent สร้าง Member · Agent สร้าง Agent 3 ชั้น | สำเร็จ |
-| MGMT-04 | สร้าง Share Master | มีแถว `api_credentials` ของบัญชีใหม่ |
+| MGMT-04 | สร้าง Company Transfer · Share B2C · Agent · Share Master | ทุกบัญชีมีแถว `api_credentials` ของตัวเอง |
 | MGMT-05 | username `ab` / 33 ตัว / มี `_` | `422` · `Share01` เก็บเป็น `share01` |
 | MGMT-05 | username ซ้ำ | `402401` |
 | MGMT-08 | เบอร์ `+66812345678` / 7 หลัก | `422` · เบอร์ซ้ำ `402403` |
@@ -1012,10 +906,22 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 | MGMT-52 | sub ของ Superadmin ได้สิทธิ์ `announcement` | `422` |
 | MGMT-52 | Superadmin ให้ sub `rate` = `edit` · Company ให้ sub `rate` | สำเร็จ · `422` |
 
-### 7.1 ลำดับเช็ค (เส้นสร้าง)
+### 7.1 ลำดับเช็ค (แก้ 2026-10-09 — ทุกเส้นใน module นี้)
 
-`422` (รูปแบบ) → `402303` (สิทธิ์ sub) → `402301` (สร้างประเภทนี้ไม่ได้) → `402310` (สกุล) → `402401` / `402403` (ซ้ำ) →
-`402305` / `402307` / `402308` / `402309` (ค่าหุ้นส่วน)
+ไล่ **บนลงล่างตามลำดับ field ใน body** 2 รอบ · ตอบ error ของ field แรกที่ผิด:
+
+1. **รูปแบบ** (DTO — ไม่ต้องดู DB) ทุก field บนลงล่าง → `422`
+2. **กฎที่ต้องดู DB** บนลงล่าง — เส้นสร้างฝั่ง agent:
+   `user_type` (`402301`) → `username` ซ้ำ (`402401`) → `phone` ซ้ำ (`402403`) → `currencies` (`422` / `402310`) →
+   `balance` (`422` / `402312`) → `pt` ทีละ field: `pt_from_parent` (`402305` / `402307`) → `force` → `remain_quota` (`402308`) → `commission_percent` (`402309`)
+   · `update-pt`: `pt_from_parent` (เพดาน `402305` → ต่ำสุดที่ลูกใช้ `402306`) → `force` → `remain_quota` → `commission_percent`
+3. สิทธิ์ (`401308` / `402303` / `402311`) เช็คที่ middleware ก่อนทั้งหมด
+
+ค่าที่เป็น object (`pt`, `balance`, `status_game`, `permissions`) ไล่ key ตามลำดับตัวอักษร — error ออกตัวเดียวกันทุกครั้ง
+
+**ข้อความ error บอก field และค่าที่ตั้งได้** (code เดิม): เช่น `402301` → `user_type: ส่ง SHARE_B2C ไม่ได้ · SHARE_B2C สร้างได้โดย COMPANY_TRANSFER, … เท่านั้น แต่คุณเป็น SUPERADMIN · SUPERADMIN สร้างได้เฉพาะ COMPANY_TRANSFER, …` (บอกเหตุผล: ใครสร้างได้ · ไม่มีประเภทนี้ · MEMBER ใช้เส้น members/create · SHARE_RESELLER / SHARE_MASTER ให้ส่ง SHARE_B2C) ·
+`422` currencies → `currencies: COMPANY_TRANSFER ได้ครบทุกสกุล ห้ามส่ง currencies` · `402305` → `pt.minigame.pt_from_parent ตั้งได้ไม่เกิน 90 (ค่าที่คุณได้รับ)` ·
+`402308` → `pt.minigame.force ตั้งได้ไม่เกิน 50 (ค่าที่ให้ลูก)` · `402312` → `balance.THB ยอดของคุณไม่พอ (มี 0.00)` · สิทธิ์ sub → `permissions.rate ไม่มีเมนูนี้ · เมนูที่ให้ได้: …`
 
 ## 8. Contract changes (แจ้ง frontend)
 

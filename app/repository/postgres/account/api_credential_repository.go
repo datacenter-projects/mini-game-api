@@ -1,4 +1,4 @@
-package postgres
+package account
 
 import (
 	"errors"

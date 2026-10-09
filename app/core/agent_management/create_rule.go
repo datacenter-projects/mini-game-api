@@ -138,3 +138,37 @@ func IsValidPhone(s string) bool { return s == "" || phoneRe.MatchString(s) }
 
 // IsValidSubName — ส่วนหลัง @ ของ sub 3–20 ตัว a-z 0-9 หลัง normalize (MGMT-41 · AUTH-18)
 func IsValidSubName(s string) bool { return subNameRe.MatchString(s) }
+
+// CreatableTypes — user_type ที่ผู้สร้างส่งมาในเส้นสร้างฝั่ง agent ได้ (MGMT-02) · ใช้บอกใน msg ของ 402301
+// ไม่รวม Member (เส้นของตัวเอง) · Share ใต้ Seamless Reseller / Master ส่ง SHARE_B2C
+func CreatableTypes(creator UserType) []UserType {
+	switch creator {
+	case UserTypeSuperadmin:
+		return []UserType{UserTypeCompanyTransfer, UserTypeCompanySeamlessReseller, UserTypeCompanySeamlessMaster, UserTypeCompanySeamless1to1}
+	case UserTypeCompanyTransfer:
+		return []UserType{UserTypeShareB2B, UserTypeShareB2C}
+	case UserTypeCompanySeamlessReseller, UserTypeCompanySeamlessMaster:
+		return []UserType{UserTypeShareB2C}
+	case UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent:
+		return []UserType{UserTypeAgent}
+	}
+	return nil
+}
+
+// creatorOrder — ลำดับผู้สร้างที่ใช้ตอนบอกใน msg (บนลงล่างตามสายงาน)
+var creatorOrder = []UserType{UserTypeSuperadmin, UserTypeCompanyTransfer, UserTypeCompanySeamlessReseller, UserTypeCompanySeamlessMaster,
+	UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent}
+
+// CreatorsOf — ผู้สร้างที่ส่ง user_type นี้ในเส้นสร้างฝั่ง agent ได้ (MGMT-02) · ใช้บอกเหตุผลใน msg ของ 402301
+// nil = ไม่มีใครส่งค่านี้ได้ (ไม่มีประเภทนี้ / MEMBER / SUPERADMIN / ADMIN / SHARE_RESELLER / SHARE_MASTER)
+func CreatorsOf(t UserType) []UserType {
+	var out []UserType
+	for _, c := range creatorOrder {
+		for _, nt := range CreatableTypes(c) {
+			if nt == t {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
+}

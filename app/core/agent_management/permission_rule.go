@@ -1,15 +1,18 @@
 package agentmanagement
 
-import "app/app/models"
+import (
+	"sort"
 
-// สิทธิ์ต่อเมนู (MGMT-50 – MGMT-53)
+	"app/app/models"
+)
+
+// สิทธิ์ต่อเมนู (MGMT-50 – MGMT-53) · ไม่มีเมนู account — Profile และ 1.3 เปิดได้เสมอ (แก้ 2026-10-08)
 
 // Menu — เมนูที่ใช้กำหนดสิทธิ์
 type Menu string
 
 const (
 	MenuDashboard    Menu = "dashboard"
-	MenuAccount      Menu = "account"
 	MenuMember       Menu = "member"
 	MenuPT           Menu = "pt"
 	MenuReport       Menu = "report"
@@ -57,8 +60,8 @@ func MaxLevel(m Menu) Level {
 }
 
 var (
-	superadminMenus = []Menu{MenuDashboard, MenuAccount, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuRate}
-	agentMenus      = []Menu{MenuDashboard, MenuAccount, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuAnnouncement}
+	superadminMenus = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuRate}
+	agentMenus      = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuAnnouncement}
 )
 
 // MenusForRole — เมนูที่บัญชีหลักแต่ละ role มี (MGMT-52) · ADMIN ไม่ใช้ระบบนี้ (AUTH-44) = nil
@@ -100,8 +103,13 @@ func NormalizeSubPermissions(ownerRole models.AgentRole, in map[string]string) (
 	for _, m := range menus {
 		out[m] = LevelOff
 	}
-	for k, val := range in {
-		m, l := Menu(k), Level(val)
+	keys := make([]string, 0, len(in)) // ตรวจตามลำดับชื่อ — error ออกตัวเดียวกันทุกครั้ง
+	for k := range in {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		m, l := Menu(k), Level(in[k])
 		if !allowed[m] {
 			return nil, PermissionViolation{k, "menu"}, false
 		}

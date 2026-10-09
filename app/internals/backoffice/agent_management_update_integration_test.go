@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/utils"
 	"app/platform/database"
 )
@@ -169,7 +169,7 @@ func TestUpdateStatus(t *testing.T) { // MGMT-30, MGMT-31
 	_ = json.Unmarshal(r.Data, &m)
 	expect(t, call(t, app, "POST", memberStatusPath, map[string]any{"id": m.ID, "status": "LOCKED"}, c.agentTok), 200, 200)
 	expect(t, call(t, app, "POST", memberStatusPath, map[string]any{"id": m.ID, "status": "ACTIVE"}, c.shareTok), 200, 402304)
-	var got models.Member
+	var got models.UserMember
 	database.DBConn.Where("id = ?", m.ID).Take(&got)
 	if got.Status != models.AgentStatusLocked {
 		t.Fatalf("member status %s", got.Status)
@@ -201,8 +201,8 @@ func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, 
 	_ = json.Unmarshal(r.Data, &m)
 	expect(t, call(t, app, "POST", memberInfoPath, map[string]any{"id": m.ID, "name": "ใจดี", "phone": ""}, c.agentTok), 200, 200)
 	expect(t, call(t, app, "POST", updateCommissionPath, map[string]any{"id": m.ID, "pt": map[string]any{"minigame": map[string]any{"commission_percent": 0.5}}}, c.agentTok), 200, 200)
-	var ms models.MemberGameSetting
-	database.DBConn.Where("member_id = ?", m.ID).Take(&ms)
+	var ms models.UserMemberGameSetting
+	database.DBConn.Where("user_member_id = ?", m.ID).Take(&ms)
 	if ms.CommissionBP != 50 {
 		t.Fatalf("commission %d", ms.CommissionBP)
 	}
@@ -226,7 +226,7 @@ func TestUpdateSubPermission(t *testing.T) { // MGMT-51
 	hash, _ := utils.HashPassword(mgPassword)
 	sub := models.Subaccount{AgentID: c.com.ID, Username: "comp01@staff", PasswordHash: hash, Status: models.AgentStatusActive,
 		Permissions: `{"member":"edit"}`}
-	if err := postgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
+	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)

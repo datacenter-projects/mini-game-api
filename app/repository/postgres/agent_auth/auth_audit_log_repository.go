@@ -1,4 +1,4 @@
-package postgres
+package agentauth
 
 import (
 	"app/app/models"

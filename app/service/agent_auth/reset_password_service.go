@@ -6,7 +6,7 @@ import (
 
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
 	"app/app/models"
-	redisRepo "app/app/repository/redis"
+	agentAuthRedis "app/app/repository/redis/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -52,7 +52,7 @@ func ResetPasswordService(ctx context.Context, actor Actor, req agentAuthDto.Res
 	}
 
 	// หลัง commit: ล้างบล็อก login (AUTH-10) และเตะ session ของเป้าหมาย
-	if err := redisRepo.ClearBOLoginBlockRepository(ctx, target.Username); err != nil {
+	if err := agentAuthRedis.ClearBOLoginBlockRepository(ctx, target.Username); err != nil {
 		logger.Ctx(ctx).Warnw("clear login block failed", "username", target.Username, "error", err)
 	}
 	endAllSessions(ctx, target)

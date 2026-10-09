@@ -15,7 +15,7 @@ import (
 	agentAuthCore "app/app/core/agent_auth"
 	mw "app/app/internals/backoffice/middleware"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/configs"
 	"app/pkg/response"
 	"app/pkg/testutil"
@@ -83,7 +83,7 @@ func createSub(t *testing.T, owner models.UserAgent, name string, status models.
 		t.Fatal(err)
 	}
 	s := models.Subaccount{AgentID: owner.ID, Username: owner.Username + "@" + name, PasswordHash: hash, Status: status}
-	if err := postgres.CreateSubaccountRepository(database.DBConn, &s); err != nil {
+	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &s); err != nil {
 		t.Fatal(err)
 	}
 	return s

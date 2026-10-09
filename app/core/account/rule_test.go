@@ -49,14 +49,15 @@ func TestIsAPIKeyOwner(t *testing.T) { // ACC-01
 		{agentManagementCore.UserTypeCompanySeamless1to1, true},
 		{agentManagementCore.UserTypeShareMaster, true},
 		{agentManagementCore.UserTypeShareReseller, true},
-		{agentManagementCore.UserTypeCompanySeamlessReseller, false},
-		{agentManagementCore.UserTypeCompanySeamlessMaster, false},
-		{agentManagementCore.UserTypeCompanyTransfer, false},
-		{agentManagementCore.UserTypeShareB2B, false},
-		{agentManagementCore.UserTypeShareB2C, false},
-		{agentManagementCore.UserTypeAgent, false},
+		{agentManagementCore.UserTypeCompanySeamlessReseller, true},
+		{agentManagementCore.UserTypeCompanySeamlessMaster, true},
+		{agentManagementCore.UserTypeCompanyTransfer, true},
+		{agentManagementCore.UserTypeShareB2B, true},
+		{agentManagementCore.UserTypeShareB2C, true},
+		{agentManagementCore.UserTypeAgent, true},
 		{agentManagementCore.UserTypeSuperadmin, false},
 		{agentManagementCore.UserTypeAdmin, false},
+		{agentManagementCore.UserTypeMember, false},
 	}
 	for _, tt := range tests {
 		if got := IsAPIKeyOwner(tt.in); got != tt.want {

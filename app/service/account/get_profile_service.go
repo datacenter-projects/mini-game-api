@@ -10,7 +10,8 @@ import (
 	agentManagementCore "app/app/core/agent_management"
 	accountDto "app/app/internals/backoffice/dto/account"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	agentAuthService "app/app/service/agent_auth"
 	agentManagementService "app/app/service/agent_management"
 	"app/pkg/apperr"
@@ -31,13 +32,13 @@ func GetProfileService(ctx context.Context, actor agentAuthService.Actor) (accou
 	}
 	db := database.DBConn.WithContext(ctx)
 
-	owner, err := postgres.GetUserAgentProfileRepository(db, actor.AgentID)
+	owner, err := agentAuthPostgres.GetUserAgentProfileRepository(db, actor.AgentID)
 	if err != nil {
 		return res, notFoundAsSessionEnded(err)
 	}
 	res.UserType = string(agentManagementCore.UserTypeOf(owner.Role, owner.AgentType))
 	if res.IsSubaccount {
-		sub, err := postgres.GetSubaccountProfileRepository(db, actor.SubaccountID)
+		sub, err := agentAuthPostgres.GetSubaccountProfileRepository(db, actor.SubaccountID)
 		if err != nil {
 			return res, notFoundAsSessionEnded(err)
 		}
@@ -67,15 +68,15 @@ func GetProfileService(ctx context.Context, actor agentAuthService.Actor) (accou
 // setAccountData — สกุล ยอด ค่าหุ้นส่วน และเปิด / ปิดเกม ของบัญชีหลัก (ACC-16, ACC-19)
 // ADMIN / บัญชีที่ไม่มีแถว = รายการว่าง · สกุลที่ยังไม่มียอด และบัญชีฝั่ง Seamless = 0
 func setAccountData(db *gorm.DB, res *accountDto.ProfileResponse, agentID uint) error {
-	currencies, err := postgres.ListAgentCurrenciesRepository(db, agentID)
+	currencies, err := agentManagementPostgres.ListAgentCurrenciesRepository(db, agentID)
 	if err != nil {
 		return err
 	}
-	balances, err := postgres.ListAgentBalancesByIDsRepository(db, []uint{agentID})
+	balances, err := agentManagementPostgres.ListAgentBalancesByIDsRepository(db, []uint{agentID})
 	if err != nil {
 		return err
 	}
-	settings, err := postgres.ListAgentGameSettingsRepository(db, agentID)
+	settings, err := agentManagementPostgres.ListAgentGameSettingsRepository(db, agentID)
 	if err != nil {
 		return err
 	}

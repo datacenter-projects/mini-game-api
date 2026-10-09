@@ -10,7 +10,7 @@ import (
 	agentAuthCore "app/app/core/agent_auth"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
 	"app/app/models"
-	redisRepo "app/app/repository/redis"
+	agentAuthRedis "app/app/repository/redis/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -25,7 +25,7 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, meta Reque
 	cfg := configs.Cfg.Auth
 
 	// AUTH-11: จำกัดจำนวนครั้งต่อ IP
-	count, err := redisRepo.IncrBOLoginIPRepository(ctx, ip)
+	count, err := agentAuthRedis.IncrBOLoginIPRepository(ctx, ip)
 	if err != nil {
 		return res, err
 	}
@@ -36,7 +36,7 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, meta Reque
 	username := agentAuthCore.NormalizeUsername(req.Username) // AUTH-01
 
 	// AUTH-10, AUTH-24: username ที่ถูกระงับชั่วคราว ห้าม login แม้รหัสถูก
-	blocked, err := redisRepo.IsBOLoginBlockedRepository(ctx, username)
+	blocked, err := agentAuthRedis.IsBOLoginBlockedRepository(ctx, username)
 	if err != nil {
 		return res, err
 	}
@@ -66,7 +66,7 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, meta Reque
 		return res, recordLoginFailure(ctx, username, &acc, meta)
 	}
 
-	if err := redisRepo.ClearBOLoginFailRepository(ctx, username); err != nil {
+	if err := agentAuthRedis.ClearBOLoginFailRepository(ctx, username); err != nil {
 		logger.Ctx(ctx).Warnw("clear login fail counter failed", "username", username, "error", err)
 	}
 
@@ -81,7 +81,7 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, meta Reque
 	if acc.UplineLocked() {
 		return res, apperr.ErrUplineLocked
 	}
-	passcodeBlocked, err := redisRepo.IsBOPasscodeBlockedRepository(ctx, acc.Type, acc.ID) // AUTH-28
+	passcodeBlocked, err := agentAuthRedis.IsBOPasscodeBlockedRepository(ctx, acc.Type, acc.ID) // AUTH-28
 	if err != nil {
 		return res, err
 	}
@@ -108,9 +108,9 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, meta Reque
 	if err != nil {
 		return res, err
 	}
-	session := redisRepo.BOSession{AccountType: acc.Type, AccountID: acc.ID, AgentID: acc.AgentID, IP: ip, CreatedAt: now, ExpiresAt: expiresAt}
+	session := agentAuthRedis.BOSession{AccountType: acc.Type, AccountID: acc.ID, AgentID: acc.AgentID, IP: ip, CreatedAt: now, ExpiresAt: expiresAt}
 	idleTTL := agentAuthCore.SessionTTL(now, expiresAt, cfg.SessionIdleTimeout)
-	if err := redisRepo.CreateBOSessionRepository(ctx, sid, session, idleTTL); err != nil {
+	if err := agentAuthRedis.CreateBOSessionRepository(ctx, sid, session, idleTTL); err != nil {
 		return res, err
 	}
 
@@ -143,7 +143,7 @@ func recordLoginFailure(ctx context.Context, username string, target *account, m
 // ตอนถูกระงับบันทึก LOGIN_BLOCKED (AUTH-49) · target = nil เมื่อไม่มีบัญชีนี้ในระบบ
 func recordPasswordFailure(ctx context.Context, username string, target *account, meta RequestMeta) bool {
 	cfg := configs.Cfg.Auth
-	fails, err := redisRepo.IncrBOLoginFailRepository(ctx, username, cfg.LoginFailWindow)
+	fails, err := agentAuthRedis.IncrBOLoginFailRepository(ctx, username, cfg.LoginFailWindow)
 	if err != nil {
 		logger.Ctx(ctx).Warnw("count login failure failed", "username", username, "error", err)
 		return false
@@ -151,7 +151,7 @@ func recordPasswordFailure(ctx context.Context, username string, target *account
 	if !agentAuthCore.IsLoginBlocked(fails, cfg.LoginFailLimit) {
 		return false
 	}
-	if err := redisRepo.BlockBOLoginRepository(ctx, username, cfg.LoginBlockDuration); err != nil {
+	if err := agentAuthRedis.BlockBOLoginRepository(ctx, username, cfg.LoginBlockDuration); err != nil {
 		logger.Ctx(ctx).Warnw("block login failed", "username", username, "error", err)
 		return false
 	}
