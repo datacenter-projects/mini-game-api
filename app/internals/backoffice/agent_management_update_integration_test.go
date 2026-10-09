@@ -223,20 +223,41 @@ func TestUpdateStatus(t *testing.T) { // MGMT-30, MGMT-31
 func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, MGMT-21, MGMT-60
 	app := setup2(t)
 	c := buildChain(t, app)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "สมชาย01", "phone": "0811111111"}}, c.shareTok), 200, 200)
+	info := func(id uint, v map[string]any) map[string]any { return map[string]any{"id": id, "info": v} }
+	expect(t, call(t, app, "POST", agentInfoPath, info(c.agent.ID, map[string]any{"name": "สมชาย01", "phone_country_code": "66", "phone": "811111111"}), c.shareTok), 200, 200)
 	var a models.UserAgent
 	database.DBConn.Where("id = ?", c.agent.ID).Take(&a)
-	if a.Name == nil || *a.Name != "สมชาย01" || a.Phone == nil || *a.Phone != "0811111111" {
+	if a.Name == nil || *a.Name != "สมชาย01" || a.PhoneCountryCode == nil || *a.PhoneCountryCode != "66" || a.Phone == nil || *a.Phone != "811111111" {
 		t.Fatalf("info %+v", a)
 	}
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01", "phone": "0811111111"}}, c.comTok), 200, 402403)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "agent01", "phone": "0811111111"}}, c.shareTok), 200, 200) // เบอร์เดิมของตัวเอง
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "agent01", "phone": nil}}, c.shareTok), 200, 422)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "agent01"}}, c.shareTok), 200, 200) // ส่งบาง field ได้ (MGMT-32) · เบอร์คงเดิม
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "agent01", "phone": ""}}, c.shareTok), 200, 200)
+	expect(t, call(t, app, "POST", agentInfoPath, info(c.share.ID, map[string]any{"phone_country_code": "66", "phone": "811111111"}), c.comTok), 200, 402403)
+	expect(t, call(t, app, "POST", agentInfoPath, info(c.share.ID, map[string]any{"phone_country_code": "856", "phone": "811111111"}), c.comTok), 200, 200)                     // คนละรหัสประเทศ
+	expect(t, call(t, app, "POST", agentInfoPath, info(c.agent.ID, map[string]any{"name": "agent01", "phone_country_code": "66", "phone": "811111111"}), c.shareTok), 200, 200) // เบอร์เดิมของตัวเอง
+	for name, v := range map[string]map[string]any{
+		"phone null":           {"phone_country_code": "66", "phone": nil},
+		"code null":            {"phone_country_code": nil, "phone": "811111111"},
+		"ส่งแค่ phone":         {"phone": "811111111"},
+		"ส่งแค่ code":          {"phone_country_code": "66"},
+		"ล้างแค่ phone":        {"phone_country_code": "66", "phone": ""},
+		"รหัสไม่มีจริง":        {"phone_country_code": "0", "phone": "811111111"},
+		"0 นำหน้า":             {"phone_country_code": "66", "phone": "0811111111"},
+		"รหัส + เบอร์ 16 หลัก": {"phone_country_code": "880", "phone": "1234567890123"},
+	} {
+		r := call(t, app, "POST", agentInfoPath, info(c.agent.ID, v), c.shareTok)
+		expect(t, r, 200, 422)
+		if !strings.Contains(r.Msg, "info.") {
+			t.Fatalf("%s: msg ต้องบอก field ใน info %q", name, r.Msg)
+		}
+	}
+	expect(t, call(t, app, "POST", agentInfoPath, info(c.agent.ID, map[string]any{"name": "agent01"}), c.shareTok), 200, 200) // ส่งบาง field ได้ (MGMT-32) · เบอร์คงเดิม
 	database.DBConn.Where("id = ?", c.agent.ID).Take(&a)
-	if a.Phone != nil {
-		t.Fatal(`phone "" ต้องเก็บเป็น NULL`)
+	if a.Phone == nil || *a.Phone != "811111111" {
+		t.Fatalf("ไม่ส่งเบอร์ เบอร์ต้องคงเดิม %+v", a)
+	}
+	expect(t, call(t, app, "POST", agentInfoPath, info(c.agent.ID, map[string]any{"phone_country_code": "", "phone": ""}), c.shareTok), 200, 200)
+	database.DBConn.Where("id = ?", c.agent.ID).Take(&a)
+	if a.Phone != nil || a.PhoneCountryCode != nil {
+		t.Fatal(`ส่ง "" ทั้งคู่ ต้องเก็บเป็น NULL ทั้งคู่`)
 	}
 
 	r := call(t, app, "POST", createMemberPath, memberBody("mem01", 0.3), c.agentTok)
@@ -258,8 +279,8 @@ func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, 
 	// MGMT-60: ทุกการแก้มี log ค่าเก่า / ใหม่ · ไม่มีรหัสผ่าน
 	var logs []models.AccountChangeLog
 	database.DBConn.Where("action IN ?", []models.AccountChangeAction{models.ChangeUpdateInfo, models.ChangeUpdatePT}).Order("id").Find(&logs)
-	if len(logs) != 5 {
-		t.Fatalf("logs = %d, want 5", len(logs))
+	if len(logs) != 6 { // info agent ×3 (ตั้ง · เปลี่ยนชื่อ · ล้างเบอร์) · info share (856) · member info · member pt · ส่งค่าเดิม = ไม่มี log
+		t.Fatalf("logs = %d, want 6", len(logs))
 	}
 	if logs[0].OldValue == nil || !strings.Contains(*logs[0].NewValue, "สมชาย01") || logs[0].ActorUsername != "share01" {
 		t.Fatalf("log %+v", logs[0])
@@ -351,13 +372,13 @@ func TestUpdateSubPermission(t *testing.T) { // MGMT-51
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01", "phone": ""}}, tok), 200, 200)
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01", "phone_country_code": "", "phone": ""}}, tok), 200, 200)
 	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 200) // member edit แก้ได้ทุก section (lead E4)
 	expect(t, call(t, app, "POST", agentStatusPath, map[string]any{"id": c.share.ID, "status": "ACTIVE"}, tok), 200, 200)
 
 	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"member":"view","pt":"edit"}`}) // pt เดิมไม่มีผล
 	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 402303)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01", "phone": ""}}, tok), 200, 402303)
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01", "phone_country_code": "", "phone": ""}}, tok), 200, 402303)
 	expect(t, call(t, app, "POST", agentStatusPath, map[string]any{"id": c.share.ID, "status": "ACTIVE"}, tok), 200, 402303)
 }
 

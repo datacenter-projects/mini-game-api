@@ -56,12 +56,17 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		if err != nil {
 			return err
 		}
+		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
+		// Share Master ใต้ CSM: ส่งได้แค่ commission · บัญชีอื่นต้องครบ 5 ค่า — เช็คก่อนกฎที่ดู DB (เดิมเป็นรูปแบบใน DTO · 7.1 ข้อ 4 · MGMT-19)
+		if err := checkPTShape(req.PT, creatorIsMaster); err != nil {
+			return err
+		}
 		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO) — หัวข้อ 7.1
 		newAcc, ok := agentManagementCore.ResolveNewAgent(c.UserType, agentManagementCore.UserType(req.UserType))
 		if !ok {
 			return CannotCreateTypeError(c.UserType, req.UserType)
 		}
-		if err := LockAndCheckIdentity(tx, req.Username, req.Phone, false); err != nil {
+		if err := LockAndCheckAgentIdentity(tx, req.Username, req.PhoneCountryCode, req.Phone); err != nil {
 			return err
 		}
 		currencies, cv := agentManagementCore.ResolveCurrencies(c.UserType, newAcc.UserType, req.Currencies, c.Currencies)
@@ -74,7 +79,19 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		if err := CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {
 			return err
 		}
-		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
+		if creatorIsMaster { // ค่าอื่นและ status_game ตาม CSM (MGMT-19)
+			if req.StatusGame != nil {
+				return shareMasterFieldError("status_game")
+			}
+			for _, g := range SortedGroups(req.PT) {
+				v := req.PT[g]
+				var status bool
+				v.Parsed, status = followCSM(c.Settings, agentManagementCore.PTGroup(g), v.Parsed.Commission)
+				v.Status = &status
+				req.PT[g] = v
+			}
+			req.StatusGame = statusGameOf(c.Settings)
+		}
 		for _, g := range SortedGroups(req.PT) {
 			is := agentManagementCore.CheckChildPT(req.PT[g].Parsed, c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster)
 			if err := ChildPTError(g, is); err != nil {
@@ -89,7 +106,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		now := time.Now()
 		name := req.Name
 		a := models.UserAgent{ParentID: &c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: &name,
-			Phone: OptionalString(req.Phone), AgentType: newAcc.AgentType, Role: newAcc.Role, Status: models.AgentStatusActive,
+			PhoneCountryCode: OptionalString(req.PhoneCountryCode), Phone: OptionalString(req.Phone), AgentType: newAcc.AgentType, Role: newAcc.Role, Status: models.AgentStatusActive,
 			Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
 		if err := agentAuthPostgres.CreateUserAgentRepository(tx, &a); err != nil {
 			return err
@@ -143,7 +160,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			ptLog[g] = v.Parsed
 		}
 		created, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeCreate, nil,
-			map[string]any{"user_type": newAcc.UserType, "username": a.Username, "name": req.Name, "phone": req.Phone,
+			map[string]any{"user_type": newAcc.UserType, "username": a.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone,
 				"parent_id": c.Agent.ID, "currencies": currencies, "pt": ptLog, "status_game": statusGame}, now)
 		if err != nil {
 			return err

@@ -94,12 +94,9 @@ func ChildPTError(group string, is agentManagementCore.PTIssue) error {
 	case agentManagementCore.PTExceedsReceived:
 		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่คุณได้รับ)",
 			f+" must not exceed "+pct(is.Limit)+" (what you received)")
-	case agentManagementCore.PTSeamlessMasterLock:
-		if is.Field == "pt_from_parent" {
-			return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเท่ากับ "+pct(is.Limit)+" (ค่าที่ได้รับทั้งหมด)",
-				f+" must equal "+pct(is.Limit)+" for Company Seamless Master")
-		}
-		return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเป็น 0", f+" must be 0 for Company Seamless Master")
+	case agentManagementCore.PTSeamlessMasterLock: // Share Master ใช้ค่าตาม CSM (MGMT-19 · lead E1-2)
+		return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+": Share Master ใช้ค่า PT ตาม Company Seamless Master (ต้องเป็น "+pct(is.Limit)+")",
+			f+": Share Master uses the PT of its Company Seamless Master (must be "+pct(is.Limit)+")")
 	case agentManagementCore.PTForceRemainExceeded:
 		return apperr.ErrForceRemainExceeded.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่ให้ลูก)",
 			f+" must not exceed "+pct(is.Limit)+" (pt_from_parent)")

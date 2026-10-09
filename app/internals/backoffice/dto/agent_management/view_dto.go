@@ -41,20 +41,21 @@ type BalanceView struct {
 // DownlineRow — 1 แถวของ POST /manage/downlines/list (MGMT-28) · pt แสดงเสมอ (ไม่มีเมนู pt แล้ว — P4)
 // status_game มีเฉพาะแถวฝั่ง agent (lead Q-C1)
 type DownlineRow struct {
-	ID             uint            `json:"id"`
-	Role           string          `json:"role"` // MEMBER = แถว Member
-	UserType       string          `json:"user_type"`
-	Username       string          `json:"username"`
-	Name           string          `json:"name"`
-	Phone          string          `json:"phone"`
-	Status         string          `json:"status"`          // สถานะที่ใช้งานจริง (ACC-30)
-	ParentUsername string          `json:"parent_username"` // ผู้สร้างตรง · ทุกแถว (lead E2-2)
-	LastLoginAt    string          `json:"last_login_at"`   // RFC 3339 · ยังไม่เคย login = "" (เพิ่ม 2026-10-09)
-	LastLoginIP    string          `json:"last_login_ip"`
-	CreatedAt      string          `json:"created_at"`
-	PT             any             `json:"pt"`
-	StatusGame     map[string]bool `json:"status_game,omitempty"`
-	Balances       []BalanceView   `json:"balances"`
+	ID               uint            `json:"id"`
+	Role             string          `json:"role"` // MEMBER = แถว Member
+	UserType         string          `json:"user_type"`
+	Username         string          `json:"username"`
+	Name             string          `json:"name"`
+	PhoneCountryCode string          `json:"phone_country_code"` // MGMT-08 · แถว Member = "" จนกว่า member_management ทำ 2 field
+	Phone            string          `json:"phone"`
+	Status           string          `json:"status"`          // สถานะที่ใช้งานจริง (ACC-30)
+	ParentUsername   string          `json:"parent_username"` // ผู้สร้างตรง · ทุกแถว (lead E2-2)
+	LastLoginAt      string          `json:"last_login_at"`   // RFC 3339 · ยังไม่เคย login = "" (เพิ่ม 2026-10-09)
+	LastLoginIP      string          `json:"last_login_ip"`
+	CreatedAt        string          `json:"created_at"`
+	PT               any             `json:"pt"`
+	StatusGame       map[string]bool `json:"status_game,omitempty"`
+	Balances         []BalanceView   `json:"balances"`
 }
 
 // AgentDetailResponse — POST /manage/agents/detail/get (MGMT-29)
@@ -64,6 +65,7 @@ type AgentDetailResponse struct {
 	UserType            string                 `json:"user_type"`
 	Username            string                 `json:"username"`
 	Name                string                 `json:"name"`
+	PhoneCountryCode    string                 `json:"phone_country_code"` // MGMT-08
 	Phone               string                 `json:"phone"`
 	Status              string                 `json:"status"`
 	ParentUsername      string                 `json:"parent_username"`

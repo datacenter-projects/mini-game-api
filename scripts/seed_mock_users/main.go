@@ -7,7 +7,7 @@
 // รันซ้ำได้: request_id คิดจาก username → บัญชีที่สร้างแล้วถูกข้าม (รหัสผ่านเดิมไม่เปลี่ยน)
 // จบแล้วพิมพ์ตาราง username / รหัสผ่าน · ทุกบัญชีต้องตั้ง passcode ตอน login ครั้งแรก
 //
-// สาย (ค่าได้รับลดชั้นละ 10 · ใต้ Seamless Master ได้เท่าที่ Master ได้ · force / remain / commission = 0):
+// สาย (ค่าได้รับลดชั้นละ 10 · Share Master ใต้ CSM ใช้ค่าตาม CSM ส่งแค่ commission · force / remain / commission = 0):
 //
 //	root
 //	├─ COMPANY_TRANSFER ─┬─ SHARE_B2B → AGENT → AGENT
@@ -225,8 +225,11 @@ func (s *seeder) create(creator agentAuthService.Actor, creatorType agentManagem
 
 	g := give(creatorType, creatorReceived, depth)
 	body := map[string]any{"request_id": requestID(username), "user_type": string(n.typ), "username": username, "password": s.password,
-		"name": username, "phone": "", "pt": map[string]any{"minigame": map[string]any{"pt_from_parent": pct(g), "force": 0,
+		"name": username, "phone_country_code": "", "phone": "", "pt": map[string]any{"minigame": map[string]any{"pt_from_parent": pct(g), "force": 0,
 			"remain_quota": 0, "commission_percent": 0, "status": true}}}
+	if creatorType == agentManagementCore.UserTypeCompanySeamlessMaster { // Share Master ส่งแค่ commission ค่าอื่นตาม CSM (MGMT-19)
+		body["pt"] = map[string]any{"minigame": map[string]any{"commission_percent": 0}}
+	}
 	switch agentManagementCore.CurrencyRequirementOf(creatorType, n.typ) {
 	case agentManagementCore.CurrencyPickOne, agentManagementCore.CurrencyPickMany:
 		body["currencies"] = []string{"THB"}
@@ -264,7 +267,7 @@ func (s *seeder) createSub(owner agentAuthService.Actor) error {
 	for _, m := range agentManagementCore.MenusForRole(owner.Role) {
 		perms[string(m)] = string(agentManagementCore.LevelView)
 	}
-	body := map[string]any{"name_suffix": subSuffix, "password": s.password, "name": "staff" + owner.Username, "phone": "", "permissions": perms}
+	body := map[string]any{"name_suffix": subSuffix, "password": s.password, "name": "staff" + owner.Username, "phone_country_code": "", "phone": "", "permissions": perms}
 	username := owner.Username + "@" + subSuffix
 	var req agentManagementDto.SubCreateRequest
 	if err := decode(body, &req); err != nil {

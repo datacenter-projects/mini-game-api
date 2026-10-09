@@ -58,7 +58,7 @@ func subView(s models.Subaccount, ownerRole models.AgentRole, ownerChain models.
 	for m, l := range perms {
 		out[string(m)] = string(l)
 	}
-	return agentManagementDto.SubView{ID: s.ID, Username: s.Username, Name: StringOrEmpty(s.Name), Phone: StringOrEmpty(s.Phone),
+	return agentManagementDto.SubView{ID: s.ID, Username: s.Username, Name: StringOrEmpty(s.Name), PhoneCountryCode: StringOrEmpty(s.PhoneCountryCode), Phone: StringOrEmpty(s.Phone),
 		Status: SubStatus(s.Status, ownerChain), Permissions: out, CreatedAt: OptionalTime(&s.CreatedAt),
 		LastLoginAt: OptionalTime(s.LastLoginAt), LastLoginIP: StringOrEmpty(s.LastLoginIP)}, nil
 }
@@ -158,14 +158,14 @@ func CreateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 		now := time.Now()
 		name := req.Name
 		s := models.Subaccount{AgentID: actor.AgentID, Username: username, PasswordHash: hash, Name: &name,
-			Phone: OptionalString(req.Phone), Permissions: string(permsJSON), Status: models.AgentStatusActive,
+			PhoneCountryCode: OptionalString(req.PhoneCountryCode), Phone: OptionalString(req.Phone), Permissions: string(permsJSON), Status: models.AgentStatusActive,
 			CreatedAt: now, UpdatedAt: now}
 		if err := agentAuthPostgres.CreateSubaccountRepository(tx, &s); err != nil {
 			return err
 		}
 		res = agentManagementDto.SubCreateResponse{ID: s.ID, Username: s.Username}
 		return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeCreate, nil,
-			map[string]any{"username": s.Username, "name": req.Name, "phone": req.Phone, "permissions": perms}, now)
+			map[string]any{"username": s.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone, "permissions": perms}, now)
 	})
 	return res, err
 }
@@ -182,7 +182,7 @@ func lockOwnSub(tx *gorm.DB, actor agentAuthService.Actor, id uint) (models.Suba
 	return s, nil
 }
 
-// UpdateSubaccountService — POST /manage/subaccounts/update-info (MGMT-42) · แทนทั้งชุด
+// UpdateSubaccountService — POST /manage/subaccounts/detail/update (MGMT-42) · แทนทั้งชุด
 func UpdateSubaccountService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.SubUpdateRequest,
 	meta agentAuthService.RequestMeta) error {
 	perms, v, ok := agentManagementCore.NormalizeSubPermissions(actor.Role, *req.Permissions)
@@ -199,14 +199,14 @@ func UpdateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 			return err
 		}
 		now := time.Now()
-		if err := agentManagementPostgres.UpdateSubaccountInfoRepository(tx, s.ID, req.Name, OptionalString(req.Phone.Value), string(permsJSON), now); err != nil {
+		if err := agentManagementPostgres.UpdateSubaccountInfoRepository(tx, s.ID, req.Name, OptionalString(req.PhoneCountryCode.Value), OptionalString(req.Phone.Value), string(permsJSON), now); err != nil {
 			return err
 		}
 		var oldPerms map[string]string
 		_ = json.Unmarshal([]byte(s.Permissions), &oldPerms)
 		return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeUpdateInfo,
-			map[string]any{"name": StringOrEmpty(s.Name), "phone": StringOrEmpty(s.Phone), "permissions": oldPerms},
-			map[string]any{"name": req.Name, "phone": req.Phone.Value, "permissions": perms}, now)
+			map[string]any{"name": StringOrEmpty(s.Name), "phone_country_code": StringOrEmpty(s.PhoneCountryCode), "phone": StringOrEmpty(s.Phone), "permissions": oldPerms},
+			map[string]any{"name": req.Name, "phone_country_code": req.PhoneCountryCode.Value, "phone": req.Phone.Value, "permissions": perms}, now)
 	})
 }
 

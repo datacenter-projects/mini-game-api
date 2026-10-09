@@ -77,13 +77,6 @@ func UsernameExistsRepository(db *gorm.DB, username string) (bool, error) {
 	return exists, err
 }
 
-// AgentPhoneExistsRepository — เบอร์ซ้ำภายในตาราง (MGMT-08)
-func AgentPhoneExistsRepository(db *gorm.DB, phone string) (bool, error) {
-	var n int64
-	err := db.Model(&models.UserAgent{}).Where("phone = ?", phone).Limit(1).Count(&n).Error
-	return n > 0, err
-}
-
 // GetCreateRequestRepository — ไม่พบคืน apperr.ErrNotFound
 func GetCreateRequestRepository(db *gorm.DB, requestID string) (models.CreateRequest, error) {
 	var r models.CreateRequest
@@ -162,26 +155,27 @@ func IsInDownlineRepository(db *gorm.DB, ancestorID, id uint) (bool, error) {
 
 // DownlineRow — ลูกตรง 1 แถว (ฝั่ง agent หรือ Member) — MGMT-28
 type DownlineRow struct {
-	ID          uint
-	IsMember    bool
-	Role        models.AgentRole
-	AgentType   *models.AgentType
-	Username    string
-	Name        *string
-	Phone       *string
-	Status      models.AgentStatus
-	Currency    *string // Member เท่านั้น
-	LastLoginAt *time.Time
-	LastLoginIP *string
-	CreatedAt   time.Time
+	ID               uint
+	IsMember         bool
+	Role             models.AgentRole
+	AgentType        *models.AgentType
+	Username         string
+	Name             *string
+	PhoneCountryCode *string
+	Phone            *string
+	Status           models.AgentStatus
+	Currency         *string // Member เท่านั้น
+	LastLoginAt      *time.Time
+	LastLoginIP      *string
+	CreatedAt        time.Time
 }
 
 // downlineSQL — ลูกตรงของ parent ทั้งฝั่ง agent (ไม่รวม ADMIN — AUTH-43) และ Member · กรอง username บางส่วน
 const downlineSQL = `
-	SELECT id, false AS is_member, role, agent_type, username, name, phone, status, NULL AS currency, last_login_at, last_login_ip, created_at
+	SELECT id, false AS is_member, role, agent_type, username, name, phone_country_code, phone, status, NULL AS currency, last_login_at, last_login_ip, created_at
 	FROM user_agents WHERE parent_id = @parent AND role <> 'ADMIN' AND (@q = '' OR username LIKE @like ESCAPE '\')
 	UNION ALL
-	SELECT id, true, 'MEMBER', NULL, username, name, phone, status, currency, last_login_at, last_login_ip, created_at
+	SELECT id, true, 'MEMBER', NULL, username, name, NULL, phone, status, currency, last_login_at, last_login_ip, created_at
 	FROM user_members WHERE agent_id = @parent AND (@q = '' OR username LIKE @like ESCAPE '\')`
 
 // ListDownlinesRepository — ลูกตรงเรียง username A→Z แบ่งหน้า + จำนวนทั้งหมด (MGMT-26, MGMT-27)
@@ -215,7 +209,7 @@ func ListAgentDirectChildrenRepository(db *gorm.DB, parentID uint, q string, lim
 // GetAgentDetailRepository — ข้อมูลบัญชีฝั่ง agent สำหรับหน้ารายละเอียด (MGMT-29) · passcode_hash ใช้แค่บอกว่าตั้งแล้ว
 func GetAgentDetailRepository(db *gorm.DB, id uint) (models.UserAgent, error) {
 	var a models.UserAgent
-	err := db.Select("id", "parent_id", "username", "name", "phone", "role", "agent_type", "status", "passcode_hash",
+	err := db.Select("id", "parent_id", "username", "name", "phone_country_code", "phone", "role", "agent_type", "status", "passcode_hash",
 		"last_login_at", "last_login_ip", "created_at", "cnf").Where("id = ?", id).Take(&a).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return a, apperr.ErrNotFound
@@ -271,13 +265,13 @@ const downlineSearchSQL = `
 		FROM user_agents u JOIN tree t ON u.parent_id = t.id
 		WHERE u.role <> 'ADMIN'
 	), hits AS (
-		SELECT u.id, false AS is_member, u.role, u.agent_type, u.username, u.name, u.phone, u.status, NULL AS currency,
+		SELECT u.id, false AS is_member, u.role, u.agent_type, u.username, u.name, u.phone_country_code, u.phone, u.status, NULL AS currency,
 			u.last_login_at, u.last_login_ip, u.created_at,
 			p.username AS parent_username, GREATEST(p.rnk, CASE u.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END) AS rnk
 		FROM user_agents u JOIN tree p ON u.parent_id = p.id
 		WHERE u.role <> 'ADMIN' AND u.username LIKE @like ESCAPE '\'
 		UNION ALL
-		SELECT m.id, true, 'MEMBER', NULL, m.username, m.name, m.phone, m.status, m.currency,
+		SELECT m.id, true, 'MEMBER', NULL, m.username, m.name, NULL, m.phone, m.status, m.currency,
 			m.last_login_at, m.last_login_ip, m.created_at,
 			p.username, GREATEST(p.rnk, CASE m.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END)
 		FROM user_members m JOIN tree p ON m.agent_id = p.id
@@ -311,4 +305,20 @@ func SearchDownlinesRepository(db *gorm.DB, rootID uint, rootStatus models.Agent
 		out[i] = DownlineSearchRow{DownlineRow: r.DownlineRow, ParentUsername: r.ParentUsername, EffectiveStatus: status}
 	}
 	return out, total, err
+}
+
+// ListUsernamesByIDsRepository — id → username ของบัญชีฝั่ง agent (ใช้เขียน log หลายแถวในคำสั่งเดียว)
+func ListUsernamesByIDsRepository(db *gorm.DB, ids []uint) (map[uint]string, error) {
+	out := make(map[uint]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []models.UserAgent
+	if err := db.Select("id", "username").Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.ID] = r.Username
+	}
+	return out, nil
 }

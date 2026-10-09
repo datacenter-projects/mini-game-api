@@ -73,7 +73,7 @@ func buildOwners(t *testing.T, app *fiber.App) owners {
 	o.res1, o.res1Tok = mustCreate(t, app, o.resellerComTok, agentBody("SHARE_B2C", "shareres1", []string{"THB"}, childPT(50, 0, 0, 0)))
 	_, o.res2Tok = mustCreate(t, app, o.resellerComTok, agentBody("SHARE_B2C", "shareres2", []string{"USD"}, childPT(50, 0, 0, 0)))
 	_, masterTok := mustCreate(t, app, o.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "mastercom", nil, childPT(80, 0, 0, 0)))
-	_, o.masterShareTok = mustCreate(t, app, masterTok, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, childPT(80, 0, 0, 0)))
+	_, o.masterShareTok = mustCreate(t, app, masterTok, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, commissionOnly(0)))
 	return o
 }
 

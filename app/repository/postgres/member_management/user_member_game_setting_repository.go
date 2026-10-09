@@ -41,16 +41,6 @@ func UpdateUserMemberPTRepository(db *gorm.DB, memberID uint, gameCodes []string
 		Updates(map[string]any{"pt": pt, "remain": remain, "commission": commission, "updated_by": by, "updated_at": at}).Error
 }
 
-// LockUserMemberGameSettingsByAgentRepository — FOR UPDATE ค่าของ Member ทุกคนที่ agent สร้าง เฉพาะเกมที่ระบุ
-// เรียง user_member_id, game_code (ลำดับเดียวกันทุกครั้ง) · เรียกหลัง lock agent_game_settings (agent_management MGMT-24 R3)
-func LockUserMemberGameSettingsByAgentRepository(db *gorm.DB, agentID uint, gameCodes []string) ([]models.UserMemberGameSetting, error) {
-	var out []models.UserMemberGameSetting
-	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("user_member_id IN (SELECT id FROM user_members WHERE agent_id = ?) AND game_code IN ?", agentID, gameCodes).
-		Order("user_member_id, game_code").Find(&out).Error
-	return out, err
-}
-
 // UpdateUserMemberRemainsRepository — remain ของหลายแถวใน statement เดียว (ใช้ค่า Remain ในแต่ละแถว)
 func UpdateUserMemberRemainsRepository(db *gorm.DB, rows []models.UserMemberGameSetting) error {
 	if len(rows) == 0 {
@@ -65,4 +55,17 @@ func UpdateUserMemberRemainsRepository(db *gorm.DB, rows []models.UserMemberGame
 	return db.Exec(`UPDATE user_member_game_settings s SET remain = v.remain
 		FROM (VALUES `+strings.Join(values, ", ")+`) AS v(user_member_id, game_code, remain)
 		WHERE s.user_member_id = v.user_member_id AND s.game_code = v.game_code`, args...).Error
+}
+
+// LockUserMemberGameSettingsByAgentsRepository — FOR UPDATE ค่าของ Member ทุกคนที่ agent เหล่านี้สร้าง เฉพาะเกมที่ระบุ
+// เรียง user_member_id, game_code · ใช้ตอนระบบปรับ Share Master ทุกคนตาม CSM (agent_management MGMT-19)
+func LockUserMemberGameSettingsByAgentsRepository(db *gorm.DB, agentIDs []uint, gameCodes []string) ([]models.UserMemberGameSetting, error) {
+	var out []models.UserMemberGameSetting
+	if len(agentIDs) == 0 {
+		return out, nil
+	}
+	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("user_member_id IN (SELECT id FROM user_members WHERE agent_id IN ?) AND game_code IN ?", agentIDs, gameCodes).
+		Order("user_member_id, game_code").Find(&out).Error
+	return out, err
 }

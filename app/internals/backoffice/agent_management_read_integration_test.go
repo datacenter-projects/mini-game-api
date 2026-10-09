@@ -175,8 +175,8 @@ func TestDownlinesMemberPermission(t *testing.T) { // MGMT-51 Â· lead P4 / P5: à
 func TestAccountDetail(t *testing.T) { // MGMT-29
 	app := setup2(t)
 	c := buildChain(t, app)
-	setPhone := "0812345678"
-	setCols(t, models.AccountTypeAgent, c.agent.ID, map[string]any{"phone": setPhone})
+	setPhone := "812345678"
+	setCols(t, models.AccountTypeAgent, c.agent.ID, map[string]any{"phone_country_code": "66", "phone": setPhone})
 	r := call(t, app, "POST", agentDetailPath, map[string]any{"id": c.agent.ID}, c.comTok)
 	expect(t, r, 200, 200)
 	var raw map[string]json.RawMessage
@@ -193,6 +193,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	}
 	var d struct {
 		UserType       string                    `json:"user_type"`
+		PhoneCode      string                    `json:"phone_country_code"`
 		Phone          string                    `json:"phone"`
 		ParentUsername string                    `json:"parent_username"`
 		Currencies     []string                  `json:"currencies"`
@@ -202,7 +203,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 		LastLoginAt    string                    `json:"last_login_at"`
 	}
 	_ = json.Unmarshal(r.Data, &d)
-	if d.UserType != "AGENT" || d.Phone != setPhone || d.ParentUsername != "share01" || len(d.Currencies) != 1 ||
+	if d.UserType != "AGENT" || d.PhoneCode != "66" || d.Phone != setPhone || d.ParentUsername != "share01" || len(d.Currencies) != 1 ||
 		d.PT["minigame"]["pt_from_parent"] != float64(60) || len(d.StatusGame) != 3 || !d.PasscodeSet || d.LastLoginAt == "" {
 		t.Fatalf("detail %s", r.Data)
 	}

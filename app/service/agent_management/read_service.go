@@ -102,7 +102,7 @@ func splitIDs(rows []agentManagementPostgres.DownlineRow) (agentIDs, memberIDs [
 
 // downlineRow — 1 แถวของรายชื่อ / ผลค้น (MGMT-28) · status = สถานะที่ใช้งานจริง · pt แสดงเสมอ · status_game เฉพาะแถว agent
 func downlineRow(r agentManagementPostgres.DownlineRow, status models.AgentStatus, parentUsername string, extra rowExtras) agentManagementDto.DownlineRow {
-	row := agentManagementDto.DownlineRow{ID: r.ID, Username: r.Username, Name: StringOrEmpty(r.Name), Phone: StringOrEmpty(r.Phone),
+	row := agentManagementDto.DownlineRow{ID: r.ID, Username: r.Username, Name: StringOrEmpty(r.Name), PhoneCountryCode: StringOrEmpty(r.PhoneCountryCode), Phone: StringOrEmpty(r.Phone),
 		Status: string(status), ParentUsername: parentUsername, LastLoginAt: OptionalTime(r.LastLoginAt), LastLoginIP: StringOrEmpty(r.LastLoginIP), CreatedAt: OptionalTime(&r.CreatedAt)}
 	if r.IsMember {
 		row.Role, row.UserType = string(agentManagementCore.UserTypeMember), string(agentManagementCore.UserTypeMember)
@@ -203,7 +203,7 @@ func GetAgentDetailService(ctx context.Context, actor agentAuthService.Actor, id
 	}
 	res = agentManagementDto.AgentDetailResponse{ID: a.ID, Role: string(a.Role),
 		UserType: string(agentManagementCore.UserTypeOf(a.Role, a.AgentType)), Username: a.Username,
-		Name: StringOrEmpty(a.Name), Phone: StringOrEmpty(a.Phone), Status: string(status), ParentUsername: parent.Username,
+		Name: StringOrEmpty(a.Name), PhoneCountryCode: StringOrEmpty(a.PhoneCountryCode), Phone: StringOrEmpty(a.Phone), Status: string(status), ParentUsername: parent.Username,
 		Currencies: append([]string{}, extra.agentCurrencies[a.ID]...),
 		Balances:   BalanceViews(extra.agentCurrencies[a.ID], extra.agentBalance[a.ID]),
 		PT:         pt, StatusGame: statusGame, StatusGameEffective: effective, PasscodeSet: a.PasscodeHash != nil,

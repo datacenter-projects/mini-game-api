@@ -1,11 +1,12 @@
 # API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 9 ต.ค. 2026 (โครงเส้นใหม่)
 
-เอกสารนี้ตรงกับโค้ดใน branch `boiledegg/bo/agent_management` (PR 2 — **เส้นใหม่ตาม lead review 9 ต.ค.** ใช้บน server หลัง merge + deploy) ·
+เอกสารนี้ตรงกับโค้ดใน branch `boiledegg/bo/agent_management` (PR 2 + PR 3 — **ตาม lead review 9 ต.ค.** ใช้บน server หลัง merge + deploy) ·
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
 
 > **เปลี่ยนจากเดิม (9 ต.ค.)** — path ใหม่ทั้งหมด เส้นเดิมได้ `404` (หัวข้อ 5) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` ·
 > แก้บัญชีเหลือเส้นเดียว `agents/detail/update` · `copy-sources` → `agents/list` · ไม่มีเมนูสิทธิ์ `pt` แล้ว (`pt` แสดงเสมอ) ·
-> Share Reseller / Share Master สร้าง Agent ไม่ได้ · **ยังไม่มีในรอบนี้ (PR 3):** เบอร์ 2 field `phone_country_code` + `phone` · ฟอร์ม Share Master ส่งแค่ Commission
+> Share Reseller / Share Master สร้าง Agent ไม่ได้ · **เบอร์โทร 2 field** `phone_country_code` + `phone` (หัวข้อ 1.5) ·
+> **Share Master ใช้ค่าตาม Company Seamless Master** — ฟอร์มสร้าง / แก้ Share Master ส่งแค่ `commission_percent` (หัวข้อ 1.6)
 
 เส้นของ Member อยู่ที่ [member_management.md](member_management.md) · เส้นค้นหาบัญชีของ ADMIN อยู่ที่ [admin_management.md](admin_management.md)
 
@@ -71,7 +72,28 @@ key ของระบบคือ `minigame` · **แสดงเสมอ** (�
 
 แถว Member ในรายชื่อ: `pt.minigame` = `pt` (ผู้สร้างถือสู้กับ Member คนนี้) · `remain_quota` · `commission_percent` + `created_*` / `updated_*`
 
-### 1.5 ข้อมูลตัวอย่าง
+### 1.5 เบอร์โทร (`phone_country_code` + `phone`)
+
+| field | กติกา |
+|---|---|
+| `phone_country_code` | รหัสโทรออกของประเทศ ตัวเลข 1–3 หลัก **ไม่มี `+`** ต้องเป็นรหัสที่มีจริง (เช่น `66` ไทย · `856` ลาว · `1` US) |
+| `phone` | เบอร์ในประเทศ ตัวเลขล้วน **ไม่มี 0 นำหน้า** ไม่มีขีด / ช่องว่าง (เช่น `812345678`) |
+| รวม | สองค่ารวมกันไม่เกิน 15 หลัก |
+| ไม่กรอก | ส่ง `""` ทั้งคู่ · ส่งค่าเดียว = `422` · ห้าม `null` |
+| ซ้ำ | บัญชีฝั่ง agent ห้ามซ้ำที่คู่ (code + phone) = `402403` · เบอร์เดียวกันคนละรหัสประเทศไม่ซ้ำ · sub ซ้ำได้ |
+
+- ใช้ทุกเส้นที่มีเบอร์ (สร้าง / แก้ / แสดง ของ agent และ sub) · หน้าจอแสดงต่อกันเองได้ เช่น `+66 812345678`
+- เบอร์เดิมในระบบแปลงให้แล้ว: ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` ยาว 11 หลัก → `66` + ส่วนที่เหลือ · แบบอื่นถูกล้างเป็น `""`
+
+### 1.6 Share Master (ใต้ Company Seamless Master)
+
+- Share Master ใช้ค่าตาม Company Seamless Master (CSM) อัตโนมัติ: `pt_from_parent` = ที่ CSM ได้รับ · `force` / `remain_quota` = 0 · `status` และ `status_game` = ของ CSM
+- CSM ตั้งได้แค่ **`commission_percent`** แยกต่อ Share Master · ฟอร์มสร้าง / แก้ส่ง `"pt": { "minigame": { "commission_percent": 0.2 } }` อย่างเดียว
+- ส่ง field อื่นใน `pt` หรือส่ง `status_game` = `422` "Share Master ใช้ค่าตาม Company Seamless Master" → ล็อกช่องเหล่านี้ในฟอร์ม (แสดงค่าจาก `agents/detail/get`)
+- Superadmin แก้ PT / `pt.status` / `status_game` ของ CSM → Share Master ทุกคนเปลี่ยนตามทันที · ลด PT ของ CSM ต่ำกว่าที่ Share Master ถือสู้กับ Member ไม่ได้ (`402306` บอกค่าต่ำสุด)
+- บัญชีอื่นทั้งหมดยังต้องส่ง `pt` ครบ 5 ค่า (ส่งแค่ `commission_percent` = `422`)
+
+### 1.7 ข้อมูลตัวอย่าง
 
 `comp01` (id 10, Company Transfer) → `share01` (id 12, Share B2C · THB) → `agent01` (id 15) → `mem01` (Member id 501) · sub ของ comp01 = `comp01@staff` (id 30)
 
@@ -119,13 +141,13 @@ Member สร้างที่ `/manage/members/create` ([member_management.md]
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/create" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"request_id":"{{$guid}}","user_type":"SHARE_B2C","username":"Share01","password":"aA4b4c4d4e4f","name":"share01","phone":"0812345678","currencies":["THB"],"balance":{"THB":10000},"pt":{"minigame":{"pt_from_parent":70,"force":0,"remain_quota":0,"commission_percent":0.5,"status":true}},"status_game":{"scratch_card":false}}'
+  -d '{"request_id":"{{$guid}}","user_type":"SHARE_B2C","username":"Share01","password":"aA4b4c4d4e4f","name":"share01","phone_country_code":"66","phone":"812345678","currencies":["THB"],"balance":{"THB":10000},"pt":{"minigame":{"pt_from_parent":70,"force":0,"remain_quota":0,"commission_percent":0.5,"status":true}},"status_game":{"scratch_card":false}}'
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ", "data": { "id": 12, "username": "share01", "user_type": "SHARE_B2C" } }`
 
 - `request_id` UUID ใหม่ทุกครั้งที่กดสร้าง (หน้าบ้านสร้างเอง เช่น `crypto.randomUUID()`) · ส่งซ้ำด้วยค่าเดิม = ได้บัญชีเดิม ไม่สร้าง / ไม่โอนซ้ำ · ค่าที่คนอื่นใช้แล้ว = `422`
-- `currencies` ตามหัวข้อ 2 · `balance` ไม่บังคับ (โอนจากยอดของผู้สร้าง) · `phone` ไม่กรอกส่ง `""`
-- `pt` ครบ 5 ค่า · `status_game` ไม่บังคับ (เกมที่ไม่ส่ง = เปิด)
+- `currencies` ตามหัวข้อ 2 · `balance` ไม่บังคับ (โอนจากยอดของผู้สร้าง) · เบอร์ไม่กรอกส่ง `"phone_country_code": "", "phone": ""` (หัวข้อ 1.5)
+- `pt` ครบ 5 ค่า · `status_game` ไม่บังคับ (เกมที่ไม่ส่ง = เปิด) · **CSM สร้าง Share Master:** `pt` ส่งแค่ `commission_percent` ห้ามส่ง `status_game` (หัวข้อ 1.6)
 
 Error: `422`, `402301`, `402303`, `402305`, `402307`, `402308`, `402309`, `402310`, `402312`, `402401`, `402403`
 
@@ -149,7 +171,7 @@ Response `data` (แบ่งหน้า):
   "current_page": 1, "total_page": 1, "total_count": 2, "limit": 20, "has_next": false, "has_prev": false,
   "data": [
     {
-      "id": 15, "role": "AGENT", "user_type": "AGENT", "username": "agent01", "name": "agent01", "phone": "0898765432",
+      "id": 15, "role": "AGENT", "user_type": "AGENT", "username": "agent01", "name": "agent01", "phone_country_code": "66", "phone": "898765432",
       "status": "ACTIVE", "parent_username": "share01",
       "last_login_at": "2026-10-08T21:00:00+07:00", "last_login_ip": "203.0.113.10", "created_at": "2026-10-01T09:00:00+07:00",
       "pt": { "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" } },
@@ -157,7 +179,7 @@ Response `data` (แบ่งหน้า):
       "balances": [ { "currency": "THB", "amount": 5000 } ]
     },
     {
-      "id": 501, "role": "MEMBER", "user_type": "MEMBER", "username": "mem01", "name": "ใจดี", "phone": "",
+      "id": 501, "role": "MEMBER", "user_type": "MEMBER", "username": "mem01", "name": "ใจดี", "phone_country_code": "", "phone": "",
       "status": "ACTIVE", "parent_username": "share01",
       "last_login_at": "", "last_login_ip": "", "created_at": "2026-10-01T09:00:00+07:00",
       "pt": { "minigame": { "pt": 30, "remain_quota": 40, "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" } },
@@ -180,7 +202,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/detail/get" \
 Response `data`:
 ```json
 {
-  "id": 12, "role": "SHAREHOLDER", "user_type": "SHARE_B2C", "username": "share01", "name": "share01", "phone": "0812345678",
+  "id": 12, "role": "SHAREHOLDER", "user_type": "SHARE_B2C", "username": "share01", "name": "share01", "phone_country_code": "66", "phone": "812345678",
   "status": "ACTIVE", "parent_username": "comp01", "currencies": ["THB"], "balances": [ { "currency": "THB", "amount": 10000 } ],
   "pt": { "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" } },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
@@ -198,20 +220,21 @@ Error: `422`, `402303`, `402402`
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/detail/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"id":12,"info":{"name":"share01","phone":"0812345678"},"pt":{"minigame":{"pt_from_parent":60,"force":0,"remain_quota":0,"commission_percent":0.5,"status":true}},"status_game":{"scratch_card":false}}'
+  -d '{"id":12,"info":{"name":"share01","phone_country_code":"66","phone":"812345678"},"pt":{"minigame":{"pt_from_parent":60,"force":0,"remain_quota":0,"commission_percent":0.5,"status":true}},"status_game":{"scratch_card":false}}'
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ" }`
 
 | section | กติกา |
 |---|---|
-| `info` | `name` · `phone` — ส่งบาง field ได้ (ไม่ส่ง = คงเดิม) · ล้างเบอร์ส่ง `"phone": ""` |
-| `pt` | ส่งเฉพาะกลุ่มที่แก้ · กลุ่มละครบ 5 ค่า · ลดได้ไม่ต่ำกว่าที่ลูกใช้อยู่ (`402306` บอกค่าต่ำสุด) |
-| `status_game` | เกมที่จะเปลี่ยน → `true` / `false` · อย่างน้อย 1 เกม |
+| `info` | `name` · `phone_country_code` + `phone` — ส่งบาง field ได้ (ไม่ส่ง = คงเดิม) · เบอร์ต้องส่ง 2 field คู่กัน · ล้างเบอร์ส่ง `""` ทั้งคู่ |
+| `pt` | ส่งเฉพาะกลุ่มที่แก้ · กลุ่มละครบ 5 ค่า · ลดได้ไม่ต่ำกว่าที่ลูกใช้อยู่ (`402306` บอกค่าต่ำสุด) · ลูกเป็น Share Master: ส่งแค่ `commission_percent` |
+| `status_game` | เกมที่จะเปลี่ยน → `true` / `false` · อย่างน้อย 1 เกม · ลูกเป็น Share Master ส่งไม่ได้ (`422`) |
 
 - **ส่งเฉพาะ section ที่แก้** · ไม่ส่งเลยสัก section = `422`
 - แก้ได้เฉพาะ**ลูกตรง** (ตัวเอง / หลาน = `402304` · นอกสาย = `402402`) · ไม่ต้อง passcode
 - **ทั้งคำขอสำเร็จหรือไม่บันทึกเลย** — section ไหนผิด section อื่นก็ไม่ถูกบันทึก
 - ค่าเหมือนเดิมทั้งหมด = 200 (ไม่มีประวัติเพิ่ม) · แก้ PT แล้วระบบคำนวณ `remain_quota` ของ Member ใต้ลูกให้เอง
+- Superadmin แก้ CSM: Share Master ทุกคนใต้ CSM เปลี่ยนตามในคำขอเดียวกัน (หัวข้อ 1.6)
 
 Error: `422`, `402303`, `402304`, `402305`, `402306`, `402307`, `402308`, `402309`, `402402`, `402403`
 
@@ -254,7 +277,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/list" \
 Response `data` (แบ่งหน้า) แต่ละแถว:
 ```json
 {
-  "id": 30, "username": "comp01@staff", "name": "staff01", "phone": "", "status": "ACTIVE",
+  "id": 30, "username": "comp01@staff", "name": "staff01", "phone_country_code": "", "phone": "", "status": "ACTIVE",
   "permissions": { "dashboard": "view", "member": "edit", "report": "view", "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off", "api_credential": "view" },
   "created_at": "2026-10-06T12:26:43+07:00", "last_login_at": "", "last_login_ip": ""
 }
@@ -279,7 +302,7 @@ Error: `422`, `402311`, `402404`
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/create" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"name_suffix":"Staff","password":"aA4b4c4d4e4f","name":"staff01","phone":"","permissions":{"dashboard":"view","member":"edit","report":"view"}}'
+  -d '{"name_suffix":"Staff","password":"aA4b4c4d4e4f","name":"staff01","phone_country_code":"","phone":"","permissions":{"dashboard":"view","member":"edit","report":"view"}}'
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ", "data": { "id": 30, "username": "comp01@staff" } }`
 - เมนูที่ไม่ส่ง = `off` · `dashboard` / `report` สูงสุด `view` · เมนูที่ประเภทเจ้าของไม่มี (รวม `pt`) = `422` · เบอร์ของ sub ซ้ำได้
@@ -291,7 +314,7 @@ Error: `422`, `402301`, `402311`, `402401`
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/detail/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"id":30,"name":"staff01","phone":"0811111111","permissions":{"member":"view","report":"view"}}'
+  -d '{"id":30,"name":"staff01","phone_country_code":"66","phone":"811111111","permissions":{"member":"view","report":"view"}}'
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ" }` · แทนทั้งชุด (ต้องส่งครบ) · แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`)
 
@@ -319,7 +342,7 @@ Error: `422`, `402311`, `402404`
 | `402304` | แก้ไขได้เฉพาะผู้สร้างของบัญชีนี้ | ซ่อนปุ่มแก้ของบัญชีที่ไม่ใช่ลูกตรง |
 | `402305` | ค่าที่ให้ลูกเกินกว่าที่ได้รับ | แสดงค่าสูงสุดจาก `pt_from_parent` ของตัวเอง |
 | `402306` | ค่าที่ให้ลูกต่ำกว่าที่ลูกใช้อยู่ | แสดง `msg` (บอกค่าต่ำสุด) |
-| `402307` | Share Master ใช้ค่า PT ตาม Company Seamless Master | ล็อกช่องในฟอร์ม |
+| `402307` | Share Master ใช้ค่า PT ตาม Company Seamless Master (ปกติไม่เกิด — ส่งแค่ `commission_percent` ตามหัวข้อ 1.6) | ล็อกช่องในฟอร์ม |
 | `402308` | Force / Remain เกินที่กำหนด | — |
 | `402309` | Commission เกินที่กำหนด | — |
 | `402310` | สกุลเงินไม่อยู่ในสกุลของผู้สร้าง | ให้เลือกจาก `currencies` ใน Profile |

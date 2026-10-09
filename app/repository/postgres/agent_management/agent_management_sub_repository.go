@@ -12,7 +12,7 @@ import (
 // sub ของ module ② (phase 5) — docs/modules/agent_management.md MGMT-40 – MGMT-46
 
 // คอลัมน์ที่แสดงในรายชื่อ / รายละเอียด sub (MGMT-46) — ไม่มีรหัสผ่าน / passcode
-var subaccountViewColumns = []string{"id", "agent_id", "username", "name", "phone", "status", "permissions",
+var subaccountViewColumns = []string{"id", "agent_id", "username", "name", "phone_country_code", "phone", "status", "permissions",
 	"created_at", "last_login_at", "last_login_ip"}
 
 // SubaccountUsernameExistsRepository — username นี้มี sub ใช้แล้วไหม
@@ -51,9 +51,9 @@ func LockSubaccountViewRepository(db *gorm.DB, id uint) (models.Subaccount, erro
 }
 
 // UpdateSubaccountInfoRepository — ชื่อเล่น · เบอร์ (nil = ไม่ตั้ง) · สิทธิ์ (JSON) แทนทั้งชุด (MGMT-42)
-func UpdateSubaccountInfoRepository(db *gorm.DB, id uint, name string, phone *string, permissions string, at time.Time) error {
+func UpdateSubaccountInfoRepository(db *gorm.DB, id uint, name string, code, phone *string, permissions string, at time.Time) error {
 	return db.Model(&models.Subaccount{}).Where("id = ?", id).
-		Updates(map[string]any{"name": name, "phone": phone, "permissions": permissions, "updated_at": at}).Error
+		Updates(map[string]any{"name": name, "phone_country_code": code, "phone": phone, "permissions": permissions, "updated_at": at}).Error
 }
 
 // UpdateSubaccountStatusRepository — สถานะที่ตั้งกับ sub เอง (MGMT-43 · INACTIVE เก็บเป็น SUSPENDED)

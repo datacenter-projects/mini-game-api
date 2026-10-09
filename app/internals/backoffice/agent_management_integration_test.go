@@ -76,9 +76,14 @@ func childPT(give, force, remain, commission float64) map[string]any {
 		"commission_percent": commission, "status": true}}
 }
 
+// commissionOnly — pt ที่ CSM ส่งตอนสร้าง / แก้ Share Master (MGMT-19): ส่งได้แค่ commission_percent
+func commissionOnly(commission float64) map[string]any {
+	return map[string]any{"minigame": map[string]any{"commission_percent": commission}}
+}
+
 func agentBody(userType, username string, currencies []string, pt map[string]any) map[string]any {
 	b := map[string]any{"request_id": newRequestID(), "user_type": userType, "username": username, "password": mgPassword,
-		"name": "Name" + username, "phone": "", "pt": pt}
+		"name": "Name" + username, "phone_country_code": "", "phone": "", "pt": pt}
 	if currencies != nil {
 		b["currencies"] = currencies
 	}
@@ -209,8 +214,13 @@ func TestCreateValidation(t *testing.T) { // MGMT-05, MGMT-08, MGMT-12, MGMT-14,
 		{"username 33 ตัว", c.comTok, share(func(b map[string]any) { b["username"] = strings.Repeat("a", 33) }), 422},
 		{"username มี _", c.comTok, share(func(b map[string]any) { b["username"] = "new_share" }), 422},
 		{"username ซ้ำ", c.comTok, share(func(b map[string]any) { b["username"] = "Agent01" }), 402401},
-		{"เบอร์มี +", c.comTok, share(func(b map[string]any) { b["phone"] = "+66812345678" }), 422},
-		{"เบอร์ 7 หลัก", c.comTok, share(func(b map[string]any) { b["phone"] = "0812345" }), 422},
+		{"ส่งเบอร์ไม่ส่งรหัสประเทศ", c.comTok, share(func(b map[string]any) { b["phone"] = "812345678" }), 422},
+		{"ส่งรหัสประเทศไม่ส่งเบอร์", c.comTok, share(func(b map[string]any) { b["phone_country_code"] = "66" }), 422},
+		{"รหัสประเทศมี +", c.comTok, share(func(b map[string]any) { b["phone_country_code"], b["phone"] = "+66", "812345678" }), 422},
+		{"รหัสประเทศไม่มีจริง", c.comTok, share(func(b map[string]any) { b["phone_country_code"], b["phone"] = "999", "812345678" }), 422},
+		{"เบอร์มี 0 นำหน้า", c.comTok, share(func(b map[string]any) { b["phone_country_code"], b["phone"] = "66", "0812345678" }), 422},
+		{"เบอร์มีขีด", c.comTok, share(func(b map[string]any) { b["phone_country_code"], b["phone"] = "66", "81-234-5678" }), 422},
+		{"รหัส + เบอร์ 16 หลัก", c.comTok, share(func(b map[string]any) { b["phone_country_code"], b["phone"] = "66", "81234567890123" }), 422},
 		{"ชื่อมีช่องว่าง", c.comTok, share(func(b map[string]any) { b["name"] = "สมชาย ใจดี" }), 422},
 		{"ชื่อ 2 ตัว", c.comTok, share(func(b map[string]any) { b["name"] = "สม" }), 422},
 		{"รหัสผ่านผิดกฎ", c.comTok, share(func(b map[string]any) { b["password"] = "aaaa1111" }), 422},
@@ -239,8 +249,21 @@ func TestCreateValidation(t *testing.T) { // MGMT-05, MGMT-08, MGMT-12, MGMT-14,
 	}
 
 	// เบอร์ซ้ำ · Member ชื่อซ้ำกับ Agent · commission ของลูกเกินผู้สร้างได้
-	expect(t, call(t, app, "POST", createAgentPath, share(func(b map[string]any) { b["phone"] = "0812345678" }), c.comTok), 200, 200)
-	expect(t, call(t, app, "POST", createAgentPath, share(func(b map[string]any) { b["username"] = "other"; b["phone"] = "0812345678" }), c.comTok), 200, 402403)
+	expect(t, call(t, app, "POST", createAgentPath, share(func(b map[string]any) { b["phone_country_code"], b["phone"] = " 66 ", " 812345678 " }), c.comTok), 200, 200)
+	var ns models.UserAgent
+	database.DBConn.Where("username = ?", "newshare").Take(&ns)
+	if ns.PhoneCountryCode == nil || *ns.PhoneCountryCode != "66" || ns.Phone == nil || *ns.Phone != "812345678" {
+		t.Fatalf("เบอร์ต้องเก็บแยก 2 field ตัดช่องว่าง %+v", ns)
+	}
+	expect(t, call(t, app, "POST", createAgentPath, share(func(b map[string]any) {
+		b["username"] = "other"
+		b["phone_country_code"], b["phone"] = "66", "812345678"
+	}), c.comTok), 200, 402403)
+	// เบอร์เดียวกันคนละรหัสประเทศ = ไม่ซ้ำ
+	expect(t, call(t, app, "POST", createAgentPath, share(func(b map[string]any) {
+		b["username"] = "other"
+		b["phone_country_code"], b["phone"] = "856", "812345678"
+	}), c.comTok), 200, 200)
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("Agent01", 0), c.agentTok), 200, 402401)
 	expect(t, call(t, app, "POST", createAgentPath, agentBody("AGENT", "agcomm", nil, childPT(10, 0, 0, 0.6)), c.agentTok), 200, 200)
 
@@ -253,9 +276,10 @@ func TestCreateValidation(t *testing.T) { // MGMT-05, MGMT-08, MGMT-12, MGMT-14,
 	expect(t, call(t, app, "POST", createMemberPath, mb, c.agentTok), 200, 200)
 
 	// เบอร์ของ sub ซ้ำได้ (MGMT-41)
-	phone := "0899999999"
+	code, phone := "66", "899999999"
 	for _, n := range []string{"staff1", "staff2"} {
-		s := models.Subaccount{AgentID: c.agent.ID, Username: "agent01@" + n, PasswordHash: "x", Status: models.AgentStatusActive, Phone: &phone}
+		s := models.Subaccount{AgentID: c.agent.ID, Username: "agent01@" + n, PasswordHash: "x", Status: models.AgentStatusActive,
+			PhoneCountryCode: &code, Phone: &phone}
 		if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &s); err != nil {
 			t.Fatalf("sub เบอร์ซ้ำต้องสร้างได้: %v", err)
 		}
@@ -286,17 +310,53 @@ func TestCreatePTSettings(t *testing.T) { // MGMT-16, MGMT-19, MGMT-20, MGMT-22
 		t.Fatalf("scratch_card %+v", off)
 	}
 
-	// Company Seamless Master: ถือ 0 · ให้ Share Master เท่าที่ได้รับเท่านั้น
-	master, masterTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
-	var ms models.AgentGameSetting
-	database.DBConn.Where("agent_id = ?", master.ID).Take(&ms)
-	if ms.PTFromParent != 80 {
-		t.Fatalf("master %+v", ms)
+	// ผู้สร้างที่ไม่ใช่ CSM ต้องส่งครบ 5 ค่า (ส่งแค่ commission = 422)
+	r := call(t, app, "POST", createAgentPath, agentBody("AGENT", "agcomm", nil, commissionOnly(0)), c.agentTok)
+	expect(t, r, 200, 422)
+	expectMsgHas(t, r.Msg, "pt.minigame.pt_from_parent")
+}
+
+func TestCreateShareMasterFollowsCSM(t *testing.T) { // MGMT-19 · lead E1-1 / B2
+	app := setup2(t)
+	c := buildChain(t, app)
+	b := agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0.3))
+	b["status_game"] = map[string]bool{"scratch_card": false}
+	master, masterTok := mustCreate(t, app, c.saTok, b)
+
+	// CSM ส่ง pt ได้แค่ commission_percent · ส่ง status_game = 422
+	for name, pt := range map[string]map[string]any{
+		"ครบ 5 ค่า":          childPT(80, 0, 0, 0.2),
+		"ส่ง pt_from_parent": {"minigame": map[string]any{"pt_from_parent": 80, "commission_percent": 0.2}},
+		"ส่ง force":          {"minigame": map[string]any{"force": 0, "commission_percent": 0.2}},
+		"ส่ง status":         {"minigame": map[string]any{"status": true, "commission_percent": 0.2}},
+	} {
+		r := call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, pt), masterTok)
+		expect(t, r, 200, 422)
+		if !strings.Contains(r.Msg, "Company Seamless Master") {
+			t.Fatalf("%s: msg %q", name, r.Msg)
+		}
 	}
-	expect(t, call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, childPT(75, 0, 0, 0)), masterTok), 200, 402307)
-	expect(t, call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, childPT(80, 5, 0, 0)), masterTok), 200, 402307)
-	r := call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, childPT(80, 0, 0, 0.2)), masterTok)
-	expect(t, r, 200, 200)
+	sg := agentBody("SHARE_B2C", "sharemas", []string{"THB"}, commissionOnly(0.2))
+	sg["status_game"] = map[string]bool{"scratch_card": true}
+	expect(t, call(t, app, "POST", createAgentPath, sg, masterTok), 200, 422)
+	expect(t, call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, commissionOnly(1.1)), masterTok), 200, 402309)
+
+	// ส่งแค่ commission → ค่าอื่นตาม CSM: pt_from_parent = ที่ CSM ได้รับ · force / remain 0 · status / status_game ตาม CSM
+	sm, _ := mustCreate(t, app, masterTok, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, commissionOnly(0.2)))
+	if sm.UserType != "SHARE_MASTER" {
+		t.Fatalf("user_type %s", sm.UserType)
+	}
+	var rows []models.AgentGameSetting
+	database.DBConn.Where("agent_id = ?", sm.ID).Order("game_code").Find(&rows)
+	if len(rows) != 3 {
+		t.Fatalf("rows %d", len(rows))
+	}
+	for _, r := range rows {
+		if r.PTFromParent != 80 || r.Force != 0 || r.Remain != 0 || r.Commission != 0.2 || !r.Status || r.StatusGame != (r.GameCode != "scratch_card") ||
+			r.ParentID == nil || *r.ParentID != master.ID {
+			t.Fatalf("share master %+v", r)
+		}
+	}
 }
 
 func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A

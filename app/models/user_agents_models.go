@@ -45,8 +45,9 @@ type UserAgent struct {
 	MustChangePasscode    bool        `gorm:"column:must_change_passcode"`
 	TempPasswordExpiresAt *time.Time  `gorm:"column:temp_password_expires_at"`
 	TempPasscodeExpiresAt *time.Time  `gorm:"column:temp_passcode_expires_at"`
-	Name                  *string     `gorm:"column:name"`  // ชื่อ (module ② MGMT-07)
-	Phone                 *string     `gorm:"column:phone"` // nil = ไม่ได้กรอก (MGMT-08)
+	Name                  *string     `gorm:"column:name"`               // ชื่อ (module ② MGMT-07)
+	PhoneCountryCode      *string     `gorm:"column:phone_country_code"` // รหัสโทรออก เช่น 66 · nil คู่กับ Phone (MGMT-08)
+	Phone                 *string     `gorm:"column:phone"`              // เบอร์ในประเทศ ไม่มี 0 นำหน้า · nil = ไม่ได้กรอก (MGMT-08)
 	AgentType             *AgentType  `gorm:"column:agent_type"`
 	Role                  AgentRole   `gorm:"column:role"`
 	Status                AgentStatus `gorm:"column:status"`

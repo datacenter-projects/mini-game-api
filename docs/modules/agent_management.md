@@ -7,7 +7,7 @@
   lead อนุมัติงานก่อนหน้า: ลบค่าถือ `pt` ค่าเดียวของ agent + `update-hold` (U1) · MGMT-24 R1–R3 (U2) · ลำดับเช็ค 7.1 + ข้อความ error (U3) · เปลี่ยนชื่อตาราง Member (U4)
 - การแก้ก่อนหน้า (สรุป): 2026-10-08 ชื่อเป็นภาษาไทยได้ · เบอร์ของ sub ซ้ำได้ · ยอดเงินตั้งต้นอยู่ใน module นี้ · `pt` ชุดเดียวต่อระบบ (`minigame`) · `pt.status` = รับ PT ไหม ·
   2026-10-09 เงินและ % เป็น float ปัด 4 ตำแหน่ง (CLAUDE.md กฎข้อ 9 — lead อนุมัติ) · `user_agents.cnf` + `agent_game_settings.parent_id` (MGMT-61 / 62 — lead อนุมัติ) · แถวรายชื่อมี `last_login_*` + `created_at`
-- **โค้ด:** โครงเส้นและกฎใหม่ทยอยตาม PR 2 (เส้น E1–E6 · สิทธิ์ · Share Reseller / Master) และ PR 3 (CSM → Share Master · เบอร์ + migration) — ระหว่างนั้นโค้ดบน dev ยังเป็นโครงเดิม
+- **โค้ด:** ทำครบตาม review แล้ว — PR 2 (เส้น E1–E6 · สิทธิ์ · Share Reseller / Master) · PR 3 (CSM → Share Master · เบอร์ 2 field + migration) · ส่วน Member (เบอร์ · path `members/*` · `amounts`) อยู่ใน member_management
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/` `dto/` `service/` `core/agent_management`) · เส้น `/manage/members/*` อยู่ module `member_management` ([member_management.md](member_management.md) · ผู้ดูแล maofoy) · กฎ business ร่วมอยู่ที่ `core/agent_management` และ spec ฉบับนี้
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member · ค้นทั้งสาย) · แก้ไข · บัญชีย่อย
 - ที่มาของ rule: เอกสารของ lead (Company Hierarchy, PT, PT Force, PT Remain, PT Commission, System Overview) · review ของ lead · คำตอบของ boiledegg · ไม่ได้ extract จากโค้ดเก่า
@@ -69,7 +69,7 @@
 | MGMT-06 | รหัสผ่านตาม AUTH-36 · ฝั่ง agent ตั้ง passcode ตอน login ครั้งแรก (AUTH-29) |
 | MGMT-07 | ชื่อ: บังคับ · 3–32 ตัวอักษร (นับเป็นตัวอักษร) · ภาษาไทย `A-Z` `a-z` `0-9` · ไม่มีช่องว่าง |
 | MGMT-08 | **เบอร์โทร 2 field** (แก้ 2026-10-09 — lead E1-5): `phone_country_code` = รหัสโทรออกของประเทศ ตัวเลข 1–3 หลัก ไม่มี `+` (เช่น `66`) ต้องเป็นรหัสที่มีจริง (รายการใน `app/core`) · `phone` = เบอร์ในประเทศ ตัวเลขล้วน **ไม่มี 0 นำหน้า** (เช่น `812345678`) · รวมสองค่าไม่เกิน 15 หลัก (E.164) · ไม่กรอก = `""` ทั้งคู่ · ส่งค่าเดียว = `422` · ห้าม `null` · **ห้ามซ้ำที่คู่** (code + phone) ภายในตารางเดียวกัน · sub ซ้ำได้ (MGMT-41) · ใช้รูปแบบนี้ทุกที่: agent · sub · Member |
-| MGMT-08A | migration เบอร์เดิม (lead B1): ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` และยาว 11 หลัก → `66` + ส่วนที่เหลือ · **แบบอื่นทั้งหมดล้างเป็น `""`** (ไม่เดาประเทศ) · migration log จำนวนและรายการ (id, เบอร์เดิม) ที่ถูกล้าง |
+| MGMT-08A | migration เบอร์เดิม (lead B1): ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` และยาว 11 หลัก → `66` + ส่วนที่เหลือ · **แบบอื่นทั้งหมดล้างเป็น `""`** (ไม่เดาประเทศ) · ฝั่ง agent ถ้าแปลงแล้วคู่ซ้ำกัน (เช่น `0812345678` กับ `66812345678`) เก็บแถวที่ `id` น้อยสุด แถวอื่นล้าง · ทุกรายการที่ถูกล้างบันทึกในตาราง `migration_phone_cleared` (`table_name` · `row_id` · `old_phone` · `reason` = `FORMAT` / `DUPLICATE`) |
 | MGMT-09 | แก้ได้ (ผู้สร้างโดยตรง): ชื่อ · เบอร์โทร · ค่าหุ้นส่วน · เปิด / ปิดเกม (เส้น `agents/detail/update`) · สถานะ (`agents/status/update`) · แก้ไม่ได้: username · ประเภท · สกุลเงิน · ไม่มีการลบบัญชีฝั่ง agent และ Member |
 | MGMT-61 | **สายชั้นบน** `user_agents.cnf` (JSONB): `{"parent": [{"id": 1, "position": "superadmin"}, {"id": 4754, "position": "company"}, …]}` · เรียงจาก Superadmin ลงมาถึงผู้สร้างตรง · **ไม่รวมตัวเอง** · `position` = role ตัวเล็ก · Superadmin / ADMIN = `{"parent": []}` · ตั้งตอนสร้าง = `parent` ของผู้สร้าง + ผู้สร้าง · ไม่เปลี่ยนหลังสร้าง · **ไม่ส่งใน API** · ใช้ไล่สายขึ้นและค้นทั้งสายลง (`cnf @> '{"parent":[{"id":X}]}'` + GIN index) · Member ใช้ `user_members.cnf` (member_management) |
 | MGMT-62 | `agent_game_settings.parent_id` = id ผู้สร้างของบัญชีเจ้าของแถว · Superadmin = `NULL` · ตั้งตอนสร้าง |
@@ -547,6 +547,9 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 -- migration ใหม่ PR 3: เบอร์ (MGMT-08 / 08A) — user_agents และ subaccounts (user_members ทำใน member_management)
 --   ADD COLUMN phone_country_code VARCHAR(3) · แปลงเบอร์เดิมตาม MGMT-08A · CHECK phone ~ '^[1-9][0-9]*$' และความยาวรวม ≤ 15
 --   user_agents: unique (phone_country_code, phone) แทน uq_user_agents_phone · subaccounts ไม่ unique
+--   เบอร์ที่ถูกล้าง → migration_phone_cleared(id, table_name, row_id, old_phone, reason FORMAT / DUPLICATE, cleared_at)
+-- migration ใหม่ PR 3: Share Master ที่มีอยู่ปรับตาม CSM ครั้งเดียว (MGMT-19) — pt_from_parent · force / remain = 0 · status · status_game · commission ไม่แตะ
+--   + remain ของ Member ใต้ Share Master คำนวณใหม่ (R2) · down ไม่คืนค่า
 ```
 
 - Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent = 100`) · ADMIN ไม่มี · ผู้สร้างถือในสายของลูก = `pt_from_parent` ของผู้สร้าง − ของลูก (คำนวณตอนคิดเงิน ไม่เก็บ)
@@ -613,7 +616,7 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
    `balance` (`422` / `402312`) → `pt` ทีละ field: `pt_from_parent` (`402305` / `402307`) → `force` → `remain_quota` (`402308`) → `commission_percent` (`402309`)
    · `detail/update`: `info` (เบอร์ซ้ำ `402403`) → `pt` (`pt_from_parent` เพดาน `402305` → ต่ำสุดที่ลูกใช้ `402306` → `force` → `remain_quota` → `commission_percent`) → `status_game`
 3. สิทธิ์ (`401308` / `402303` / `402311`) เช็คที่ middleware ก่อนทั้งหมด · **ข้อยกเว้น:** สิทธิ์ `payment` ตอนส่ง `balance` เช็คใน service หลังตรวจรูปแบบ (lead U3)
-4. Share Master (MGMT-19): ส่ง field ที่ระบบตั้งเอง = `422` ในรอบรูปแบบไม่ได้ (ต้องรู้ประเภทผู้สร้าง) → เช็คเป็นข้อแรกของรอบ DB ใน section `pt` / `status_game`
+4. Share Master (MGMT-19): ส่ง field ที่ระบบตั้งเอง = `422` ในรอบรูปแบบไม่ได้ (ต้องรู้ว่าลูกเป็น Share Master ไหม) → เช็คเป็น**ข้อแรกของรอบ DB** (สร้าง: ต่อจากโหลดผู้สร้าง · แก้: ก่อนแก้ section ใดๆ) · รวมถึง `pt.{กลุ่ม}.{field} ต้องส่ง` ของบัญชีอื่น (รูปแบบตัวเลขยังเช็คในรอบรูปแบบ)
 
 ค่าที่เป็น object (`pt`, `balance`, `status_game`, `permissions`) ไล่ key ตามลำดับตัวอักษร
 

@@ -25,6 +25,7 @@ type Creator struct {
 	Currencies  []string
 	Received    map[agentManagementCore.PTGroup]float64 // ค่าที่ผู้สร้างได้รับต่อกลุ่ม (MGMT-22)
 	Chain       agentManagementCore.Chain               // สายชั้นบนของผู้สร้าง (MGMT-61)
+	Settings    []models.AgentGameSetting               // ค่าตั้งของผู้สร้างทุกเกม (lock FOR SHARE) · ใช้ตั้ง Share Master ตาม CSM (MGMT-19)
 }
 
 func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
@@ -57,6 +58,7 @@ func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
 	if err != nil {
 		return c, err
 	}
+	c.Settings = settings
 	c.Received = map[agentManagementCore.PTGroup]float64{}
 	for _, s := range settings { // ค่าของเกมในกลุ่มเท่ากันเสมอ (MGMT-16)
 		if g, ok := agentManagementCore.GroupOfGame(s.GameCode); ok {
@@ -187,8 +189,8 @@ func ChangeLog(actor agentAuthService.Actor, meta agentAuthService.RequestMeta, 
 	return l, nil
 }
 
-// LockAndCheckIdentity — กันสร้างพร้อมกัน แล้วเช็ค username / เบอร์ซ้ำ (MGMT-05, MGMT-08)
-func LockAndCheckIdentity(tx *gorm.DB, username, phone string, member bool) error {
+// lockUsernameFree — lock username กันสร้างพร้อมกัน แล้วเช็คซ้ำทั้งระบบ (MGMT-05)
+func lockUsernameFree(tx *gorm.DB, username string) error {
 	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "username:"+username); err != nil {
 		return err
 	}
@@ -199,17 +201,51 @@ func LockAndCheckIdentity(tx *gorm.DB, username, phone string, member bool) erro
 	if taken {
 		return apperr.ErrUsernameTaken
 	}
+	return nil
+}
+
+// LockAndCheckAgentIdentity — username + เบอร์ 2 field ของบัญชีฝั่ง agent (MGMT-05, MGMT-08) · ซ้ำที่คู่ (รหัส + เบอร์)
+func LockAndCheckAgentIdentity(tx *gorm.DB, username, code, phone string) error {
+	if err := lockUsernameFree(tx, username); err != nil {
+		return err
+	}
+	return checkAgentPhone(tx, code, phone, 0)
+}
+
+// checkAgentPhone — lock เบอร์ (คู่) แล้วเช็คว่าบัญชีอื่นใช้แล้วไหม · selfID 0 = บัญชีใหม่
+func checkAgentPhone(tx *gorm.DB, code, phone string, selfID uint) error {
+	if phone == "" {
+		return nil
+	}
+	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "phone:"+code+"-"+phone); err != nil {
+		return err
+	}
+	taken, err := agentManagementPostgres.AgentPhoneTakenByOtherRepository(tx, code, phone, selfID)
+	if err != nil {
+		return err
+	}
+	if taken {
+		return apperr.ErrPhoneTaken
+	}
+	return nil
+}
+
+// LockAndCheckIdentity — กันสร้างพร้อมกัน แล้วเช็ค username / เบอร์ซ้ำของ **Member** (member_management · เบอร์ field เดียว)
+// member = false ไม่ใช้แล้ว — ฝั่ง agent ใช้ LockAndCheckAgentIdentity (เบอร์ 2 field — MGMT-08)
+func LockAndCheckIdentity(tx *gorm.DB, username, phone string, member bool) error {
+	if !member {
+		return apperr.ErrInternal.Wrap(errors.New("LockAndCheckIdentity: ฝั่ง agent ใช้ LockAndCheckAgentIdentity"))
+	}
+	if err := lockUsernameFree(tx, username); err != nil {
+		return err
+	}
 	if phone == "" {
 		return nil
 	}
 	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "phone:"+phone); err != nil {
 		return err
 	}
-	if member {
-		taken, err = memberManagementPostgres.UserMemberPhoneExistsRepository(tx, phone)
-	} else {
-		taken, err = agentManagementPostgres.AgentPhoneExistsRepository(tx, phone)
-	}
+	taken, err := memberManagementPostgres.UserMemberPhoneExistsRepository(tx, phone)
 	if err != nil {
 		return err
 	}

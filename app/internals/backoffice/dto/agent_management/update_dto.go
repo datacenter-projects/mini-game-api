@@ -82,8 +82,9 @@ func CheckID(id uint) error {
 
 // AgentInfoSection — section info ของ agents/detail/update · ส่งบาง field ได้ (MGMT-32)
 type AgentInfoSection struct {
-	Name  *string          `json:"name"`
-	Phone utils.JSONString `json:"phone"`
+	Name             *string          `json:"name"`
+	PhoneCountryCode utils.JSONString `json:"phone_country_code"` // ต้องส่งคู่กับ phone (MGMT-08)
+	Phone            utils.JSONString `json:"phone"`
 }
 
 // AgentDetailUpdateRequest — POST /manage/agents/detail/update (MGMT-32 – MGMT-34 · lead E4)
@@ -137,20 +138,23 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 }
 
 func (s *AgentInfoSection) validate() error {
-	if s.Name == nil && !s.Phone.Present {
-		return Invalid("info", "ต้องมีอย่างน้อย 1 field (name / phone)", "must contain at least 1 field (name / phone)")
+	if s.Name == nil && !s.Phone.Present && !s.PhoneCountryCode.Present {
+		return Invalid("info", "ต้องมีอย่างน้อย 1 field (name / phone_country_code + phone)", "must contain at least 1 field (name / phone_country_code + phone)")
 	}
 	if s.Name != nil && !agentManagementCore.IsValidName(*s.Name) {
 		return Invalid("info.name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
 	}
-	if s.Phone.Present {
+	if s.Phone.Present || s.PhoneCountryCode.Present {
+		if !s.Phone.Present || !s.PhoneCountryCode.Present {
+			return Invalid("info.phone_country_code / info.phone", `ต้องส่งคู่กัน (ล้างเบอร์ให้ส่ง "" ทั้งคู่)`, `must be sent together (send "" for both to clear)`)
+		}
+		if !s.PhoneCountryCode.IsString {
+			return Invalid("info.phone_country_code", "ต้องส่งเป็นข้อความ", "must be a string")
+		}
 		if !s.Phone.IsString {
-			return Invalid("info.phone", `ต้องส่งเป็นข้อความ (ล้างเบอร์ให้ส่ง "")`, `must be a string (send "" to clear)`)
+			return Invalid("info.phone", "ต้องส่งเป็นข้อความ", "must be a string")
 		}
-		s.Phone.Value = strings.TrimSpace(s.Phone.Value)
-		if !agentManagementCore.IsValidPhone(s.Phone.Value) {
-			return Invalid("info.phone", "ต้องเป็นตัวเลข 8–15 ตัว (ล้างเบอร์ให้ส่ง \"\")", `must be 8–15 digits (send "" to clear)`)
-		}
+		return ValidatePhonePair("info.", &s.PhoneCountryCode.Value, &s.Phone.Value)
 	}
 	return nil
 }

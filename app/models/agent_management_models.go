@@ -99,6 +99,7 @@ const (
 	ChangeUpdateStatus   AccountChangeAction = "UPDATE_STATUS"
 	ChangeUpdatePT       AccountChangeAction = "UPDATE_PT"
 	ChangeUpdateGames    AccountChangeAction = "UPDATE_GAMES"
+	ChangeSyncFromCSM    AccountChangeAction = "SYNC_FROM_CSM" // ระบบปรับ Share Master ตาม Company Seamless Master (MGMT-19)
 	ChangeSubStatus      AccountChangeAction = "SUB_STATUS"
 	ChangeInitialBalance AccountChangeAction = "INITIAL_BALANCE"
 )
