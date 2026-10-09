@@ -5,6 +5,7 @@
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
 - แก้ 2026-10-09 (boiledegg ตัดสิน): ลำดับเช็คบนลงล่างตาม field ใน body และข้อความ error บอก field + ค่าที่ตั้งได้ (หัวข้อ 7.1)
+- แก้ 2026-10-09 (boiledegg ตัดสิน): **ลบค่าถือ `pt` ค่าเดียวของบัญชีฝั่ง agent และเส้น `update-hold`** — ถือสู้กับ Member ตั้งต่อ Member แล้ว (member_management MGMT-21) · MGMT-24 ทำตาม requirement R1–R3 ของ member_management (ค่าต่ำสุดนับ `pt` ของ Member · sync `remain_quota` · ลำดับ lock)
 - แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 lead (zerph) อนุมัติ 2026-10-09): **เงินและ % เก็บเป็นทศนิยม float ปัด 4 ตำแหน่ง** แทนจำนวนเต็ม (bp / หน่วยย่อย) · request รับไม่เกิน 4 ตำแหน่ง · API ส่งค่าตามที่เก็บ หน้าบ้านปัด 3 ตำแหน่งเอง · column ตัด `_bp` (MGMT-17, MGMT-15A, หัวข้อ 6)
 - แก้ 2026-10-09 (boiledegg · lead (zerph) อนุมัติ 2026-10-09): เก็บสายชั้นบน `user_agents.cnf` (MGMT-61) และ `agent_game_settings.parent_id` (MGMT-62)
 - แก้หลังอนุมัติ (2026-10-08 · maofoy · boiledegg ยืนยัน 2026-10-09): เปลี่ยนชื่อตารางของ Member ให้ตรงกับ `models.UserMember*` — `members` → `user_members` · `member_game_settings` → `user_member_game_settings` · `member_balances` → `user_member_balances` · คอลัมน์ `member_id` → `user_member_id` (หัวข้อ 6 · migration `20261009000000_member_tables_rename.sql` · เปลี่ยนชื่ออย่างเดียว ข้อมูลไม่เปลี่ยน)
@@ -102,14 +103,14 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | | • ส่งเป็น object `pt` แยกตาม**กลุ่ม PT** · ระบบ**กระจายค่าลงทุกเกมในกลุ่ม** แล้วเก็บทีละเกม (`agent_game_settings`) · ค่าของเกมในกลุ่มเท่ากันเสมอ |
 | | • ตอนนี้มีกลุ่ม `minigame` กลุ่มเดียว = `coin_toss`, `rock_paper_scissors`, `scratch_card` (แก้ชื่อจาก `game` 2026-10-08) · ระบบอื่น เช่น `askmelotto` เพิ่มเมื่อมีระบบนั้น · การจับคู่กลุ่ม → หมวด → เกม กำหนดใน `app/core` เพิ่มได้โดยไม่เปลี่ยน API / ตาราง |
 | | • **ผู้สร้างตั้งให้ลูก** (สร้าง / แก้ลูก): กลุ่มละ 5 ค่า `pt_from_parent` (ให้ลูกคนนี้) · `force` · `remain_quota` · `commission_percent` · `status` (รับ PT ไหม — MGMT-20) |
-| | • **บัญชีตั้งของตัวเอง** (MGMT-22): กลุ่มละ 1 ค่า `pt` (ถือจาก Member ใต้ตัวเองตรงๆ) |
-| | • **แสดง (response ทุกเส้น — แก้ 2026-10-08): ชุดเดียวต่อระบบ** (ทุกเกมในระบบค่าเท่ากันเสมอ — หลังบ้านเก็บต่อเกม แล้วรวมตอนส่งออก) `pt` → ระบบ → `pt_from_parent` · `pt` · `force` · `remain_quota` · `commission_percent` · `status` · `created_at` · `created_by` · `updated_at` · `updated_by` · `status_game` → รหัสเกม → bool แยกด้านนอก `pt` (MGMT-20) · Member: ต่อระบบมีแค่ `commission_percent` · `created_at` · `created_by` · `updated_at` · `updated_by` |
+| | • ค่าถือสู้กับ Member ตั้ง**ต่อ Member** (member_management MGMT-21) · บัญชีฝั่ง agent **ไม่มีค่าถือ `pt` ค่าเดียว** (ลบ 2026-10-09) |
+| | • **แสดง (response ทุกเส้น — แก้ 2026-10-08): ชุดเดียวต่อระบบ** (ทุกเกมในระบบค่าเท่ากันเสมอ — หลังบ้านเก็บต่อเกม แล้วรวมตอนส่งออก) `pt` → ระบบ → `pt_from_parent` · `force` · `remain_quota` · `commission_percent` · `status` · `created_at` · `created_by` · `updated_at` · `updated_by` · `status_game` → รหัสเกม → bool แยกด้านนอก `pt` (MGMT-20) · Member: ต่อระบบมีแค่ `commission_percent` · `created_at` · `created_by` · `updated_at` · `updated_by` |
 | | • `status` = **รับ PT ในระบบนั้นไหม** (ไม่ใช่สถานะเกม — เกมใช้ `status_game`) · ความหมายตาม MGMT-20 |
 | | • `created_at` / `created_by` = เวลา / username ของผู้สร้างค่า PT (ตอนสร้างบัญชี · ไม่เปลี่ยนอีก) · `updated_at` / `updated_by` = เวลา / username ของคนที่แก้ล่าสุด (รวม sub) · ตอนสร้าง = ผู้สร้าง |
 | | • เกมใหม่ที่เพิ่มเข้าหมวดภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
 | MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 4 ตำแหน่ง (เช่น `30`, `0.5`) · ภายใน DB / Go เป็น `float64` ปัด 4 ตำแหน่ง (แก้ 2026-10-09 — กฎข้อ 9) · step เดิมไม่เปลี่ยน (MGMT-18) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ค่าที่ให้ลูก (`pt_from_parent`) และค่าถือ (`pt`): 0 ถึง**ค่าที่ตัวเองได้รับ** ทีละ 0.5% · Force / Remain: 0 ถึงค่าที่ให้ลูกคนนั้น ทีละ 0.5% · Commission: 0–1% ทีละ 0.1% · Commission ของลูกตั้ง**เกินของผู้สร้างได้** (เช่น ผู้สร้างได้ 0.5% ตั้งให้ลูก 0.6% ได้) แต่ไม่เกิน 1% |
-| MGMT-19 | Company Seamless Master: `pt` ล็อกที่ 0 · ค่าที่ให้ Share Master ต้อง**เท่ากับค่าที่ตัวเองได้รับ** · Force และ Remain ที่ให้ Share Master = 0 · แก้ได้แค่ Commission (เอกสาร PT) |
+| MGMT-19 | Company Seamless Master: ค่าที่ให้ Share Master ต้อง**เท่ากับค่าที่ตัวเองได้รับ** · Force และ Remain ที่ให้ Share Master = 0 · แก้ได้แค่ Commission (เอกสาร PT) |
 | MGMT-20 | **`status` ใน `pt` กับ `status_game` แยกหน้าที่กัน** (boiledegg ตัดสิน 2026-10-08): |
 | | • `pt` → ระบบ → `status` (bool) = รับ PT ในระบบนั้นไหม · `false` = **เกมยังเปิดให้เล่น แต่บัญชีนี้ไม่รับ PT** ในระบบนั้น · ผู้สร้างตั้งให้ (สร้าง / `update-pt`) · ส่วน PT ที่บัญชีนี้ไม่รับไปอยู่กับใคร กำหนดตอนทำ module คิด PT |
 | | • `status_game` → รหัสเกม (bool) = **เปิด / ปิดเกมรายบัญชี** · `false` = Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) · ผู้สร้างตั้งให้ · ชั้นบนปิดแล้ว**สายล่างเปิดเองไม่ได้** — เกมใช้ได้จริงเมื่อบัญชีตัวเองและหัวสายทุกชั้นเปิดอยู่ (แบบเดียวกับ `status` ที่ใช้งานจริง — ACC-30) |
@@ -117,10 +118,10 @@ Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี�
 | MGMT-22 | **ผู้สร้างกำหนดค่าที่ให้ลูกแต่ละคนแยกกัน** (ทุกชั้น รวม Superadmin → Company): |
 | | • ลูกแต่ละคนได้รับไม่เท่ากันได้ · ค่าที่ให้ลูกแต่ละคน**ห้ามเกินค่าที่ผู้สร้างได้รับ** · Superadmin ได้รับ 100% |
 | | • ผู้สร้าง**ถือในสายของลูกคนนั้น** = ค่าที่ผู้สร้างได้รับ − ค่าที่ให้ลูกคนนั้น (ระบบคำนวณ ไม่ต้องส่ง) |
-| | • ทุกบัญชี**ตั้งค่าถือ `pt` เอง**สำหรับ Member ที่อยู่ใต้ตัวเองตรงๆ (ห้ามเกินค่าที่ได้รับ) · บัญชีใหม่เริ่มที่ `pt` = ค่าที่ได้รับ (ถือทั้งหมด) จนกว่าจะแก้ |
-| | • ส่วนที่ไม่มีใครถือ (เช่น ได้รับ 60 ถือ 40 → เหลือ 20) ผ่าน Force / Remain ตอนคิดเงินก่อน ถ้าไม่มีก็**คืน Superadmin** (เอกสาร PT Force / PT Remain) |
-| MGMT-23 | ค่าที่ให้ลูก, Force, Remain, Commission แก้ได้เฉพาะ**ผู้สร้างโดยตรง** · `pt` ของบัญชีแก้ได้เฉพาะ**บัญชีนั้นเอง** · sub ตามสิทธิ์ (MGMT-50) · แก้เฉพาะกลุ่มที่ส่ง · ในกลุ่มที่ส่งต้องครบทุกค่าของเส้นนั้น · มีผลกับ bet ใหม่ (bet เก็บค่า ณ ตอน bet — module เดิมพัน) |
-| MGMT-24 | **ลดค่าที่ให้ลูก**: ค่าใหม่ต้อง ≥ ค่าที่มากที่สุดระหว่าง (ค่าที่ลูกให้ลูกของมันแต่ละคน, `pt` ของลูก) ไม่งั้น**ปฏิเสธทั้งคำสั่ง** (`402306` msg บอกค่าต่ำสุดที่ตั้งได้) · ระบบไม่แก้ค่าของลูกหรือหลานให้เอง — ถ้าจะลดต่ำกว่านั้นลูกต้องลดของตัวเองก่อน · **เพิ่มค่าที่ให้ลูก**: ได้ถึงค่าที่ผู้สร้างได้รับ · ลูกคนอื่นไม่กระทบ · tx + lock แถวลูกและลูกของลูก (อ่านค่าที่ใช้อยู่) เรียงตาม id |
+| | • ค่าถือสู้กับ Member ตั้งต่อ Member ตอนสร้าง / แก้ Member (member_management MGMT-21 · ไม่เกินค่าที่ผู้สร้าง Member ได้รับ) · `remain_quota` ของ Member = ค่าที่ได้รับ − `pt` (ระบบคิด) · บัญชีฝั่ง agent ไม่มีค่าถือค่าเดียวแล้ว (ลบ 2026-10-09) |
+| | • ส่วนที่ไม่มีใครถือ (เช่น ได้รับ 60 ถือสู้ Member คนนี้ 40 → เหลือ 20) ผ่าน Force / Remain ตอนคิดเงินก่อน ถ้าไม่มีก็**คืน Superadmin** (เอกสาร PT Force / PT Remain) |
+| MGMT-23 | ค่าที่ให้ลูก, Force, Remain, Commission แก้ได้เฉพาะ**ผู้สร้างโดยตรง** · sub ตามสิทธิ์ (MGMT-50) · แก้เฉพาะกลุ่มที่ส่ง · ในกลุ่มที่ส่งต้องครบทุกค่าของเส้นนั้น · มีผลกับ bet ใหม่ (bet เก็บค่า ณ ตอน bet — module เดิมพัน) |
+| MGMT-24 | **ลดค่าที่ให้ลูก**: ค่าใหม่ต้อง ≥ ค่าที่มากที่สุดระหว่าง (ค่าที่ลูกให้ลูกของมันแต่ละคน, `pt` ที่ลูกถือสู้กับ Member แต่ละคนที่ลูกสร้าง — R1 แก้ 2026-10-09) ไม่งั้น**ปฏิเสธทั้งคำสั่ง** (`402306` msg บอกค่าต่ำสุดที่ตั้งได้) · ระบบไม่แก้ค่าของลูก หลาน หรือ `pt` ของ Member ให้เอง · **เพิ่มค่าที่ให้ลูก**: ได้ถึงค่าที่ผู้สร้างได้รับ · ลูกคนอื่นไม่กระทบ · **สำเร็จแล้ว** `remain_quota` ของ Member ทุกคนที่ลูกสร้าง = ค่าที่ให้ลูกใหม่ − `pt` ของ Member คนนั้น ใน tx เดียวกัน · `pt` ของ Member ไม่เปลี่ยน (R2) · tx + lock `agent_game_settings` ของลูกและลูกของลูก เรียงตาม id **ก่อน** `user_member_game_settings` ของ Member ที่ลูกสร้าง (R3 — ลำดับเดียวกับ `members/update-pt`) |
 | MGMT-25 | Force / Remain ในคำสั่งเดียวกันต้องไม่เกินค่าที่ให้ลูกใหม่ (`402308`) |
 
 ตัวอย่าง (กลุ่ม `minigame`):
@@ -134,14 +135,14 @@ comA (ได้รับ 90)
  └─ ให้ share2 = 50 → comA ถือในสาย share2 = 40
 share1 (ได้รับ 70)
  ├─ ให้ agent1 = 60 → share1 ถือในสาย agent1 = 10
- └─ pt = 30         → ถือจาก Member ของ share1 เอง
+ └─ Member m1 pt = 30 → share1 ถือสู้ m1 (remain_quota 40)
 agent1 (ได้รับ 60)
- └─ pt = 40         → ถือจาก Member ของ agent1 · เหลือ 20 ผ่าน Force / Remain ไม่งั้นคืน Superadmin
+ └─ Member m2 pt = 40 → agent1 ถือสู้ m2 · remain_quota 20 ผ่าน Force / Remain ไม่งั้นคืน Superadmin
 ```
 
-Member ใต้ agent1 แพ้ 1,000: Superadmin 10% (100) · comA 20% (200) · share1 10% (100) · agent1 40% (400) · เหลือ 20% (200) คืน Superadmin
+m2 แพ้ 1,000: Superadmin 10% (100) · comA 20% (200) · share1 10% (100) · agent1 40% (400) · เหลือ 20% (200) คืน Superadmin
 
-MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุด 60 (ค่าที่มากที่สุดของ share1 = ให้ agent1 60 · `pt` 30) · ตั้ง 55 → `402306`
+MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุด 60 (ค่าที่มากที่สุดของ share1 = ให้ agent1 60 · `pt` ของ m1 30) · ตั้ง 55 → `402306`
 
 ### รายชื่อดาวน์ไลน์และรายละเอียด
 
@@ -217,7 +218,6 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 | POST | `/api/v1/bo/pr/manage/agents/update-info` | `member` edit | แก้ชื่อ · เบอร์โทร |
 | POST | `/api/v1/bo/pr/manage/agents/update-status` | `member` edit | แก้สถานะ |
 | POST | `/api/v1/bo/pr/manage/agents/update-pt` | `pt` edit | ค่าที่ให้ลูก + Force / Remain / Commission + เปิดปิดกลุ่ม (ผู้สร้างตั้งให้ลูก) |
-| POST | `/api/v1/bo/pr/manage/agents/update-hold` | `pt` edit | ค่าถือ `pt` ของตัวเอง (MGMT-22) |
 | POST | `/api/v1/bo/pr/manage/agents/update-games` | `pt` edit | เปิด / ปิดเกมรายบัญชีให้ลูกตรง (MGMT-20) |
 | GET | `/api/v1/bo/pr/manage/agents/copy-sources` | `pt` view | ลูกตรงฝั่ง agent ของตัวเอง + `pt` (MGMT-35) |
 | POST | `/api/v1/bo/pr/manage/subaccounts/list` | บัญชีหลัก (`RequireMainAccount`) | รายชื่อ sub |
@@ -302,7 +302,7 @@ Response (ตัวอย่าง: ลูกตรงของ share01 · ห�
         "phone": "0898765432",
         "status": "SUSPENDED",
         "pt": {
-          "minigame": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" }
+          "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" }
         },
         "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
         "balances": [ { "currency": "THB", "amount": 5000.00 } ]
@@ -361,7 +361,7 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "status": "ACTIVE",
         "parent_username": "comp01",
         "pt": {
-          "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+          "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
         },
         "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
         "balances": [ { "currency": "THB", "amount": 10000.00 } ]
@@ -376,7 +376,7 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "status": "ACTIVE",
         "parent_username": "comp01",
         "pt": {
-          "minigame": { "pt_from_parent": 50, "pt": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+          "minigame": { "pt_from_parent": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
         },
         "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
         "balances": [ { "currency": "THB", "amount": 0.00 }, { "currency": "USD", "amount": 0.00 } ]
@@ -391,7 +391,7 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "status": "SUSPENDED",
         "parent_username": "sh1",
         "pt": {
-          "minigame": { "pt_from_parent": 40, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "sh1", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "sh1" }
+          "minigame": { "pt_from_parent": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "sh1", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "sh1" }
         },
         "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
         "balances": [ { "currency": "THB", "amount": 500.00 } ]
@@ -430,7 +430,7 @@ Response:
     "currencies": ["THB"],
     "balances": [ { "currency": "THB", "amount": 10000.00 } ],
     "pt": {
-      "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+      "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
     },
     "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
     "passcode_set": true,
@@ -461,7 +461,7 @@ Response (ตัวอย่างของ comp01):
       "username": "share01",
       "user_type": "SHARE_B2C",
       "pt": {
-        "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+        "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
       },
       "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
     },
@@ -470,7 +470,7 @@ Response (ตัวอย่างของ comp01):
       "username": "share02",
       "user_type": "SHARE_B2B",
       "pt": {
-        "minigame": { "pt_from_parent": 50, "pt": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+        "minigame": { "pt_from_parent": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
       },
       "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true }
     }
@@ -525,26 +525,15 @@ Response:
 { "code": 200, "msg": "สำเร็จ" }
 ```
 - `pt_from_parent` = ค่าที่ให้ลูกคนนี้ · ผู้สร้างถือในสายนี้ = ค่าที่ผู้สร้างได้รับ − ค่านี้ (MGMT-22) · `status` = รับ PT ไหม · `false` = เกมยังเปิด แต่ไม่รับ PT (MGMT-20)
-- ลดได้ไม่ต่ำกว่าที่ลูกใช้อยู่ (MGMT-24) — ตัวอย่าง: share01 ถือ 30 และให้ agent01 60 → ตั้งต่ำสุด 60 · ตั้ง 55 = `402306`
-- ส่ง `pt` (ค่าถือที่ลูกตั้งเอง) มา = `422`
+- ลดได้ไม่ต่ำกว่าที่ลูกใช้อยู่ (MGMT-24) — ตัวอย่าง: share01 ให้ agent01 60 และถือสู้ Member ของตัวเอง `pt` 30 → ตั้งต่ำสุด 60 · ตั้ง 55 = `402306`
+- สำเร็จแล้ว `remain_quota` ของ Member ที่ลูกสร้าง = ค่าใหม่ − `pt` ของ Member คนนั้น (MGMT-24 R2)
+- ส่ง `pt` มา = `422` (ไม่มี field นี้ในเส้นนี้)
 
 Error codes: `422`, `402303`, `402304`, `402305`, `402306`, `402307`, `402308`, `402309`, `402402`
 
-### POST /api/v1/bo/pr/manage/agents/update-hold (บัญชีตั้งค่าถือของตัวเอง)
+### ~~POST /api/v1/bo/pr/manage/agents/update-hold~~ (ลบ 2026-10-09)
 
-Request (ไม่ส่ง `id` — แก้บัญชีใน token · ส่งเฉพาะกลุ่มที่จะแก้):
-```json
-{ "pt": { "minigame": { "pt": 40 } } }
-```
-Response:
-```json
-{ "code": 200, "msg": "สำเร็จ" }
-```
-- `pt` = ถือจาก Member ใต้ตัวเองตรงๆ · ไม่เกินค่าที่ตัวเองได้รับ (`402305`) · ส่วนที่เหลือผ่าน Force / Remain แล้วคืน Superadmin
-- Company Seamless Master ตั้งได้แค่ `0` (`402307` — MGMT-19) · sub แก้ให้เจ้าของได้ตามสิทธิ์ `pt` = edit
-- ส่งค่าที่ผู้สร้างเป็นคนตั้ง (`pt_from_parent` ฯลฯ) มา = `422`
-
-Error codes: `422`, `402303`, `402305`, `402307`
+ค่าถือสู้กับ Member ตั้งต่อ Member ที่ `POST /api/v1/bo/pr/manage/members/update-pt` (member_management) · เรียกเส้นนี้ได้ `404`
 
 ### POST /api/v1/bo/pr/manage/agents/update-games
 
@@ -810,6 +799,7 @@ CREATE INDEX idx_account_change_logs_target ON account_change_logs(target_type, 
 --                        ทุกตัว DOUBLE PRECISION · CHECK 0–100 (commission 0–1) · pt <= pt_from_parent
 --   user_member_game_settings: pt_bp → pt · remain_bp → remain · commission_bp → commission (DOUBLE PRECISION)
 --   agent_balances.amount · balance_ledger.amount / balance_after → DOUBLE PRECISION
+-- migration ใหม่ (2026-10-09) — ลบค่าถือของ agent: ALTER TABLE agent_game_settings DROP COLUMN pt (พร้อม CHECK ที่อ้าง pt)
 -- migration ใหม่ (2026-10-09) — MGMT-61, MGMT-62
 ALTER TABLE user_agents ADD COLUMN cnf JSONB NOT NULL DEFAULT '{"parent": []}';
 CREATE INDEX idx_user_agents_cnf ON user_agents USING GIN (cnf jsonb_path_ops);          -- cnf @> '{"parent":[{"id":X}]}'
@@ -818,7 +808,7 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 -- backfill: cnf ด้วย recursive CTE ตาม parent_id · agent_game_settings.parent_id = user_agents.parent_id ของเจ้าของแถว
 ```
 
-- Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent = 100` · ไม่มี Member ตรง) · ADMIN ไม่มี · `pt` = ค่าถือจาก Member ใต้ตัวเอง (MGMT-22) · ผู้สร้างถือในสายของลูก = `pt_from_parent` ของผู้สร้าง − ของลูก (คำนวณตอนคิดเงิน ไม่เก็บ)
+- Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent = 100` · ไม่มี Member ตรง) · ADMIN ไม่มี · ผู้สร้างถือในสายของลูก = `pt_from_parent` ของผู้สร้าง − ของลูก (คำนวณตอนคิดเงิน ไม่เก็บ)
 - สายล่างใช้ recursive CTE ตาม `parent_id` (แบบ `ListAncestorStatusesRepository`) · `idx_user_agents_parent_id` มีแล้ว · เส้นที่มีอยู่ยังใช้ CTE เดิม · query ใหม่ใช้ `cnf` ได้ (MGMT-61)
 - รายการสกุล 27 สกุล · กลุ่ม PT · รหัสเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · เมนูสิทธิ์ เป็นค่าคงที่ใน `app/core`
 
@@ -844,11 +834,13 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 | กฎข้อ 9 | `balance.THB = 10000.1234` | สำเร็จ · `agent_balances.amount = 10000.1234` · detail ส่ง `10000.1234` |
 | MGMT-18 | ได้รับ 80 · ให้ลูก `80.5` · ตั้ง `pt` ของตัวเอง `80.5` | `402305` |
 | MGMT-18 | ผู้สร้างมี commission 0.5% ตั้งให้ลูก 0.6% | สำเร็จ |
-| MGMT-19 | Company Seamless Master ตั้ง `pt` ของตัวเอง = 1 · ให้ Share Master น้อยกว่าที่ตัวเองได้รับ | `402307` |
+| MGMT-19 | Company Seamless Master ให้ Share Master น้อยกว่าที่ตัวเองได้รับ | `402307` |
 | MGMT-23 | แก้ PT ของหลาน (ไม่ใช่ผู้สร้างโดยตรง) | `402304` |
 | MGMT-23 | ส่งแค่กลุ่ม `minigame` | กลุ่มอื่นไม่เปลี่ยน |
 | MGMT-22 | Superadmin ให้ comA 90 · comB 80 | comA `pt_from_parent = 90` · comB `= 80` · Superadmin ถือในสาย comA 10 · สาย comB 20
-| MGMT-24 | comA ลดค่าที่ให้ share1 จาก 70 เหลือ 55 (share1 ให้ agent1 60 · `pt` 30) | `402306` msg บอกต่ำสุด 60 · ไม่มีแถวไหนเปลี่ยน |
+| MGMT-24 | comA ลดค่าที่ให้ share1 จาก 70 เหลือ 55 (share1 ให้ agent1 60 · Member ของ share1 `pt` 30) | `402306` msg บอกต่ำสุด 60 · ไม่มีแถวไหนเปลี่ยน |
+| MGMT-24 R1 | agent01 ได้รับ 60 · Member `pt` 50 / 20 · ผู้สร้างลดเหลือ 45 | `402306` msg บอกต่ำสุด 50 |
+| MGMT-24 R2 | ผู้สร้างลด agent01 เหลือ 55 แล้วเพิ่มเป็น 70 | `remain_quota` ของ Member = 5 / 35 แล้ว 20 / 50 · `pt` ของ Member ไม่เปลี่ยน |
 | MGMT-24 | comA ลดค่าที่ให้ share1 เหลือ 60 · เพิ่มค่าที่ให้ share2 | สำเร็จ · share2 และลูกของ share1 ไม่เปลี่ยน |
 | MGMT-26 | `parent_id` เป็นบัญชีสายอื่น | `402402` |
 | MGMT-26 | Agent ที่มีทั้ง Agent และ Member เป็นลูก | ได้ทั้งสองแบบ `role` ถูกต้อง เรียง A→Z |
@@ -859,7 +851,7 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 | MGMT-27B | ADMIN ค้น `"  COMP01 "` · `"comp"` · `"comp01@staff"` · `"mem01"` · `"superadmin"` | comp01 1 แถว · `[]` · sub (`role` ของเจ้าของ `parent_username = comp01`) · Member · SUPERADMIN `parent_username = ""` |
 | MGMT-27B | หัวสายถูกระงับ · SUPERADMIN / Company เรียก · `username` ว่าง / `null` | ลูก `status = SUSPENDED` · `401308` · `422` |
 | MGMT-29 | ดูรายละเอียด | ไม่มี field รหัสผ่าน / passcode / hash |
-| MGMT-16 | comp01 สร้างด้วย `pt.minigame.pt_from_parent = 70` | `agent_game_settings` มี 3 แถว ค่า `pt_from_parent = 70` · `pt = 70` (เริ่มถือทั้งหมด — MGMT-22) · รายละเอียดแสดง `pt.minigame.pt_from_parent = 70` · `pt = 70` · `created_by` = `updated_by` = `"comp01"` · `status_game` ครบ 3 เกม |
+| MGMT-16 | comp01 สร้างด้วย `pt.minigame.pt_from_parent = 70` | `agent_game_settings` มี 3 แถว ค่า `pt_from_parent = 70` · รายละเอียดแสดง `pt.minigame.pt_from_parent = 70` (ไม่มี `pt`) · `created_by` = `updated_by` = `"comp01"` · `status_game` ครบ 3 เกม |
 | MGMT-16 | sub `comp01@staff` แก้ PT ให้ลูก | `pt.minigame.updated_by = "comp01@staff"` · `updated_at` เปลี่ยน · `created_by` ยังเป็น `"comp01"` |
 | MGMT-30 | Share แก้สถานะ Agent ของ Agent ลูก (ไม่ใช่ผู้สร้างโดยตรง) | `402304` |
 | MGMT-30 | LOCKED → ACTIVE โดยผู้สร้าง | สำเร็จ |
@@ -886,9 +878,10 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 | MGMT-05 | สร้าง Member ชื่อเดียวกับ Agent ที่มีอยู่ | `402401` |
 | MGMT-20 | Company ปิด `scratch_card` แล้ว Share ใต้ Company ตั้งเปิดให้ Agent | Agent ยังเล่น `scratch_card` ไม่ได้ (เกมปิดจากหัวสาย) |
 | MGMT-25 | ให้ลูก 60 · `force` 70 ในคำสั่งเดียวกัน | `402308` |
-| MGMT-22 | agent1 ได้รับ 60 ตั้ง `pt` 40 · Member แพ้ 1,000 | agent1 ได้ 400 · 200 คืน Superadmin (ไม่มี Force / Remain) |
-| MGMT-22 | agent1 ตั้ง `pt` 61 | `402305` |
-| MGMT-23 | ผู้สร้างแก้ `pt` ของลูก · ลูกแก้ `pt_from_parent` ของตัวเอง | `422` (field ไม่อยู่ในเส้นนั้น) |
+| MGMT-22 | agent1 ได้รับ 60 ถือสู้ Member คนนี้ `pt` 40 · Member แพ้ 1,000 | agent1 ได้ 400 · 200 คืน Superadmin (ไม่มี Force / Remain) |
+| MGMT-22 | agent1 ตั้ง `pt` ของ Member 61 (member_management) | `402305` |
+| MGMT-22 | เรียก `/manage/agents/update-hold` | `404` (ลบ 2026-10-09) |
+| MGMT-23 | ผู้สร้างส่ง `pt` ใน `update-pt` | `422` (field ไม่อยู่ในเส้นนั้น) |
 | MGMT-20 | ผู้สร้างตั้ง `pt.minigame.status = false` | บันทึกสำเร็จ · รายละเอียดแสดง `false` · `status_game` ทุกเกมไม่เปลี่ยน (เกมยังเปิด) |
 | MGMT-20 | comp01 `update-games` ปิด `scratch_card` ของ share01 แล้วเปิดกลับ | `status_game` ของ share01 เปลี่ยนเฉพาะเกมนั้น · agent ใต้ share01 ไม่เปลี่ยน · ค่า PT / `updated_by` ไม่เปลี่ยน · log `UPDATE_GAMES` 2 แถว |
 | MGMT-20 | `update-games` กับลูกของลูก · นอกสาย · เกมไม่มีในระบบ / ว่าง / `null` | `402304` · `402402` · `422` |
@@ -921,6 +914,7 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 - ใช้แค่ method `GET` และ `POST` · ระบุบัญชีด้วย `id` ใน body (เส้นอ่านที่ต้องระบุบัญชีเป็น `POST`) · ไม่มีเส้นลบ sub (ใช้สถานะ `INACTIVE`)
 - เส้นสร้างรับ `request_id` (บังคับ) และ `balance` (ไม่บังคับ — ยอดเงินตั้งต้น)
 - `pt` ใน response ทุกเส้น (รวม account Profile) เป็นชุดเดียวใต้ระบบ `minigame` + `created_at` · `created_by` · `updated_at` · `updated_by` · `status_game` แยกต่อเกมด้านนอกเหมือนเดิม (แก้ 2026-10-08) · key ของระบบตอนส่งเปลี่ยนจาก `game` เป็น `minigame`
+- **ลบ 2026-10-09**: field `pt` (ค่าถือของบัญชี) ออกจาก `pt.{ระบบ}` ฝั่ง agent ทุก response (detail · downlines · copy-sources · account Profile) · ลบเส้น `/manage/agents/update-hold` · ค่าถือสู้กับ Member อยู่ที่ Member แต่ละคน
 
 ## 9. Error codes (`bb=02`) — business error ตอบ HTTP 200
 

@@ -103,7 +103,6 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			return err
 		}
 
-		newIsMaster := newAcc.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
 		statusGame := map[string]bool{}
 		var settings []models.AgentGameSetting
 		for _, g := range agentManagementCore.Groups() {
@@ -116,7 +115,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 				}
 				statusGame[game.GameCode] = on
 				settings = append(settings, models.AgentGameSetting{AgentID: a.ID, ParentID: &c.Agent.ID, GameCode: game.GameCode, Category: game.Category,
-					PTFromParent: v.PTFromParent, PT: agentManagementCore.InitialOwnPT(v.PTFromParent, newIsMaster),
+					PTFromParent: v.PTFromParent,
 					Force: v.Force, Remain: v.Remain, Commission: v.Commission,
 					Status: groupOn, StatusGame: on, CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}

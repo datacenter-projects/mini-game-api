@@ -38,12 +38,6 @@ func UpdateChildPTRepository(db *gorm.DB, agentID uint, gameCodes []string, v mo
 	}).Error
 }
 
-// UpdateOwnPTRepository — ค่าถือของบัญชีเอง ของทุกเกมในกลุ่ม (MGMT-22)
-func UpdateOwnPTRepository(db *gorm.DB, agentID uint, gameCodes []string, pt float64, by string, at time.Time) error {
-	return db.Model(&models.AgentGameSetting{}).Where("agent_id = ? AND game_code IN ?", agentID, gameCodes).
-		Updates(map[string]any{"pt": pt, "updated_by": by, "updated_at": at}).Error
-}
-
 // LockUserAgentRowRepository — SELECT ... FOR UPDATE ข้อมูลที่แก้ได้ของบัญชีฝั่ง agent · ไม่พบ = ผลว่าง (id 0)
 func LockUserAgentRowRepository(db *gorm.DB, id uint) (models.UserAgent, error) {
 	var a models.UserAgent

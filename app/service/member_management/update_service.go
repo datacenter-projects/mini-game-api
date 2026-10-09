@@ -103,7 +103,7 @@ func UpdateMemberPTService(ctx context.Context, actor agentAuthService.Actor, re
 		for _, g := range agentManagementService.SortedGroups(req.PT) {
 			v := req.PT[g]
 			group := agentManagementCore.PTGroup(g)
-			if err := agentManagementService.OwnPTError(g, agentManagementCore.ValidateMemberPT(v.PT, received[group]), received[group]); err != nil {
+			if err := agentManagementService.MemberPTError(g, agentManagementCore.ValidateMemberPT(v.PT, received[group]), received[group]); err != nil {
 				return err
 			}
 			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.Commission)); err != nil {

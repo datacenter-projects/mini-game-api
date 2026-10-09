@@ -52,7 +52,7 @@ key ของระบบคือ `minigame` (ทุกเกม minigame · �
 **ตอนแสดง (ทุกเส้น)** — ชุดเดียวต่อระบบ + วันที่ / คนสร้าง / คนแก้ล่าสุด · `status_game` แยกต่อเกม:
 ```json
 "pt": {
-  "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+  "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
 },
 "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
 ```
@@ -60,7 +60,6 @@ key ของระบบคือ `minigame` (ทุกเกม minigame · �
 | field | ความหมาย | ใครตั้ง |
 |---|---|---|
 | `pt_from_parent` | ค่าที่ได้รับจากผู้สร้าง | ผู้สร้าง (สร้าง / `update-pt`) |
-| `pt` | ค่าถือจาก Member ใต้ตัวเอง (ไม่เกิน `pt_from_parent`) | บัญชีนั้นเอง (`update-hold`) |
 | `force` · `remain_quota` | บังคับถือสู้ · เอาส่วนที่เหลือ (ไม่เกินค่าที่ให้) | ผู้สร้าง |
 | `commission_percent` | Commission 0–1 | ผู้สร้าง |
 | `status` | รับ PT ในระบบนี้ไหม · `false` = เกมยังเปิด แต่บัญชีนี้ไม่รับ PT (ไม่ใช่สถานะเกม) | ผู้สร้าง |
@@ -107,7 +106,6 @@ sub ของ comp01 = `comp01@staff` (id 30)
 | 3.7 | POST | `/api/v1/bo/pr/manage/agents/update-info` | แก้ชื่อ · เบอร์ (ฝั่ง agent) | `member` edit |
 | 3.9 | POST | `/api/v1/bo/pr/manage/agents/update-status` | แก้สถานะ (ฝั่ง agent) | `member` edit |
 | 3.11 | POST | `/api/v1/bo/pr/manage/agents/update-pt` | ผู้สร้างแก้ค่าที่ให้ลูก | `pt` edit |
-| 3.13 | POST | `/api/v1/bo/pr/manage/agents/update-hold` | ตั้งค่าถือของตัวเอง | `pt` edit |
 | 3.13A | POST | `/api/v1/bo/pr/manage/agents/update-games` | เปิด / ปิดเกมให้ลูกตรง | `pt` edit · ผู้สร้างโดยตรง |
 | 3.14 | POST | `/api/v1/bo/pr/manage/subaccounts/list` | รายชื่อ sub (กรองด้วย `q` ได้) | บัญชีหลักเท่านั้น |
 | 3.15 | POST | `/api/v1/bo/pr/manage/subaccounts/detail` | รายละเอียด sub | บัญชีหลักเท่านั้น |
@@ -203,7 +201,7 @@ Response `data` (ลูกตรงของ share01 · หัวสาย comp0
       "phone": "0898765432",
       "status": "SUSPENDED",
       "pt": {
-        "minigame": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" }
+        "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" }
       },
       "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
       "balances": [ { "currency": "THB", "amount": 5000.00 } ]
@@ -269,7 +267,7 @@ Response `data` (comp01 ค้น `sh`):
       "status": "ACTIVE",
       "parent_username": "comp01",
       "pt": {
-        "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+        "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
       },
       "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
       "balances": [ { "currency": "THB", "amount": 10000.00 } ]
@@ -284,7 +282,7 @@ Response `data` (comp01 ค้น `sh`):
       "status": "ACTIVE",
       "parent_username": "comp01",
       "pt": {
-        "minigame": { "pt_from_parent": 50, "pt": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+        "minigame": { "pt_from_parent": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
       },
       "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
       "balances": [ { "currency": "THB", "amount": 0.00 }, { "currency": "USD", "amount": 0.00 } ]
@@ -299,7 +297,7 @@ Response `data` (comp01 ค้น `sh`):
       "status": "SUSPENDED",
       "parent_username": "sh1",
       "pt": {
-        "minigame": { "pt_from_parent": 40, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "sh1", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "sh1" }
+        "minigame": { "pt_from_parent": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "sh1", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "sh1" }
       },
       "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true },
       "balances": [ { "currency": "THB", "amount": 500.00 } ]
@@ -345,7 +343,7 @@ Response `data`:
   "currencies": ["THB"],
   "balances": [ { "currency": "THB", "amount": 10000.00 } ],
   "pt": {
-    "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+    "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "passcode_set": true,
@@ -377,7 +375,7 @@ Response `data` (ของ comp01):
     "username": "share01",
     "user_type": "SHARE_B2C",
     "pt": {
-      "minigame": { "pt_from_parent": 70, "pt": 30, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+      "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
     },
     "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
   },
@@ -386,7 +384,7 @@ Response `data` (ของ comp01):
     "username": "share02",
     "user_type": "SHARE_B2B",
     "pt": {
-      "minigame": { "pt_from_parent": 50, "pt": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+      "minigame": { "pt_from_parent": 50, "force": 5, "remain_quota": 5, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
     },
     "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": true }
   }
@@ -472,25 +470,9 @@ Response: `{ "code": 200, "msg": "สำเร็จ" }`
 
 Error: `422`, `402303`, `402304`, `402305`, `402306`, `402307`, `402308`, `402309`, `402402`
 
-### 3.13 POST /api/v1/bo/pr/manage/agents/update-hold
+### ~~3.13 POST /api/v1/bo/pr/manage/agents/update-hold~~ (ลบ 9 ต.ค.)
 
-```
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/update-hold" \
-  -H "Authorization: Bearer {{TOKEN}}" \
-  -H "Content-Type: application/json" \
-  -d '{"pt":{"minigame":{"pt":40}}}'
-```
-
-Request (ไม่ส่ง `id` — แก้บัญชีใน token):
-```json
-{ "pt": { "minigame": { "pt": 40 } } }
-```
-Response: `{ "code": 200, "msg": "สำเร็จ" }`
-
-- ค่าถือจาก Member ใต้ตัวเอง · ไม่เกินค่าที่ได้รับ (`402305`) · ส่วนที่เหลือผ่าน Force / Remain แล้วคืน Superadmin
-- Company Seamless Master ตั้งได้แค่ `0` (`402307`) · ส่ง `pt_from_parent` / `force` ฯลฯ มา = `422`
-
-Error: `422`, `402303`, `402305`, `402307`
+ค่าถือสู้กับ Member ตั้งต่อ Member ที่ `/manage/members/update-pt` (ดู member_management) · `pt` ใน `pt.minigame` ของบัญชีฝั่ง agent ถูกลบออกจากทุก response แล้ว
 
 ### 3.13A POST /api/v1/bo/pr/manage/agents/update-games
 

@@ -68,7 +68,6 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/manage/agents/update-info", mw.PassedGates(), memberEdit, agentManagementController.UpdateAgentInfoController)
 	pr.Post("/manage/agents/update-status", mw.PassedGates(), memberEdit, agentManagementController.UpdateAgentStatusController)
 	pr.Post("/manage/agents/update-pt", mw.PassedGates(), ptEdit, agentManagementController.UpdateChildPTController)
-	pr.Post("/manage/agents/update-hold", mw.PassedGates(), ptEdit, agentManagementController.UpdateOwnHoldController)
 	pr.Post("/manage/agents/update-games", mw.PassedGates(), ptEdit, agentManagementController.UpdateGamesController)
 
 	//Member Management

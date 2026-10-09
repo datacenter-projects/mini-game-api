@@ -12,6 +12,8 @@ import (
 	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/utils"
 	"app/platform/database"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 const (
@@ -21,7 +23,6 @@ const (
 	memberStatusPath   = "/api/v1/bo/pr/manage/members/update-status"
 	updatePTPath       = "/api/v1/bo/pr/manage/agents/update-pt"
 	updateMemberPTPath = "/api/v1/bo/pr/manage/members/update-pt"
-	updateHoldPath     = "/api/v1/bo/pr/manage/agents/update-hold"
 	updateGamesPath    = "/api/v1/bo/pr/manage/agents/update-games"
 )
 
@@ -29,8 +30,16 @@ func ptBody(id uint, give, force, remain, commission float64) map[string]any {
 	return map[string]any{"id": id, "pt": childPT(give, force, remain, commission)}
 }
 
-func holdBody(pt float64) map[string]any {
-	return map[string]any{"pt": map[string]any{"minigame": map[string]any{"pt": pt}}}
+// createMemberWithPT — Member ใต้บัญชีของ tok ที่ผู้สร้างถือสู้ pt (member_management MGMT-21)
+func createMemberWithPT(t *testing.T, app *fiber.App, tok, username string, pt float64) created {
+	t.Helper()
+	b := memberBody(username, 0)
+	b["pt"].(map[string]any)["minigame"].(map[string]any)["pt"] = pt
+	r := call(t, app, "POST", createMemberPath, b, tok)
+	expect(t, r, 200, 200)
+	var d created
+	_ = json.Unmarshal(r.Data, &d)
+	return d
 }
 
 func memberPTBody(id uint, pt, commission float64) map[string]any {
@@ -55,8 +64,8 @@ func TestUpdatePT(t *testing.T) { // MGMT-18 – MGMT-25
 	app := setup2(t)
 	c := buildChain(t, app) // comp01 ได้รับ 90 → share01 70 → agent01 60
 
-	// MGMT-24 ตัวอย่าง spec: share01 ถือ 30 · ให้ agent01 60 → ลดค่าที่ให้ share01 ได้ต่ำสุด 60
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(30), c.shareTok), 200, 200)
+	// MGMT-24 ตัวอย่าง spec: share01 ให้ agent01 60 · ถือสู้ Member ของตัวเอง 30 → ลดค่าที่ให้ share01 ได้ต่ำสุด 60
+	createMemberWithPT(t, app, c.shareTok, "memshare30", 30)
 	r := call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 55, 0, 0, 0.5), c.comTok)
 	expect(t, r, 200, 402306)
 	if !strings.Contains(r.Msg, "60") {
@@ -67,7 +76,7 @@ func TestUpdatePT(t *testing.T) { // MGMT-18 – MGMT-25
 	}
 	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 60, 5, 5, 0.3), c.comTok), 200, 200)
 	s := gameSetting(t, c.share.ID)
-	if s.PTFromParent != 60 || s.PT != 30 || s.Force != 5 || s.Remain != 5 || s.Commission != 0.3 {
+	if s.PTFromParent != 60 || s.Force != 5 || s.Remain != 5 || s.Commission != 0.3 {
 		t.Fatalf("after update %+v", s)
 	}
 	if g := gameSetting(t, c.agent.ID); g.PTFromParent != 60 {
@@ -90,9 +99,6 @@ func TestUpdatePT(t *testing.T) { // MGMT-18 – MGMT-25
 	b["pt"].(map[string]any)["minigame"].(map[string]any)["pt"] = 10
 	expect(t, call(t, app, "POST", updatePTPath, b, c.comTok), 200, 422)
 	expect(t, call(t, app, "POST", updatePTPath, map[string]any{"pt": childPT(60, 0, 0, 0)}, c.comTok), 200, 422)
-	b = holdBody(10)
-	b["pt"].(map[string]any)["minigame"].(map[string]any)["pt_from_parent"] = 10
-	expect(t, call(t, app, "POST", updateHoldPath, b, c.agentTok), 200, 422)
 
 	// MGMT-16: ผู้สร้างค่า PT ไม่เปลี่ยน · ผู้แก้ล่าสุด = username ของคนที่แก้ (sub = owner@name) ทุกเกมในระบบ
 	sub := createSubAPI(t, app, c.comTok, "staff", map[string]string{"member": "edit", "pt": "edit"})
@@ -116,26 +122,52 @@ func TestUpdatePT(t *testing.T) { // MGMT-18 – MGMT-25
 		t.Fatalf("detail pt %+v", d.PT)
 	}
 
-	// แก้ค่าถือของตัวเอง → updated_by = ตัวเอง
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(20), c.shareTok), 200, 200)
-	if s := gameSetting(t, c.share.ID); s.UpdatedBy != "share01" || s.CreatedBy != "comp01" {
-		t.Fatalf("hold audit %+v", s)
+}
+
+func TestUpdateHoldRemoved(t *testing.T) { // ลบ 2026-10-09 — ถือสู้กับ Member ตั้งต่อ Member
+	app := setup2(t)
+	c := buildChain(t, app)
+	r := call(t, app, "POST", "/api/v1/bo/pr/manage/agents/update-hold", map[string]any{"pt": map[string]any{"minigame": map[string]any{"pt": 40}}}, c.agentTok)
+	if r.Status != 404 {
+		t.Fatalf("update-hold ต้องไม่มีแล้ว ได้ HTTP %d code %d", r.Status, r.Code)
+	}
+	r = call(t, app, "POST", agentDetailPath, map[string]any{"id": c.agent.ID}, c.shareTok)
+	expect(t, r, 200, 200)
+	var d struct {
+		PT map[string]map[string]any `json:"pt"`
+	}
+	_ = json.Unmarshal(r.Data, &d)
+	if _, has := d.PT["minigame"]["pt"]; has {
+		t.Fatalf("detail ต้องไม่มี pt ของบัญชีแล้ว %+v", d.PT)
 	}
 }
 
-func TestUpdateHold(t *testing.T) { // MGMT-19, MGMT-22
+func TestUpdatePTMemberPT(t *testing.T) { // MGMT-24 R1 – R3 (member_management หัวข้อ 7)
 	app := setup2(t)
-	c := buildChain(t, app)
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(40), c.agentTok), 200, 200)
-	if s := gameSetting(t, c.agent.ID); s.PT != 40 {
-		t.Fatalf("pt %v", s.PT)
-	}
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(61), c.agentTok), 200, 402305)
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(40.25), c.agentTok), 200, 422)
+	c := buildChain(t, app) // agent01 ได้รับ 60
+	ma := createMemberWithPT(t, app, c.agentTok, "memhold50", 50)
+	mb := createMemberWithPT(t, app, c.agentTok, "memhold20", 20)
 
-	_, masterTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(1), masterTok), 200, 402307)
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(0), masterTok), 200, 200)
+	// R1: ลดต่ำกว่า pt ของ Member = 402306 บอกค่าต่ำสุด 50
+	r := call(t, app, "POST", updatePTPath, ptBody(c.agent.ID, 45, 0, 0, 0), c.shareTok)
+	expect(t, r, 200, 402306)
+	expectMsgHas(t, r.Msg, "50")
+
+	// R2: สำเร็จแล้ว remain = ค่าใหม่ − pt · pt ไม่เปลี่ยน
+	for _, tc := range []struct{ give, wantA, wantB float64 }{{55, 5, 35}, {70, 20, 50}} {
+		expect(t, call(t, app, "POST", updatePTPath, ptBody(c.agent.ID, tc.give, 0, 0, 0), c.shareTok), 200, 200)
+		sa, sb := memberSetting(t, ma.ID), memberSetting(t, mb.ID)
+		if sa.PT != 50 || sb.PT != 20 || sa.Remain != tc.wantA || sb.Remain != tc.wantB {
+			t.Fatalf("give %v: member a %+v b %+v", tc.give, sa, sb)
+		}
+	}
+	var rows []models.UserMemberGameSetting
+	database.DBConn.Where("user_member_id = ?", ma.ID).Find(&rows)
+	for _, s := range rows {
+		if s.Remain != 20 {
+			t.Fatalf("ต้อง sync ทุกเกมในกลุ่ม %s %+v", s.GameCode, s)
+		}
+	}
 }
 
 func TestUpdateStatus(t *testing.T) { // MGMT-30, MGMT-31
@@ -315,14 +347,9 @@ func TestUpdateSubPermission(t *testing.T) { // MGMT-51
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
 	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "name": "share01", "phone": ""}, tok), 200, 200)
 	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 402303)
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(50), tok), 200, 402303)
 
 	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"pt":"edit"}`})
 	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 200)
-	expect(t, call(t, app, "POST", updateHoldPath, holdBody(50), tok), 200, 200) // ค่าถือของเจ้าของ
-	if s := gameSetting(t, c.com.ID); s.PT != 50 {
-		t.Fatalf("owner pt %v", s.PT)
-	}
 	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "name": "share01", "phone": ""}, tok), 200, 402303)
 }
 

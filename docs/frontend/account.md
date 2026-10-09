@@ -91,7 +91,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
     { "currency": "THB", "amount": 5000.00 }
   ],
   "pt": {
-    "minigame": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
+    "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
@@ -133,7 +133,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 
 ```json
 "pt": {
-  "minigame": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+  "minigame": { "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
 },
 "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
 ```
@@ -142,7 +142,6 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 |---|---|
 | `minigame` | ระบบ (ระบบอื่น เช่น `askmelotto` จะเพิ่มข้างๆ ภายหลัง) |
 | `pt_from_parent` | PT ที่ได้รับจากผู้สร้าง |
-| `pt` | PT ที่ถือจาก Member ใต้ตัวเอง |
 | `force` · `remain_quota` · `commission_percent` | บังคับถือสู้ · เอาส่วนที่เหลือ · Commission |
 | `status` | `true` = บัญชีนี้รับ PT ในระบบนั้น · `false` = ไม่รับ (ไม่ใช่สถานะเกม — เปิด/ปิดเกมดูที่ `status_game`) |
 | `created_at` · `created_by` | เวลา / username ของผู้สร้างค่า PT (ไม่เปลี่ยนหลังสร้าง) |

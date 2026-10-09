@@ -143,28 +143,6 @@ func ValidateMemberCommission(v float64) PTViolation {
 	return PTOK
 }
 
-// ValidateOwnPT — ค่าถือ pt ที่บัญชีตั้งเอง (MGMT-22) · Company Seamless Master ล็อกที่ 0 (MGMT-19)
-func ValidateOwnPT(pt, received float64, isSeamlessMaster bool) PTViolation {
-	if !IsPTStep(pt) {
-		return PTInvalidStep
-	}
-	if isSeamlessMaster && pt != 0 {
-		return PTSeamlessMasterLock
-	}
-	if pt > received {
-		return PTExceedsReceived
-	}
-	return PTOK
-}
-
-// InitialOwnPT — บัญชีใหม่เริ่มถือทั้งหมดที่ได้รับ (MGMT-22) · Company Seamless Master = 0 (MGMT-19)
-func InitialOwnPT(received float64, isSeamlessMaster bool) float64 {
-	if isSeamlessMaster {
-		return 0
-	}
-	return received
-}
-
 // ValidateMemberPT — ค่าที่ผู้สร้างถือสู้กับ Member คนนี้ (MGMT-21 แก้ 2026-10-09) · 0 ถึงค่าที่ผู้สร้างได้รับ ทีละ 0.5%
 func ValidateMemberPT(pt, creatorReceived float64) PTViolation {
 	if !IsPTStep(pt) {
@@ -179,11 +157,11 @@ func ValidateMemberPT(pt, creatorReceived float64) PTViolation {
 // MemberRemain — ส่วนที่ผู้สร้างไม่ได้ถือสู้กับ Member คนนี้ = ค่าที่ผู้สร้างได้รับ − pt (MGMT-21 แก้ 2026-10-09)
 func MemberRemain(creatorReceived, pt float64) float64 { return round4(creatorReceived - pt) }
 
-// MinPTFromParent — ค่าต่ำสุดที่ผู้สร้างตั้งให้ลูกได้ (MGMT-24)
-// = ค่าที่มากที่สุดระหว่าง pt ของลูก และค่าที่ลูกให้ลูกของมันแต่ละคน
-func MinPTFromParent(childOwnPT float64, grandchildrenPTFromParent []float64) float64 {
-	m := childOwnPT
-	for _, v := range grandchildrenPTFromParent {
+// MinPTFromParent — ค่าต่ำสุดที่ผู้สร้างตั้งให้ลูกได้ (MGMT-24 · R1 แก้ 2026-10-09)
+// = ค่าที่มากที่สุดระหว่าง ค่าที่ลูกให้ลูกของมันแต่ละคน และ pt ที่ลูกถือสู้กับ Member แต่ละคนที่ลูกสร้าง · ไม่มีเลย = 0
+func MinPTFromParent(grandchildrenPTFromParent, memberPTs []float64) float64 {
+	m := 0.0
+	for _, v := range append(append([]float64{}, grandchildrenPTFromParent...), memberPTs...) {
 		if v > m {
 			m = v
 		}

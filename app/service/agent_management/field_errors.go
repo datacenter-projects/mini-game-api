@@ -105,16 +105,14 @@ func ChildPTError(group string, is agentManagementCore.PTIssue) error {
 	}
 }
 
-// OwnPTError — ค่าถือของตัวเอง (MGMT-19, MGMT-22)
-func OwnPTError(group string, v agentManagementCore.PTViolation, received float64) error {
+// MemberPTError — ค่าที่ผู้สร้างถือสู้กับ Member (member_management MGMT-21) · ไม่เกินค่าที่ผู้สร้างได้รับ ทีละ 0.5
+func MemberPTError(group string, v agentManagementCore.PTViolation, received float64) error {
 	f := "pt." + group + ".pt"
 	switch v {
 	case agentManagementCore.PTOK:
 		return nil
 	case agentManagementCore.PTInvalidStep:
 		return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – "+pct(received)+" ทีละ 0.5", f+" must be 0 – "+pct(received)+" in steps of 0.5")
-	case agentManagementCore.PTSeamlessMasterLock:
-		return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเป็น 0", f+" must be 0 for Company Seamless Master")
 	default:
 		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(received)+" (ค่าที่คุณได้รับ)",
 			f+" must not exceed "+pct(received)+" (what you received)")

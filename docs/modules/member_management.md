@@ -2,7 +2,7 @@
 
 - สถานะ: **APPROVED** — กฎอนุมัติพร้อม spec `agent_management` (lead (zerph) 2026-10-07 · แก้ 2026-10-08) · แยก module ในโค้ด lead อนุมัติ 2026-10-08 · แยกเอกสารออกจาก [agent_management.md](agent_management.md) 2026-10-09
 - แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ**): agent ถือ PT สู้กับ Member **แต่ละคนแยกกัน** — เก็บที่แถวของ Member (`pt` · `remain_quota` ระบบคิด) แทน `pt` ค่าเดียวของ agent ·
-  เส้น `update-commission` → `update-pt` · migration `20261009120050_member_management_member_pt` · **ต้องทำต่อที่ `agent_management` (ยังไม่ทำ)** ดูหัวข้อ 7
+  เส้น `update-commission` → `update-pt` · migration `20261009120050_member_management_member_pt` · **ต้องทำต่อที่ `agent_management`** (ทำแล้ว 2026-10-09) ดูหัวข้อ 7
 - แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ** · `credit` เป็น float ทีมตกลงแล้ว — CLAUDE.md กฎข้อ 9 ยังต้องแก้): `user_members.cnf` สายชั้นบน (รูปแบบเดียวกับ MGMT-61) ·
   ยอดของ Member ย้ายไป `user_members.credit` (float หน่วยสกุล) · เลิกใช้และ DROP `user_member_balances` · migration `20261009120100_member_management_member_cnf_credit`
 - แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 lead (zerph) อนุมัติ 2026-10-09): % และ ledger เป็นทศนิยม float ปัด 4 ตำแหน่ง แบบเดียวกับ `credit` · column ตัด `_bp` (`pt` · `remain` · `commission`) · boiledegg แก้โค้ดฝั่ง Member ให้ (ต้องแจ้ง maofoy)
@@ -247,7 +247,7 @@ test ของเส้น Member อยู่ในชุด test ของ age
 | 402402 | ไม่พบบัญชีในสายของคุณ |
 | 402403 | เบอร์โทรนี้ถูกใช้แล้ว |
 
-## 7. ต้องทำต่อที่ `agent_management` (requirement ส่งให้ผู้ดูแล module นั้น · ยังไม่ทำ)
+## 7. ต้องทำต่อที่ `agent_management` (requirement ส่งให้ผู้ดูแล module นั้น · **ทำแล้ว 2026-10-09** — agent_management MGMT-24)
 
 เส้น `POST /api/v1/bo/pr/manage/agents/update-pt` (ชั้นบนแก้ค่าที่ให้ agent ลูก) เปลี่ยน**ค่าที่ agent ได้รับ** ซึ่ง `remain_quota` ของ Member ที่ agent นั้นสร้างคิดจากค่านี้
 
@@ -259,4 +259,4 @@ test ของเส้น Member อยู่ในชุด test ของ age
 
 ตัวอย่าง: agent01 ได้รับ 60 · Member `pt` 50 / 20 → ลดเป็น 45 = `402306` (ต่ำสุด 50) · ลดเป็น 55 → `remain_quota` 5 / 35 · เพิ่มเป็น 70 → 20 / 50
 
-ข้อสังเกต: `agent_game_settings.pt_bp` (ค่าถือของ agent ค่าเดียว · `agents/update-hold`) ไม่ใช้กับ Member แล้ว — ผู้ดูแล `agent_management` ตัดสินใจว่าจะเลิกใช้หรือไม่
+ข้อสังเกต: ค่าถือของ agent ค่าเดียว (`agent_game_settings.pt` · `agents/update-hold`) **ลบแล้ว 2026-10-09** (boiledegg ตัดสิน)

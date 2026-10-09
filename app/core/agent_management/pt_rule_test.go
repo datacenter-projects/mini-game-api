@@ -73,35 +73,6 @@ func TestValidateMemberCommission(t *testing.T) { // MGMT-21
 	}
 }
 
-func TestValidateOwnPT(t *testing.T) { // MGMT-22, MGMT-19
-	tests := []struct {
-		pt, received float64
-		master       bool
-		want         PTViolation
-	}{
-		{40, 60, false, PTOK},
-		{60, 60, false, PTOK},
-		{61, 60, false, PTExceedsReceived},
-		{40.25, 60, false, PTInvalidStep},
-		{0, 80, true, PTOK},
-		{1, 80, true, PTSeamlessMasterLock},
-	}
-	for _, tt := range tests {
-		if got := ValidateOwnPT(tt.pt, tt.received, tt.master); got != tt.want {
-			t.Errorf("ValidateOwnPT(%v, %v, %v) = %v, want %v", tt.pt, tt.received, tt.master, got, tt.want)
-		}
-	}
-}
-
-func TestInitialOwnPT(t *testing.T) { // MGMT-22, MGMT-19
-	if got := InitialOwnPT(70, false); got != 70 {
-		t.Errorf("InitialOwnPT(7000) = %v, want 7000", got)
-	}
-	if got := InitialOwnPT(80, true); got != 0 {
-		t.Errorf("InitialOwnPT(master) = %v, want 0", got)
-	}
-}
-
 func TestValidateMemberPT(t *testing.T) { // MGMT-21 แก้ 2026-10-09
 	tests := []struct {
 		name     string
@@ -139,21 +110,21 @@ func TestMemberRemain(t *testing.T) { // MGMT-21 แก้ 2026-10-09
 	}
 }
 
-func TestMinPTFromParent(t *testing.T) { // MGMT-24
+func TestMinPTFromParent(t *testing.T) { // MGMT-24 · R1 แก้ 2026-10-09
 	tests := []struct {
-		name  string
-		pt    float64
-		grand []float64
-		want  float64
+		name    string
+		grand   []float64
+		members []float64
+		want    float64
 	}{
-		{"ตัวอย่าง spec share1: ให้ agent1 60 · pt 30", 30, []float64{60}, 60},
-		{"ไม่มีลูก", 30, nil, 30},
-		{"pt มากกว่าลูกทุกคน", 70, []float64{50, 20}, 70},
-		{"หลายลูก", 10, []float64{50, 75, 20}, 75},
-		{"ไม่ถือไม่มีลูก", 0, nil, 0},
+		{"ตัวอย่าง spec share1: ให้ agent1 60 · Member pt 30", []float64{60}, []float64{30}, 60},
+		{"Member pt มากกว่าลูก", []float64{50, 20}, []float64{70}, 70},
+		{"R1: Member pt 50 / 20 ไม่มีลูก", nil, []float64{50, 20}, 50},
+		{"หลายลูก", []float64{50, 75, 20}, nil, 75},
+		{"ไม่มีลูกไม่มี Member", nil, nil, 0},
 	}
 	for _, tt := range tests {
-		if got := MinPTFromParent(tt.pt, tt.grand); got != tt.want {
+		if got := MinPTFromParent(tt.grand, tt.members); got != tt.want {
 			t.Errorf("%s: MinPTFromParent = %v, want %v", tt.name, got, tt.want)
 		}
 	}

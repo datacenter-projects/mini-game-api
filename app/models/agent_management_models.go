@@ -19,7 +19,6 @@ type AgentGameSetting struct {
 	GameCode     string    `gorm:"column:game_code;primaryKey"`
 	Category     string    `gorm:"column:category"`
 	PTFromParent float64   `gorm:"column:pt_from_parent"` // ได้รับจากผู้สร้าง
-	PT           float64   `gorm:"column:pt"`             // ถือจาก Member ใต้ตัวเอง
 	Force        float64   `gorm:"column:force"`
 	Remain       float64   `gorm:"column:remain"`
 	Commission   float64   `gorm:"column:commission"`

@@ -86,42 +86,6 @@ func (r *UpdateChildPTRequest) Validate() error {
 	return nil
 }
 
-// UpdateOwnPTGroup — ค่าถือของตัวเอง 1 กลุ่ม · ค่าที่ผู้สร้างตั้งให้ = 422
-type UpdateOwnPTGroup struct {
-	OwnPT             utils.Decimal `json:"pt"`
-	PTFromParent      utils.Decimal `json:"pt_from_parent"`
-	Force             utils.Decimal `json:"force"`
-	RemainQuota       utils.Decimal `json:"remain_quota"`
-	CommissionPercent utils.Decimal `json:"commission_percent"`
-	Status            *bool         `json:"status"`
-
-	PT float64 `json:"-"`
-}
-
-// UpdateOwnPTRequest — POST /manage/agents/update-hold (ไม่มี id — บัญชีของ token) (MGMT-22)
-type UpdateOwnPTRequest struct {
-	PT map[string]UpdateOwnPTGroup `json:"pt"`
-}
-
-func (r *UpdateOwnPTRequest) Validate() error {
-	if err := CheckSomeGroups(r.PT); err != nil {
-		return err
-	}
-	for _, g := range sortedKeys(r.PT) {
-		v := r.PT[g]
-		p := "pt." + g + "."
-		if v.PTFromParent.Present || v.Force.Present || v.RemainQuota.Present || v.CommissionPercent.Present || v.Status != nil {
-			return Invalid("pt."+g, "เส้นนี้แก้ได้แค่ pt (ค่าอื่นผู้สร้างเป็นคนตั้ง)", "only pt can be set here (other values are set by the creator)")
-		}
-		var err error
-		if v.PT, err = Percent(p+"pt", v.OwnPT); err != nil {
-			return err
-		}
-		r.PT[g] = v
-	}
-	return nil
-}
-
 // CheckSomeGroups — ต้องส่งอย่างน้อย 1 กลุ่ม และทุกกลุ่มต้องมีอยู่จริง (MGMT-23)
 func CheckSomeGroups[T any](pt map[string]T) error {
 	if len(pt) == 0 {

@@ -39,15 +39,6 @@ func UpdateChildPTController(c *fiber.Ctx) error {
 	return result(c, agentManagementService.UpdateChildPTService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }
 
-// UpdateOwnHoldController — POST /api/v1/bo/pr/manage/agents/update-hold
-func UpdateOwnHoldController(c *fiber.Ctx) error {
-	var req agentManagementDto.UpdateOwnPTRequest
-	if err := utils.ParseBodyNoNull(c, &req); err != nil {
-		return response.Error(c, err)
-	}
-	return result(c, agentManagementService.UpdateOwnHoldService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
-}
-
 // result — เส้นแก้ไม่มี data
 func result(c *fiber.Ctx, err error) error {
 	if err != nil {

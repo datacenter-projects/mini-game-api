@@ -272,7 +272,7 @@ func TestCreatePTSettings(t *testing.T) { // MGMT-16, MGMT-19, MGMT-20, MGMT-22
 		t.Fatalf("game settings = %d rows, want 3", len(rows))
 	}
 	for _, r := range rows {
-		if r.PTFromParent != 70 || r.PT != 70 || r.Commission != 0.5 || !r.Status || !r.StatusGame || r.Category != "minigame" {
+		if r.PTFromParent != 70 || r.Commission != 0.5 || !r.Status || !r.StatusGame || r.Category != "minigame" {
 			t.Fatalf("row %+v", r)
 		}
 	}
@@ -290,7 +290,7 @@ func TestCreatePTSettings(t *testing.T) { // MGMT-16, MGMT-19, MGMT-20, MGMT-22
 	master, masterTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
 	var ms models.AgentGameSetting
 	database.DBConn.Where("agent_id = ?", master.ID).Take(&ms)
-	if ms.PTFromParent != 80 || ms.PT != 0 {
+	if ms.PTFromParent != 80 {
 		t.Fatalf("master %+v", ms)
 	}
 	expect(t, call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "sharemas", []string{"THB"}, childPT(75, 0, 0, 0)), masterTok), 200, 402307)

@@ -33,7 +33,7 @@ func AgentPTViews(settings []models.AgentGameSetting) (map[string]agentManagemen
 		}
 		latest[string(g)] = s.UpdatedAt
 		pt[string(g)] = agentManagementDto.PTGroupView{
-			PTFromParent: s.PTFromParent, PT: s.PT, Force: s.Force,
+			PTFromParent: s.PTFromParent, Force: s.Force,
 			RemainQuota: s.Remain, CommissionPercent: s.Commission, Status: s.Status,
 			CreatedAt: formatTime(s.CreatedAt), CreatedBy: s.CreatedBy, UpdatedAt: formatTime(s.UpdatedAt), UpdatedBy: s.UpdatedBy,
 		}

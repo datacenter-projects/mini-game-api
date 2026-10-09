@@ -244,7 +244,7 @@ func OptionalString(s string) *string {
 	return &s
 }
 
-// PTError — แปลงผลตรวจ Commission ของ Member เป็น error (MGMT-21) · ฝั่ง agent ใช้ ChildPTError / OwnPTError
+// PTError — แปลงผลตรวจ Commission ของ Member เป็น error (MGMT-21) · ฝั่ง agent ใช้ ChildPTError · pt ของ Member ใช้ MemberPTError
 func PTError(group string, v agentManagementCore.PTViolation) error {
 	switch v {
 	case agentManagementCore.PTOK:

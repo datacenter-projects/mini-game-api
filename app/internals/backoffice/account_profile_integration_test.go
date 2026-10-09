@@ -21,7 +21,7 @@ const profilePath = "/api/v1/bo/pr/account/profile"
 
 type profilePT struct {
 	PTFromParent      json.Number `json:"pt_from_parent"`
-	PT                json.Number `json:"pt"`
+	PT                json.Number `json:"pt"` // ต้องไม่มี (ลบ 2026-10-09) — ถ้ามีจะไม่ว่าง
 	Force             json.Number `json:"force"`
 	RemainQuota       json.Number `json:"remain_quota"`
 	CommissionPercent json.Number `json:"commission_percent"`
@@ -89,22 +89,22 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	app := setup2(t)
 	c := buildChain(t, app) // Superadmin → comp01 (90) → share01 (70, THB) → agent01 (60)
 
-	// SUPERADMIN: ได้รับ 100 · ถือ 0 · ครบ 27 สกุล · มี rate
+	// SUPERADMIN: ได้รับ 100 · ไม่มี pt ของบัญชี (ลบ 2026-10-09) · ครบ 27 สกุล · มี rate
 	d, _ := getProfile(t, app, c.saTok)
 	if d.UserType != "SUPERADMIN" || len(d.Currencies) != 27 || len(d.Balances) != 27 ||
-		d.PT["minigame"].PTFromParent != "100" || d.PT["minigame"].PT != "0" || d.Permissions["rate"] != "edit" {
+		d.PT["minigame"].PTFromParent != "100" || d.PT["minigame"].PT != "" || d.Permissions["rate"] != "edit" {
 		t.Fatalf("superadmin %+v", d)
 	}
 	allLevel(t, d.Permissions, "edit")
 
-	// Company Transfer: ประเภทย่อย · ค่าที่ Superadmin ให้ · ถือเริ่มต้น = ที่ได้รับ (MGMT-22)
+	// Company Transfer: ประเภทย่อย · ค่าที่ Superadmin ให้ · ไม่มี pt ของบัญชี
 	setBalance(t, c.com.ID, "THB", 962056)
 	d, _ = getProfile(t, app, c.comTok)
 	if d.Role != "COMPANY" || d.UserType != "COMPANY_TRANSFER" || len(d.Currencies) != 27 || d.IsSubaccount || d.OwnerUsername != "" {
 		t.Fatalf("company %+v", d)
 	}
 	g := d.PT["minigame"]
-	if g.PTFromParent != "90" || g.PT != "90" || g.CommissionPercent != "0.5" || g.Force != "0" || !g.Status ||
+	if g.PTFromParent != "90" || g.PT != "" || g.CommissionPercent != "0.5" || g.Force != "0" || !g.Status ||
 		g.CreatedBy == "" || g.CreatedBy != g.UpdatedBy || g.CreatedAt == "" || g.CreatedAt != g.UpdatedAt {
 		t.Fatalf("company pt %+v", g)
 	}
@@ -147,10 +147,10 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	}
 	allLevel(t, d.Permissions, "edit")
 
-	// Company Seamless Master: ถือล็อก 0 · Seamless 1 to 1: ยอด 0 (ACC-12, ACC-19)
+	// Company Seamless Master: ไม่มี pt · Seamless 1 to 1: ยอด 0 (ACC-12, ACC-19)
 	_, masterTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
 	d, _ = getProfile(t, app, masterTok)
-	if d.UserType != "COMPANY_SEAMLESS_MASTER" || d.PT["minigame"].PT != "0" || d.PT["minigame"].PTFromParent != "80" {
+	if d.UserType != "COMPANY_SEAMLESS_MASTER" || d.PT["minigame"].PT != "" || d.PT["minigame"].PTFromParent != "80" {
 		t.Fatalf("master %+v", d)
 	}
 	_, oneTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_1TO1", "one2one", []string{"JPY"}, childPT(80, 0, 0, 0)))

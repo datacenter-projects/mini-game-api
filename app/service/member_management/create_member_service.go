@@ -69,7 +69,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		}
 		for g, v := range req.PT { // ไล่ตาม field: pt → commission_percent
 			received := c.Received[agentManagementCore.PTGroup(g)]
-			if err := agentManagementService.OwnPTError(g, agentManagementCore.ValidateMemberPT(v.PT, received), received); err != nil {
+			if err := agentManagementService.MemberPTError(g, agentManagementCore.ValidateMemberPT(v.PT, received), received); err != nil {
 				return err
 			}
 			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.Commission)); err != nil {

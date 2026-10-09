@@ -11,7 +11,6 @@ import (
 // PTGroupView — ค่าหุ้นส่วนฝั่ง agent ชุดเดียวต่อระบบ (MGMT-16) · เวลาเป็น RFC 3339
 type PTGroupView struct {
 	PTFromParent      float64 `json:"pt_from_parent"`
-	PT                float64 `json:"pt"`
 	Force             float64 `json:"force"`
 	RemainQuota       float64 `json:"remain_quota"`
 	CommissionPercent float64 `json:"commission_percent"`

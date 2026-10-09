@@ -31,7 +31,7 @@ func TestBalanceFourDecimals(t *testing.T) {
 		t.Fatalf("ledger = %+v", ledger)
 	}
 	s := gameSetting(t, d.ID)
-	if s.PTFromParent != 50.5 || s.PT != 50.5 || s.Commission != 0.3 {
+	if s.PTFromParent != 50.5 || s.Commission != 0.3 {
 		t.Fatalf("settings = %+v", s)
 	}
 

@@ -122,7 +122,7 @@ func UpdateAgentStatusService(ctx context.Context, actor agentAuthService.Actor,
 }
 
 // UpdateChildPTService — POST /manage/agents/update-pt (MGMT-18 – MGMT-25)
-// lock: ผู้สร้าง (SHARE ใน loadCreator) → ลูก (UPDATE) → ลูกของลูก (SHARE) — id เรียงจากชั้นบนลงล่างเสมอ
+// lock: ผู้สร้าง (SHARE ใน loadCreator) → ลูก (UPDATE) → ลูกของลูก (SHARE) → ค่าของ Member ที่ลูกสร้าง (UPDATE — R3) · id เรียงจากชั้นบนลงล่างเสมอ
 func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateChildPTRequest,
 	meta agentAuthService.RequestMeta) error {
 	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -146,10 +146,20 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 		if err != nil {
 			return err
 		}
+		// R3: ค่าของ Member ที่ลูกสร้าง lock หลัง agent_game_settings เสมอ (ลำดับเดียวกับ members/update-pt)
+		var codes []string
+		for _, g := range SortedGroups(req.PT) {
+			codes = append(codes, GameCodes(agentManagementCore.PTGroup(g))...)
+		}
+		memberSettings, err := memberManagementPostgres.LockUserMemberGameSettingsByAgentRepository(tx, child.ID, codes)
+		if err != nil {
+			return err
+		}
 
 		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
 		now := time.Now()
 		oldLog, newLog := map[string]agentManagementCore.ChildPT{}, map[string]agentManagementCore.ChildPT{}
+		var remains []models.UserMemberGameSetting
 		for _, g := range SortedGroups(req.PT) {
 			v := req.PT[g].Parsed
 			group := agentManagementCore.PTGroup(g)
@@ -168,7 +178,13 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 					grand = append(grand, s.PTFromParent)
 				}
 			}
-			if min := agentManagementCore.MinPTFromParent(cur.PT, grand); v.PTFromParent < min { // MGMT-24
+			var memberPTs []float64
+			for _, s := range memberSettings {
+				if gg, ok := agentManagementCore.GroupOfGame(s.GameCode); ok && gg == group {
+					memberPTs = append(memberPTs, s.PT)
+				}
+			}
+			if min := agentManagementCore.MinPTFromParent(grand, memberPTs); v.PTFromParent < min { // MGMT-24 · R1
 				p := utils.FormatNum(min)
 				return apperr.ErrPTBelowChildUsage.WithMessage(
 					"pt."+g+".pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด "+p,
@@ -182,48 +198,22 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 				Status: *req.PT[g].Status}, actor.Username, now); err != nil {
 				return err
 			}
+			for i, s := range memberSettings { // R2: remain_quota ของ Member = ค่าที่ได้รับใหม่ − pt
+				if gg, ok := agentManagementCore.GroupOfGame(s.GameCode); ok && gg == group {
+					memberSettings[i].Remain = agentManagementCore.MemberRemain(v.PTFromParent, s.PT)
+					remains = append(remains, memberSettings[i])
+				}
+			}
 			oldLog[g] = agentManagementCore.ChildPT{PTFromParent: cur.PTFromParent, Force: cur.Force, Remain: cur.Remain, Commission: cur.Commission}
 			newLog[g] = v
+		}
+		if err := memberManagementPostgres.UpdateUserMemberRemainsRepository(tx, remains); err != nil {
+			return err
 		}
 		return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdatePT, oldLog, newLog, now)
 	})
 }
 
-// UpdateOwnHoldService — POST /manage/agents/update-hold (MGMT-19, MGMT-22)
-// ค่าถือจาก Member ใต้ตัวเอง · ไม่เกินค่าที่ได้รับ · Company Seamless Master ล็อก 0
-func UpdateOwnHoldService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateOwnPTRequest,
-	meta agentAuthService.RequestMeta) error {
-	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		me, err := agentManagementPostgres.GetAgentProfileRepository(tx, actor.AgentID)
-		if err != nil {
-			return err
-		}
-		settings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, []uint{me.ID}, "UPDATE")
-		if err != nil {
-			return err
-		}
-		isMaster := agentManagementCore.UserTypeOf(me.Role, me.AgentType) == agentManagementCore.UserTypeCompanySeamlessMaster
-		now := time.Now()
-		oldLog, newLog := map[string]float64{}, map[string]float64{}
-		for _, g := range SortedGroups(req.PT) {
-			group := agentManagementCore.PTGroup(g)
-			cur, ok := groupSetting(settings, group)
-			if !ok {
-				return OwnPTError(g, agentManagementCore.PTExceedsReceived, 0) // ไม่มีค่าที่ได้รับในกลุ่มนี้
-			}
-			pt := req.PT[g].PT
-			if err := OwnPTError(g, agentManagementCore.ValidateOwnPT(pt, cur.PTFromParent, isMaster), cur.PTFromParent); err != nil {
-				return err
-			}
-			if err := agentManagementPostgres.UpdateOwnPTRepository(tx, me.ID, GameCodes(group), pt, actor.Username, now); err != nil {
-				return err
-			}
-			oldLog[g], newLog[g] = cur.PT, pt
-		}
-		return WriteLog(ctx, tx, actor, meta, targetAgent, me.ID, me.Username, models.ChangeUpdatePT,
-			map[string]any{"pt": oldLog}, map[string]any{"pt": newLog}, now)
-	})
-}
 
 // groupSetting — แถวของเกมแรกในกลุ่ม (ค่าในกลุ่มเท่ากันทุกเกม — MGMT-16)
 func groupSetting(settings []models.AgentGameSetting, group agentManagementCore.PTGroup) (models.AgentGameSetting, bool) {
