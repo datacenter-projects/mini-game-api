@@ -184,7 +184,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · เจ้าของเป็นคนเปลี่ยน · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ (เก็บเป็น `SUSPENDED` · API แสดง `INACTIVE`) · ไม่ต้อง passcode · เจ้าของหรือหัวสายถูกระงับ / ล็อก → sub ได้ผลตาม `status` ที่ใช้งานจริง |
 | MGMT-44 | ไม่มีการลบ sub — เลิกใช้ให้เปลี่ยนเป็น `INACTIVE` |
 | MGMT-45 | แก้ / เปลี่ยนสถานะได้เฉพาะเจ้าของ · ชั้นบนดูรายชื่อและรายละเอียด sub ของบัญชีในสายล่างได้อย่างเดียว (`402404`) |
-| MGMT-46 | รายชื่อ sub: `owner_id` (ไม่ส่ง = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · ค้น username บางส่วน · A→Z · `page` / `limit` · แต่ละแถว `id` · `username` · `name` · `phone_country_code` · `phone` · `status` · `permissions` · `created_at` · `last_login_at` · `last_login_ip` · `subaccounts/detail/get` ส่ง field ชุดเดียวกัน |
+| MGMT-46 | รายชื่อ sub: `owner_id` (ไม่ส่ง = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · `keyword` ค้น username บางส่วน ไม่สนตัวพิมพ์ 4–32 ตัว (ไม่ส่ง / `""` = ทั้งหมด · แบบเดียวกับ MGMT-27 — แก้ 2026-10-10 แทน `q`) · A→Z · `page` / `limit` · แต่ละแถว `id` · `username` · `name` · `phone_country_code` · `phone` · `status` · `permissions` · `created_at` · `last_login_at` · `last_login_ip` · `subaccounts/detail/get` ส่ง field ชุดเดียวกัน |
 
 ### สิทธิ์ (ใช้ทั้งหลังบ้าน)
 
@@ -422,7 +422,7 @@ Error codes: `422`, `402303`
 
 ### POST /api/v1/bo/pr/manage/subaccounts/list
 
-Request (ทุกค่าไม่บังคับ): `{ "owner_id": 10, "q": "", "page": 1, "limit": 20 }`
+Request (ทุกค่าไม่บังคับ): `{ "owner_id": 10, "keyword": "", "page": 1, "limit": 20 }`
 
 Response:
 ```json
@@ -627,7 +627,7 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 ## 8. Contract changes (แจ้ง frontend)
 
 **เปลี่ยน 2026-10-09 (lead review):**
-- path ใหม่ทั้งหมดตามหัวข้อ 5 · เส้นเดิมถูกลบ (ได้ `404`) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` (แทน `q`)
+- path ใหม่ทั้งหมดตามหัวข้อ 5 · เส้นเดิมถูกลบ (ได้ `404`) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` (แทน `q`) · `subaccounts/list` ใช้ `keyword` แทน `q` ด้วย (4–32 ตัว)
 - แก้บัญชีเหลือเส้นเดียว `agents/detail/update` (`info` / `pt` / `status_game`) · สถานะแยกที่ `agents/status/update` · dropdown ใช้ `agents/list` แทน `copy-sources`
 - เบอร์โทร 2 field `phone_country_code` + `phone` ทุก request / response (agent · sub · Member) · เบอร์เดิมแปลงให้แล้ว บางเบอร์ถูกล้างเป็น `""`
 - `permissions` ไม่มีเมนู `pt` แล้ว · มี `api_credential` (Company / Share / Agent) · sub ใช้แค่ `member` view / edit กับ module นี้

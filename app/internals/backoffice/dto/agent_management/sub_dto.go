@@ -1,8 +1,6 @@
 package agentmanagement
 
 import (
-	"strings"
-
 	agentAuthCore "app/app/core/agent_auth"
 	agentManagementCore "app/app/core/agent_management"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
@@ -32,18 +30,12 @@ type SubView struct {
 // SubListRequest — POST /manage/subaccounts/list · ทุกค่าไม่บังคับ — ไม่กรองให้ส่ง {}
 type SubListRequest struct {
 	OwnerID uint   `json:"owner_id"` // 0 = ตัวเอง · อื่นต้องอยู่ในสายล่าง
-	Q       string `json:"q"`
+	Keyword string `json:"keyword"`  // ค้น username บางส่วน 4–32 ตัว (MGMT-46 — แบบเดียวกับ downlines/list)
 	Page    int    `json:"page"`
 	Limit   int    `json:"limit"`
 }
 
-func (r *SubListRequest) Validate() error {
-	r.Q = strings.ToLower(strings.TrimSpace(r.Q))
-	if len(r.Q) > 71 { // ยาวสุดของคอลัมน์ username ของ sub
-		return Invalid("q", "ยาวเกินไป", "is too long")
-	}
-	return nil
-}
+func (r *SubListRequest) Validate() error { return NormalizeKeyword(&r.Keyword) }
 
 // SubCreateRequest — POST /manage/subaccounts/create (MGMT-41)
 type SubCreateRequest struct {

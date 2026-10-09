@@ -94,7 +94,7 @@ func ListSubaccountsService(ctx context.Context, actor agentAuthService.Actor, r
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, total, err := agentManagementPostgres.ListSubaccountsRepository(db, owner.ID, req.Q, page.Offset(), page.Limit)
+	rows, total, err := agentManagementPostgres.ListSubaccountsRepository(db, owner.ID, req.Keyword, page.Offset(), page.Limit)
 	if err != nil {
 		return nil, 0, err
 	}

@@ -76,7 +76,7 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	if r := p.Items[0]; r.LastLoginIP == nil || *r.LastLoginIP != "203.0.113.9" || r.LastLoginAt == nil || *r.LastLoginAt == "" || r.CreatedAt == nil || *r.CreatedAt == "" {
 		t.Fatalf("login / created %+v", r)
 	}
-	p = get(c.agentTok, map[string]any{"q": "amember"}, "")
+	p = get(c.agentTok, map[string]any{"keyword": "amember"}, "")
 	if r := p.Items[0]; r.LastLoginAt == nil || *r.LastLoginAt != "" || r.LastLoginIP == nil || *r.LastLoginIP != "" || r.CreatedAt == nil || *r.CreatedAt == "" {
 		t.Fatalf("member ที่ยังไม่เคย login %+v", r)
 	}
