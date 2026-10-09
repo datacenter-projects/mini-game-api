@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// ตารางของ UserMember (user_members · user_member_game_settings · user_member_balances) — docs/modules/agent_management.md หัวข้อ 6
+// ตารางของ UserMember (user_members · user_member_game_settings) — docs/modules/member_management.md หัวข้อ 4
 
 // UserMember — ผู้เล่น (ตารางแยกจากฝั่ง agent)
 type UserMember struct {
@@ -13,7 +13,9 @@ type UserMember struct {
 	Name         string      `gorm:"column:name"`
 	Phone        *string     `gorm:"column:phone"`
 	Currency     string      `gorm:"column:currency"`
+	Credit       float64     `gorm:"column:credit"` // ยอดเงิน หน่วยสกุล (เช่น 25.5) — float ตามที่ทีมตกลง 2026-10-09
 	Status       AgentStatus `gorm:"column:status"`
+	Cnf          string      `gorm:"column:cnf;default:'{\"parent\": []}'"` // JSONB สายชั้นบน {"parent":[{"id","position"}]} = สายของผู้สร้าง + ผู้สร้าง
 	LastLoginAt  *time.Time  `gorm:"column:last_login_at"`
 	LastLoginIP  *string     `gorm:"column:last_login_ip"`
 	CreatedAt    time.Time   `gorm:"column:created_at"`
@@ -37,13 +39,3 @@ type UserMemberGameSetting struct {
 }
 
 func (UserMemberGameSetting) TableName() string { return "user_member_game_settings" }
-
-// UserMemberBalance — ยอดเงินของ UserMember ต่อสกุล หน่วยย่อย 1/100 (MGMT-15A)
-type UserMemberBalance struct {
-	UserMemberID uint      `gorm:"column:user_member_id;primaryKey"`
-	Currency     string    `gorm:"column:currency;primaryKey"`
-	Amount       int64     `gorm:"column:amount"`
-	UpdatedAt    time.Time `gorm:"column:updated_at"`
-}
-
-func (UserMemberBalance) TableName() string { return "user_member_balances" }

@@ -4,6 +4,7 @@ package membermanagement
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -83,8 +84,13 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		}
 
 		now := time.Now()
+		cnf, err := json.Marshal(agentManagementCore.ChildChain(c.Chain, c.Agent.ID, c.Agent.Role)) // สายชั้นบน = สายของผู้สร้าง + ผู้สร้าง
+		if err != nil {
+			return err
+		}
 		m := models.UserMember{AgentID: c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: req.Name,
-			Phone: agentManagementService.OptionalString(req.Phone), Currency: currencies[0], Status: models.AgentStatusActive, CreatedAt: now, UpdatedAt: now}
+			Phone: agentManagementService.OptionalString(req.Phone), Currency: currencies[0], Status: models.AgentStatusActive,
+			Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
 		if err := memberManagementPostgres.CreateUserMemberRepository(tx, &m); err != nil {
 			return err
 		}

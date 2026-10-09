@@ -18,6 +18,7 @@
 | PT ต่อ Member: `pt` + `remain_quota` · `update-commission` → `update-pt` | ✅ รออนุมัติ | migration `20261009040811_member_management_member_pt` (ยังไม่รันกับ DB ใด) |
 | `agents/update-pt` กันลดต่ำกว่า `pt` ของ Member + sync `remain_quota` (R1–R3) | ⏳ | อยู่ใน `agent_management` — รอผู้ดูแล module นั้น (spec หัวข้อ 7) |
 | integration test ของ Member | ⏳ | เขียนแล้ว (`TestMemberPT` และแก้ test เดิม) ยังไม่ได้รัน |
+| `user_members.cnf` (สายชั้นบน) + `user_members.credit` (ยอดเงิน float) · DROP `user_member_balances` | ✅ รออนุมัติ | migration `20261009120100_member_management_member_cnf_credit` (ยังไม่รันกับ DB ใด) · แก้ `TransferInitialBalance` (กรณี Member) และยอด Member ในดาวน์ไลน์ใน `agent_management` |
 
 เอกสารหน้าบ้าน: `docs/frontend/member_management.md`
 
@@ -40,6 +41,12 @@
    - R3: lock `agent_game_settings` ก่อน `user_member_game_settings`
    - ถ้าไม่ทำ: แม่แก้ค่าที่ให้ agent แล้ว `remain_quota` ของ Member ค้างค่าเก่า (ตอนนี้ยังไม่มี Member ในระบบ)
 
+5. **`user_members.cnf` + `user_members.credit` (2026-10-09)**
+   - `cnf` = สายชั้นบนของ Member รูปแบบเดียวกับ `user_agents.cnf` (MGMT-61) = `cnf` ของผู้สร้าง + ผู้สร้าง
+   - ยอดของ Member ย้ายจากตาราง `user_member_balances` ไป `user_members.credit` และ DROP ตารางเดิม (ยังไม่มีข้อมูล) · response ยังเป็น `balances: [{currency, amount}]`
+   - **`credit` เป็น float64 (DOUBLE PRECISION) ตามที่ทีมตกลง — ขัด CLAUDE.md กฎข้อ 9 ("ห้ามใช้ float กับเงิน") ต้องแก้กฎผ่าน review ทีม**
+     · `balance_ledger` ยังเป็น int64 หน่วยย่อย แปลงด้วย `utils.MinorToCredit` / `CreditToMinor`
+
 แจ้งเพิ่ม (ไม่ต้องอนุมัติ)
 
 - `pt_bp` ของ agent และ `agents/update-hold` ไม่มีผลกับ Member แล้ว — จะเลิกใช้ไหม ให้ผู้ดูแล `agent_management` ตัดสิน
@@ -54,3 +61,4 @@
 | 2026-10-09 | `6659078` | merge เข้า `dev` · เปลี่ยนชื่อตาราง `user_members*` |
 | 2026-10-09 | `e4fbf76` | เปลี่ยนเลข migration rename เป็น `20261009000000` (เลขชน) · รันบน `dev_minigame` |
 | 2026-10-09 | `9280153` | PT ต่อ Member (`pt` + `remain_quota`) · `update-commission` → `update-pt` · requirement R1–R3 ให้ `agent_management` |
+| 2026-10-09 | (ยังไม่ commit) | `user_members.cnf` + `credit` (float) · DROP `user_member_balances` |

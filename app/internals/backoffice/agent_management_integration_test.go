@@ -366,10 +366,22 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	mb := memberBody("memrich", 0)
 	mb["balance"] = map[string]any{"THB": 25.5}
 	expect(t, call(t, app, "POST", createMemberPath, mb, c.agentTok), 200, 200)
-	var mbal models.UserMemberBalance
-	database.DBConn.Joins("JOIN user_members ON user_members.id = user_member_balances.user_member_id").Where("user_members.username = ?", "memrich").Take(&mbal)
-	if mbal.Amount != 2550 || agentBalance(t, c.agent.ID, "THB") != 7450 {
-		t.Fatalf("member %d agent %d", mbal.Amount, agentBalance(t, c.agent.ID, "THB"))
+	var mbal models.UserMember // ยอดของ Member = user_members.credit
+	database.DBConn.Select("id", "credit", "cnf").Where("username = ?", "memrich").Take(&mbal)
+	if mbal.Credit != 25.5 || agentBalance(t, c.agent.ID, "THB") != 7450 {
+		t.Fatalf("member %v agent %d", mbal.Credit, agentBalance(t, c.agent.ID, "THB"))
+	}
+	// cnf ของ Member = สายของผู้สร้าง + ผู้สร้าง: superadmin → comp01 → share01 → agent01
+	var chain struct {
+		Parent []struct {
+			ID       uint   `json:"id"`
+			Position string `json:"position"`
+		} `json:"parent"`
+	}
+	_ = json.Unmarshal([]byte(mbal.Cnf), &chain)
+	if n := len(chain.Parent); n != 4 || chain.Parent[0].Position != "superadmin" || chain.Parent[1].ID != c.com.ID ||
+		chain.Parent[2].ID != c.share.ID || chain.Parent[3].ID != c.agent.ID || chain.Parent[3].Position != "agent" {
+		t.Fatalf("member cnf %s", mbal.Cnf)
 	}
 }
 

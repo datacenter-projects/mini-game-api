@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// repository ของตาราง user_members — docs/modules/agent_management.md หัวข้อ 6
+// repository ของตาราง user_members — docs/modules/member_management.md หัวข้อ 4
 
 // UserMemberPhoneExistsRepository — เบอร์ซ้ำภายในตาราง (MGMT-08)
 func UserMemberPhoneExistsRepository(db *gorm.DB, phone string) (bool, error) {
@@ -41,7 +41,7 @@ func GetUserMemberProfileRepository(db *gorm.DB, id uint) (models.UserMember, er
 // GetUserMemberDetailRepository — ไม่พบคืน apperr.ErrNotFound
 func GetUserMemberDetailRepository(db *gorm.DB, id uint) (models.UserMember, error) {
 	var m models.UserMember
-	err := db.Select("id", "agent_id", "username", "name", "phone", "currency", "status", "last_login_at", "last_login_ip", "created_at").
+	err := db.Select("id", "agent_id", "username", "name", "phone", "currency", "credit", "status", "last_login_at", "last_login_ip", "created_at").
 		Where("id = ?", id).Take(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return m, apperr.ErrNotFound
@@ -61,6 +61,21 @@ func LockUserMemberRowRepository(db *gorm.DB, id uint) (models.UserMember, error
 func UpdateUserMemberInfoRepository(db *gorm.DB, id uint, name string, phone *string, at time.Time) error {
 	return db.Model(&models.UserMember{}).Where("id = ?", id).
 		Updates(map[string]any{"name": name, "phone": phone, "updated_at": at}).Error
+}
+
+// ListUserMemberCreditsByIDsRepository — สกุล + ยอดเงิน (credit) ของ Member หลายคน
+func ListUserMemberCreditsByIDsRepository(db *gorm.DB, ids []uint) ([]models.UserMember, error) {
+	var out []models.UserMember
+	if len(ids) == 0 {
+		return out, nil
+	}
+	err := db.Select("id", "currency", "credit").Where("id IN ?", ids).Find(&out).Error
+	return out, err
+}
+
+// UpdateUserMemberCreditRepository — ตั้งยอดเงิน (credit) ของ Member · ผู้เรียกต้อง lock แถวหรือเป็นแถวที่เพิ่งสร้างใน tx เดียวกัน
+func UpdateUserMemberCreditRepository(db *gorm.DB, id uint, credit float64, at time.Time) error {
+	return db.Model(&models.UserMember{}).Where("id = ?", id).Updates(map[string]any{"credit": credit, "updated_at": at}).Error
 }
 
 // UpdateUserMemberStatusRepository — สถานะที่ตั้งกับบัญชีเอง (MGMT-30)

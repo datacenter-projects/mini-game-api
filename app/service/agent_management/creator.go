@@ -12,6 +12,7 @@ import (
 	memberManagementPostgres "app/app/repository/postgres/member_management"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
+	"app/pkg/utils"
 
 	"gorm.io/gorm"
 )
@@ -145,13 +146,11 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 		if err := agentManagementPostgres.CreateAgentBalancesRepository(tx, rows); err != nil {
 			return err
 		}
-	case models.BalanceOwnerMember:
-		rows := make([]models.UserMemberBalance, 0, len(currencies))
+	case models.BalanceOwnerMember: // ยอดอยู่ที่ user_members.credit (Member มี 1 สกุล — MGMT-13) · แถว Member เพิ่งสร้างใน tx นี้
 		for _, cur := range currencies {
-			rows = append(rows, models.UserMemberBalance{UserMemberID: ownerID, Currency: cur, Amount: amounts[cur], UpdatedAt: now})
-		}
-		if err := memberManagementPostgres.CreateUserMemberBalancesRepository(tx, rows); err != nil {
-			return err
+			if err := memberManagementPostgres.UpdateUserMemberCreditRepository(tx, ownerID, utils.MinorToCredit(amounts[cur]), now); err != nil {
+				return err
+			}
 		}
 	}
 	for _, cur := range currencies {

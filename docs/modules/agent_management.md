@@ -23,7 +23,7 @@
 ดูรายละเอียด, แก้ข้อมูล, แก้สถานะ, ตั้ง / แก้ค่าหุ้นส่วน (PT · Force · Remain · Commission) และเปิด / ปิดเกม,
 คัดลอกการตั้งค่า และกำหนดสิทธิ์ของ sub (ระบบสิทธิ์ของทั้งหลังบ้านกำหนดที่นี่ครั้งเดียว)
 
-**ไม่อยู่ใน module นี้:** การเติม / ถอน / โอนเงินหลังสร้างบัญชี (module การชำระเงิน — ใช้ตาราง `agent_balances` · `user_member_balances` · `balance_ledger` ที่สร้างใน module นี้ต่อ) · **ยอดเงินตั้งต้นตอนสร้างบัญชีอยู่ใน module นี้** (MGMT-15A — แก้ 2026-10-08) ·
+**ไม่อยู่ใน module นี้:** การเติม / ถอน / โอนเงินหลังสร้างบัญชี (module การชำระเงิน — ใช้ตาราง `agent_balances` · `user_members.credit` (ยอดของ Member — member_management.md · 2026-10-09 รอ lead อนุมัติ) · `balance_ledger` ที่สร้างใน module นี้ต่อ) · **ยอดเงินตั้งต้นตอนสร้างบัญชีอยู่ใน module นี้** (MGMT-15A — แก้ 2026-10-08) ·
 การคิด PT / Force / Remain / Commission ตอน settle (module เดิมพัน) · login ของ Member (module หน้าบ้าน) ·
 Key / ลิงก์ตอบกลับ / IP (account 1.3 — module นี้แค่สร้าง Key ตอนสร้างเจ้าของ ACC-05)
 
@@ -786,7 +786,7 @@ CREATE TABLE agent_balances (
     PRIMARY KEY (agent_id, currency)
 );
 
--- user_member_balances อยู่ใน docs/modules/member_management.md หัวข้อ 4
+-- ยอดของ Member อยู่ที่ user_members.credit (เลิกใช้ user_member_balances 2026-10-09) — docs/modules/member_management.md หัวข้อ 4
 
 CREATE TABLE balance_ledger (                    -- ทุกการเปลี่ยนยอดต้องมีแถวที่นี่ใน tx เดียวกัน (กฎข้อ 11)
     id            BIGSERIAL   PRIMARY KEY,
