@@ -194,7 +194,7 @@ func TestAPICredentialSave(t *testing.T) { // ACC-06 – ACC-09, ACC-32
 	}
 	many := make([]string, 51)
 	for i := range many {
-		many[i] = fmt.Sprintf("10.0.0.%d", i+1)
+		many[i] = fmt.Sprintf("203.0.113.%d", i+1)
 	}
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", many), o.oneTok), 200, 422)
 
@@ -231,24 +231,32 @@ func TestAPICredentialSave(t *testing.T) { // ACC-06 – ACC-09, ACC-32
 	}
 }
 
-func TestAPICredentialSubPermission(t *testing.T) { // ACC-02
+func TestAPICredentialSubPermission(t *testing.T) { // ACC-02 · lead A5 / A6 / A9 (2026-10-09): sub ต้องมีสิทธิ์ api_credential
 	app := setup2(t)
 	o := buildOwners(t, app)
+	owner, _ := getCredential(t, app, o.oneTok)
 	hash, _ := utils.HashPassword(mgPassword)
 	sub := models.Subaccount{AgentID: o.one.ID, Username: "one2one@staff", PasswordHash: hash, Status: models.AgentStatusActive,
-		Permissions: `{"account":"view"}`}
+		Permissions: `{}`}
 	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &sub); err != nil {
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
 
-	d, _ := getCredential(t, app, tok)
-	if d.Username != "one2one" {
-		t.Fatalf("sub ต้องเห็น username ของเจ้าของ ได้ %q", d.Username)
-	}
-	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 200) // ACC-02: sub บันทึกได้เสมอ (ไม่มีสิทธิ์เมนู account แล้ว)
+	// ไม่มีสิทธิ์ = 402303 ทั้ง GET / POST
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 402303)
+	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 402303)
 
-	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"account":"edit"}`})
+	// view: ดูได้ เห็น Key เต็มของเจ้าของ · บันทึกไม่ได้
+	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"api_credential":"view"}`})
+	d, _ := getCredential(t, app, tok)
+	if d.Username != "one2one" || d.Key != owner.Key {
+		t.Fatalf("sub ต้องเห็น username และ Key เต็มของเจ้าของ ได้ %+v", d)
+	}
+	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 402303)
+
+	// edit: บันทึกได้ (ยังต้อง passcode) · log เป็น sub
+	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"api_credential":"edit"}`})
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{"1.2.3.4"}), tok), 200, 200)
 	var l models.APICredentialLog
 	database.DBConn.Where("agent_id = ?", o.one.ID).Order("id").Take(&l)
@@ -256,12 +264,7 @@ func TestAPICredentialSubPermission(t *testing.T) { // ACC-02
 		t.Fatalf("log actor %+v", l)
 	}
 
-	// ACC-02 (แก้ 2026-10-08): ไม่มีสิทธิ์เมนู account แล้ว — sub ไม่มีสิทธิ์ใดเลยก็ดู / บันทึกได้
-	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{}`})
-	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 200)
-	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 200, 200)
-
-	// เจ้าของ SUSPENDED: ดู 1.3 ได้ · บันทึกถูกกันที่ middleware (ACC-31 / AUTH-54) · sub ของเจ้าของก็เหมือนกัน
+	// เจ้าของ SUSPENDED: ดู 1.3 ได้ · บันทึกถูกกันที่ middleware (ACC-31 / AUTH-54) · sub ที่มีสิทธิ์ก็เหมือนกัน
 	setStatus(t, o.one.ID, models.AgentStatusSuspended)
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), o.oneTok), 403, 401311)
 	if d, _ := getCredential(t, app, o.oneTok); d.Username != "one2one" {
@@ -269,4 +272,13 @@ func TestAPICredentialSubPermission(t *testing.T) { // ACC-02
 	}
 	expect(t, call(t, app, "GET", apiCredentialPath, nil, tok), 200, 200)
 	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{}), tok), 403, 401311)
+}
+
+func TestAPICredentialIPRanges(t *testing.T) { // ACC-07 · lead A7 / A8 (2026-10-09)
+	app := setup2(t)
+	o := buildOwners(t, app)
+	for _, ip := range []string{"8.0.0.0/8", "0.0.0.0/0", "10.1.2.3", "192.168.1.0/24", "127.0.0.1", "198.51.100.5/24"} {
+		expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{ip}), o.oneTok), 200, 422)
+	}
+	expect(t, call(t, app, "POST", updateCredentialPath, saveBody("", []string{"8.8.0.0/16", "203.0.113.7"}), o.oneTok), 200, 200)
 }

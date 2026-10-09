@@ -44,7 +44,7 @@ func TestNormalizeAllowedIPs(t *testing.T) { // ACC-07
 	}{
 		{"ว่าง", []string{}, []string{}, IPOK, -1},
 		{"IP เดี่ยวเป็น /32", []string{" 1.2.3.4 "}, []string{"1.2.3.4/32"}, IPOK, -1},
-		{"CIDR", []string{"198.51.100.0/24", "10.0.0.0/8"}, []string{"198.51.100.0/24", "10.0.0.0/8"}, IPOK, -1},
+		{"CIDR", []string{"198.51.100.0/24", "203.0.0.0/16"}, []string{"198.51.100.0/24", "203.0.0.0/16"}, IPOK, -1},
 		{"/32 ตรงๆ", []string{"1.2.3.4/32"}, []string{"1.2.3.4/32"}, IPOK, -1},
 		{"IPv6", []string{"1.2.3.4", "2001:db8::1"}, nil, IPInvalid, 1},
 		{"IPv4-mapped IPv6", []string{"::ffff:1.2.3.4"}, nil, IPInvalid, 0},
@@ -53,6 +53,21 @@ func TestNormalizeAllowedIPs(t *testing.T) { // ACC-07
 		{"มีบิตของ host", []string{"1.2.3.4/24"}, nil, IPHostBitsSet, 0},
 		{"ซ้ำหลังแปลง", []string{"1.2.3.4", "1.2.3.4/32"}, nil, IPDuplicate, 1},
 		{"ข้อความ", []string{"abc"}, nil, IPInvalid, 0},
+		// lead A7 (2026-10-09): ช่วงกว้างกว่า /16 และ IP ภายใน / พิเศษ
+		{"0.0.0.0/0", []string{"0.0.0.0/0"}, nil, IPTooWide, 0},
+		{"/8", []string{"8.0.0.0/8"}, nil, IPTooWide, 0},
+		{"/15", []string{"8.8.0.0/15"}, nil, IPTooWide, 0},
+		{"/16 ได้", []string{"8.8.0.0/16"}, []string{"8.8.0.0/16"}, IPOK, -1},
+		{"10.x เดี่ยว", []string{"1.2.3.4", "10.1.2.3"}, nil, IPReserved, 1},
+		{"192.168 CIDR", []string{"192.168.1.0/24"}, nil, IPReserved, 0},
+		{"172.16/12 ขอบบน", []string{"172.31.255.255"}, nil, IPReserved, 0},
+		{"172.32 นอกช่วง", []string{"172.32.0.1"}, []string{"172.32.0.1/32"}, IPOK, -1},
+		{"127.0.0.1", []string{"127.0.0.1"}, nil, IPReserved, 0},
+		{"0.x", []string{"0.1.2.3"}, nil, IPReserved, 0},
+		{"169.254", []string{"169.254.1.1"}, nil, IPReserved, 0},
+		{"100.64/10", []string{"100.127.0.1"}, nil, IPReserved, 0},
+		{"100.128 นอกช่วง", []string{"100.128.0.1"}, []string{"100.128.0.1/32"}, IPOK, -1},
+		{"กว้างตรวจก่อนภายใน", []string{"10.0.0.0/8"}, nil, IPTooWide, 0},
 	}
 	for _, tt := range tests {
 		got, v, idx := NormalizeAllowedIPs(tt.in)
@@ -63,12 +78,12 @@ func TestNormalizeAllowedIPs(t *testing.T) { // ACC-07
 
 	max := make([]string, AllowedIPsMax)
 	for i := range max {
-		max[i] = fmt.Sprintf("10.0.0.%d", i)
+		max[i] = fmt.Sprintf("203.0.113.%d", i)
 	}
 	if _, v, _ := NormalizeAllowedIPs(max); v != IPOK {
 		t.Errorf("%d รายการต้องผ่าน ได้ %d", AllowedIPsMax, v)
 	}
-	if _, v, _ := NormalizeAllowedIPs(append(max, "10.0.1.1")); v != IPTooMany {
+	if _, v, _ := NormalizeAllowedIPs(append(max, "203.0.113.200")); v != IPTooMany {
 		t.Errorf("%d รายการต้อง IPTooMany ได้ %d", AllowedIPsMax+1, v)
 	}
 }

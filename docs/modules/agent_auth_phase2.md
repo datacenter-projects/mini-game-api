@@ -2,6 +2,7 @@
 
 - สถานะ: **APPROVED** · `scripts/reset_credentials` อนุมัติ 2026-10-08 (lead — actor = `SCRIPT`) · AUTH-54 อนุมัติ 2026-10-06
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
+- แก้หลังอนุมัติ (2026-10-09 · lead review BO Account A5): AUTH-26 ระบุเส้น auth ของตัวเองที่ sub ใช้ได้โดยไม่ต้องมีสิทธิ์เมนู
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
   ไม่ได้ extract จากโค้ดเก่า
@@ -51,7 +52,7 @@
 | AUTH-23 | session แยกต่อคน — AUTH-06/07/08/09 ใช้กับ sub แต่ละตัว · sub login ไม่ทำให้ผู้สร้างหลุด และผู้สร้าง login ไม่ทำให้ sub หลุด |
 | AUTH-24 | AUTH-10/11 ใช้กติกาเดียวกับ agent · ตัวนับคิดตาม username เต็มของ sub |
 | AUTH-25 | response login เหมือน agent · `role` = role ของผู้สร้าง · `is_subaccount = true` · ไม่มี field ข้อมูลผู้สร้าง (frontend ตัดจาก `@` เอง) |
-| AUTH-26 | sub ใช้งานในนามของผู้สร้าง — ขอบเขตข้อมูลเป็นของผู้สร้าง (การจำกัดสิทธิ์อยู่ในงาน permission) |
+| AUTH-26 | sub ใช้งานในนามของผู้สร้าง — ขอบเขตข้อมูลเป็นของผู้สร้าง (การจำกัดสิทธิ์อยู่ในงาน permission) · **sub ต้องมีสิทธิ์เมนูทุกเส้น BO ยกเว้นเส้น auth ของบัญชีตัวเอง** (`passcode/setup` · `passcode/change` · `password/change` · `logout`) และ Profile — lead A5 2026-10-09 (agent_management MGMT-50) |
 | AUTH-27 | middleware (ทุก request ทั้ง agent และ sub): บัญชีเป็น `LOCKED` → `401301` · ผู้สร้าง (กรณี sub) หรือ upline คนใดเป็น `LOCKED` → `401302` · ทั้งสองกรณีลบ session · **แทน Phase 1 หัวข้อ 9 ข้อ 2** (เดิม middleware เช็คแค่สถานะตัวเอง) |
 | AUTH-28 | login (หลังเทียบรหัสผ่านถูกแล้วเท่านั้น): ถูกบล็อกเพราะ passcode ผิด (AUTH-35) → `401309` · รหัสผ่านชั่วคราว **หรือ** passcode ชั่วคราวหมดอายุ → `401310` · ลำดับเช็ค `401301` → `401302` → `401309` → `401310` |
 

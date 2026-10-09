@@ -49,10 +49,11 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/admin/password/reset", mw.PassedGates(), adminMw.RequireAdmin(), mw.RequirePasscode(), adminManagementController.ResetPasswordController)
 	pr.Post("/admin/accounts/search", mw.PassedGates(), adminMw.RequireAdmin(), adminManagementController.SearchAccountsController) // MGMT-27B
 
-	// account — docs/modules/account.md หัวข้อ 5 · ไม่มีสิทธิ์ต่อเมนู: เจ้าของและ sub เปิดได้เสมอ (ACC-02) · Profile และดู 1.3 เปิดได้ตอนบัญชีถูกระงับ (ACC-11, ACC-31, AUTH-54)
+	// account — docs/modules/account.md หัวข้อ 5 · Profile เปิดได้เสมอไม่ต้องมีสิทธิ์ (lead A2 / A5) · 1.3 sub ต้องมีสิทธิ์ api_credential (ACC-02 · lead A6)
+	// Profile และดู 1.3 เปิดได้ตอนบัญชีถูกระงับ (ACC-11, ACC-31, AUTH-54)
 	pr.Get("/account/profile", mw.PassedGatesAllowSuspended(), accountController.GetProfileController)
-	pr.Get("/account/api-credential", mw.PassedGatesAllowSuspended(), accountController.GetAPICredentialController) // ACC-31: ถูกระงับดูได้ บันทึกไม่ได้
-	pr.Post("/account/update-credential", mw.PassedGates(), mw.RequirePasscode(), accountController.SaveAPICredentialController)
+	pr.Get("/account/api-credential", mw.PassedGatesAllowSuspended(), mw.RequireSubPermission(agentManagementCore.MenuAPICredential, agentManagementCore.LevelView), accountController.GetAPICredentialController) // ACC-31: ถูกระงับดูได้ บันทึกไม่ได้
+	pr.Post("/account/update-credential", mw.PassedGates(), mw.RequireSubPermission(agentManagementCore.MenuAPICredential, agentManagementCore.LevelEdit), mw.RequirePasscode(), accountController.SaveAPICredentialController)
 
 	// agent_management — docs/modules/agent_management.md หัวข้อ 5 · payment = edit เมื่อส่ง balance ตรวจใน service (MGMT-51)
 	memberEdit := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelEdit)

@@ -2,6 +2,7 @@ package account
 
 import (
 	"fmt"
+	"strings"
 
 	accountCore "app/app/core/account"
 	"app/pkg/apperr"
@@ -60,6 +61,13 @@ func (r *SaveAPICredentialRequest) Validate() error {
 		return apperr.ErrValidation.WithMessage(field+" ต้องเป็นที่อยู่เครือข่าย เช่น 198.51.100.0/24", field+" must be a network address such as 198.51.100.0/24")
 	case accountCore.IPDuplicate:
 		return apperr.ErrValidation.WithMessage(field+" ซ้ำกับรายการก่อนหน้า", field+" duplicates an earlier entry")
+	case accountCore.IPTooWide:
+		return apperr.ErrValidation.WithMessage(
+			fmt.Sprintf("%s ช่วงกว้างเกินไป ตั้งได้ตั้งแต่ /%d ขึ้นไป (เช่น 198.51.100.0/24)", field, accountCore.MinAllowedPrefix),
+			fmt.Sprintf("%s is too wide, the prefix must be /%d or longer (e.g. 198.51.100.0/24)", field, accountCore.MinAllowedPrefix))
+	case accountCore.IPReserved:
+		r := strings.Join(accountCore.ReservedRanges, ", ")
+		return apperr.ErrValidation.WithMessage(field+" เป็น IP ภายใน / พิเศษ ใส่ไม่ได้ ("+r+")", field+" is a private or reserved address ("+r+")")
 	}
 
 	r.NormalizedCallbackURL, r.NormalizedIPs = url, ips

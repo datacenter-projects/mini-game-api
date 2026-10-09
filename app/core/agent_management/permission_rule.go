@@ -6,7 +6,7 @@ import (
 	"app/app/models"
 )
 
-// สิทธิ์ต่อเมนู (MGMT-50 – MGMT-53) · ไม่มีเมนู account — Profile และ 1.3 เปิดได้เสมอ (แก้ 2026-10-08)
+// สิทธิ์ต่อเมนู (MGMT-50 – MGMT-53) · ไม่มีเมนู account — Profile เปิดได้เสมอ · 1.3 ใช้เมนู api_credential (lead A6 2026-10-09)
 
 // Menu — เมนูที่ใช้กำหนดสิทธิ์
 type Menu string
@@ -21,6 +21,8 @@ const (
 	MenuAsset        Menu = "asset"
 	MenuAnnouncement Menu = "announcement"
 	MenuRate         Menu = "rate"
+	// MenuAPICredential — หน้า 1.3 ข้อมูลรับรอง API · view = ดู · edit = บันทึก (account ACC-02 · lead A6)
+	MenuAPICredential Menu = "api_credential" //nolint:gosec // ชื่อเมนูสิทธิ์ ไม่ใช่ credential
 )
 
 // Level — ระดับสิทธิ์ · edit รวม view
@@ -61,7 +63,7 @@ func MaxLevel(m Menu) Level {
 
 var (
 	superadminMenus = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuRate}
-	agentMenus      = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuAnnouncement}
+	agentMenus      = []Menu{MenuDashboard, MenuMember, MenuPT, MenuReport, MenuBetCancel, MenuPayment, MenuAsset, MenuAnnouncement, MenuAPICredential}
 )
 
 // MenusForRole — เมนูที่บัญชีหลักแต่ละ role มี (MGMT-52) · ADMIN ไม่ใช้ระบบนี้ (AUTH-44) = nil

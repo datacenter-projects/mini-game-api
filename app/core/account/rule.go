@@ -34,13 +34,13 @@ func IsAPIKeyOwner(t agentManagementCore.UserType) bool {
 	return true
 }
 
-// SuspendedPermissions — สิทธิ์ที่ใช้ได้จริงตอน status = SUSPENDED (ACC-12 · AUTH-54): เหลือ report ไม่เกิน view · เมนูอื่น off
+// SuspendedPermissions — สิทธิ์ที่ใช้ได้จริงตอน status = SUSPENDED (ACC-12 · ACC-31 · AUTH-54): เหลือ report และ api_credential ไม่เกิน view · เมนูอื่น off
 // ใช้แสดงใน Profile · การกันจริงอยู่ที่ middleware PassedGates
 func SuspendedPermissions(perms map[agentManagementCore.Menu]agentManagementCore.Level) map[agentManagementCore.Menu]agentManagementCore.Level {
 	out := make(map[agentManagementCore.Menu]agentManagementCore.Level, len(perms))
 	for m, l := range perms {
 		out[m] = agentManagementCore.LevelOff
-		if m == agentManagementCore.MenuReport && l.Allows(agentManagementCore.LevelView) {
+		if (m == agentManagementCore.MenuReport || m == agentManagementCore.MenuAPICredential) && l.Allows(agentManagementCore.LevelView) {
 			out[m] = agentManagementCore.LevelView
 		}
 	}

@@ -66,14 +66,15 @@ func TestIsAPIKeyOwner(t *testing.T) { // ACC-01
 	}
 }
 
-func TestSuspendedPermissions(t *testing.T) { // ACC-12 · AUTH-54
+func TestSuspendedPermissions(t *testing.T) { // ACC-12 · ACC-31 · AUTH-54
 	full := agentManagementCore.FullPermissions("COMPANY")
 	got := SuspendedPermissions(full)
-	if len(got) != len(full) || got[agentManagementCore.MenuReport] != agentManagementCore.LevelView {
+	if len(got) != len(full) || got[agentManagementCore.MenuReport] != agentManagementCore.LevelView ||
+		got[agentManagementCore.MenuAPICredential] != agentManagementCore.LevelView { // ดู 1.3 ได้ บันทึกไม่ได้
 		t.Fatalf("full → %v", got)
 	}
 	for m, l := range got {
-		if m != agentManagementCore.MenuReport && l != agentManagementCore.LevelOff {
+		if m != agentManagementCore.MenuReport && m != agentManagementCore.MenuAPICredential && l != agentManagementCore.LevelOff {
 			t.Fatalf("%s = %s, want off", m, l)
 		}
 	}

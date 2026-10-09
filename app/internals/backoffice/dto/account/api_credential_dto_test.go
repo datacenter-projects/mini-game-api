@@ -30,6 +30,8 @@ func TestSaveAPICredentialRequestValidate(t *testing.T) { // ACC-06, ACC-07, ACC
 		{"IPv6", `{"callback_url":"","allowed_ips":["1.2.3.4","::1"]}`, true, "allowed_ips[1]", "", nil},
 		{"ซ้ำ", `{"callback_url":"","allowed_ips":["1.2.3.4","1.2.3.4/32"]}`, true, "allowed_ips[1]", "", nil},
 		{"host bits", `{"callback_url":"","allowed_ips":["1.2.3.4/24"]}`, true, "allowed_ips[0]", "", nil},
+		{"ช่วงกว้างเกิน /16", `{"callback_url":"","allowed_ips":["1.2.3.4","0.0.0.0/0"]}`, true, "/16", "", nil},
+		{"IP ภายใน", `{"callback_url":"","allowed_ips":["10.1.2.3"]}`, true, "allowed_ips[0]", "", nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

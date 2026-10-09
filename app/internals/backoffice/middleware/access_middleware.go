@@ -58,6 +58,16 @@ func RequirePermission(menu agentManagementCore.Menu, need agentManagementCore.L
 	}
 }
 
+// RequireSubPermission — เช็คสิทธิ์เมนูเฉพาะ sub · บัญชีหลักผ่านเสมอ (account ACC-02 · lead A6) · ไม่พอ = 402303
+func RequireSubPermission(menu agentManagementCore.Menu, need agentManagementCore.Level) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		if err := agentManagementService.CheckSubPermissionService(c.UserContext(), GetActor(c), menu, need); err != nil {
+			return response.Error(c, err)
+		}
+		return c.Next()
+	}
+}
+
 // RequireMainAccount — เฉพาะบัญชีหลัก · sub เรียก = 402311 (agent_management MGMT-40)
 func RequireMainAccount() fiber.Handler {
 	return func(c *fiber.Ctx) error {

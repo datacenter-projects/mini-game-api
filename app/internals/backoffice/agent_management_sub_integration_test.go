@@ -67,7 +67,7 @@ func TestSubCreate(t *testing.T) { // MGMT-40, MGMT-41, MGMT-50, MGMT-52
 	}
 	var perms map[string]string
 	_ = json.Unmarshal([]byte(s.Permissions), &perms)
-	if len(perms) != 8 || perms["member"] != "edit" || perms["report"] != "view" || perms["pt"] != "off" {
+	if len(perms) != 9 || perms["api_credential"] != "off" || perms["member"] != "edit" || perms["report"] != "view" || perms["pt"] != "off" {
 		t.Fatalf("permissions %v", perms)
 	}
 
@@ -133,7 +133,7 @@ func TestSubListAndDetail(t *testing.T) { // MGMT-45, MGMT-46
 
 	rows, total := list(c.shareTok, map[string]any{})
 	if total != 2 || rows[0].Username != "share01@astaff" || rows[1].Username != "share01@bstaff" || rows[1].Permissions["pt"] != "view" ||
-		len(rows[0].Permissions) != 8 || rows[0].Status != "ACTIVE" || rows[0].CreatedAt == "" {
+		len(rows[0].Permissions) != 9 || rows[0].Status != "ACTIVE" || rows[0].CreatedAt == "" {
 		t.Fatalf("share subs %+v", rows)
 	}
 	// ชั้นบนดู sub ของสายล่างได้ · q บางส่วน · page / limit ใน body

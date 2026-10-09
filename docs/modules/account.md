@@ -4,8 +4,9 @@
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-07 · ฉบับก่อนหน้าอนุมัติ 2026-10-05 และ 2026-10-06
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ACC-12 บัญชีที่ถูกระงับ `permissions` แสดงตามที่ใช้ได้จริง · ACC-16 `pt` แสดงชุดเดียวต่อระบบ (`minigame`) พร้อม `status` `created_at` `created_by` `updated_at` `updated_by` · `status_game` แยกทีละเกมด้านนอก `pt` · ACC-04 เก็บ Key ตรงๆ ไม่เข้ารหัส (lead ตัดสิน)
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ACC-01 ทุกบัญชี Company / Share / Agent มี Key · ACC-02 ไม่มีสิทธิ์เมนู `account` (เจ้าของและ sub เปิดได้เสมอ) · ถูกระงับดูหน้า 1.3 ได้ (บันทึกไม่ได้) · migration สร้าง Key ให้บัญชีเดิมทุกบัญชี
+- แก้หลังอนุมัติ (2026-10-09 · lead (zerph) review BO Account — [docs/reviews/bo-account.md](../reviews/bo-account.md)): Dashboard ออกจาก scope รอบนี้ (A1 → หัวข้อ 10) · ACC-02 sub ต้องมีสิทธิ์เมนูใหม่ `api_credential` (A5 / A6 / A9) · ACC-07 ห้ามช่วงกว้างกว่า `/16` และ IP ภายใน / พิเศษ · CIDR ต้องเป็นที่อยู่เครือข่าย (A7 / A8)
 - ชื่อ module ในโค้ด: `account` (`controllers/account`, `dto/account`, `service/account`, `core/account`)
-- เมนู: **1.1 ภาพรวม (Dashboard)** · **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API**
+- เมนู: **1.2 ประวัติของฉัน (Profile)** · **1.3 ข้อมูลรับรอง API** · 1.1 ภาพรวม (Dashboard) ไม่อยู่ใน scope รอบนี้ (หัวข้อ 10)
 - ที่มาของ rule: ภาพหน้าจอตัวอย่าง + เอกสาร Seamless API Flow ของ lead + คำตอบของ boiledegg + review comments (2026-10-05) ·
   ไม่ได้ extract จากโค้ดเก่า
 
@@ -15,7 +16,7 @@
 ## 1. หน้าที่ของ module
 
 หน้าข้อมูลบัญชีของผู้ใช้หลังบ้าน:
-- **Dashboard (1.1)** — สรุปรายการเล่นของ Member ในสาย และสรุปรายได้ของคนที่ login
+- **Dashboard (1.1)** (ยังไม่ทำ — หัวข้อ 10) — สรุปรายการเล่นของ Member ในสาย และสรุปรายได้ของคนที่ login
 - **Profile (1.2)** — ข้อมูลบัญชีของตัวเอง รวมประเภท, สกุลเงิน, ค่าหุ้นส่วน และสิทธิ์ — หน้าบ้านใช้ต่อในส่วนอื่น
   (เช่น ตอนสร้างบัญชีชั้นถัดไป) · เปลี่ยนรหัสผ่าน / passcode ใช้ endpoint ของ `agent_auth`
 - **1.3 ข้อมูลรับรอง API** — Key, ลิงก์ตอบกลับ และ IP ที่อนุญาต ที่ลูกค้าแบบ Seamless ใช้เชื่อมระบบกับเรา (Seamless API Flow)
@@ -60,19 +61,6 @@
 | ACC-31 | การเข้าใช้งานตัดสินจาก `status` (ACC-30): `ACTIVE` ใช้งานได้ปกติ · `SUSPENDED` เข้าได้**เฉพาะหน้า Profile, Report และดูข้อมูลรับรอง API (1.3)** แบบดูอย่างเดียว (1.3 เพิ่ม 2026-10-08) · `LOCKED` เข้าใช้งานไม่ได้เลย (AUTH-27) — บังคับทุก module ที่ middleware กลาง (AUTH-54) |
 | ACC-32 | **ไม่มี `null` ใน API (ใช้ทุก module)**: response — ข้อความที่ไม่มีค่า = `""` · ตัวเลขที่ไม่มีค่า = `0` · รายการว่าง = `[]` · object ว่าง = `{}` · request — ห้ามส่ง `null` (ส่ง = `422` msg บอก field) · ข้อความที่จะเว้นว่างส่ง `""` · ใน DB เก็บ `NULL` ได้ตามปกติ แปลงที่ขอบระบบ |
 
-### Dashboard (1.1)
-
-| ID | Rule |
-|---|---|
-| ACC-20 | เปิดได้: บัญชีหลังบ้านที่มีสิทธิ์ `dashboard` = `view` ขึ้นไป (module ② MGMT-51) · `status` ต้องเป็น `ACTIVE` (ACC-31) |
-| ACC-21 | ข้อมูลเฉพาะสายของตัวเอง (ตัวเอง + สายล่าง) · sub เห็นของผู้สร้าง (AUTH-26) · ไม่เห็นข้ามสาย ไม่เห็นชั้นบน (System Overview) |
-| ACC-22 | ตัวกรอง: เกม (ทั้งหมด หรือเกมเดียว) · ปี (บังคับ) + เดือน (ไม่บังคับ — **ไม่ส่ง = ทั้งปี** ใช้กับทางลัด "ปีนี้") · ทางลัด ก่อนหน้า / เดือนนี้ / ปีนี้ / ถัดไป หน้าบ้านแปลงเป็น `month` / `year` เอง · สกุลเงิน 1 สกุลต่อครั้ง (บังคับ · ต้องเป็นสกุลที่บัญชีมีตาม module ② MGMT-10 ถึง 13) |
-| ACC-23 | ข้อมูลเป็นยอดสรุปรายวัน อัปเดตวันละครั้ง ช่วง 00:15–01:00 น. (ไม่ใช่ real-time) · ช่วงเวลาที่ยังไม่สรุปไม่นับ |
-| ACC-24 | การ์ด (ชนิดของค่าในวงเล็บ — **จำนวน** = จำนวนเต็ม · **เงิน** = จำนวนเงินในสกุลที่เลือก): สมาชิกที่กำลังใช้งาน (จำนวนคน) · สมาชิกที่สมัครใหม่ (จำนวนคน) · สมาชิกทั้งหมด (จำนวนคน) · ยอดเล่นทั้งหมด (จำนวนครั้ง) · ยอดเล่นที่ถูกรางวัล (จำนวนครั้ง) · ยอดเล่นจริง (เงิน) · ยอดเล่นทั้งหมดตาม PT (เงิน) · ยอดถูกรางวัลตาม PT (เงิน) · ยอดแพ้ / ชนะตาม PT (เงิน) · Commission ที่ได้ (เงิน) · Commission ที่จ่าย (เงิน) · รายได้ (เงิน) · ทุกการ์ด (ยกเว้นสมาชิกที่กำลังใช้งาน) แสดง % เปลี่ยนแปลงเทียบช่วงก่อนหน้าที่ยาวเท่ากัน |
-| ACC-25 | "ตาม PT" = ยอดคูณ PT ที่**คนที่ login ถือ** (ค่า ณ ตอน bet) · **รายได้** = ยอดแพ้ / ชนะตาม PT + Commission ที่ได้ − Commission ที่จ่าย (สูตร Commission ตามเอกสาร PT Commission ของ lead) |
-| ACC-26 | ตาราง Top 10 สมาชิกในสาย: ยอดเล่นมากสุด · ยอดถูกมากสุด · ยอดเสียมากสุด (ลำดับ, username, จำนวนเงิน) |
-| ACC-27 | ตัวเลขตาม ACC-18: เงินและ % ใน JSON เป็น number (ทศนิยมไม่เกิน 4 ตำแหน่ง ตามที่เก็บ · หน้าบ้านปัด 3 ตำแหน่งเอง) ภายในเป็น `float64` (แก้ 2026-10-09) · ช่วงก่อนหน้าเป็น 0 → `change_pct = 0` |
-
 ### Profile (1.2)
 
 | ID | Rule |
@@ -92,12 +80,12 @@
 | ID | Rule |
 |---|---|
 | ACC-01 | เจ้าของ Key = **ทุกบัญชี Company / Share / Agent ทุกประเภท** (แก้ 2026-10-08 — เดิมเฉพาะ Seamless 1 to 1 / Share Master / Share Reseller) · แต่ละบัญชีมี Key, ลิงก์ตอบกลับ และรายการ IP **ของตัวเอง** · Superadmin / ADMIN ไม่มี (`403301`) |
-| ACC-02 | **ไม่มีสิทธิ์ต่อเมนู** (แก้ 2026-10-08 — เอาเมนู `account` ออกจากระบบสิทธิ์ module ②): เจ้าของและ sub ของเจ้าของเปิดดู / บันทึกได้เสมอ (sub ทำงานแทนเจ้าของ) · บันทึกยังต้อง passcode · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) |
+| ACC-02 | **sub ต้องมีสิทธิ์เมนู `api_credential`** (lead A5 / A6 / A9 2026-10-09 — แทนกฎเดิม "ไม่มีสิทธิ์ต่อเมนู"): `view` = ดูหน้า 1.3 (เห็น Key เต็ม) · `edit` = บันทึก (ยังต้อง passcode) · ไม่มีสิทธิ์ = `402303` · **บัญชีหลักได้ `edit` อัตโนมัติและไม่ถูกเช็ค** (`RequireSubPermission`) — Superadmin / ADMIN ยังได้ `403301` ตาม ACC-01 และ sub ของ Superadmin ให้เมนูนี้ไม่ได้ (Superadmin ไม่มี Key) · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ middleware กลาง (ACC-31 / AUTH-54) · ถูกระงับ: ดูได้ บันทึกไม่ได้ |
 | ACC-03 | Key สร้างอัตโนมัติ 1 ค่าต่อเจ้าของ: สุ่ม 32 byte ด้วย `crypto/rand` แสดงเป็น hex ตัวพิมพ์เล็ก 64 ตัว · **สร้างใหม่ไม่ได้** · ใช้ทั้งระบุตัวและคำนวณ `sign` |
 | ACC-04 | Key ดูซ้ำได้ (ปุ่มคัดลอก) → **เก็บ Key ตรงๆ** ในคอลัมน์ `api_key` (unique — ใช้ค้นตอนลูกค้าเรียก API) ไม่เข้ารหัส (lead ตัดสิน 2026-10-08 — ใช้ IP whitelist ACC-07 ป้องกันการเรียก API แทน · ไม่มี `API_KEY_ENCRYPTION_KEY`) · response ใส่ `Cache-Control: no-store` · ห้าม log Key |
 | ACC-05 | สร้าง Key ตอนสร้างบัญชีเจ้าของ (module ②) · บัญชีที่มีอยู่ก่อนได้ Key จาก migration `20261008170000_account_api_keys_for_all` (แก้ 2026-10-08) · ถ้ายังไม่มี Key (กันไว้) สร้างตอนเปิดหน้าครั้งแรก · เรียกพร้อมกันได้ Key เดียวเสมอ (unique ที่ `agent_id`) |
 | ACC-06 | ลิงก์ตอบกลับ: ต้องเป็น URL `https://` ที่มี host · ยาวไม่เกิน 500 ตัว · เว้นว่างได้ (= ยังไม่ตั้ง): ส่ง `""` (ตัดช่องว่างแล้วว่าง) → เก็บเป็น `NULL` · response ส่ง `""` · ส่ง `null` = `422` (ACC-32) · ไม่ส่ง field = `422` (บันทึกแทนทั้งชุด — ACC-08) |
-| ACC-07 | IP ที่อนุญาต: IPv4 หรือช่วง CIDR ของ IPv4 (IP เดี่ยวเก็บเป็น `/32`) · ไม่เกิน **50** รายการ · ห้ามซ้ำ · **ไม่มีเลย = ลูกค้าเรียก API ของเราไม่ได้** |
+| ACC-07 | IP ที่อนุญาต: IPv4 หรือช่วง CIDR ของ IPv4 (IP เดี่ยวเก็บเป็น `/32`) · ไม่เกิน **50** รายการ · ห้ามซ้ำ · **ไม่มีเลย = ลูกค้าเรียก API ของเราไม่ได้** · **ห้ามช่วงกว้างกว่า `/16`** เช่น `0.0.0.0/0` · `8.0.0.0/8` → `422` (lead A7) · **ห้าม IP ภายใน / พิเศษ** (IP เดี่ยวหรือช่วงที่อยู่ใน) `0.0.0.0/8` · `10.0.0.0/8` · `100.64.0.0/10` · `127.0.0.0/8` · `169.254.0.0/16` · `172.16.0.0/12` · `192.168.0.0/16` → `422` (lead A7) · CIDR ต้องเป็น**ที่อยู่เครือข่าย** — `198.51.100.5/24` → `422` "ต้องเป็นที่อยู่เครือข่าย" ให้ใช้ `198.51.100.0/24` (lead A8) · ลำดับเช็คต่อรายการ: รูปแบบ → host bits → กว้างเกิน → IP ภายใน → ซ้ำ |
 | ACC-08 | บันทึก = แทนทั้งชุด (ลิงก์ + รายการ IP) · ต้องส่ง `passcode` ของผู้กด (`RequirePasscode`) · tx + `SELECT ... FOR UPDATE` แถว credential |
 | ACC-09 | ทุกการบันทึกเก็บประวัติ `api_credential_logs` (ผู้แก้, ลิงก์เก่า → ใหม่, IP เก่า → ใหม่, ip, request_id, เวลา) ใน tx เดียวกัน · ห้ามเก็บ Key ในประวัติ |
 | ACC-10 | ชื่อผู้ใช้ในหน้านี้ = username ของเจ้าของ (อ่านอย่างเดียว) |
@@ -113,52 +101,9 @@
 
 | Method | Path | middleware เพิ่ม |
 |---|---|---|
-| GET | `/api/v1/bo/pr/account/dashboard` | `RequirePermission(dashboard, view)` |
 | GET | `/api/v1/bo/pr/account/profile` | — (เปิดได้ตอน SUSPENDED) |
-| GET | `/api/v1/bo/pr/account/api-credential` | — ไม่มีสิทธิ์ต่อเมนู (ACC-02) · เปิดได้ตอน SUSPENDED (ACC-31) |
-| POST | `/api/v1/bo/pr/account/update-credential` | `RequirePasscode` (ไม่มีสิทธิ์ต่อเมนู — ACC-02) |
-
-### GET /api/v1/bo/pr/account/dashboard
-
-Query: `game` (รหัสเกม · ไม่ส่ง = ทุกเกม) · `year` (บังคับ) · `month` (1–12 · ไม่ส่ง = ทั้งปี) · `currency` (บังคับ)
-
-Response `data`:
-```json
-{
-  "currency": "THB",
-  "period": { "from": "2026-10-01", "to": "2026-10-31" },
-  "updated_at": "2026-10-05T00:47:00+07:00",
-  "cards": {
-    "active_members":   { "value": 12 },
-    "new_members":      { "value": 3, "change_pct": 50.0 },
-    "total_members":    { "value": 120, "change_pct": 2.56 },
-    "bet_count":        { "value": 5400, "change_pct": -3.1 },
-    "win_count":        { "value": 2100, "change_pct": 1.2 },
-    "bet_amount":       { "value": 987654.00, "change_pct": 4.0 },
-    "bet_amount_pt":    { "value": 98765.40, "change_pct": 4.0 },
-    "win_amount_pt":    { "value": 80000.00, "change_pct": 0 },
-    "win_loss_pt":      { "value": 18765.40, "change_pct": 12.5 },
-    "commission_received": { "value": 1200.00, "change_pct": 3.0 },
-    "commission_paid":     { "value": 800.00, "change_pct": -1.0 },
-    "income":              { "value": 19165.40, "change_pct": 11.8 }
-  },
-  "top_bet":  [ { "rank": 1, "username": "m001", "amount": 15000.00 } ],
-  "top_win":  [ { "rank": 1, "username": "m007", "amount": 9000.00 } ],
-  "top_loss": [ { "rank": 1, "username": "m013", "amount": 7000.00 } ]
-}
-```
-| field | การ์ด | ชนิด |
-|---|---|---|
-| `active_members` · `new_members` · `total_members` | สมาชิกที่กำลังใช้งาน · สมัครใหม่ · ทั้งหมด | จำนวนคน |
-| `bet_count` · `win_count` | ยอดเล่นทั้งหมด · ยอดเล่นที่ถูกรางวัล | จำนวนครั้ง |
-| `bet_amount` | ยอดเล่นจริง | เงิน |
-| `bet_amount_pt` · `win_amount_pt` · `win_loss_pt` | ยอดเล่นทั้งหมด / ถูกรางวัล / แพ้ชนะ ตาม PT | เงิน |
-| `commission_received` · `commission_paid` · `income` | Commission ที่ได้ · ที่จ่าย · รายได้ (ACC-25) | เงิน |
-
-- จำนวนเงินและ `change_pct` เป็น JSON number ตาม ACC-18 (ภายในเป็นจำนวนเต็ม) · `change_pct` = `0` เมื่อช่วงก่อนหน้าเป็น 0 (ไม่มี `null` — ACC-32)
-- `period`: ส่ง `month` = เดือนนั้น · ไม่ส่ง = 1 ม.ค. – 31 ธ.ค. ของ `year`
-
-Error codes: `422` (`year` / `month` ผิดรูปแบบ · ไม่ส่ง `currency` หรือเป็นสกุลที่บัญชีไม่มี · `game` ไม่มีในระบบ — msg บอก field) · `402303` (sub ไม่มีสิทธิ์)
+| GET | `/api/v1/bo/pr/account/api-credential` | `RequireSubPermission(api_credential, view)` (ACC-02) · เปิดได้ตอน SUSPENDED (ACC-31) |
+| POST | `/api/v1/bo/pr/account/update-credential` | `RequireSubPermission(api_credential, edit)` (ACC-02) + `RequirePasscode` |
 
 ### GET /api/v1/bo/pr/account/profile
 
@@ -184,13 +129,15 @@ Response `data` (ตัวอย่าง sub ของ Share B2C):
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
-    "dashboard": "view", "member": "off", "pt": "off", "report": "view",
-    "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off"
+    "dashboard": "off", "member": "off", "pt": "off", "report": "view",
+    "bet_cancel": "off", "payment": "off", "asset": "off", "announcement": "off", "api_credential": "view"
   }
 }
 ```
 - `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้ผู้สร้าง (`share01`) ถูกระงับ sub จึงได้ `SUSPENDED`
-- `pt.minigame`: ได้รับ 90 (`pt_from_parent` — ผู้สร้างตั้ง) · ถือจาก Member ของตัวเอง 20 (`pt` — ตั้งเอง) · `created_by` = ผู้สร้าง · `updated_by` = คนที่แก้ค่า PT ล่าสุด\n- `status_game`: `scratch_card` ถูกปิด (`false`)
+- `pt.minigame`: ได้รับ 90 (`pt_from_parent` — ผู้สร้างตั้ง) · `created_by` = ผู้สร้าง · `updated_by` = คนที่แก้ค่า PT ล่าสุด
+- `permissions`: sub ถูกระงับ เหลือ `report` และ `api_credential` ที่เจ้าของให้ไว้ไม่เกิน `view` (ACC-12)
+- `status_game`: `scratch_card` ถูกปิด (`false`)
 - `user_type`: `SUPERADMIN` · `ADMIN` · `COMPANY_TRANSFER` · `COMPANY_SEAMLESS_RESELLER` · `COMPANY_SEAMLESS_MASTER` ·
   `COMPANY_SEAMLESS_1TO1` · `SHARE_B2B` · `SHARE_B2C` · `SHARE_RESELLER` · `SHARE_MASTER` · `AGENT`
 - `owner_username` = `""` เมื่อไม่ใช่ sub · `last_login_*` = `""` ถ้ายังไม่เคยบันทึก (ACC-32)
@@ -287,33 +234,30 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-31 | `status = SUSPENDED` เรียก profile | สำเร็จ |
 | ACC-31 | `status = SUSPENDED` (เจ้าของหรือ sub) เรียก GET api-credential | สำเร็จ (ดูได้อย่างเดียว) |
 | ACC-31 | `status = SUSPENDED` เรียก dashboard / POST update-credential / route อื่นนอก Profile, Report, GET api-credential | ถูกปฏิเสธ (AUTH-54) |
-| ACC-21 | Company A ดู dashboard | นับเฉพาะ Member ในสาย A |
-| ACC-22 | `currency` ที่บัญชีไม่มี / ไม่ส่ง · `month = 13` · ไม่ส่ง `year` | `422` |
-| ACC-22 | ไม่ส่ง `month` | `period` = ทั้งปีของ `year` |
-| ACC-24 | ช่วงก่อนหน้ามียอด 0 | `change_pct = 0` |
-| ACC-25 | Member แพ้ 1,000 · คนที่ login ถือ 20% | `win_loss_pt` บวก 200 · `income` = `win_loss_pt` + `commission_received` − `commission_paid` |
-| ACC-26 | Member ในสาย 15 คน | Top 10 แต่ละตารางมี 10 แถว เรียงจากมากไปน้อย |
 | ACC-11 | Agent / SUPERADMIN / ADMIN เรียก profile | ข้อมูลของตัวเอง · `is_subaccount = false` · `owner_username = ""` |
 | ACC-11 | ยังไม่ตั้ง passcode เรียก profile | `401304` (ด่านหลัง login) |
 | ACC-12 | ผู้สร้างของ sub เป็น SUSPENDED | sub ได้ `status = SUSPENDED` · ไม่มี field `effective_status` |
-| ACC-12 | บัญชีหลักถูกระงับ (เอง หรือจากหัวสาย) เรียก profile | `permissions.report = "view"` · เมนูอื่น `"off"` · sub ที่เจ้าของไม่ได้ให้ `report` ได้ `off` ทุกเมนู |
-| ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt.minigame.pt = 0` (ล็อก — module ② MGMT-19) · `pt_from_parent` = ค่าที่ Superadmin ให้ |
+| ACC-12 | บัญชีหลักถูกระงับ (เอง หรือจากหัวสาย) เรียก profile | `permissions.report = "view"` · `api_credential = "view"` · เมนูอื่น `"off"` · sub ที่เจ้าของไม่ได้ให้ `report` / `api_credential` ได้ `off` |
+| ACC-12 | Company Seamless Master เรียก profile | `user_type = COMPANY_SEAMLESS_MASTER` · `pt_from_parent` = ค่าที่ Superadmin ให้ · ไม่มี field `pt` (ลบ 2026-10-09) |
 | ACC-15 | sub ของ Share B2C เรียก profile | `user_type`, `currencies`, `balances`, `pt` เท่าของผู้สร้าง · `permissions` = ที่ผู้สร้างให้ |
 | ACC-16 | ADMIN เรียก profile | `pt = {}` · ไม่มี field `status_game` |
-| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `pt = 0` (ไม่มี Member ตรง) |
+| ACC-16 | SUPERADMIN เรียก profile | `pt.minigame.pt_from_parent = 100` · `permissions` 8 เมนู ไม่มี `api_credential` |
 | ACC-16 | ชั้นบนปิดเกม `scratch_card` ให้บัญชีนี้ | `status_game.scratch_card = false` · เกมอื่น `true` · `pt.minigame` ไม่เปลี่ยน |
 | ACC-19 | Share B2B มี THB และ USD | `balances` 2 รายการ (THB, USD) |
 | ACC-19 | Company Seamless 1 to 1 | `balances` ทุกรายการ `amount = 0` |
-| ACC-19 | Share สร้างพร้อมยอดเงินตั้งต้น THB 10,000 (module ② MGMT-15A) | `balances` THB `amount = 10000.00` |
-| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 8 เมนู ค่า `edit` ทั้งหมด (ไม่มี `account`) |
+| ACC-19 | Share สร้างพร้อมยอดเงินตั้งต้น THB 10,000 (module ② MGMT-15A) | `balances` THB `amount = 10000` |
+| ACC-12 | Agent (บัญชีหลัก) เรียก profile | `permissions` ครบ 9 เมนู (รวม `api_credential`) ค่า `edit` ทั้งหมด (ไม่มี `account`) |
 | ACC-15 | sub ที่ได้แค่ `report` = `view` | `permissions.report = "view"` · เมนูอื่น `"off"` |
-| ACC-18 | Commission 0.5% | profile ได้ `0.5` · DB เก็บจำนวนเต็ม |
+| ACC-18 | Commission 0.5% | profile ได้ `0.5` · DB เก็บ `0.5` (float — ACC-18) |
 | ACC-14 | login แล้วเรียก profile | `last_login_at` / `last_login_ip` ตรงกับ login นี้ |
 | ACC-01 | Company Seamless 1 to 1 / Share Master / Share Reseller เรียก GET | สำเร็จ · ได้ Key ของตัวเอง |
 | ACC-01 | Share Reseller 2 บัญชีใต้ Company เดียวกัน | ได้ Key คนละค่า |
 | ACC-01 | Company Transfer, Company Seamless Reseller, Share B2C, Agent เรียก GET | ได้ Key ของตัวเอง (สร้างตอนสร้างบัญชี) |
 | ACC-01 | Superadmin / ADMIN เรียก GET / POST | `403301` |
-| ACC-02 | sub ที่ไม่ได้รับสิทธิ์ใดเลย (`permissions = {}`) | GET / POST สำเร็จ · log บันทึก actor เป็น sub |
+| ACC-02 | sub ไม่มีสิทธิ์ `api_credential` | GET / POST `402303` |
+| ACC-02 | sub `api_credential` = `view` | GET ได้ Key เต็มของเจ้าของ · POST `402303` |
+| ACC-02 | sub `api_credential` = `edit` | POST สำเร็จ · log บันทึก actor เป็น sub |
+| ACC-02 | sub ของ Superadmin ได้สิทธิ์ `api_credential` | `422` (เมนูไม่มีในประเภทนี้) |
 | ACC-02 | เจ้าของ SUSPENDED กดบันทึก | ถูกปฏิเสธที่ middleware (ACC-31 / AUTH-54) |
 | ACC-03 | เจ้าของ GET ครั้งแรก | Key hex ตัวพิมพ์เล็ก 64 ตัว |
 | ACC-04 | GET ซ้ำ | Key เดิม · header `Cache-Control: no-store` · `api_credentials.api_key` = Key ที่ได้ |
@@ -325,6 +269,8 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | ACC-07 | `2001:db8::1` / `300.1.1.1` / `1.2.3.4/33` | `422` |
 | ACC-07 | 51 รายการ / IP ซ้ำ (`1.2.3.4` กับ `1.2.3.4/32`) | `422` |
 | ACC-07 | `1.2.3.4` | GET ได้ `1.2.3.4/32` |
+| ACC-07 | `8.0.0.0/8` · `0.0.0.0/0` · `10.1.2.3` · `192.168.1.0/24` · `127.0.0.1` · `198.51.100.5/24` | `422` |
+| ACC-07 | `8.8.0.0/16` · `203.0.113.7` | สำเร็จ |
 | ACC-08 | ไม่ส่ง `passcode` / ผิด | `422` / `401204` |
 | ACC-08 | บันทึกรายการใหม่ | IP เดิมที่ไม่อยู่ในรายการใหม่ถูกลบ |
 | ACC-09 | บันทึกสำเร็จ | มีแถว `api_credential_logs` ค่าเก่า / ใหม่ถูกต้อง · ไม่มี Key |
@@ -335,8 +281,8 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 - สถานะส่ง key เดียว `status` = สถานะที่ใช้งานจริง (ACC-30) · ไม่มี `effective_status`
 - **ไม่มี `null` ใน API** (ACC-32): ข้อความว่าง = `""` · ตัวเลขว่าง = `0` · request ส่ง `null` = `422`
 - Profile มี `user_type`, `currencies`, `balances`, `pt` (ชุดเดียวต่อระบบ `minigame` — รวม `pt_from_parent`, `status`, `created_at`, `created_by`, `updated_at`, `updated_by` · แก้ 2026-10-08), `status_game` (ทีละเกม), `permissions` — ใช้แสดงผล / เช็คเบื้องต้นในฟอร์มได้ หลังบ้านเช็คซ้ำเสมอ
-- Dashboard: `month` ไม่บังคับ (ไม่ส่ง = ทั้งปี) · เพิ่มการ์ด `commission_received`, `commission_paid`, `income`
-- หน้า 1.3 แสดงเฉพาะ Company Seamless 1 to 1 / Share Master / Share Reseller และ sub ที่ได้รับสิทธิ์ · `callback_url` ว่างส่ง `""`
+- **(2026-10-09 lead review)** เมนูสิทธิ์ใหม่ `api_credential` ใน `permissions` (Company / Share / Agent) · sub ต้องมี `view` ถึงเปิดหน้า 1.3 · `edit` ถึงบันทึก (ไม่มี = `402303`) · `allowed_ips` มี error `422` ใหม่ 2 แบบ: ช่วงกว้างกว่า `/16` · IP ภายใน / พิเศษ · Dashboard ยังไม่มี (หัวข้อ 10)
+- หน้า 1.3 แสดงทุกบัญชี Company / Share / Agent (ACC-01) และ sub ที่มีสิทธิ์ `api_credential` · `callback_url` ว่างส่ง `""`
 - `balances` ส่งยอดจริงจาก `agent_balances` · `permissions` เป็น object `{ menu: off | view | edit }`
 
 ## 9. การตัดสินใจ (2026-10-05)
@@ -369,3 +315,75 @@ CREATE INDEX idx_api_credential_logs_agent ON api_credential_logs(agent_id, crea
 | 403301 | 200 | บัญชีนี้ไม่มีข้อมูลรับรอง API (Superadmin / ADMIN) |
 
 `403302` (เดิม: บัญชีถูกระงับ) ตัดออกก่อนปล่อยใช้ — จองถาวร
+
+## 10. ภายหลัง / ไม่อยู่ใน scope รอบนี้ (lead A1 2026-10-09)
+
+Dashboard (1.1) ยังไม่ทำ · เก็บกฎและ contract ไว้ใช้ตอนทำ (รอ module เดิมพัน) · ยังไม่อยู่ใน `routes.go`
+
+### กฎ Dashboard (1.1)
+
+| ID | Rule |
+|---|---|
+| ACC-20 | เปิดได้: บัญชีหลังบ้านที่มีสิทธิ์ `dashboard` = `view` ขึ้นไป (module ② MGMT-51) · `status` ต้องเป็น `ACTIVE` (ACC-31) |
+| ACC-21 | ข้อมูลเฉพาะสายของตัวเอง (ตัวเอง + สายล่าง) · sub เห็นของผู้สร้าง (AUTH-26) · ไม่เห็นข้ามสาย ไม่เห็นชั้นบน (System Overview) |
+| ACC-22 | ตัวกรอง: เกม (ทั้งหมด หรือเกมเดียว) · ปี (บังคับ) + เดือน (ไม่บังคับ — **ไม่ส่ง = ทั้งปี** ใช้กับทางลัด "ปีนี้") · ทางลัด ก่อนหน้า / เดือนนี้ / ปีนี้ / ถัดไป หน้าบ้านแปลงเป็น `month` / `year` เอง · สกุลเงิน 1 สกุลต่อครั้ง (บังคับ · ต้องเป็นสกุลที่บัญชีมีตาม module ② MGMT-10 ถึง 13) |
+| ACC-23 | ข้อมูลเป็นยอดสรุปรายวัน อัปเดตวันละครั้ง ช่วง 00:15–01:00 น. (ไม่ใช่ real-time) · ช่วงเวลาที่ยังไม่สรุปไม่นับ |
+| ACC-24 | การ์ด (ชนิดของค่าในวงเล็บ — **จำนวน** = จำนวนเต็ม · **เงิน** = จำนวนเงินในสกุลที่เลือก): สมาชิกที่กำลังใช้งาน (จำนวนคน) · สมาชิกที่สมัครใหม่ (จำนวนคน) · สมาชิกทั้งหมด (จำนวนคน) · ยอดเล่นทั้งหมด (จำนวนครั้ง) · ยอดเล่นที่ถูกรางวัล (จำนวนครั้ง) · ยอดเล่นจริง (เงิน) · ยอดเล่นทั้งหมดตาม PT (เงิน) · ยอดถูกรางวัลตาม PT (เงิน) · ยอดแพ้ / ชนะตาม PT (เงิน) · Commission ที่ได้ (เงิน) · Commission ที่จ่าย (เงิน) · รายได้ (เงิน) · ทุกการ์ด (ยกเว้นสมาชิกที่กำลังใช้งาน) แสดง % เปลี่ยนแปลงเทียบช่วงก่อนหน้าที่ยาวเท่ากัน |
+| ACC-25 | "ตาม PT" = ยอดคูณ PT ที่**คนที่ login ถือ** (ค่า ณ ตอน bet) · **รายได้** = ยอดแพ้ / ชนะตาม PT + Commission ที่ได้ − Commission ที่จ่าย (สูตร Commission ตามเอกสาร PT Commission ของ lead) |
+| ACC-26 | ตาราง Top 10 สมาชิกในสาย: ยอดเล่นมากสุด · ยอดถูกมากสุด · ยอดเสียมากสุด (ลำดับ, username, จำนวนเงิน) |
+| ACC-27 | ตัวเลขตาม ACC-18: เงินและ % ใน JSON เป็น number (ทศนิยมไม่เกิน 4 ตำแหน่ง ตามที่เก็บ · หน้าบ้านปัด 3 ตำแหน่งเอง) ภายในเป็น `float64` (แก้ 2026-10-09) · ช่วงก่อนหน้าเป็น 0 → `change_pct = 0` |
+
+
+### endpoint: GET /api/v1/bo/pr/account/dashboard
+
+Query: `game` (รหัสเกม · ไม่ส่ง = ทุกเกม) · `year` (บังคับ) · `month` (1–12 · ไม่ส่ง = ทั้งปี) · `currency` (บังคับ)
+
+Response `data`:
+```json
+{
+  "currency": "THB",
+  "period": { "from": "2026-10-01", "to": "2026-10-31" },
+  "updated_at": "2026-10-05T00:47:00+07:00",
+  "cards": {
+    "active_members":   { "value": 12 },
+    "new_members":      { "value": 3, "change_pct": 50.0 },
+    "total_members":    { "value": 120, "change_pct": 2.56 },
+    "bet_count":        { "value": 5400, "change_pct": -3.1 },
+    "win_count":        { "value": 2100, "change_pct": 1.2 },
+    "bet_amount":       { "value": 987654.00, "change_pct": 4.0 },
+    "bet_amount_pt":    { "value": 98765.40, "change_pct": 4.0 },
+    "win_amount_pt":    { "value": 80000.00, "change_pct": 0 },
+    "win_loss_pt":      { "value": 18765.40, "change_pct": 12.5 },
+    "commission_received": { "value": 1200.00, "change_pct": 3.0 },
+    "commission_paid":     { "value": 800.00, "change_pct": -1.0 },
+    "income":              { "value": 19165.40, "change_pct": 11.8 }
+  },
+  "top_bet":  [ { "rank": 1, "username": "m001", "amount": 15000.00 } ],
+  "top_win":  [ { "rank": 1, "username": "m007", "amount": 9000.00 } ],
+  "top_loss": [ { "rank": 1, "username": "m013", "amount": 7000.00 } ]
+}
+```
+| field | การ์ด | ชนิด |
+|---|---|---|
+| `active_members` · `new_members` · `total_members` | สมาชิกที่กำลังใช้งาน · สมัครใหม่ · ทั้งหมด | จำนวนคน |
+| `bet_count` · `win_count` | ยอดเล่นทั้งหมด · ยอดเล่นที่ถูกรางวัล | จำนวนครั้ง |
+| `bet_amount` | ยอดเล่นจริง | เงิน |
+| `bet_amount_pt` · `win_amount_pt` · `win_loss_pt` | ยอดเล่นทั้งหมด / ถูกรางวัล / แพ้ชนะ ตาม PT | เงิน |
+| `commission_received` · `commission_paid` · `income` | Commission ที่ได้ · ที่จ่าย · รายได้ (ACC-25) | เงิน |
+
+- จำนวนเงินและ `change_pct` เป็น JSON number ตาม ACC-18 (ภายในเป็น `float64` — ACC-18) · `change_pct` = `0` เมื่อช่วงก่อนหน้าเป็น 0 (ไม่มี `null` — ACC-32)
+- `period`: ส่ง `month` = เดือนนั้น · ไม่ส่ง = 1 ม.ค. – 31 ธ.ค. ของ `year`
+
+Error codes: `422` (`year` / `month` ผิดรูปแบบ · ไม่ส่ง `currency` หรือเป็นสกุลที่บัญชีไม่มี · `game` ไม่มีในระบบ — msg บอก field) · `402303` (sub ไม่มีสิทธิ์)
+
+
+#### test cases ของ Dashboard
+
+| Rule | Input | Expected |
+|---|---|---|
+| ACC-21 | Company A ดู dashboard | นับเฉพาะ Member ในสาย A |
+| ACC-22 | `currency` ที่บัญชีไม่มี / ไม่ส่ง · `month = 13` · ไม่ส่ง `year` | `422` |
+| ACC-22 | ไม่ส่ง `month` | `period` = ทั้งปีของ `year` |
+| ACC-24 | ช่วงก่อนหน้ามียอด 0 | `change_pct = 0` |
+| ACC-25 | Member แพ้ 1,000 · คนที่ login ถือ 20% | `win_loss_pt` บวก 200 · `income` = `win_loss_pt` + `commission_received` − `commission_paid` |
+| ACC-26 | Member ในสาย 15 คน | Top 10 แต่ละตารางมี 10 แถว เรียงจากมากไปน้อย |
