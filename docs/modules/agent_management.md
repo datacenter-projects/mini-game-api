@@ -181,7 +181,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-40 | สร้างได้: บัญชีหลักฝั่ง agent (ADMIN ไม่ได้ — AUTH-43) · sub สร้าง / แก้ / เปลี่ยนสถานะ / ดูรายชื่อ sub ไม่ได้ (`402311`) |
 | MGMT-41 | username = `{username เจ้าของ}@{ชื่อ}` · ส่วนหลัง `@` 3–20 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่ เก็บตัวเล็ก) · รหัสผ่านตาม AUTH-36 · ชื่อเล่นตาม MGMT-07 · เบอร์ตาม MGMT-08 แต่**ซ้ำได้** |
 | MGMT-42 | แก้ได้: ชื่อเล่น · เบอร์โทร · สิทธิ์ (`subaccounts/detail/update`) · สถานะ (`subaccounts/status/update`) · username แก้ไม่ได้ · รหัสผ่านใช้ระบบ reset ของ admin (AUTH-52) |
-| MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · เจ้าของเป็นคนเปลี่ยน · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ (เก็บเป็น `SUSPENDED` · API แสดง `INACTIVE`) · ไม่ต้อง passcode · เจ้าของหรือหัวสายถูกระงับ / ล็อก → sub ได้ผลตาม `status` ที่ใช้งานจริง |
+| MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · เจ้าของเป็นคนเปลี่ยน · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ (เก็บเป็น `SUSPENDED` · API แสดง `INACTIVE`) · ไม่ต้อง passcode · **ส่งสถานะเดิม = `200` ไม่เขียน log** (กฎเดียวกับ MGMT-30 · ตัดสิน 2026-10-10) · เจ้าของหรือหัวสายถูกระงับ / ล็อก → sub ได้ผลตาม `status` ที่ใช้งานจริง |
 | MGMT-44 | ไม่มีการลบ sub — เลิกใช้ให้เปลี่ยนเป็น `INACTIVE` |
 | MGMT-45 | แก้ / เปลี่ยนสถานะได้เฉพาะเจ้าของ · ชั้นบนดูรายชื่อและรายละเอียด sub ของบัญชีในสายล่างได้อย่างเดียว (`402404`) |
 | MGMT-46 | รายชื่อ sub: `owner_id` (ไม่ส่ง = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · `keyword` ค้น username บางส่วน ไม่สนตัวพิมพ์ 4–32 ตัว (ไม่ส่ง / `""` = ทั้งหมด · แบบเดียวกับ MGMT-27 — แก้ 2026-10-10 แทน `q`) · A→Z · `page` / `limit` · แต่ละแถว `id` · `username` · `name` · `phone_country_code` · `phone` · `status` · `permissions` · `created_at` · `last_login_at` · `last_login_ip` · `subaccounts/detail/get` ส่ง field ชุดเดียวกัน |

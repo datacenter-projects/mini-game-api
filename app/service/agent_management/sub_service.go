@@ -222,6 +222,9 @@ func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.A
 		if err != nil {
 			return err
 		}
+		if s.Status == next {
+			return nil // ค่าเดิม = 200 ไม่เขียน log (กฎเดียวกับ agents/status/update — lead MQ5 / V1)
+		}
 		now := time.Now()
 		if err := agentManagementPostgres.UpdateSubaccountStatusRepository(tx, s.ID, next, now); err != nil {
 			return err

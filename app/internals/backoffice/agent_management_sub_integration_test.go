@@ -234,7 +234,8 @@ func TestSubUpdate(t *testing.T) { // MGMT-42, MGMT-43, MGMT-44, MGMT-45, MGMT-6
 	expect(t, call(t, app, "GET", profilePath, nil, subTok), 200, 200)
 	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 403, 401311)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200)
-	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303) // กลับมาใช้สิทธิ์ตามปกติ (ไม่มีสิทธิ์ member)
+	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200) // สถานะเดิม = ไม่เขียน log (นับใน logs ด้านล่าง)
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303)                                // กลับมาใช้สิทธิ์ตามปกติ (ไม่มีสิทธิ์ member)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "INACTIVE"}, c.comTok), 200, 402404)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "SUSPENDED"}, c.shareTok), 200, 422)
 

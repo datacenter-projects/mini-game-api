@@ -246,7 +246,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/status/update" \
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ" }`
 - `ACTIVE` / `SUSPENDED` / `LOCKED` · ลูกตรงเท่านั้น (ตัวเอง / หลาน = `402304`) · ไม่ต้อง passcode
-- `LOCKED` มีผลตั้งแต่ request ถัดไป · ปลดลูกแล้วถ้าหัวสายที่สูงกว่ายังถูกระงับ ลูกยังแสดง `SUSPENDED`
+- ส่งสถานะเดิม = 200 (ไม่มีประวัติเพิ่ม) · `LOCKED` มีผลตั้งแต่ request ถัดไป · ปลดลูกแล้วถ้าหัวสายที่สูงกว่ายังถูกระงับ ลูกยังแสดง `SUSPENDED`
 
 Error: `422`, `402303`, `402304`, `402402`
 
@@ -326,7 +326,7 @@ Error: `422`, `402311`, `402404`
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/status/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"id":30,"status":"INACTIVE"}'
 ```
-Response: `{ "code": 200, "msg": "สำเร็จ" }` · `ACTIVE` / `INACTIVE` · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ · ไม่มีการลบ sub
+Response: `{ "code": 200, "msg": "สำเร็จ" }` · `ACTIVE` / `INACTIVE` · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ · ส่งสถานะเดิม = 200 (ไม่มีประวัติเพิ่ม) · ไม่มีการลบ sub
 
 Error: `422`, `402311`, `402404`
 
