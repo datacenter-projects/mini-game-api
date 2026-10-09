@@ -214,7 +214,6 @@ func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req
 	})
 }
 
-
 // groupSetting — แถวของเกมแรกในกลุ่ม (ค่าในกลุ่มเท่ากันทุกเกม — MGMT-16)
 func groupSetting(settings []models.AgentGameSetting, group agentManagementCore.PTGroup) (models.AgentGameSetting, bool) {
 	for _, s := range settings {
