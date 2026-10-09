@@ -5,7 +5,7 @@
   เส้น `update-commission` → `update-pt` · migration `20261009120050_member_management_member_pt` · **ต้องทำต่อที่ `agent_management` (ยังไม่ทำ)** ดูหัวข้อ 7
 - แก้ (2026-10-09 · maofoy · **รอ lead อนุมัติ** · `credit` เป็น float ทีมตกลงแล้ว — CLAUDE.md กฎข้อ 9 ยังต้องแก้): `user_members.cnf` สายชั้นบน (รูปแบบเดียวกับ MGMT-61) ·
   ยอดของ Member ย้ายไป `user_members.credit` (float หน่วยสกุล) · เลิกใช้และ DROP `user_member_balances` · migration `20261009120100_member_management_member_cnf_credit`
-- แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 รอ lead review): % และ ledger เป็นทศนิยม float ปัด 4 ตำแหน่ง แบบเดียวกับ `credit` · column ตัด `_bp` (`pt` · `remain` · `commission`) · boiledegg แก้โค้ดฝั่ง Member ให้ (ต้องแจ้ง maofoy)
+- แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 lead (zerph) อนุมัติ 2026-10-09): % และ ledger เป็นทศนิยม float ปัด 4 ตำแหน่ง แบบเดียวกับ `credit` · column ตัด `_bp` (`pt` · `remain` · `commission`) · boiledegg แก้โค้ดฝั่ง Member ให้ (ต้องแจ้ง maofoy)
 - ผู้ดูแล: maofoy
 - ชื่อ module ในโค้ด: `member_management` (`controllers/member_management`, `dto/member_management`, `service/member_management`) · กฎ business ร่วมอยู่ที่ `core/agent_management`
 - rule ID ใช้ `MGMT-xx` ชุดเดียวกับ [agent_management.md](agent_management.md) (ไม่ตั้งเลขใหม่ — โค้ดและ test อ้างเลขเดิม) · error ใช้ `402xxx` ของ module `agent_management`
