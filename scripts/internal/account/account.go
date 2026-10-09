@@ -64,7 +64,7 @@ func Create(rawUsername string, role models.AgentRole) error {
 		if role != models.AgentRoleSuperAdmin {
 			return nil
 		}
-		return seedSuperadmin(tx, agent.ID)
+		return seedSuperadmin(tx, agent.ID, agent.Username)
 	})
 	if err != nil {
 		return err
@@ -101,9 +101,9 @@ func readPassword() (string, error) {
 	return string(p1), nil
 }
 
-// seedSuperadmin — Superadmin ได้รับ 100% ทุกเกม · ถือ 0 · ครบทุกสกุล (agent_management MGMT-10, MGMT-22)
+// seedSuperadmin — Superadmin ได้รับ 100% ทุกเกม · ครบทุกสกุล · ผู้สร้าง / ผู้แก้ค่า PT = ตัวเอง (agent_management MGMT-10, MGMT-16, MGMT-22)
 // แบบเดียวกับ backfill ใน migration agent_management สำหรับ Superadmin ที่มีอยู่ก่อน
-func seedSuperadmin(tx *gorm.DB, agentID uint) error {
+func seedSuperadmin(tx *gorm.DB, agentID uint, username string) error {
 	currencies := make([]models.AgentCurrency, 0, len(agentManagementCore.Currencies))
 	for _, c := range agentManagementCore.Currencies {
 		currencies = append(currencies, models.AgentCurrency{AgentID: agentID, Currency: c})
@@ -115,7 +115,7 @@ func seedSuperadmin(tx *gorm.DB, agentID uint) error {
 	for _, g := range agentManagementCore.Groups() {
 		for _, game := range agentManagementCore.GamesOf(g) {
 			settings = append(settings, models.AgentGameSetting{AgentID: agentID, GameCode: game.GameCode, Category: game.Category,
-				PTFromParent: agentManagementCore.FullPT, Status: true, StatusGame: true})
+				PTFromParent: agentManagementCore.FullPT, Status: true, StatusGame: true, CreatedBy: username, UpdatedBy: username})
 		}
 	}
 	return agentManagementPostgres.CreateAgentGameSettingsRepository(tx, settings)
