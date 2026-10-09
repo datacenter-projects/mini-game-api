@@ -140,10 +140,16 @@ func TestSubListAndDetail(t *testing.T) { // MGMT-45, MGMT-46
 		len(rows[0].Permissions) != 8 || rows[0].Status != "ACTIVE" || rows[0].CreatedAt == "" {
 		t.Fatalf("share subs %+v", rows)
 	}
-	// ชั้นบนดู sub ของสายล่างได้ · q บางส่วน · page / limit ใน body
-	rows, total = list(c.comTok, map[string]any{"owner_id": c.share.ID, "q": "BST"})
+	// ชั้นบนดู sub ของสายล่างได้ · keyword บางส่วน ไม่สนตัวพิมพ์ 4–32 ตัว · page / limit ใน body
+	rows, total = list(c.comTok, map[string]any{"owner_id": c.share.ID, "keyword": " BSTA "})
 	if total != 1 || rows[0].Username != "share01@bstaff" {
-		t.Fatalf("q %+v", rows)
+		t.Fatalf("keyword %+v", rows)
+	}
+	for _, k := range []string{"bst", strings.Repeat("a", 33)} {
+		expect(t, call(t, app, "POST", subListPath, map[string]any{"keyword": k}, c.shareTok), 200, 422)
+	}
+	if _, total = list(c.shareTok, map[string]any{"q": "bstaff"}); total != 2 {
+		t.Fatalf("q เลิกใช้แล้ว ต้องไม่กรอง ได้ %d", total)
 	}
 	rows, total = list(c.comTok, map[string]any{"owner_id": c.share.ID, "limit": 1, "page": 2})
 	if total != 2 || len(rows) != 1 || rows[0].Username != "share01@bstaff" {
@@ -228,7 +234,8 @@ func TestSubUpdate(t *testing.T) { // MGMT-42, MGMT-43, MGMT-44, MGMT-45, MGMT-6
 	expect(t, call(t, app, "GET", profilePath, nil, subTok), 200, 200)
 	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 403, 401311)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200)
-	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303) // กลับมาใช้สิทธิ์ตามปกติ (ไม่มีสิทธิ์ member)
+	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200) // สถานะเดิม = ไม่เขียน log (นับใน logs ด้านล่าง)
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303)                                // กลับมาใช้สิทธิ์ตามปกติ (ไม่มีสิทธิ์ member)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "INACTIVE"}, c.comTok), 200, 402404)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "SUSPENDED"}, c.shareTok), 200, 422)
 

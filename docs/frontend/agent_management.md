@@ -4,7 +4,7 @@
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
 
 > **เปลี่ยนจากเดิม (9 ต.ค.)** — path ใหม่ทั้งหมด เส้นเดิมได้ `404` (หัวข้อ 5) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` ·
-> แก้บัญชีเหลือเส้นเดียว `agents/detail/update` · `copy-sources` → `agents/list` · ไม่มีเมนูสิทธิ์ `pt` แล้ว (`pt` แสดงเสมอ) ·
+> แก้บัญชีเหลือเส้นเดียว `agents/detail/update` · `copy-sources` → `agents/list` · `subaccounts/list` ใช้ `keyword` แทน `q` · ไม่มีเมนูสิทธิ์ `pt` แล้ว (`pt` แสดงเสมอ) ·
 > Share Reseller / Share Master สร้าง Agent ไม่ได้ · **เบอร์โทร 2 field** `phone_country_code` + `phone` (หัวข้อ 1.5) ·
 > **Share Master ใช้ค่าตาม Company Seamless Master** — ฟอร์มสร้าง / แก้ Share Master ส่งแค่ `commission_percent` (หัวข้อ 1.6)
 
@@ -246,7 +246,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/agents/status/update" \
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ" }`
 - `ACTIVE` / `SUSPENDED` / `LOCKED` · ลูกตรงเท่านั้น (ตัวเอง / หลาน = `402304`) · ไม่ต้อง passcode
-- `LOCKED` มีผลตั้งแต่ request ถัดไป · ปลดลูกแล้วถ้าหัวสายที่สูงกว่ายังถูกระงับ ลูกยังแสดง `SUSPENDED`
+- ส่งสถานะเดิม = 200 (ไม่มีประวัติเพิ่ม) · `LOCKED` มีผลตั้งแต่ request ถัดไป · ปลดลูกแล้วถ้าหัวสายที่สูงกว่ายังถูกระงับ ลูกยังแสดง `SUSPENDED`
 
 Error: `422`, `402303`, `402304`, `402402`
 
@@ -272,7 +272,7 @@ Error: `422`, `402303`
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/list" \
-  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"owner_id":10,"q":"","page":1,"limit":20}'
+  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"owner_id":10,"keyword":"","page":1,"limit":20}'
 ```
 Response `data` (แบ่งหน้า) แต่ละแถว:
 ```json
@@ -282,10 +282,10 @@ Response `data` (แบ่งหน้า) แต่ละแถว:
   "created_at": "2026-10-06T12:26:43+07:00", "last_login_at": "", "last_login_ip": ""
 }
 ```
-- `owner_id` ไม่ส่ง = sub ของตัวเอง · ชั้นบนดู sub ของสายล่างได้ · `q` ค้น username บางส่วน
+- `owner_id` ไม่ส่ง = sub ของตัวเอง · ชั้นบนดู sub ของสายล่างได้ · `keyword` ไม่ส่ง / `""` = ทั้งหมด · ส่ง 4–32 ตัว = ค้น username บางส่วน ไม่สนตัวพิมพ์ (แบบเดียวกับ `downlines/list`) · สั้น / ยาวเกิน = `422`
 - `permissions` ครบทุกเมนูของประเภทเจ้าของ (Superadmin: `dashboard` `member` `report` `bet_cancel` `payment` `asset` `rate` · Company / Share / Agent: `dashboard` `member` `report` `bet_cancel` `payment` `asset` `announcement` `api_credential`)
 
-Error: `402311`, `402402`
+Error: `422`, `402311`, `402402`
 
 ### 3.8 รายละเอียด sub — `subaccounts/detail/get`
 
@@ -326,7 +326,7 @@ Error: `422`, `402311`, `402404`
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/status/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"id":30,"status":"INACTIVE"}'
 ```
-Response: `{ "code": 200, "msg": "สำเร็จ" }` · `ACTIVE` / `INACTIVE` · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ · ไม่มีการลบ sub
+Response: `{ "code": 200, "msg": "สำเร็จ" }` · `ACTIVE` / `INACTIVE` · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ · ส่งสถานะเดิม = 200 (ไม่มีประวัติเพิ่ม) · ไม่มีการลบ sub
 
 Error: `422`, `402311`, `402404`
 

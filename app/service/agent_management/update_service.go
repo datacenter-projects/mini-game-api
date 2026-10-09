@@ -153,7 +153,7 @@ type StatusValue struct {
 	Status models.AgentStatus `json:"status"`
 }
 
-// UpdateAgentStatusService — POST /manage/agents/update-status (MGMT-30, MGMT-31)
+// UpdateAgentStatusService — POST /manage/agents/status/update (MGMT-30, MGMT-31)
 // แก้สถานะที่ตั้งกับบัญชีนั้นเอง · สายล่างได้ผลผ่านสถานะที่ใช้งานจริง ไม่แก้แถวของชั้นล่าง
 func UpdateAgentStatusService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateStatusRequest,
 	meta agentAuthService.RequestMeta) error {
@@ -164,6 +164,9 @@ func UpdateAgentStatusService(ctx context.Context, actor agentAuthService.Actor,
 		}
 		now := time.Now()
 		next := models.AgentStatus(req.Status)
+		if next == a.Status {
+			return nil // ค่าเดิม = 200 ไม่เขียน log (MGMT-34 · lead MQ5 / V1)
+		}
 		if err := agentManagementPostgres.UpdateUserAgentStatusRepository(tx, a.ID, next, now); err != nil {
 			return err
 		}
@@ -277,7 +280,7 @@ func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor
 			}
 		}
 		if childIsCSM && (v.PTFromParent != cur.PTFromParent || status != cur.Status) {
-			rows, err := syncFollowersPT(ctx, tx, actor, meta, grandIDs, grandSettings, group, v.PTFromParent, status, now)
+			rows, err := syncFollowersPT(ctx, tx, actor, meta, child.ID, grandIDs, grandSettings, group, v.PTFromParent, status, now)
 			if err != nil {
 				return err
 			}
@@ -307,8 +310,8 @@ type followerPTValue struct {
 }
 
 // syncFollowersPT — ตั้ง Share Master ทุกคนใต้ CSM ตามค่าใหม่ของ CSM (MGMT-19): pt_from_parent · force / remain = 0 · status · commission คงเดิม
-// เขียน statement เดียว · คืนแถว log SYNC_FROM_CSM ต่อ Share Master (ผู้ทำ = คนที่แก้ CSM)
-func syncFollowersPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta, followerIDs []uint,
+// เขียน statement เดียว · คืนแถว log SYNC_FROM_CSM ต่อ Share Master (ผู้ทำ = คนที่แก้ CSM · request_id เดียวกับการแก้ CSM · new_value มี csm_id — lead B5 / V6)
+func syncFollowersPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta, csmID uint, followerIDs []uint,
 	followerSettings []models.AgentGameSetting, group agentManagementCore.PTGroup, ptFromParent float64, status bool, now time.Time) ([]models.AccountChangeLog, error) {
 	if len(followerIDs) == 0 {
 		return nil, nil
@@ -329,7 +332,7 @@ func syncFollowersPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Ac
 		cur, _ := groupSetting(byID[id], group)
 		row, err := ChangeLog(actor, meta, logger.RequestID(ctx), targetAgent, id, names[id], models.ChangeSyncFromCSM,
 			map[string]followerPTValue{string(group): {cur.PTFromParent, cur.Force, cur.Remain, cur.Status}},
-			map[string]followerPTValue{string(group): {ptFromParent, 0, 0, status}}, now)
+			map[string]any{"csm_id": csmID, string(group): followerPTValue{ptFromParent, 0, 0, status}}, now)
 		if err != nil {
 			return nil, err
 		}
@@ -475,7 +478,7 @@ func syncFollowersGames(ctx context.Context, tx *gorm.DB, actor agentAuthService
 			continue
 		}
 		row, err := ChangeLog(actor, meta, logger.RequestID(ctx), targetAgent, id, names[id], models.ChangeSyncFromCSM,
-			map[string]any{"status_game": oldBy[id]}, map[string]any{"status_game": newBy[id]}, now)
+			map[string]any{"status_game": oldBy[id]}, map[string]any{"csm_id": csmID, "status_game": newBy[id]}, now)
 		if err != nil {
 			return err
 		}

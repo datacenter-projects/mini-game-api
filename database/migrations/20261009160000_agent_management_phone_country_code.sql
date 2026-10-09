@@ -1,16 +1,18 @@
 -- agent_management MGMT-08 / MGMT-08A (lead review 2026-10-09 E1-5 / B1): เบอร์ 2 field phone_country_code + phone
 -- ใช้กับ user_agents และ subaccounts · user_members ทำใน member_management
 -- แปลงเบอร์เดิม: ขึ้นต้น 0 → 66 + ตัด 0 · ขึ้นต้น 66 และยาว 11 หลัก → 66 + ส่วนที่เหลือ · แบบอื่นล้างเป็น NULL (ไม่เดาประเทศ)
--- รายการที่ถูกล้าง (รวมเบอร์ที่ซ้ำกันหลังแปลง — เก็บแถวที่ id น้อยสุด) บันทึกใน migration_phone_cleared
+-- รายการที่ถูกล้าง (รวมเบอร์ที่ซ้ำกันหลังแปลง — บัญชี id น้อยสุดเก็บเบอร์ไว้ · lead B6) บันทึกใน migration_phone_cleared
+-- แก้ไฟล์นี้หลัง merge ได้ตาม lead V7 (2026-10-10 · ยังไม่มี prod): เพิ่ม kept_agent_id
 
 -- +goose Up
 CREATE TABLE migration_phone_cleared (
-    id         BIGSERIAL   PRIMARY KEY,
-    table_name VARCHAR(30) NOT NULL,
-    row_id     BIGINT      NOT NULL,
-    old_phone  VARCHAR(20) NOT NULL,   -- FORMAT = เบอร์เดิมก่อนแปลง · DUPLICATE = รหัส + เบอร์หลังแปลง
-    reason     VARCHAR(20) NOT NULL,   -- FORMAT / DUPLICATE
-    cleared_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    id            BIGSERIAL   PRIMARY KEY,
+    table_name    VARCHAR(30) NOT NULL,
+    row_id        BIGINT      NOT NULL,
+    old_phone     VARCHAR(20) NOT NULL,   -- FORMAT = เบอร์เดิมก่อนแปลง · DUPLICATE = รหัส + เบอร์หลังแปลง
+    reason        VARCHAR(20) NOT NULL,   -- FORMAT / DUPLICATE
+    kept_agent_id BIGINT,                 -- DUPLICATE: บัญชีที่ได้เก็บเบอร์นี้ไว้ (id น้อยสุดในกลุ่มที่ซ้ำ) · FORMAT = NULL
+    cleared_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ---- user_agents ----
@@ -27,9 +29,10 @@ INSERT INTO migration_phone_cleared (table_name, row_id, old_phone, reason)
 SELECT 'user_agents', id, phone, 'FORMAT' FROM user_agents WHERE phone IS NOT NULL AND phone_country_code IS NULL;
 UPDATE user_agents SET phone = NULL WHERE phone IS NOT NULL AND phone_country_code IS NULL;
 
-INSERT INTO migration_phone_cleared (table_name, row_id, old_phone, reason)
-SELECT 'user_agents', id, phone_country_code || phone, 'DUPLICATE' FROM (
-    SELECT id, phone_country_code, phone, row_number() OVER (PARTITION BY phone_country_code, phone ORDER BY id) AS rn
+INSERT INTO migration_phone_cleared (table_name, row_id, old_phone, reason, kept_agent_id)
+SELECT 'user_agents', id, phone_country_code || phone, 'DUPLICATE', kept FROM (
+    SELECT id, phone_country_code, phone, row_number() OVER (PARTITION BY phone_country_code, phone ORDER BY id) AS rn,
+           min(id) OVER (PARTITION BY phone_country_code, phone) AS kept
     FROM user_agents WHERE phone IS NOT NULL
 ) d WHERE rn > 1;
 UPDATE user_agents SET phone = NULL, phone_country_code = NULL

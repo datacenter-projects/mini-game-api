@@ -68,8 +68,8 @@
 | MGMT-05 | username (ฝั่ง agent และ Member): 3–32 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่แล้วแปลงเป็นเล็ก — AUTH-01) · **ห้ามซ้ำทั้งระบบ** ข้ามตาราง `user_agents` และ `user_members` (เช็คใน tx พร้อม `pg_advisory_xact_lock` ของ username) · แก้ไม่ได้ (AUTH-19) |
 | MGMT-06 | รหัสผ่านตาม AUTH-36 · ฝั่ง agent ตั้ง passcode ตอน login ครั้งแรก (AUTH-29) |
 | MGMT-07 | ชื่อ: บังคับ · 3–32 ตัวอักษร (นับเป็นตัวอักษร) · ภาษาไทย `A-Z` `a-z` `0-9` · ไม่มีช่องว่าง |
-| MGMT-08 | **เบอร์โทร 2 field** (แก้ 2026-10-09 — lead E1-5): `phone_country_code` = รหัสโทรออกของประเทศ ตัวเลข 1–3 หลัก ไม่มี `+` (เช่น `66`) ต้องเป็นรหัสที่มีจริง (รายการใน `app/core`) · `phone` = เบอร์ในประเทศ ตัวเลขล้วน **ไม่มี 0 นำหน้า** (เช่น `812345678`) · รวมสองค่าไม่เกิน 15 หลัก (E.164) · ไม่กรอก = `""` ทั้งคู่ · ส่งค่าเดียว = `422` · ห้าม `null` · **ห้ามซ้ำที่คู่** (code + phone) ภายในตารางเดียวกัน · sub ซ้ำได้ (MGMT-41) · ใช้รูปแบบนี้ทุกที่: agent · sub · Member |
-| MGMT-08A | migration เบอร์เดิม (lead B1): ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` และยาว 11 หลัก → `66` + ส่วนที่เหลือ · **แบบอื่นทั้งหมดล้างเป็น `""`** (ไม่เดาประเทศ) · ฝั่ง agent ถ้าแปลงแล้วคู่ซ้ำกัน (เช่น `0812345678` กับ `66812345678`) เก็บแถวที่ `id` น้อยสุด แถวอื่นล้าง · ทุกรายการที่ถูกล้างบันทึกในตาราง `migration_phone_cleared` (`table_name` · `row_id` · `old_phone` · `reason` = `FORMAT` / `DUPLICATE`) |
+| MGMT-08 | **เบอร์โทร 2 field** (แก้ 2026-10-09 — lead E1-5): `phone_country_code` = รหัสโทรออกของประเทศ ตัวเลข 1–3 หลัก ไม่มี `+` (เช่น `66`) ต้องเป็นรหัสที่มีจริง (รายการใน `app/core`) · `phone` = เบอร์ในประเทศ ตัวเลขล้วน **ไม่มี 0 นำหน้า** (เช่น `812345678`) · รวมสองค่าไม่เกิน 15 หลัก (E.164) · ไม่กรอก = `""` ทั้งคู่ · ส่งค่าเดียว = `422` · ห้าม `null` · **ห้ามซ้ำที่คู่** (code + phone): agent ทั้งตาราง `user_agents` · Member เฉพาะภายใต้ผู้สร้างเดียวกัน (member_management — lead MQ1) · **sub ซ้ำได้** (MGMT-41 — lead V4) · ใช้รูปแบบนี้ทุกที่: agent · sub · Member |
+| MGMT-08A | migration เบอร์เดิม (lead B1): ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` และยาว 11 หลัก → `66` + ส่วนที่เหลือ · **แบบอื่นทั้งหมดล้างเป็น `""`** (ไม่เดาประเทศ) · ฝั่ง agent ถ้าแปลงแล้วคู่ซ้ำกัน (เช่น `0812345678` กับ `66812345678`) เก็บแถวที่ `id` น้อยสุด แถวอื่นล้าง · ทุกรายการที่ถูกล้างบันทึกในตาราง `migration_phone_cleared` (`table_name` · `row_id` · `old_phone` · `reason` = `FORMAT` / `DUPLICATE` · `kept_agent_id` = บัญชีที่ได้เก็บเบอร์ไว้เมื่อ `DUPLICATE` — lead B6 / V7) |
 | MGMT-09 | แก้ได้ (ผู้สร้างโดยตรง): ชื่อ · เบอร์โทร · ค่าหุ้นส่วน · เปิด / ปิดเกม (เส้น `agents/detail/update`) · สถานะ (`agents/status/update`) · แก้ไม่ได้: username · ประเภท · สกุลเงิน · ไม่มีการลบบัญชีฝั่ง agent และ Member |
 | MGMT-61 | **สายชั้นบน** `user_agents.cnf` (JSONB): `{"parent": [{"id": 1, "position": "superadmin"}, {"id": 4754, "position": "company"}, …]}` · เรียงจาก Superadmin ลงมาถึงผู้สร้างตรง · **ไม่รวมตัวเอง** · `position` = role ตัวเล็ก · Superadmin / ADMIN = `{"parent": []}` · ตั้งตอนสร้าง = `parent` ของผู้สร้าง + ผู้สร้าง · ไม่เปลี่ยนหลังสร้าง · **ไม่ส่งใน API** · ใช้ไล่สายขึ้นและค้นทั้งสายลง (`cnf @> '{"parent":[{"id":X}]}'` + GIN index) · Member ใช้ `user_members.cnf` (member_management) |
 | MGMT-62 | `agent_game_settings.parent_id` = id ผู้สร้างของบัญชีเจ้าของแถว · Superadmin = `NULL` · ตั้งตอนสร้าง |
@@ -112,7 +112,7 @@
 | | • **Commission** CSM ตั้งให้ Share Master แต่ละคนแยกกันได้ |
 | | • สร้าง Share Master: `pt.minigame` ส่งแค่ `commission_percent` · `status_game` ห้ามส่ง · ส่ง field ที่ระบบตั้งเอง = `422` "Share Master ใช้ค่าตาม Company Seamless Master" |
 | | • CSM แก้ Share Master (`agents/detail/update`): `pt.minigame` ส่งได้แค่ `commission_percent` · ส่ง `status_game` = `422` · `info` (ชื่อ / เบอร์) แก้ได้ปกติ |
-| | • Superadmin แก้ PT / `pt.status` / `status_game` ของ CSM → **ระบบตั้งค่าของ Share Master ทุกคนใต้ CSM ให้ตามใน tx เดียว** (ข้อยกเว้นของ MGMT-24 "ระบบไม่แก้ค่าลูกให้เอง" — เฉพาะคู่นี้) · ลด: ค่าใหม่ต้อง ≥ `pt` ที่ Share Master ทุกคนถือสู้กับ Member ของตัวเอง ไม่งั้น `402306` · เพิ่ม: ตามทันที · `remain_quota` ของ Member ใต้ Share Master คำนวณใหม่ (R2) · บันทึก `account_change_logs` ของ Share Master แต่ละคน (`action = SYNC_FROM_CSM`) |
+| | • Superadmin แก้ PT / `pt.status` / `status_game` ของ CSM → **ระบบตั้งค่าของ Share Master ทุกคนใต้ CSM ให้ตามใน tx เดียว** (ข้อยกเว้นของ MGMT-24 "ระบบไม่แก้ค่าลูกให้เอง" — เฉพาะคู่นี้) · ลด: ค่าใหม่ต้อง ≥ `pt` ที่ Share Master ทุกคนถือสู้กับ Member ของตัวเอง ไม่งั้น `402306` · เพิ่ม: ตามทันที · `remain_quota` ของ Member ใต้ Share Master คำนวณใหม่ (R2) · บันทึก `account_change_logs` ของ Share Master แต่ละคน (`action = SYNC_FROM_CSM` · ผู้ทำ = คนที่แก้ CSM · `request_id` เดียวกับการแก้ CSM · `new_value` มี `csm_id` — lead B5 / V6) |
 | | • `pt` ที่ Share Master ถือสู้กับ Member: Share Master ตั้งเองต่อ Member (member_management MGMT-21 — lead H4) |
 | MGMT-19A | Company Seamless Reseller **ถือสู้ได้** และตั้งค่าให้ Share Reseller แต่ละคนแยกกันได้ตามกฎทั่วไป (MGMT-22 — lead H5) |
 | MGMT-20 | **`pt.status` กับ `status_game` แยกหน้าที่กัน**: |
@@ -171,7 +171,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 
 | ID | Rule |
 |---|---|
-| MGMT-30 | `agents/status/update`: ค่า `ACTIVE` / `SUSPENDED` / `LOCKED` · แก้ได้เฉพาะ**ผู้สร้างโดยตรง** · **แก้ของตัวเอง = `402304`** · เปลี่ยนกลับเป็น `ACTIVE` ได้ · ไม่ต้อง passcode · แยกเส้นจาก `detail/update` เพราะมีผลทั้งสายล่าง · ค่าที่แก้ = สถานะที่ตั้งกับบัญชีนั้นเอง · response แสดง `status` ที่ใช้งานจริง — ปลดลูกแล้ว ถ้าหัวสายที่สูงกว่ายังถูกระงับ ลูกยังเป็น `SUSPENDED` |
+| MGMT-30 | `agents/status/update`: ค่า `ACTIVE` / `SUSPENDED` / `LOCKED` · แก้ได้เฉพาะ**ผู้สร้างโดยตรง** · **แก้ของตัวเอง = `402304`** · เปลี่ยนกลับเป็น `ACTIVE` ได้ · **ส่งสถานะเดิม = `200` ไม่เขียน log** (lead MQ5 / V1) · ไม่ต้อง passcode · แยกเส้นจาก `detail/update` เพราะมีผลทั้งสายล่าง · ค่าที่แก้ = สถานะที่ตั้งกับบัญชีนั้นเอง · response แสดง `status` ที่ใช้งานจริง — ปลดลูกแล้ว ถ้าหัวสายที่สูงกว่ายังถูกระงับ ลูกยังเป็น `SUSPENDED` |
 | MGMT-31 | ผลต่อสายล่างผ่าน `status` ที่ใช้งานจริง (ACC-30 · AUTH-53) ไม่แก้แถวของชั้นล่าง · `LOCKED` = เข้าใช้ไม่ได้ **ตั้งแต่ request ถัดไป** (AUTH-27 ลบ session) · `SUSPENDED` = เข้าได้เฉพาะ Profile และ Report ดูอย่างเดียว (AUTH-54) · Member ใต้บัญชีที่ไม่ ACTIVE เดิมพันไม่ได้ |
 
 ### บัญชีย่อย (sub)
@@ -181,10 +181,10 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-40 | สร้างได้: บัญชีหลักฝั่ง agent (ADMIN ไม่ได้ — AUTH-43) · sub สร้าง / แก้ / เปลี่ยนสถานะ / ดูรายชื่อ sub ไม่ได้ (`402311`) |
 | MGMT-41 | username = `{username เจ้าของ}@{ชื่อ}` · ส่วนหลัง `@` 3–20 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่ เก็บตัวเล็ก) · รหัสผ่านตาม AUTH-36 · ชื่อเล่นตาม MGMT-07 · เบอร์ตาม MGMT-08 แต่**ซ้ำได้** |
 | MGMT-42 | แก้ได้: ชื่อเล่น · เบอร์โทร · สิทธิ์ (`subaccounts/detail/update`) · สถานะ (`subaccounts/status/update`) · username แก้ไม่ได้ · รหัสผ่านใช้ระบบ reset ของ admin (AUTH-52) |
-| MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · เจ้าของเป็นคนเปลี่ยน · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ (เก็บเป็น `SUSPENDED` · API แสดง `INACTIVE`) · ไม่ต้อง passcode · เจ้าของหรือหัวสายถูกระงับ / ล็อก → sub ได้ผลตาม `status` ที่ใช้งานจริง |
+| MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · เจ้าของเป็นคนเปลี่ยน · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ (เก็บเป็น `SUSPENDED` · API แสดง `INACTIVE`) · ไม่ต้อง passcode · **ส่งสถานะเดิม = `200` ไม่เขียน log** (กฎเดียวกับ MGMT-30 · ตัดสิน 2026-10-10) · เจ้าของหรือหัวสายถูกระงับ / ล็อก → sub ได้ผลตาม `status` ที่ใช้งานจริง |
 | MGMT-44 | ไม่มีการลบ sub — เลิกใช้ให้เปลี่ยนเป็น `INACTIVE` |
 | MGMT-45 | แก้ / เปลี่ยนสถานะได้เฉพาะเจ้าของ · ชั้นบนดูรายชื่อและรายละเอียด sub ของบัญชีในสายล่างได้อย่างเดียว (`402404`) |
-| MGMT-46 | รายชื่อ sub: `owner_id` (ไม่ส่ง = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · ค้น username บางส่วน · A→Z · `page` / `limit` · แต่ละแถว `id` · `username` · `name` · `phone_country_code` · `phone` · `status` · `permissions` · `created_at` · `last_login_at` · `last_login_ip` · `subaccounts/detail/get` ส่ง field ชุดเดียวกัน |
+| MGMT-46 | รายชื่อ sub: `owner_id` (ไม่ส่ง = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · `keyword` ค้น username บางส่วน ไม่สนตัวพิมพ์ 4–32 ตัว (ไม่ส่ง / `""` = ทั้งหมด · แบบเดียวกับ MGMT-27 — แก้ 2026-10-10 แทน `q`) · A→Z · `page` / `limit` · แต่ละแถว `id` · `username` · `name` · `phone_country_code` · `phone` · `status` · `permissions` · `created_at` · `last_login_at` · `last_login_ip` · `subaccounts/detail/get` ส่ง field ชุดเดียวกัน |
 
 ### สิทธิ์ (ใช้ทั้งหลังบ้าน)
 
@@ -422,7 +422,7 @@ Error codes: `422`, `402303`
 
 ### POST /api/v1/bo/pr/manage/subaccounts/list
 
-Request (ทุกค่าไม่บังคับ): `{ "owner_id": 10, "q": "", "page": 1, "limit": 20 }`
+Request (ทุกค่าไม่บังคับ): `{ "owner_id": 10, "keyword": "", "page": 1, "limit": 20 }`
 
 Response:
 ```json
@@ -547,9 +547,11 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 -- migration ใหม่ PR 3: เบอร์ (MGMT-08 / 08A) — user_agents และ subaccounts (user_members ทำใน member_management)
 --   ADD COLUMN phone_country_code VARCHAR(3) · แปลงเบอร์เดิมตาม MGMT-08A · CHECK phone ~ '^[1-9][0-9]*$' และความยาวรวม ≤ 15
 --   user_agents: unique (phone_country_code, phone) แทน uq_user_agents_phone · subaccounts ไม่ unique
---   เบอร์ที่ถูกล้าง → migration_phone_cleared(id, table_name, row_id, old_phone, reason FORMAT / DUPLICATE, cleared_at)
+--   เบอร์ที่ถูกล้าง → migration_phone_cleared(id, table_name, row_id, old_phone, reason FORMAT / DUPLICATE, kept_agent_id, cleared_at)
 -- migration ใหม่ PR 3: Share Master ที่มีอยู่ปรับตาม CSM ครั้งเดียว (MGMT-19) — pt_from_parent · force / remain = 0 · status · status_game · commission ไม่แตะ
 --   + remain ของ Member ใต้ Share Master คำนวณใหม่ (R2) · down ไม่คืนค่า
+--   Member ที่ pt สูงกว่าค่าใหม่ (คำนวณ remain ไม่ได้) ไม่แก้ บันทึกใน migration_member_remain_skipped
+--   (user_member_id, game_code, share_master_id, member_pt, new_pt_from_parent, remain, skipped_at) — lead V2
 ```
 
 - Superadmin มีแถว `agent_game_settings` ของตัวเอง (`pt_from_parent = 100`) · ADMIN ไม่มี · ผู้สร้างถือในสายของลูก = `pt_from_parent` ของผู้สร้าง − ของลูก (คำนวณตอนคิดเงิน ไม่เก็บ)
@@ -566,7 +568,7 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 | MGMT-05 | username `ab` / 33 ตัว / มี `_` · ซ้ำ · ชื่อเดียวกับ Member | `422` · `402401` · `402401` |
 | MGMT-07 | ชื่อ `สมชาย01` · `สม` · `สมชาย ใจดี` | สำเร็จ · `422` · `422` |
 | MGMT-08 | `"66"` + `"812345678"` · ส่งค่าเดียว · `phone` ขึ้นต้น 0 · code `999` (ไม่มีจริง) · รวมเกิน 15 หลัก · คู่ซ้ำ | สำเร็จ · `422` · `422` · `422` · `422` · `402403` |
-| MGMT-08A | migration: `0812345678` · `66812345678` · `12345` · `+6681…` | `66`/`812345678` · `66`/`812345678` · `""` (log) · `""` (log) |
+| MGMT-08A | migration: `0812345678` (id น้อย) · `66812345678` · `021234567` · `12345678` · `0012345678` · `6681234567` · sub `0899999999` ×2 | `66`/`812345678` · `""` (DUPLICATE · `kept_agent_id` = บัญชีแรก) · `66`/`21234567` · `""` (FORMAT) ×3 · sub `66`/`899999999` ทั้งคู่ |
 | MGMT-41 | sub 2 บัญชีเบอร์เดียวกัน | สำเร็จทั้งคู่ |
 | MGMT-12 | Share B2B ไม่ส่งสกุล · Share B2C ส่ง 2 สกุล | `422` |
 | MGMT-14 | Agent ใต้ Share B2B (THB, USD) เลือก JPY | `402310` |
@@ -580,6 +582,8 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 | MGMT-19 | CSM `detail/update` Share Master: `commission_percent` · `pt_from_parent` · `status_game` · `info` | สำเร็จ · `422` · `422` · สำเร็จ |
 | MGMT-19 | Superadmin ลด PT ของ CSM จาก 80 เหลือ 70 · Member ของ sm1 `pt` 75 | `402306` ต่ำสุด 75 · ไม่มีแถวไหนเปลี่ยน |
 | MGMT-19 | Superadmin เพิ่ม PT ของ CSM 80 → 85 · ปิด `scratch_card` ของ CSM | sm1 / sm2 `pt_from_parent = 85` · `remain_quota` ของ Member ใต้ sm คำนวณใหม่ · `status_game.scratch_card = false` · log `SYNC_FROM_CSM` ต่อ Share Master |
+| MGMT-19 | ยิงพร้อมกัน: Superadmin แก้ PT / เกมของ CSM · CSM สร้าง Share Master · CSM แก้ commission · Share Master สร้าง Member | ทุกคำขอ `200` ไม่ deadlock · Share Master ทุกคนค่าตรงกับ CSM · `remain_quota` ของ Member ตรงทุกแถว |
+| MGMT-19 | migration ปรับ Share Master ตาม CSM (CSM 45 · Member ใต้ sm1 `pt` 50 · Member ใต้ sm2 `pt` 20) | sm1 / sm2 = 45 · commission คงเดิม · Member sm2 remain 25 · Member sm1 ไม่แก้ + 3 แถวใน `migration_member_remain_skipped` |
 | MGMT-19A | Company Seamless Reseller ให้ Share Reseller 2 คนต่างกัน | สำเร็จ |
 | MGMT-24 | comA ลดค่าที่ให้ share1 เหลือ 55 (share1 ให้ agent1 60 · Member ของ share1 `pt` 30) | `402306` ต่ำสุด 60 |
 | MGMT-24 R1 / R2 | agent01 ได้รับ 60 · Member `pt` 50 / 20 · ลดเหลือ 45 · ตั้ง 55 · ตั้ง 70 | `402306` ต่ำสุด 50 · `remain_quota` 5 / 35 · 20 / 50 |
@@ -596,7 +600,7 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 | MGMT-33 | ส่ง `info` ถูก + `pt` ผิด | `422` / `402xxx` · ชื่อไม่เปลี่ยน |
 | MGMT-34 | ส่ง `info` + `status_game` ค่าเดิมทั้งหมด · ส่ง `info` เปลี่ยนชื่อ + `pt` เปลี่ยน | 200 ไม่มี log · log 2 แถว `UPDATE_INFO` + `UPDATE_PT` |
 | MGMT-35 | `agents/list` · `keyword` 3 ตัว · ไม่มีลูก | ลูกตรงฝั่ง agent A→Z (ไม่มี Member) · `422` · `[]` |
-| MGMT-30 | แก้สถานะตัวเอง · หลาน · LOCKED → ACTIVE | `402304` · `402304` · สำเร็จ |
+| MGMT-30 | แก้สถานะตัวเอง · หลาน · LOCKED → ACTIVE · ส่ง ACTIVE ซ้ำ | `402304` · `402304` · สำเร็จ · `200` ไม่มี log เพิ่ม |
 | MGMT-31 | Company ระงับ Share · Share ล็อก Agent | Share และสายล่าง `SUSPENDED` Company ปกติ · Agent request ถัดไป `401301` |
 | MGMT-43 / 45 | sub `INACTIVE` · ชั้นบนแก้ sub ของสายล่าง | login ได้ เรียกเส้นอื่น `401311` · `402404` |
 | MGMT-40 | sub เรียก `subaccounts/create` / `list` | `402311` |
@@ -627,7 +631,7 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 ## 8. Contract changes (แจ้ง frontend)
 
 **เปลี่ยน 2026-10-09 (lead review):**
-- path ใหม่ทั้งหมดตามหัวข้อ 5 · เส้นเดิมถูกลบ (ได้ `404`) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` (แทน `q`)
+- path ใหม่ทั้งหมดตามหัวข้อ 5 · เส้นเดิมถูกลบ (ได้ `404`) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` (แทน `q`) · `subaccounts/list` ใช้ `keyword` แทน `q` ด้วย (4–32 ตัว)
 - แก้บัญชีเหลือเส้นเดียว `agents/detail/update` (`info` / `pt` / `status_game`) · สถานะแยกที่ `agents/status/update` · dropdown ใช้ `agents/list` แทน `copy-sources`
 - เบอร์โทร 2 field `phone_country_code` + `phone` ทุก request / response (agent · sub · Member) · เบอร์เดิมแปลงให้แล้ว บางเบอร์ถูกล้างเป็น `""`
 - `permissions` ไม่มีเมนู `pt` แล้ว · มี `api_credential` (Company / Share / Agent) · sub ใช้แค่ `member` view / edit กับ module นี้

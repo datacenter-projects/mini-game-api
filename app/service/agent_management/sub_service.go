@@ -94,7 +94,7 @@ func ListSubaccountsService(ctx context.Context, actor agentAuthService.Actor, r
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, total, err := agentManagementPostgres.ListSubaccountsRepository(db, owner.ID, req.Q, page.Offset(), page.Limit)
+	rows, total, err := agentManagementPostgres.ListSubaccountsRepository(db, owner.ID, req.Keyword, page.Offset(), page.Limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -107,7 +107,7 @@ func ListSubaccountsService(ctx context.Context, actor agentAuthService.Actor, r
 	return out, total, nil
 }
 
-// GetSubaccountService — POST /manage/subaccounts/detail (MGMT-46) · sub ของตัวเองหรือของสายล่าง · อื่น = 402404
+// GetSubaccountService — POST /manage/subaccounts/detail/get (MGMT-46) · sub ของตัวเองหรือของสายล่าง · อื่น = 402404
 func GetSubaccountService(ctx context.Context, actor agentAuthService.Actor, id uint) (agentManagementDto.SubView, error) {
 	db := database.DBConn.WithContext(ctx)
 	s, err := agentManagementPostgres.GetSubaccountViewRepository(db, id)
@@ -210,7 +210,7 @@ func UpdateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 	})
 }
 
-// UpdateSubaccountStatusService — POST /manage/subaccounts/update-status (MGMT-43)
+// UpdateSubaccountStatusService — POST /manage/subaccounts/status/update (MGMT-43)
 func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.SubStatusRequest,
 	meta agentAuthService.RequestMeta) error {
 	next := models.AgentStatusActive
@@ -221,6 +221,9 @@ func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.A
 		s, err := lockOwnSub(tx, actor, req.ID)
 		if err != nil {
 			return err
+		}
+		if s.Status == next {
+			return nil // ค่าเดิม = 200 ไม่เขียน log (กฎเดียวกับ agents/status/update — lead MQ5 / V1)
 		}
 		now := time.Now()
 		if err := agentManagementPostgres.UpdateSubaccountStatusRepository(tx, s.ID, next, now); err != nil {

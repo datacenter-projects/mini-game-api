@@ -23,11 +23,11 @@ func SubaccountUsernameExistsRepository(db *gorm.DB, username string) (bool, err
 }
 
 // ListSubaccountsRepository — sub ของเจ้าของ เรียง username A→Z แบ่งหน้า + จำนวนทั้งหมด (MGMT-46)
-// q = ข้อความค้น (ตัวเล็กแล้ว) · ว่าง = ไม่กรอง
-func ListSubaccountsRepository(db *gorm.DB, ownerID uint, q string, offset, limit int) ([]models.Subaccount, int64, error) {
+// keyword = ข้อความค้น (ตัวเล็กแล้ว 4–32 ตัว) · ว่าง = ไม่กรอง
+func ListSubaccountsRepository(db *gorm.DB, ownerID uint, keyword string, offset, limit int) ([]models.Subaccount, int64, error) {
 	base := db.Model(&models.Subaccount{}).Where("agent_id = ?", ownerID)
-	if q != "" {
-		base = base.Where(`username LIKE ? ESCAPE '\'`, "%"+likeEscaper.Replace(q)+"%")
+	if keyword != "" {
+		base = base.Where(`username LIKE ? ESCAPE '\'`, "%"+likeEscaper.Replace(keyword)+"%")
 	}
 	var total int64
 	if err := base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
