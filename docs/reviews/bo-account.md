@@ -36,3 +36,13 @@
 - C4 Profile `permissions` แสดงเมนู `api_credential` ด้วย
 - C5 test: sub ไม่มีสิทธิ์ → `402303` ทั้ง GET/POST · sub `view` GET ได้ POST ไม่ได้ · sub `edit` POST ได้ · IP `/8`, `0.0.0.0/0`, `10.1.2.3` → `422`
 - C6 `make`/lint/integration ผ่าน · แจ้ง frontend (เมนูสิทธิ์ใหม่ + error ใหม่ของ allowed_ips)
+
+## ตรวจงานรอบที่ 1 (2026-10-09 · commit 57055a2 + 7430394)
+ผลตรวจ: A1–A9 / S1–S8 / C1–C5 ✅ ครบ · C6 🟡 (แจ้ง frontend + รัน integration test)
+
+| # | เรื่อง | lead ตัดสิน |
+|---|---|---|
+| A10 | 7430394 ให้เมนู `api_credential` กับ Superadmin (Superadmin ไม่มี Key → `403301` ทุกครั้ง) | **revert 7430394** — Superadmin / ADMIN ไม่มีเมนู `api_credential` (ตรงกับ ACC-01) |
+| A11 | `allowed_ips` รับ multicast / broadcast | **ห้ามเพิ่ม:** `224.0.0.0/4` (multicast) · `240.0.0.0/4` (reserved) · `255.255.255.255` (broadcast) → `422` + test |
+
+งานที่เหลือ: revert 7430394 (A10) · A11 · C6 (แจ้ง frontend + รัน integration test ของ account)
