@@ -190,11 +190,11 @@ CREATE TABLE user_member_game_settings (        -- PT ที่ผู้สร�
     category      VARCHAR(30) NOT NULL,
     game_code     VARCHAR(50) NOT NULL,
     pt_bp         INT         NOT NULL DEFAULT 0 CHECK (pt_bp BETWEEN 0 AND 10000),      -- ผู้สร้างถือสู้กับ Member คนนี้ (migration 20261009040811)
-    remain_bp     INT         NOT NULL DEFAULT 0 CHECK (remain_bp BETWEEN 0 AND 10000),  -- ค่าที่ผู้สร้างได้รับ − pt_bp (ระบบคิด · sync)
+    remain_bp     INT         NOT NULL DEFAULT 0 CHECK (remain_bp BETWEEN 0 AND 10000),  -- ค่าที่ผู้สร้างได้รับ − pt_bp (ระบบคิดตอน create / update-pt · sync เมื่อค่าที่ได้รับเปลี่ยน = R2 หัวข้อ 7 ยังไม่ทำ)
     commission_bp INT         NOT NULL DEFAULT 0 CHECK (commission_bp BETWEEN 0 AND 100),
     created_by    VARCHAR(71) NOT NULL DEFAULT '',   -- username ผู้สร้าง (migration 20261008120000)
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_by    VARCHAR(71) NOT NULL DEFAULT '',   -- username คนที่แก้ Commission ล่าสุด
+    updated_by    VARCHAR(71) NOT NULL DEFAULT '',   -- username คนที่แก้ PT / Commission ล่าสุด
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (user_member_id, game_code)
 );
@@ -225,7 +225,7 @@ test ของเส้น Member อยู่ในชุด test ของ age
 | MGMT-29 | ผู้สร้าง / ชั้นบนดูรายละเอียด · บัญชีสายอื่นดู | สำเร็จ ไม่มี `passcode_set` · `402402` |
 | MGMT-30 | ผู้สร้างตั้ง `LOCKED` แล้วกลับ `ACTIVE` · ชั้นบนที่ไม่ใช่ผู้สร้างแก้ | สำเร็จ · `402304` |
 | MGMT-30 | หัวสายถูกระงับ | รายละเอียด Member แสดง `status = SUSPENDED` |
-| MGMT-60 | แก้ข้อมูล / Commission | มี `account_change_logs` `target_type = MEMBER` ค่าเก่า / ใหม่ |
+| MGMT-60 | แก้ข้อมูล / PT | มี `account_change_logs` `target_type = MEMBER` ค่าเก่า / ใหม่ |
 
 ## 6. Error codes
 
