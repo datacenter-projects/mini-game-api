@@ -94,3 +94,26 @@ func ResolveCurrencies(creator, newType UserType, requested, creatorCurrencies [
 	}
 	return append([]string(nil), requested...), CurrencyOK
 }
+
+// CurrencyRequirement — กฎการส่ง currencies ของประเภทบัญชีใหม่ (MGMT-10 – MGMT-13) · ใช้บอกใน msg
+type CurrencyRequirement int
+
+const (
+	CurrencyAllNoSend         CurrencyRequirement = iota // ได้ครบทุกสกุล ห้ามส่ง
+	CurrencyPickOne                                      // ต้องเลือก 1 สกุล
+	CurrencyPickMany                                     // ต้องเลือกอย่างน้อย 1 สกุล
+	CurrencyFromCreatorNoSend                            // ใช้สกุลของผู้สร้าง ห้ามส่ง
+)
+
+// CurrencyRequirementOf — กฎ currencies ของบัญชีประเภท newType ที่ creator สร้าง
+func CurrencyRequirementOf(creator, newType UserType) CurrencyRequirement {
+	switch currencyModeOf(creator, newType) {
+	case currencyAll:
+		return CurrencyAllNoSend
+	case currencyPickOne:
+		return CurrencyPickOne
+	case currencyPickMany:
+		return CurrencyPickMany
+	}
+	return CurrencyFromCreatorNoSend
+}

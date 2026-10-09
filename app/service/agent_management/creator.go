@@ -237,14 +237,14 @@ func OptionalString(s string) *string {
 	return &s
 }
 
-// PTError — แปลงผลตรวจค่าหุ้นส่วนเป็น error (MGMT-18, MGMT-19, MGMT-25)
+// PTError — แปลงผลตรวจ Commission ของ Member เป็น error (MGMT-21) · ฝั่ง agent ใช้ ChildPTError / OwnPTError
 func PTError(group string, v agentManagementCore.PTViolation) error {
 	switch v {
 	case agentManagementCore.PTOK:
 		return nil
-	case agentManagementCore.PTInvalidStep:
-		return apperr.ErrValidation.WithMessage("pt."+group+" ค่าไม่ถูกต้อง: PT / Force / Remain ทีละ 0.5 · Commission ทีละ 0.1",
-			"pt."+group+" is invalid: PT / Force / Remain in steps of 0.5, Commission in steps of 0.1")
+	case agentManagementCore.PTInvalidStep: // ใช้กับ Commission ของ Member (member_management)
+		return apperr.ErrValidation.WithMessage("pt."+group+".commission_percent ตั้งได้ 0 – 1 ทีละ 0.1",
+			"pt."+group+".commission_percent must be 0 – 1 in steps of 0.1")
 	case agentManagementCore.PTExceedsReceived:
 		return apperr.ErrPTExceedsReceived
 	case agentManagementCore.PTSeamlessMasterLock:
@@ -252,6 +252,6 @@ func PTError(group string, v agentManagementCore.PTViolation) error {
 	case agentManagementCore.PTForceRemainExceeded:
 		return apperr.ErrForceRemainExceeded
 	default:
-		return apperr.ErrCommissionExceeded
+		return apperr.ErrCommissionExceeded.WithMessage("pt."+group+".commission_percent ตั้งได้ 0 – 1", "pt."+group+".commission_percent must be 0 – 1")
 	}
 }

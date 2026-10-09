@@ -1,0 +1,132 @@
+package agentmanagement
+
+import (
+	"strings"
+
+	agentManagementCore "app/app/core/agent_management"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
+	"app/pkg/apperr"
+	"app/pkg/utils"
+
+	"gorm.io/gorm"
+)
+
+// error ที่บอกชื่อ field และค่าที่ตั้งได้ (แก้ 2026-10-09) — code เดิม เปลี่ยนแค่ msg
+
+func pct(bp int) string {
+	b, _ := utils.Percent(bp).MarshalJSON()
+	return string(b)
+}
+
+func joinTypes(ts []agentManagementCore.UserType) string {
+	s := make([]string, len(ts))
+	for i, t := range ts {
+		s[i] = string(t)
+	}
+	return strings.Join(s, ", ")
+}
+
+// CannotCreateTypeError — 402301 บอกค่าที่ส่งมา และรายการ user_type ที่ผู้สร้างส่งได้ (MGMT-02)
+func CannotCreateTypeError(creator agentManagementCore.UserType, sent string) error {
+	allowed := agentManagementCore.CreatableTypes(creator)
+	if len(allowed) == 0 {
+		return apperr.ErrCannotCreateType.WithMessage(
+			"user_type: ส่ง "+sent+" ไม่ได้ · "+string(creator)+" สร้างบัญชีฝั่ง agent ไม่ได้",
+			"user_type: "+sent+" is not allowed · "+string(creator)+" cannot create agent-side accounts")
+	}
+	return apperr.ErrCannotCreateType.WithMessage(
+		"user_type: ส่ง "+sent+" ไม่ได้ · "+string(creator)+" สร้างได้เฉพาะ "+joinTypes(allowed),
+		"user_type: "+sent+" is not allowed · "+string(creator)+" can only create "+joinTypes(allowed))
+}
+
+// CurrencyError — 422 / 402310 พร้อมกฎ currencies ของประเภทบัญชีใหม่ (MGMT-10 – MGMT-14)
+func CurrencyError(creator, newType agentManagementCore.UserType, cv agentManagementCore.CurrencyViolation, creatorCurrencies []string) error {
+	if cv == agentManagementCore.CurrencyNotInCreators {
+		return apperr.ErrCurrencyNotInCreator.WithMessage(
+			"currencies: เลือกได้เฉพาะสกุลของคุณ ("+strings.Join(creatorCurrencies, ", ")+")",
+			"currencies: choose only from your currencies ("+strings.Join(creatorCurrencies, ", ")+")")
+	}
+	t := string(newType)
+	switch agentManagementCore.CurrencyRequirementOf(creator, newType) {
+	case agentManagementCore.CurrencyAllNoSend:
+		return apperr.ErrValidation.WithMessage("currencies: "+t+" ได้ครบทุกสกุล ห้ามส่ง currencies",
+			"currencies: "+t+" gets every currency, do not send currencies")
+	case agentManagementCore.CurrencyFromCreatorNoSend:
+		return apperr.ErrValidation.WithMessage("currencies: "+t+" ใช้สกุลของผู้สร้าง ห้ามส่ง currencies",
+			"currencies: "+t+" uses the creator's currency, do not send currencies")
+	case agentManagementCore.CurrencyPickOne:
+		return apperr.ErrValidation.WithMessage("currencies: "+t+" ต้องเลือก 1 สกุล (ไม่ซ้ำ)",
+			"currencies: "+t+" needs exactly 1 currency")
+	}
+	return apperr.ErrValidation.WithMessage("currencies: "+t+" ต้องเลือกอย่างน้อย 1 สกุล (ไม่ซ้ำ)",
+		"currencies: "+t+" needs at least 1 currency (no duplicates)")
+}
+
+// ChildPTError — ผลตรวจค่าที่ผู้สร้างตั้งให้ลูก → error ที่บอก field และค่าที่ตั้งได้ (MGMT-18, MGMT-19, MGMT-25)
+func ChildPTError(group string, is agentManagementCore.PTIssue) error {
+	f := "pt." + group + "." + is.Field
+	switch is.Violation {
+	case agentManagementCore.PTOK:
+		return nil
+	case agentManagementCore.PTInvalidStep:
+		if is.Field == "commission_percent" {
+			return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – 1 ทีละ 0.1", f+" must be 0 – 1 in steps of 0.1")
+		}
+		return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – 100 ทีละ 0.5", f+" must be 0 – 100 in steps of 0.5")
+	case agentManagementCore.PTExceedsReceived:
+		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.LimitBP)+" (ค่าที่คุณได้รับ)",
+			f+" must not exceed "+pct(is.LimitBP)+" (what you received)")
+	case agentManagementCore.PTSeamlessMasterLock:
+		if is.Field == "pt_from_parent" {
+			return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเท่ากับ "+pct(is.LimitBP)+" (ค่าที่ได้รับทั้งหมด)",
+				f+" must equal "+pct(is.LimitBP)+" for Company Seamless Master")
+		}
+		return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเป็น 0", f+" must be 0 for Company Seamless Master")
+	case agentManagementCore.PTForceRemainExceeded:
+		return apperr.ErrForceRemainExceeded.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.LimitBP)+" (ค่าที่ให้ลูก)",
+			f+" must not exceed "+pct(is.LimitBP)+" (pt_from_parent)")
+	default:
+		return apperr.ErrCommissionExceeded.WithMessage(f+" ตั้งได้ 0 – 1", f+" must be 0 – 1")
+	}
+}
+
+// OwnPTError — ค่าถือของตัวเอง (MGMT-19, MGMT-22)
+func OwnPTError(group string, v agentManagementCore.PTViolation, receivedBP int) error {
+	f := "pt." + group + ".pt"
+	switch v {
+	case agentManagementCore.PTOK:
+		return nil
+	case agentManagementCore.PTInvalidStep:
+		return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – "+pct(receivedBP)+" ทีละ 0.5", f+" must be 0 – "+pct(receivedBP)+" in steps of 0.5")
+	case agentManagementCore.PTSeamlessMasterLock:
+		return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+" ของ Company Seamless Master ต้องเป็น 0", f+" must be 0 for Company Seamless Master")
+	default:
+		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(receivedBP)+" (ค่าที่คุณได้รับ)",
+			f+" must not exceed "+pct(receivedBP)+" (what you received)")
+	}
+}
+
+// CheckCreatorBalance — ยอดของผู้สร้างพอสำหรับยอดเงินตั้งต้นไหม (MGMT-15A) · เช็คก่อนค่าหุ้นส่วนตามลำดับ field
+// lock แถวยอดของผู้สร้างใน tx เดียวกัน · TransferInitialBalance เช็คซ้ำตอนโอนจริง · Superadmin ไม่จำกัด
+func CheckCreatorBalance(tx *gorm.DB, c Creator, amounts map[string]int64) error {
+	if len(amounts) == 0 || c.UserType == agentManagementCore.UserTypeSuperadmin {
+		return nil
+	}
+	currencies := SortedGroups(amounts) // เรียงชื่อ — lock ตามลำดับเดียวกันทุกครั้ง
+	locked, err := agentManagementPostgres.LockAgentBalancesRepository(tx, c.Agent.ID, currencies)
+	if err != nil {
+		return err
+	}
+	have := map[string]int64{}
+	for _, b := range locked {
+		have[b.Currency] = b.Amount
+	}
+	for _, cur := range currencies {
+		if have[cur] < amounts[cur] {
+			b, _ := utils.Money(have[cur]).MarshalJSON()
+			return apperr.ErrInsufficientInitial.WithMessage("balance."+cur+" ยอดของคุณไม่พอ (มี "+string(b)+")",
+				"balance."+cur+" exceeds your balance ("+string(b)+")")
+		}
+	}
+	return nil
+}

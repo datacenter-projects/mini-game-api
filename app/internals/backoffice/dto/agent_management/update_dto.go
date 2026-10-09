@@ -72,7 +72,8 @@ func (r *UpdateChildPTRequest) Validate() error {
 	if err := CheckSomeGroups(r.PT); err != nil {
 		return err
 	}
-	for g, v := range r.PT {
+	for _, g := range sortedKeys(r.PT) {
+		v := r.PT[g]
 		p := "pt." + g + "."
 		if v.OwnPT.Present {
 			return Invalid(p+"pt", "แก้ที่เส้นนี้ไม่ได้ (บัญชีตั้งค่าถือเอง)", "cannot be set here (each account sets its own pt)")
@@ -106,7 +107,8 @@ func (r *UpdateOwnPTRequest) Validate() error {
 	if err := CheckSomeGroups(r.PT); err != nil {
 		return err
 	}
-	for g, v := range r.PT {
+	for _, g := range sortedKeys(r.PT) {
+		v := r.PT[g]
 		p := "pt." + g + "."
 		if v.PTFromParent.Present || v.Force.Present || v.RemainQuota.Present || v.CommissionPercent.Present || v.Status != nil {
 			return Invalid("pt."+g, "เส้นนี้แก้ได้แค่ pt (ค่าอื่นผู้สร้างเป็นคนตั้ง)", "only pt can be set here (other values are set by the creator)")
@@ -154,7 +156,7 @@ func (r *UpdateGamesRequest) Validate() error {
 	if len(r.StatusGame) == 0 {
 		return Invalid("status_game", "ต้องส่งอย่างน้อย 1 เกม", "must contain at least 1 game")
 	}
-	for code := range r.StatusGame {
+	for _, code := range sortedKeys(r.StatusGame) {
 		if _, ok := agentManagementCore.GroupOfGame(code); !ok {
 			return Invalid("status_game."+code, "ไม่มีเกมนี้", "is not a known game")
 		}

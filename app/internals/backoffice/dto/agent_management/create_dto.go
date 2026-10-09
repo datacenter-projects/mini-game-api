@@ -5,6 +5,7 @@ package agentmanagement
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	agentAuthCore "app/app/core/agent_auth"
@@ -81,7 +82,8 @@ func ValidateAccountFields(requestID string, username *string, password, name st
 // ParseBalance — ยอดเงินตั้งต้นต่อสกุล (MGMT-15A) · มากกว่า 0 · ทศนิยมไม่เกิน 2 ตำแหน่ง
 func ParseBalance(in map[string]utils.Decimal) (map[string]int64, error) {
 	out := make(map[string]int64, len(in))
-	for cur, d := range in {
+	for _, cur := range sortedKeys(in) {
+		d := in[cur]
 		field := "balance." + cur
 		if !agentManagementCore.IsSupportedCurrency(cur) {
 			return nil, Invalid(field, "สกุลเงินไม่ถูกต้อง", "is not a supported currency")
@@ -129,11 +131,15 @@ func CheckGroups[T any](pt map[string]T) error {
 }
 
 func (r *CreateAgentRequest) Validate() error {
-	if err := ValidateAccountFields(r.RequestID, &r.Username, r.Password, r.Name, &r.Phone); err != nil {
-		return err
+	// ไล่ตามลำดับ field ใน body: request_id → user_type → username → password → name → phone → currencies → balance → pt → status_game
+	if !uuidRe.MatchString(r.RequestID) {
+		return Invalid("request_id", "ต้องเป็น UUID", "must be a UUID")
 	}
 	if r.UserType == "" {
 		return Invalid("user_type", "ต้องส่ง", "is required")
+	}
+	if err := ValidateAccountFields(r.RequestID, &r.Username, r.Password, r.Name, &r.Phone); err != nil {
+		return err
 	}
 	for i, c := range r.Currencies {
 		if !agentManagementCore.IsSupportedCurrency(c) {
@@ -147,13 +153,14 @@ func (r *CreateAgentRequest) Validate() error {
 	if err := CheckGroups(r.PT); err != nil {
 		return err
 	}
-	for g, v := range r.PT {
+	for _, g := range sortedKeys(r.PT) {
+		v := r.PT[g]
 		if err := parseChildPT("pt."+g+".", &v); err != nil {
 			return err
 		}
 		r.PT[g] = v
 	}
-	for code := range r.StatusGame {
+	for _, code := range sortedKeys(r.StatusGame) {
 		if _, ok := agentManagementCore.GroupOfGame(code); !ok {
 			return Invalid("status_game."+code, "ไม่มีเกมนี้", "is not a known game")
 		}
@@ -180,4 +187,14 @@ func parseChildPT(prefix string, v *ChildPTRequest) error {
 		return Invalid(prefix+"status", "ต้องส่ง", "is required")
 	}
 	return nil
+}
+
+// sortedKeys — เรียง key ให้ error ออกตัวเดียวกันทุกครั้ง (map ใน Go วนไม่เรียง)
+func sortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

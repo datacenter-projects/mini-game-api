@@ -78,25 +78,48 @@ type ChildPT struct {
 // ValidateChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก (MGMT-18, MGMT-19, MGMT-25)
 // creatorReceivedBP = ค่าที่ผู้สร้างได้รับในกลุ่มนี้ · creatorIsSeamlessMaster = ผู้สร้างเป็น Company Seamless Master
 func ValidateChildPT(v ChildPT, creatorReceivedBP int, creatorIsSeamlessMaster bool) PTViolation {
-	if !IsPTStep(v.PTFromParentBP) || !IsPTStep(v.ForceBP) || !IsPTStep(v.RemainBP) {
-		return PTInvalidStep
+	return CheckChildPT(v, creatorReceivedBP, creatorIsSeamlessMaster).Violation
+}
+
+// PTIssue — ผลตรวจค่าหุ้นส่วนพร้อม field ที่ผิดและค่าที่ตั้งได้ (ใช้สร้างข้อความ error)
+type PTIssue struct {
+	Violation PTViolation
+	Field     string // pt_from_parent · force · remain_quota · commission_percent
+	LimitBP   int    // ค่าสูงสุดที่ตั้งได้ · PTSeamlessMasterLock = ค่าที่ต้องเป็น
+}
+
+// CheckChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก ไล่ตามลำดับ field ใน body (pt_from_parent → force → remain_quota → commission_percent)
+func CheckChildPT(v ChildPT, creatorReceivedBP int, creatorIsSeamlessMaster bool) PTIssue {
+	if !IsPTStep(v.PTFromParentBP) {
+		return PTIssue{PTInvalidStep, "pt_from_parent", FullPTBP}
 	}
-	if v.CommissionBP < 0 || v.CommissionBP%CommissionStepBP != 0 {
-		return PTInvalidStep
-	}
-	if v.CommissionBP > MaxCommissionBP {
-		return PTCommissionExceeded
-	}
-	if creatorIsSeamlessMaster && (v.PTFromParentBP != creatorReceivedBP || v.ForceBP != 0 || v.RemainBP != 0) {
-		return PTSeamlessMasterLock
+	if creatorIsSeamlessMaster && v.PTFromParentBP != creatorReceivedBP {
+		return PTIssue{PTSeamlessMasterLock, "pt_from_parent", creatorReceivedBP}
 	}
 	if v.PTFromParentBP > creatorReceivedBP {
-		return PTExceedsReceived
+		return PTIssue{PTExceedsReceived, "pt_from_parent", creatorReceivedBP}
 	}
-	if v.ForceBP > v.PTFromParentBP || v.RemainBP > v.PTFromParentBP {
-		return PTForceRemainExceeded
+	for _, f := range []struct {
+		name string
+		bp   int
+	}{{"force", v.ForceBP}, {"remain_quota", v.RemainBP}} {
+		if !IsPTStep(f.bp) {
+			return PTIssue{PTInvalidStep, f.name, v.PTFromParentBP}
+		}
+		if creatorIsSeamlessMaster && f.bp != 0 {
+			return PTIssue{PTSeamlessMasterLock, f.name, 0}
+		}
+		if f.bp > v.PTFromParentBP {
+			return PTIssue{PTForceRemainExceeded, f.name, v.PTFromParentBP}
+		}
 	}
-	return PTOK
+	if v.CommissionBP < 0 || v.CommissionBP%CommissionStepBP != 0 {
+		return PTIssue{PTInvalidStep, "commission_percent", MaxCommissionBP}
+	}
+	if v.CommissionBP > MaxCommissionBP {
+		return PTIssue{PTCommissionExceeded, "commission_percent", MaxCommissionBP}
+	}
+	return PTIssue{Violation: PTOK}
 }
 
 // ValidateMemberCommission — Member มีแค่ Commission (MGMT-21)
