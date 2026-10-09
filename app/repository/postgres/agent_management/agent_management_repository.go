@@ -200,11 +200,15 @@ func ListDownlinesRepository(db *gorm.DB, parentID uint, q string, offset, limit
 
 var likeEscaper = strings.NewReplacer(`\`, `\`, `%`, `\%`, `_`, `\_`)
 
-// ListAgentDirectChildrenRepository — ลูกตรงฝั่ง agent ทั้งหมด (ไม่รวม ADMIN) เรียง A→Z (MGMT-35)
-func ListAgentDirectChildrenRepository(db *gorm.DB, parentID uint) ([]models.UserAgent, error) {
+// ListAgentDirectChildrenRepository — ลูกตรงฝั่ง agent (ไม่รวม ADMIN) เรียง A→Z · q = ค้น username บางส่วน (ตัวเล็กแล้ว · ว่าง = ไม่กรอง) · ไม่เกิน limit แถว (MGMT-35)
+func ListAgentDirectChildrenRepository(db *gorm.DB, parentID uint, q string, limit int) ([]models.UserAgent, error) {
 	var out []models.UserAgent
-	err := db.Select("id", "username", "role", "agent_type").
-		Where("parent_id = ? AND role <> ?", parentID, models.AgentRoleAdmin).Order("username").Find(&out).Error
+	query := db.Select("id", "username", "name", "role", "agent_type", "status").
+		Where("parent_id = ? AND role <> ?", parentID, models.AgentRoleAdmin)
+	if q != "" {
+		query = query.Where(`username LIKE ? ESCAPE '\'`, "%"+likeEscaper.Replace(q)+"%")
+	}
+	err := query.Order("username").Limit(limit).Find(&out).Error
 	return out, err
 }
 
@@ -212,7 +216,7 @@ func ListAgentDirectChildrenRepository(db *gorm.DB, parentID uint) ([]models.Use
 func GetAgentDetailRepository(db *gorm.DB, id uint) (models.UserAgent, error) {
 	var a models.UserAgent
 	err := db.Select("id", "parent_id", "username", "name", "phone", "role", "agent_type", "status", "passcode_hash",
-		"last_login_at", "last_login_ip", "created_at").Where("id = ?", id).Take(&a).Error
+		"last_login_at", "last_login_ip", "created_at", "cnf").Where("id = ?", id).Take(&a).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return a, apperr.ErrNotFound
 	}

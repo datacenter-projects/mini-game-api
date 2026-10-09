@@ -17,13 +17,14 @@ import (
 )
 
 const (
-	agentInfoPath      = "/api/v1/bo/pr/manage/agents/update-info"
-	memberInfoPath     = "/api/v1/bo/pr/manage/members/update-info"
-	agentStatusPath    = "/api/v1/bo/pr/manage/agents/update-status"
-	memberStatusPath   = "/api/v1/bo/pr/manage/members/update-status"
-	updatePTPath       = "/api/v1/bo/pr/manage/agents/update-pt"
-	updateMemberPTPath = "/api/v1/bo/pr/manage/members/update-pt"
-	updateGamesPath    = "/api/v1/bo/pr/manage/agents/update-games"
+	agentInfoPath         = "/api/v1/bo/pr/manage/agents/detail/update" // section info
+	memberInfoPath        = "/api/v1/bo/pr/manage/members/update-info"
+	agentStatusPath       = "/api/v1/bo/pr/manage/agents/status/update"
+	memberStatusPath      = "/api/v1/bo/pr/manage/members/update-status"
+	updatePTPath          = "/api/v1/bo/pr/manage/agents/detail/update" // section pt
+	updateMemberPTPath    = "/api/v1/bo/pr/manage/members/update-pt"
+	updateGamesPath       = "/api/v1/bo/pr/manage/agents/detail/update" // section status_game
+	agentDetailUpdatePath = "/api/v1/bo/pr/manage/agents/detail/update"
 )
 
 func ptBody(id uint, give, force, remain, commission float64) map[string]any {
@@ -101,7 +102,7 @@ func TestUpdatePT(t *testing.T) { // MGMT-18 – MGMT-25
 	expect(t, call(t, app, "POST", updatePTPath, map[string]any{"pt": childPT(60, 0, 0, 0)}, c.comTok), 200, 422)
 
 	// MGMT-16: ผู้สร้างค่า PT ไม่เปลี่ยน · ผู้แก้ล่าสุด = username ของคนที่แก้ (sub = owner@name) ทุกเกมในระบบ
-	sub := createSubAPI(t, app, c.comTok, "staff", map[string]string{"member": "edit", "pt": "edit"})
+	sub := createSubAPI(t, app, c.comTok, "staff", map[string]string{"member": "edit"})
 	subTok := readyToken(t, app, models.AccountTypeSub, sub.ID, "comp01@staff")
 	before := gameSetting(t, c.share.ID)
 	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0.5), subTok), 200, 200)
@@ -222,17 +223,17 @@ func TestUpdateStatus(t *testing.T) { // MGMT-30, MGMT-31
 func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, MGMT-21, MGMT-60
 	app := setup2(t)
 	c := buildChain(t, app)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "name": "สมชาย01", "phone": "0811111111"}, c.shareTok), 200, 200)
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "สมชาย01", "phone": "0811111111"}}, c.shareTok), 200, 200)
 	var a models.UserAgent
 	database.DBConn.Where("id = ?", c.agent.ID).Take(&a)
 	if a.Name == nil || *a.Name != "สมชาย01" || a.Phone == nil || *a.Phone != "0811111111" {
 		t.Fatalf("info %+v", a)
 	}
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "name": "share01", "phone": "0811111111"}, c.comTok), 200, 402403)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "name": "agent01", "phone": "0811111111"}, c.shareTok), 200, 200) // เบอร์เดิมของตัวเอง
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "name": "agent01", "phone": nil}, c.shareTok), 200, 422)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "name": "agent01"}, c.shareTok), 200, 422)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "name": "agent01", "phone": ""}, c.shareTok), 200, 200)
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01", "phone": "0811111111"}}, c.comTok), 200, 402403)
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "agent01", "phone": "0811111111"}}, c.shareTok), 200, 200) // เบอร์เดิมของตัวเอง
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "agent01", "phone": nil}}, c.shareTok), 200, 422)
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "agent01"}}, c.shareTok), 200, 200) // ส่งบาง field ได้ (MGMT-32) · เบอร์คงเดิม
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.agent.ID, "info": map[string]any{"name": "agent01", "phone": ""}}, c.shareTok), 200, 200)
 	database.DBConn.Where("id = ?", c.agent.ID).Take(&a)
 	if a.Phone != nil {
 		t.Fatal(`phone "" ต้องเก็บเป็น NULL`)
@@ -350,12 +351,14 @@ func TestUpdateSubPermission(t *testing.T) { // MGMT-51
 		t.Fatal(err)
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "name": "share01", "phone": ""}, tok), 200, 200)
-	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 402303)
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01", "phone": ""}}, tok), 200, 200)
+	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 200) // member edit แก้ได้ทุก section (lead E4)
+	expect(t, call(t, app, "POST", agentStatusPath, map[string]any{"id": c.share.ID, "status": "ACTIVE"}, tok), 200, 200)
 
-	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"pt":"edit"}`})
-	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 200)
-	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "name": "share01", "phone": ""}, tok), 200, 402303)
+	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"member":"view","pt":"edit"}`}) // pt เดิมไม่มีผล
+	expect(t, call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 80, 0, 0, 0), tok), 200, 402303)
+	expect(t, call(t, app, "POST", agentInfoPath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01", "phone": ""}}, tok), 200, 402303)
+	expect(t, call(t, app, "POST", agentStatusPath, map[string]any{"id": c.share.ID, "status": "ACTIVE"}, tok), 200, 402303)
 }
 
 func TestUpdateGames(t *testing.T) { // MGMT-20

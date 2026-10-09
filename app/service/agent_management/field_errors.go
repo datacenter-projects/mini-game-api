@@ -28,6 +28,9 @@ func CannotCreateTypeError(creator agentManagementCore.UserType, sent string) er
 	whyTH, whyEN := cannotCreateReason(creator, agentManagementCore.UserType(sent))
 	c := string(creator)
 	allowedTH, allowedEN := c+" สร้างบัญชีฝั่ง agent ไม่ได้", c+" cannot create agent-side accounts"
+	if agentManagementCore.CanCreateMember(creator) {
+		allowedTH, allowedEN = c+" สร้างได้แค่ MEMBER (เส้น /api/v1/bo/pr/manage/members/create)", c+" can only create MEMBER (via /api/v1/bo/pr/manage/members/create)"
+	}
 	if allowed := agentManagementCore.CreatableTypes(creator); len(allowed) > 0 {
 		allowedTH, allowedEN = c+" สร้างได้เฉพาะ "+joinTypes(allowed), c+" can only create "+joinTypes(allowed)
 	}

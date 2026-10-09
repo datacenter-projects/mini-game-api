@@ -91,7 +91,7 @@ func ResolveNewAgent(creator UserType, requested UserType) (NewAccount, bool) {
 		if requested == UserTypeShareB2C {
 			return NewAccount{models.AgentRoleShareholder, ptr(models.AgentTypeShareMaster), UserTypeShareMaster}, true
 		}
-	case UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent:
+	case UserTypeShareB2B, UserTypeShareB2C, UserTypeAgent: // Share Reseller / Master สร้างได้แค่ Member (lead H1 2026-10-09)
 		if requested == UserTypeAgent {
 			return NewAccount{Role: models.AgentRoleAgent, UserType: UserTypeAgent}, true
 		}
@@ -149,7 +149,7 @@ func CreatableTypes(creator UserType) []UserType {
 		return []UserType{UserTypeShareB2B, UserTypeShareB2C}
 	case UserTypeCompanySeamlessReseller, UserTypeCompanySeamlessMaster:
 		return []UserType{UserTypeShareB2C}
-	case UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent:
+	case UserTypeShareB2B, UserTypeShareB2C, UserTypeAgent:
 		return []UserType{UserTypeAgent}
 	}
 	return nil

@@ -69,14 +69,9 @@ func BalanceViews(currencies []string, amount map[string]float64) []agentManagem
 	return out
 }
 
-// CanSeePT — มีสิทธิ์ pt ≥ view ไหม · ไม่มี = response ไม่มี field pt (MGMT-51)
-func CanSeePT(ctx context.Context, actor agentAuthService.Actor) (bool, error) {
-	perms, err := PermissionsOf(ctx, actor)
-	if err != nil {
-		return false, err
-	}
-	return perms[agentManagementCore.MenuPT].Allows(agentManagementCore.LevelView), nil
-}
+// CanSeePT — Deprecated: ไม่มีเมนู pt แล้ว (lead P4 2026-10-09) pt แสดงเสมอ · คงไว้ชั่วคราวให้ member_management build ผ่าน
+// ลบเมื่อ member_management เลิกเรียก (ทำใน branch member_management)
+func CanSeePT(_ context.Context, _ agentAuthService.Actor) (bool, error) { return true, nil }
 
 // ChainStatus — สถานะที่ใช้งานจริงของบัญชีฝั่ง agent = เข้มที่สุดของตัวเองและหัวสายทุกชั้น (ACC-30 · AUTH-53)
 func ChainStatus(db *gorm.DB, agentID uint, own models.AgentStatus) (models.AgentStatus, error) {

@@ -55,33 +55,28 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Get("/account/api-credential", mw.PassedGatesAllowSuspended(), mw.RequireSubPermission(agentManagementCore.MenuAPICredential, agentManagementCore.LevelView), accountController.GetAPICredentialController) // ACC-31: ถูกระงับดูได้ บันทึกไม่ได้
 	pr.Post("/account/update-credential", mw.PassedGates(), mw.RequireSubPermission(agentManagementCore.MenuAPICredential, agentManagementCore.LevelEdit), mw.RequirePasscode(), accountController.SaveAPICredentialController)
 
-	// agent_management — docs/modules/agent_management.md หัวข้อ 5 · payment = edit เมื่อส่ง balance ตรวจใน service (MGMT-51)
-	memberEdit := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelEdit)
-	ptEdit := mw.RequirePermission(agentManagementCore.MenuPT, agentManagementCore.LevelEdit)
-	pr.Post("/manage/agents/create", mw.PassedGates(), memberEdit, ptEdit, agentManagementController.CreateAgentController)
-
+	// agent_management — docs/modules/agent_management.md หัวข้อ 5 (lead E1–E6 · N1) · ทุกเส้นใช้เมนู member (MGMT-51 · P3–P5)
+	// payment = edit เมื่อส่ง balance ตรวจใน service (MGMT-15A · 7.1)
 	memberView := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelView)
-	ptView := mw.RequirePermission(agentManagementCore.MenuPT, agentManagementCore.LevelView)
+	memberEdit := mw.RequirePermission(agentManagementCore.MenuMember, agentManagementCore.LevelEdit)
+	pr.Post("/manage/agents/create", mw.PassedGates(), memberEdit, agentManagementController.CreateAgentController)
 	pr.Post("/manage/downlines/list", mw.PassedGates(), memberView, agentManagementController.ListDownlinesController)
-	pr.Post("/manage/downlines/search", mw.PassedGates(), memberView, agentManagementController.SearchDownlinesController)
-	pr.Get("/manage/agents/copy-sources", mw.PassedGates(), ptView, agentManagementController.ListCopySourcesController)
-	pr.Post("/manage/agents/detail", mw.PassedGates(), memberView, agentManagementController.GetAgentDetailController)
-	pr.Post("/manage/agents/update-info", mw.PassedGates(), memberEdit, agentManagementController.UpdateAgentInfoController)
-	pr.Post("/manage/agents/update-status", mw.PassedGates(), memberEdit, agentManagementController.UpdateAgentStatusController)
-	pr.Post("/manage/agents/update-pt", mw.PassedGates(), ptEdit, agentManagementController.UpdateChildPTController)
-	pr.Post("/manage/agents/update-games", mw.PassedGates(), ptEdit, agentManagementController.UpdateGamesController)
+	pr.Post("/manage/agents/detail/get", mw.PassedGates(), memberView, agentManagementController.GetAgentDetailController)
+	pr.Post("/manage/agents/detail/update", mw.PassedGates(), memberEdit, agentManagementController.UpdateAgentDetailController)
+	pr.Post("/manage/agents/status/update", mw.PassedGates(), memberEdit, agentManagementController.UpdateAgentStatusController)
+	pr.Post("/manage/agents/list", mw.PassedGates(), memberView, agentManagementController.ListAgentsController)
 
-	//Member Management
-	pr.Post("/manage/members/create", mw.PassedGates(), memberEdit, ptEdit, memberManagementController.CreateMemberController)
+	// member_management — ไม่มีเมนู pt แล้ว: เส้นที่เคยใช้ pt edit เปลี่ยนเป็น member edit (lead B3 · path ยังไม่เปลี่ยน)
+	pr.Post("/manage/members/create", mw.PassedGates(), memberEdit, memberManagementController.CreateMemberController)
 	pr.Post("/manage/members/detail", mw.PassedGates(), memberView, memberManagementController.GetMemberDetailController)
 	pr.Post("/manage/members/update-info", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberInfoController)
 	pr.Post("/manage/members/update-status", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberStatusController)
-	pr.Post("/manage/members/update-pt", mw.PassedGates(), ptEdit, memberManagementController.UpdateMemberPTController)
+	pr.Post("/manage/members/update-pt", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberPTController)
 
 	// sub: เฉพาะบัญชีหลัก (sub เรียก = 402311 — MGMT-40) · ไม่ใช้สิทธิ์เมนู
 	pr.Post("/manage/subaccounts/list", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.ListSubaccountsController)
-	pr.Post("/manage/subaccounts/detail", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.GetSubaccountController)
+	pr.Post("/manage/subaccounts/detail/get", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.GetSubaccountController)
 	pr.Post("/manage/subaccounts/create", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.CreateSubaccountController)
-	pr.Post("/manage/subaccounts/update-info", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.UpdateSubaccountController)
-	pr.Post("/manage/subaccounts/update-status", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.UpdateSubaccountStatusController)
+	pr.Post("/manage/subaccounts/detail/update", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.UpdateSubaccountController)
+	pr.Post("/manage/subaccounts/status/update", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.UpdateSubaccountStatusController)
 }

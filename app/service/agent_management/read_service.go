@@ -2,6 +2,7 @@ package agentmanagement
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	agentAuthCore "app/app/core/agent_auth"
@@ -18,8 +19,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// ListDownlinesService — POST /api/v1/bo/pr/manage/downlines/list (MGMT-26 – MGMT-28)
-// parent_id ไม่ส่ง = ตัวเอง · อื่นต้องเป็นบัญชีฝั่ง agent ในสายล่าง (402402) · ข้อมูลประกอบอ่านทีละหน้าแบบ batch
+// ListDownlinesService — POST /api/v1/bo/pr/manage/downlines/list (MGMT-26 – MGMT-28 · lead E2)
+// parent_id ไม่ส่ง = ตัวเอง · อื่นต้องเป็นบัญชีฝั่ง agent ในสายล่าง (402402)
+// keyword ว่าง = ลูกตรงของ parent_id · ส่ง = ค้น username ทุกชั้นใต้ parent_id · ข้อมูลประกอบอ่านทีละหน้าแบบ batch
 func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q agentManagementDto.DownlinesRequest,
 	page utils.Page) ([]agentManagementDto.DownlineRow, int64, error) {
 	db := database.DBConn.WithContext(ctx)
@@ -42,60 +44,46 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q a
 	if err != nil {
 		return nil, 0, err
 	}
-	showPT, err := CanSeePT(ctx, actor)
-	if err != nil {
-		return nil, 0, err
+
+	type hit struct {
+		row            agentManagementPostgres.DownlineRow
+		status         models.AgentStatus
+		parentUsername string
+	}
+	var hits []hit
+	var total int64
+	if q.Keyword == "" {
+		rows, n, err := agentManagementPostgres.ListDownlinesRepository(db, parentID, "", page.Offset(), page.Limit)
+		if err != nil {
+			return nil, 0, err
+		}
+		for _, r := range rows {
+			hits = append(hits, hit{r, agentAuthCore.WorstStatus(parentStatus, r.Status), parent.Username})
+		}
+		total = n
+	} else {
+		rows, n, err := agentManagementPostgres.SearchDownlinesRepository(db, parentID, parentStatus, q.Keyword, page.Offset(), page.Limit)
+		if err != nil {
+			return nil, 0, err
+		}
+		for _, r := range rows {
+			hits = append(hits, hit{r.DownlineRow, r.EffectiveStatus, r.ParentUsername})
+		}
+		total = n
 	}
 
-	rows, total, err := agentManagementPostgres.ListDownlinesRepository(db, parentID, q.Q, page.Offset(), page.Limit)
-	if err != nil {
-		return nil, 0, err
-	}
-	agentIDs, memberIDs := splitIDs(rows)
-	extra, err := loadRowExtras(db, agentIDs, memberIDs)
-	if err != nil {
-		return nil, 0, err
-	}
-	out := make([]agentManagementDto.DownlineRow, len(rows))
-	for i, r := range rows {
-		out[i] = downlineRow(r, agentAuthCore.WorstStatus(parentStatus, r.Status), extra, showPT)
-	}
-	return out, total, nil
-}
-
-// SearchDownlinesService — POST /api/v1/bo/pr/manage/downlines/search (MGMT-27A) · ทุกชั้นใต้บัญชีใน token
-func SearchDownlinesService(ctx context.Context, actor agentAuthService.Actor, q agentManagementDto.DownlineSearchRequest,
-	page utils.Page) ([]agentManagementDto.DownlineSearchRow, int64, error) {
-	db := database.DBConn.WithContext(ctx)
-	root, err := agentManagementPostgres.GetAgentProfileRepository(db, actor.AgentID)
-	if err != nil {
-		return nil, 0, err
-	}
-	rootStatus, err := ChainStatus(db, root.ID, root.Status)
-	if err != nil {
-		return nil, 0, err
-	}
-	showPT, err := CanSeePT(ctx, actor)
-	if err != nil {
-		return nil, 0, err
-	}
-	hits, total, err := agentManagementPostgres.SearchDownlinesRepository(db, root.ID, rootStatus, q.Q, page.Offset(), page.Limit)
-	if err != nil {
-		return nil, 0, err
-	}
 	rows := make([]agentManagementPostgres.DownlineRow, len(hits))
 	for i, h := range hits {
-		rows[i] = h.DownlineRow
+		rows[i] = h.row
 	}
 	agentIDs, memberIDs := splitIDs(rows)
 	extra, err := loadRowExtras(db, agentIDs, memberIDs)
 	if err != nil {
 		return nil, 0, err
 	}
-	out := make([]agentManagementDto.DownlineSearchRow, len(hits))
+	out := make([]agentManagementDto.DownlineRow, len(hits))
 	for i, h := range hits {
-		out[i] = agentManagementDto.DownlineSearchRow{DownlineRow: downlineRow(h.DownlineRow, h.EffectiveStatus, extra, showPT),
-			ParentUsername: h.ParentUsername}
+		out[i] = downlineRow(h.row, h.status, h.parentUsername, extra)
 	}
 	return out, total, nil
 }
@@ -112,24 +100,19 @@ func splitIDs(rows []agentManagementPostgres.DownlineRow) (agentIDs, memberIDs [
 	return agentIDs, memberIDs
 }
 
-// downlineRow — 1 แถวของรายชื่อ / ผลค้น (MGMT-28) · status = สถานะที่ใช้งานจริง · ไม่มีสิทธิ์ pt = ไม่มี field pt
-func downlineRow(r agentManagementPostgres.DownlineRow, status models.AgentStatus, extra rowExtras, showPT bool) agentManagementDto.DownlineRow {
+// downlineRow — 1 แถวของรายชื่อ / ผลค้น (MGMT-28) · status = สถานะที่ใช้งานจริง · pt แสดงเสมอ · status_game เฉพาะแถว agent
+func downlineRow(r agentManagementPostgres.DownlineRow, status models.AgentStatus, parentUsername string, extra rowExtras) agentManagementDto.DownlineRow {
 	row := agentManagementDto.DownlineRow{ID: r.ID, Username: r.Username, Name: StringOrEmpty(r.Name), Phone: StringOrEmpty(r.Phone),
-		Status: string(status), LastLoginAt: OptionalTime(r.LastLoginAt), LastLoginIP: StringOrEmpty(r.LastLoginIP), CreatedAt: OptionalTime(&r.CreatedAt)}
+		Status: string(status), ParentUsername: parentUsername, LastLoginAt: OptionalTime(r.LastLoginAt), LastLoginIP: StringOrEmpty(r.LastLoginIP), CreatedAt: OptionalTime(&r.CreatedAt)}
 	if r.IsMember {
 		row.Role, row.UserType = string(agentManagementCore.UserTypeMember), string(agentManagementCore.UserTypeMember)
 		row.Balances = BalanceViews([]string{StringOrEmpty(r.Currency)}, extra.memberBalance[r.ID])
-		if showPT {
-			row.PT = MemberPTViews(extra.memberSettings[r.ID])
-		}
+		row.PT = MemberPTViews(extra.memberSettings[r.ID])
 		return row
 	}
 	row.Role, row.UserType = string(r.Role), string(agentManagementCore.UserTypeOf(r.Role, r.AgentType))
 	row.Balances = BalanceViews(extra.agentCurrencies[r.ID], extra.agentBalance[r.ID])
-	if showPT {
-		pt, _ := AgentPTViews(extra.agentSettings[r.ID])
-		row.PT = pt
-	}
+	row.PT, row.StatusGame = AgentPTViews(extra.agentSettings[r.ID])
 	return row
 }
 
@@ -186,7 +169,7 @@ func loadRowExtras(db *gorm.DB, agentIDs, memberIDs []uint) (rowExtras, error) {
 	return e, nil
 }
 
-// GetAgentDetailService — POST /api/v1/bo/pr/manage/agents/detail (MGMT-29) · เฉพาะบัญชีในสายล่าง (402402)
+// GetAgentDetailService — POST /api/v1/bo/pr/manage/agents/detail/get (MGMT-29) · เฉพาะบัญชีในสายล่าง (402402)
 func GetAgentDetailService(ctx context.Context, actor agentAuthService.Actor, id uint) (agentManagementDto.AgentDetailResponse, error) {
 	var res agentManagementDto.AgentDetailResponse
 	db := database.DBConn.WithContext(ctx)
@@ -214,47 +197,67 @@ func GetAgentDetailService(ctx context.Context, actor agentAuthService.Actor, id
 		return res, err
 	}
 	pt, statusGame := AgentPTViews(extra.agentSettings[a.ID])
+	effective, err := effectiveStatusGame(db, a.Cnf, statusGame)
+	if err != nil {
+		return res, err
+	}
 	res = agentManagementDto.AgentDetailResponse{ID: a.ID, Role: string(a.Role),
 		UserType: string(agentManagementCore.UserTypeOf(a.Role, a.AgentType)), Username: a.Username,
 		Name: StringOrEmpty(a.Name), Phone: StringOrEmpty(a.Phone), Status: string(status), ParentUsername: parent.Username,
 		Currencies: append([]string{}, extra.agentCurrencies[a.ID]...),
 		Balances:   BalanceViews(extra.agentCurrencies[a.ID], extra.agentBalance[a.ID]),
-		StatusGame: statusGame, PasscodeSet: a.PasscodeHash != nil,
+		PT:         pt, StatusGame: statusGame, StatusGameEffective: effective, PasscodeSet: a.PasscodeHash != nil,
 		LastLoginAt: OptionalTime(a.LastLoginAt), LastLoginIP: StringOrEmpty(a.LastLoginIP), CreatedAt: OptionalTime(&a.CreatedAt)}
-	show, err := CanSeePT(ctx, actor)
-	if err != nil {
-		return res, err
-	}
-	if show {
-		res.PT = pt
-	}
 	return res, nil
 }
 
-// ListCopySourcesService — GET /api/v1/bo/pr/manage/agents/copy-sources (MGMT-35) · ลูกตรงฝั่ง agent ทั้งหมด A→Z
-func ListCopySourcesService(ctx context.Context, actor agentAuthService.Actor) ([]agentManagementDto.CopySource, error) {
+// effectiveStatusGame — เกมเปิดจริงเมื่อบัญชีและหัวสายทุกชั้นเปิด (MGMT-20 · lead E3-1) · หัวสายอ่านจาก cnf (MGMT-61) query เดียว
+func effectiveStatusGame(db *gorm.DB, cnf string, own map[string]bool) (map[string]bool, error) {
+	var chain agentManagementCore.Chain
+	if err := json.Unmarshal([]byte(cnf), &chain); err != nil {
+		return nil, apperr.ErrInternal.Wrap(err)
+	}
+	ids := make([]uint, len(chain.Parent))
+	for i, p := range chain.Parent {
+		ids[i] = p.ID
+	}
+	upline, err := agentManagementPostgres.ListAgentGameSettingsByIDsRepository(db, ids)
+	if err != nil {
+		return nil, err
+	}
+	byGame := map[string][]bool{}
+	for _, s := range upline {
+		byGame[s.GameCode] = append(byGame[s.GameCode], s.StatusGame)
+	}
+	out := make(map[string]bool, len(own))
+	for game, on := range own {
+		out[game] = agentManagementCore.IsGameOpen(append([]bool{on}, byGame[game]...))
+	}
+	return out, nil
+}
+
+// AgentListMax — agents/list ส่งไม่เกินกี่รายการ (lead E6b)
+const AgentListMax = 500
+
+// ListAgentsService — POST /api/v1/bo/pr/manage/agents/list (MGMT-35 · lead E6) · ลูกตรงฝั่ง agent A→Z ไว้ทำ dropdown
+func ListAgentsService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.AgentListRequest) ([]agentManagementDto.AgentListRow, error) {
 	db := database.DBConn.WithContext(ctx)
-	children, err := agentManagementPostgres.ListAgentDirectChildrenRepository(db, actor.AgentID)
+	me, err := agentManagementPostgres.GetAgentProfileRepository(db, actor.AgentID)
 	if err != nil {
 		return nil, err
 	}
-	ids := make([]uint, len(children))
-	for i, c := range children {
-		ids[i] = c.ID
-	}
-	settings, err := agentManagementPostgres.ListAgentGameSettingsByIDsRepository(db, ids)
+	myStatus, err := ChainStatus(db, me.ID, me.Status)
 	if err != nil {
 		return nil, err
 	}
-	byID := map[uint][]models.AgentGameSetting{}
-	for _, s := range settings {
-		byID[s.AgentID] = append(byID[s.AgentID], s)
+	children, err := agentManagementPostgres.ListAgentDirectChildrenRepository(db, actor.AgentID, req.Keyword, AgentListMax)
+	if err != nil {
+		return nil, err
 	}
-	out := make([]agentManagementDto.CopySource, len(children))
+	out := make([]agentManagementDto.AgentListRow, len(children))
 	for i, c := range children {
-		pt, statusGame := AgentPTViews(byID[c.ID])
-		out[i] = agentManagementDto.CopySource{ID: c.ID, Username: c.Username,
-			UserType: string(agentManagementCore.UserTypeOf(c.Role, c.AgentType)), PT: pt, StatusGame: statusGame}
+		out[i] = agentManagementDto.AgentListRow{ID: c.ID, Username: c.Username, Name: StringOrEmpty(c.Name),
+			UserType: string(agentManagementCore.UserTypeOf(c.Role, c.AgentType)), Status: string(agentAuthCore.WorstStatus(myStatus, c.Status))}
 	}
 	return out, nil
 }

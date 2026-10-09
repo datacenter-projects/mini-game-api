@@ -95,7 +95,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
-    "dashboard": "edit", "member": "edit", "pt": "edit", "report": "edit",
+    "dashboard": "edit", "member": "edit", "report": "edit",
     "bet_cancel": "edit", "payment": "edit", "asset": "edit", "announcement": "edit", "api_credential": "edit"
   }
 }
@@ -155,8 +155,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | key | เมนู | ระดับ |
 |---|---|---|
 | `dashboard` | หน้าแรก (1.1 ภาพรวม) | off / view |
-| `member` | การจัดการสมาชิก | off / view / edit |
-| `pt` | ถือสู้ (PT) | off / view / edit |
+| `member` | การจัดการสมาชิก (รวมค่าหุ้นส่วน · เมนู `pt` เดิมถูกรวมเข้ามา 9 ต.ค.) | off / view / edit |
 | `report` | รายงาน | off / view |
 | `bet_cancel` | ยกเลิกเดิมพัน | off / view / edit |
 | `payment` | ฝาก-ถอน | off / view / edit |

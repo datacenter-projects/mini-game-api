@@ -440,9 +440,10 @@ func TestCreateSubPermission(t *testing.T) { // MGMT-51
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
 	body := agentBody("SHARE_B2C", "subshare", []string{"THB"}, childPT(50, 0, 0, 0))
-	expect(t, call(t, app, "POST", createAgentPath, body, tok), 200, 402303)
+	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"member":"view"}`})
+	expect(t, call(t, app, "POST", createAgentPath, body, tok), 200, 402303) // ต้อง member edit
 
-	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"member":"edit","pt":"edit"}`})
+	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"member":"edit"}`}) // member edit อย่างเดียวพอ (lead P3)
 	r := call(t, app, "POST", createAgentPath, body, tok)
 	expect(t, r, 200, 200)
 	var d created

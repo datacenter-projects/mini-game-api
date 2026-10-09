@@ -14,8 +14,8 @@
 //	│                    └─ SHARE_B2C ─┬─ AGENT → MEMBER
 //	│                                  └─ MEMBER
 //	├─ COMPANY_SEAMLESS_1TO1 → MEMBER
-//	├─ COMPANY_SEAMLESS_RESELLER → SHARE_RESELLER → AGENT → MEMBER
-//	└─ COMPANY_SEAMLESS_MASTER → SHARE_MASTER → AGENT → MEMBER
+//	├─ COMPANY_SEAMLESS_RESELLER → SHARE_RESELLER → MEMBER
+//	└─ COMPANY_SEAMLESS_MASTER → SHARE_MASTER → MEMBER
 //
 // ฝั่ง Transfer ทุกบัญชีเหลือยอด THB 10,000 (ผู้สร้างโอนให้เท่ากับ 10,000 × จำนวนบัญชีในสายนั้น) · Seamless ไม่มียอดเงิน
 // บัญชีฝั่ง agent ได้ sub `{username}@staff` บัญชีละ 1 ตัว สิทธิ์ view ทุกเมนูของเจ้าของ
@@ -84,8 +84,8 @@ func tree() []node {
 			}},
 		}},
 		{"com1to1", c11, []node{{"mem1to1", mem, nil}}},
-		{"comreseller", cr, []node{{"sharereseller", sbc, []node{{"agentreseller", ag, []node{{"memreseller", mem, nil}}}}}}},
-		{"commaster", cm, []node{{"sharemaster", sbc, []node{{"agentmaster", ag, []node{{"memmaster", mem, nil}}}}}}},
+		{"comreseller", cr, []node{{"sharereseller", sbc, []node{{"memreseller", mem, nil}}}}}, // Share Reseller / Master สร้างได้แค่ Member (lead H1)
+		{"commaster", cm, []node{{"sharemaster", sbc, []node{{"memmaster", mem, nil}}}}},
 	}
 }
 

@@ -10,18 +10,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// เส้นแก้บัญชี (phase 4) — id ของบัญชีที่จะแก้อยู่ใน body · ผู้แก้มาจาก token
+// เส้นแก้บัญชี — id ของบัญชีที่จะแก้อยู่ใน body · ผู้แก้มาจาก token (spec หัวข้อ 5 · lead E4 / E5)
 
-// UpdateAgentInfoController — POST /api/v1/bo/pr/manage/agents/update-info
-func UpdateAgentInfoController(c *fiber.Ctx) error {
-	var req agentManagementDto.UpdateInfoRequest
+// UpdateAgentDetailController — POST /api/v1/bo/pr/manage/agents/detail/update
+func UpdateAgentDetailController(c *fiber.Ctx) error {
+	var req agentManagementDto.AgentDetailUpdateRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
 		return response.Error(c, err)
 	}
-	return result(c, agentManagementService.UpdateAgentInfoService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
+	return result(c, agentManagementService.UpdateAgentDetailService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }
 
-// UpdateAgentStatusController — POST /api/v1/bo/pr/manage/agents/update-status
+// UpdateAgentStatusController — POST /api/v1/bo/pr/manage/agents/status/update
 func UpdateAgentStatusController(c *fiber.Ctx) error {
 	var req agentManagementDto.UpdateStatusRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
@@ -30,28 +30,10 @@ func UpdateAgentStatusController(c *fiber.Ctx) error {
 	return result(c, agentManagementService.UpdateAgentStatusService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }
 
-// UpdateChildPTController — POST /api/v1/bo/pr/manage/agents/update-pt
-func UpdateChildPTController(c *fiber.Ctx) error {
-	var req agentManagementDto.UpdateChildPTRequest
-	if err := utils.ParseBodyNoNull(c, &req); err != nil {
-		return response.Error(c, err)
-	}
-	return result(c, agentManagementService.UpdateChildPTService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
-}
-
 // result — เส้นแก้ไม่มี data
 func result(c *fiber.Ctx, err error) error {
 	if err != nil {
 		return response.Error(c, err)
 	}
 	return response.OK(c, nil)
-}
-
-// UpdateGamesController — POST /api/v1/bo/pr/manage/agents/update-games
-func UpdateGamesController(c *fiber.Ctx) error {
-	var req agentManagementDto.UpdateGamesRequest
-	if err := utils.ParseBodyNoNull(c, &req); err != nil {
-		return response.Error(c, err)
-	}
-	return result(c, agentManagementService.UpdateGamesService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }

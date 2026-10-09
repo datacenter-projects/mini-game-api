@@ -84,7 +84,7 @@ func TestCreatorsOf(t *testing.T) { // MGMT-02
 		{UserTypeCompanyTransfer, []UserType{UserTypeSuperadmin}},
 		{UserTypeShareB2B, []UserType{UserTypeCompanyTransfer}},
 		{UserTypeShareB2C, []UserType{UserTypeCompanyTransfer, UserTypeCompanySeamlessReseller, UserTypeCompanySeamlessMaster}},
-		{UserTypeAgent, []UserType{UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent}},
+		{UserTypeAgent, []UserType{UserTypeShareB2B, UserTypeShareB2C, UserTypeAgent}}, // Share Reseller / Master สร้างได้แค่ Member (lead H1)
 		{UserTypeShareReseller, nil},
 		{UserTypeMember, nil},
 		{UserTypeSuperadmin, nil},

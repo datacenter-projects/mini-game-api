@@ -95,7 +95,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 		d.PT["minigame"].PTFromParent != "100" || d.PT["minigame"].PT != "" || d.Permissions["rate"] != "edit" {
 		t.Fatalf("superadmin %+v", d)
 	}
-	allLevel(t, d.Permissions, "edit", 8) // Superadmin ไม่มี api_credential (ไม่มี Key)
+	allLevel(t, d.Permissions, "edit", 7) // Superadmin ไม่มี api_credential (ไม่มี Key)
 
 	// Company Transfer: ประเภทย่อย · ค่าที่ Superadmin ให้ · ไม่มี pt ของบัญชี
 	setBalance(t, c.com.ID, "THB", 962056)
@@ -145,7 +145,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	if d.UserType != "AGENT" || d.StatusGame["scratch_card"] || !d.StatusGame["coin_toss"] || len(d.PT) != 1 {
 		t.Fatalf("agent off %+v", d)
 	}
-	allLevel(t, d.Permissions, "edit", 9) // รวม api_credential (lead A6)
+	allLevel(t, d.Permissions, "edit", 8) // รวม api_credential (lead A6)
 
 	// Company Seamless Master: ไม่มี pt · Seamless 1 to 1: ยอด 0 (ACC-12, ACC-19)
 	_, masterTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
@@ -188,7 +188,7 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 		d.UserType != "SHARE_B2C" || len(d.Currencies) != 1 || d.PT["minigame"].PTFromParent != "70" {
 		t.Fatalf("unexpected %+v", d)
 	}
-	if len(d.Permissions) != 9 || d.Permissions["api_credential"] != "off" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" || d.Permissions["account"] != "" {
+	if _, hasPT := d.Permissions["pt"]; hasPT || len(d.Permissions) != 8 || d.Permissions["api_credential"] != "off" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" || d.Permissions["account"] != "" {
 		t.Fatalf("permissions %v", d.Permissions)
 	}
 
@@ -209,7 +209,7 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 		t.Fatalf("บัญชีหลักถูกระงับ %+v", d.Permissions)
 	}
 	d, _ = getProfile(t, app, c.agentTok) // ถูกระงับจากหัวสาย
-	if d.Status != "SUSPENDED" || d.Permissions["report"] != "view" || d.Permissions["pt"] != "off" {
+	if _, hasPT := d.Permissions["pt"]; hasPT || d.Status != "SUSPENDED" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" {
 		t.Fatalf("ลูกของบัญชีที่ถูกระงับ %+v", d.Permissions)
 	}
 }

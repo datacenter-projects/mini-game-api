@@ -18,8 +18,8 @@ superadmin1
 │     ├─ mockagentb2c (AGENT) → mockmemagentb2c (MEMBER)
 │     └─ mockmemshareb2c (MEMBER)
 ├─ mockcom1to1 (COMPANY_SEAMLESS_1TO1) → mockmem1to1 (MEMBER)
-├─ mockcomreseller (COMPANY_SEAMLESS_RESELLER) → mocksharereseller (SHARE_RESELLER) → mockagentreseller (AGENT) → mockmemreseller (MEMBER)
-└─ mockcommaster (COMPANY_SEAMLESS_MASTER) → mocksharemaster (SHARE_MASTER) → mockagentmaster (AGENT) → mockmemmaster (MEMBER)
+├─ mockcomreseller (COMPANY_SEAMLESS_RESELLER) → mocksharereseller (SHARE_RESELLER) → mockmemreseller (MEMBER)
+└─ mockcommaster (COMPANY_SEAMLESS_MASTER) → mocksharemaster (SHARE_MASTER) → mockmemmaster (MEMBER)
 ```
 
 ## รายชื่อ
@@ -38,11 +38,11 @@ superadmin1
 | MEMBER | mockmem1to1 | mockcom1to1 | — | — | — |
 | COMPANY_SEAMLESS_RESELLER | mockcomreseller | superadmin1 | 90 | — | mockcomreseller@staff |
 | SHARE_RESELLER | mocksharereseller | mockcomreseller | 80 | — | mocksharereseller@staff |
-| AGENT | mockagentreseller | mocksharereseller | 70 | — | mockagentreseller@staff |
-| MEMBER | mockmemreseller | mockagentreseller | — | — | — |
+| MEMBER | mockmemreseller | mocksharereseller | — | — | — |
 | COMPANY_SEAMLESS_MASTER | mockcommaster | superadmin1 | 90 | — | mockcommaster@staff |
 | SHARE_MASTER | mocksharemaster | mockcommaster | 90 | — | mocksharemaster@staff |
-| AGENT | mockagentmaster | mocksharemaster | 70 | — | mockagentmaster@staff |
-| MEMBER | mockmemmaster | mockagentmaster | — | — | — |
+| MEMBER | mockmemmaster | mocksharemaster | — | — | — |
 
 sub (`{username}@staff`) ได้สิทธิ์ `view` ทุกเมนูของเจ้าของ · Member ไม่มี sub
+
+หมายเหตุ (2026-10-09): Share Reseller / Share Master สร้างได้แค่ Member แล้ว (lead H1) · บน dev ยังมี `mockagentreseller` และ `mockagentmaster` ที่สร้างไว้ก่อนกฎนี้ (Member ของสองสายนี้อยู่ใต้ Agent ตัวนั้น) · รัน script ใหม่ด้วย `-prefix` อื่นจะได้สายตามตารางนี้

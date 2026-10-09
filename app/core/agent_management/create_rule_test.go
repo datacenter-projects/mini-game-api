@@ -49,7 +49,8 @@ func TestResolveNewAgent(t *testing.T) { // MGMT-02
 		{UserTypeCompanySeamless1to1, UserTypeShareB2C, false, "", ""},
 		{UserTypeShareB2B, UserTypeAgent, true, models.AgentRoleAgent, UserTypeAgent},
 		{UserTypeShareB2C, UserTypeAgent, true, models.AgentRoleAgent, UserTypeAgent},
-		{UserTypeShareMaster, UserTypeAgent, true, models.AgentRoleAgent, UserTypeAgent},
+		{UserTypeShareMaster, UserTypeAgent, false, "", ""},   // Share Master สร้างได้แค่ Member (lead H1)
+		{UserTypeShareReseller, UserTypeAgent, false, "", ""}, // Share Reseller สร้างได้แค่ Member (lead H1)
 		{UserTypeAgent, UserTypeAgent, true, models.AgentRoleAgent, UserTypeAgent},
 		{UserTypeAgent, UserTypeShareB2C, false, "", ""},
 		{UserTypeAdmin, UserTypeCompanyTransfer, false, "", ""}, // AUTH-43

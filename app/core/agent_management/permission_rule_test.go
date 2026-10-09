@@ -35,12 +35,12 @@ func TestMenusForRole(t *testing.T) { // MGMT-52
 		return false
 	}
 	sa := MenusForRole(models.AgentRoleSuperAdmin)
-	if len(sa) != 8 || !has(sa, MenuRate) || has(sa, MenuAnnouncement) || has(sa, MenuAPICredential) { // Superadmin ไม่มี Key (account ACC-01)
+	if len(sa) != 7 || has(sa, Menu("pt")) || !has(sa, MenuRate) || has(sa, MenuAnnouncement) || has(sa, MenuAPICredential) { // Superadmin ไม่มี Key (account ACC-01)
 		t.Errorf("Superadmin menus = %v", sa)
 	}
 	for _, r := range []models.AgentRole{models.AgentRoleCompany, models.AgentRoleShareholder, models.AgentRoleAgent} {
 		ms := MenusForRole(r)
-		if len(ms) != 9 || has(ms, MenuRate) || !has(ms, MenuAnnouncement) || !has(ms, MenuAPICredential) { // api_credential — lead A6
+		if len(ms) != 8 || has(ms, Menu("pt")) || has(ms, MenuRate) || !has(ms, MenuAnnouncement) || !has(ms, MenuAPICredential) { // api_credential — lead A6
 			t.Errorf("%s menus = %v", r, ms)
 		}
 	}
@@ -51,7 +51,7 @@ func TestMenusForRole(t *testing.T) { // MGMT-52
 
 func TestFullPermissions(t *testing.T) { // MGMT-53
 	p := FullPermissions(models.AgentRoleCompany)
-	if len(p) != 9 || p[MenuAPICredential] != LevelEdit || p[MenuMember] != LevelEdit || p[MenuDashboard] != LevelEdit || p[MenuReport] != LevelEdit {
+	if len(p) != 8 || p[MenuAPICredential] != LevelEdit || p[MenuMember] != LevelEdit || p[MenuDashboard] != LevelEdit || p[MenuReport] != LevelEdit {
 		t.Errorf("FullPermissions(COMPANY) = %v", p)
 	}
 }
@@ -106,10 +106,10 @@ func TestNormalizeSubPermissions(t *testing.T) { // MGMT-50, MGMT-52
 
 func TestSubPermissionsView(t *testing.T) { // MGMT-50
 	got := SubPermissionsView(models.AgentRoleCompany, map[string]string{"member": "view", "pt": "bogus", "rate": "edit", "report": "edit", "account": "edit"})
-	if len(got) != 9 || got[MenuAPICredential] != LevelOff {
+	if len(got) != 8 || got[MenuAPICredential] != LevelOff {
 		t.Fatalf("len = %d (want 9) api_credential = %q (want off — sub เดิมไม่มี key นี้)", len(got), got[MenuAPICredential])
 	}
-	if got[MenuMember] != LevelView || got[MenuPT] != LevelOff || got[MenuReport] != LevelOff {
+	if _, has := got["pt"]; has || got[MenuMember] != LevelView || got[MenuReport] != LevelOff { // key pt เดิมถูกทิ้ง (เมนูลบแล้ว)
 		t.Errorf("SubPermissionsView = %v", got)
 	}
 	if _, ok := got[MenuRate]; ok {
