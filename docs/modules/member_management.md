@@ -36,6 +36,7 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | MGMT-13 | สกุลเงิน = สกุลของผู้สร้าง (1 สกุล) ไม่ต้องส่ง |
 | MGMT-15A | ยอดเงินตั้งต้น (`balance` ไม่บังคับ · ฝั่ง Transfer เท่านั้น — สายที่เป็น Seamless ส่งแล้วได้ `422`) โอนจากผู้สร้าง · ต้องมี `request_id` (UUID) กันส่งซ้ำ · ผู้สร้างยอดไม่พอ `402312` · **แก้ 2026-10-09 (รอ lead อนุมัติ):** ยอดของ Member เก็บที่ `user_members.credit` (float หน่วยสกุล · Member มี 1 สกุล) · `balance_ledger` เป็นทศนิยมเหมือนกัน (แก้ 2026-10-09 — กฎข้อ 9 · boiledegg) ไม่ต้องแปลง |
 | MGMT-61 | **แก้ 2026-10-09 (รอ lead อนุมัติ):** `user_members.cnf` = สายชั้นบนของ Member `{"parent": [{"id", "position"}, …]}` เรียงจาก Superadmin ลงมาถึง**ผู้สร้าง** (= `cnf` ของผู้สร้าง + ผู้สร้าง) · ตั้งตอนสร้าง |
+| MGMT-62 | **แก้ 2026-10-09 (lead อนุมัติ 2026-10-09):** `user_member_game_settings.parent_id` = id ของ agent ผู้สร้าง Member เจ้าของแถว (ค่าเดียวกับ `user_members.agent_id` · แบบเดียวกับ `agent_game_settings.parent_id`) · ตั้งตอนสร้าง · NOT NULL |
 | MGMT-21 | **แก้ 2026-10-09 (รอ lead อนุมัติ)** ผู้สร้างตั้งให้ Member ต่อระบบ 2 ค่า: `pt` = ผู้สร้าง**ถือสู้กับ Member คนนี้** (0 ถึงค่าที่ผู้สร้างได้รับ ทีละ 0.5% · เกิน `402305`) · `commission_percent` 0–1% ทีละ 0.1% (`402309`) · Member แต่ละคน `pt` ต่างกันได้ · ไม่มี `force` · ส่ง `pt_from_parent` / `force` / `remain_quota` / `status` = `422` |
 | | • `remain_quota` = ค่าที่ผู้สร้างได้รับ − `pt` · **ระบบคิดและเก็บ** (ใช้คิด Remain ตอน settle) · คิดใหม่ทุกครั้งที่สร้าง / `update-pt` · หลังบ้านเก็บต่อเกม |
 | | • ค่าที่ผู้สร้างได้รับเปลี่ยน (`agents/update-pt`) → sync `remain_quota` ของ Member ใน tx เดียวกัน และกันลดต่ำกว่า `pt` ของ Member (`402306`) — อยู่ใน `agent_management` MGMT-24 (หัวข้อ 7 · ทำแล้ว 2026-10-09) |
@@ -195,6 +196,7 @@ CREATE INDEX idx_user_members_cnf ON user_members USING GIN (cnf jsonb_path_ops)
 
 CREATE TABLE user_member_game_settings (        -- PT ที่ผู้สร้างถือสู้ + Commission ต่อเกม (MGMT-21) · เปลี่ยนชื่อจาก member_game_settings 2026-10-08
     user_member_id BIGINT      NOT NULL REFERENCES user_members(id),
+    parent_id     BIGINT      NOT NULL REFERENCES user_agents(id),   -- agent ผู้สร้าง Member (= user_members.agent_id · migration 20261009140100)
     category      VARCHAR(30) NOT NULL,
     game_code     VARCHAR(50) NOT NULL,
     pt            DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (pt BETWEEN 0 AND 100),      -- ผู้สร้างถือสู้กับ Member คนนี้ (migration 20261009120050 · ทศนิยมแก้ 2026-10-09)
@@ -206,6 +208,7 @@ CREATE TABLE user_member_game_settings (        -- PT ที่ผู้สร�
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (user_member_id, game_code)
 );
+CREATE INDEX idx_user_member_game_settings_parent ON user_member_game_settings(parent_id, game_code);
 
 -- user_member_balances: เลิกใช้ · DROP ใน migration 20261009120100 (ยอดย้ายไป user_members.credit)
 ```

@@ -305,6 +305,11 @@ func TestMemberPT(t *testing.T) { // MGMT-21 แก้ 2026-10-09 (agent ถื�
 	if len(rows) != 3 {
 		t.Fatalf("ต้องกระจายครบ 3 เกม ได้ %d", len(rows))
 	}
+	for _, s := range rows { // parent_id = agent ผู้สร้าง
+		if s.ParentID != c.agent.ID {
+			t.Fatalf("parent_id %s = %d, want %d", s.GameCode, s.ParentID, c.agent.ID)
+		}
+	}
 	for _, s := range rows {
 		if s.PT != 50 || s.Remain != 10 || s.Commission != 0.3 {
 			t.Fatalf("mema %s %+v", s.GameCode, s)

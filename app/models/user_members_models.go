@@ -28,6 +28,7 @@ func (UserMember) TableName() string { return "user_members" }
 type UserMemberGameSetting struct {
 	UserMemberID uint      `gorm:"column:user_member_id;primaryKey"`
 	GameCode     string    `gorm:"column:game_code;primaryKey"`
+	ParentID     uint      `gorm:"column:parent_id"` // agent ผู้สร้าง Member (= user_members.agent_id)
 	Category     string    `gorm:"column:category"`
 	PT           float64   `gorm:"column:pt"`     // ผู้สร้างถือสู้กับ Member คนนี้
 	Remain       float64   `gorm:"column:remain"` // ค่าที่ผู้สร้างได้รับ − pt (ระบบคิด)
