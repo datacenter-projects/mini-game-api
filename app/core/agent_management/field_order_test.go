@@ -3,6 +3,8 @@ package agentmanagement
 import (
 	"reflect"
 	"testing"
+
+	"app/app/models"
 )
 
 func TestCheckChildPT(t *testing.T) { // MGMT-18, MGMT-19, MGMT-25 · ไล่ตามลำดับ field ใน body
@@ -98,5 +100,34 @@ func TestCreatorsOf(t *testing.T) { // MGMT-02
 				t.Errorf("บอกว่า %s สร้าง %s ได้ แต่ ResolveNewAgent ปฏิเสธ", c, tt.newType)
 			}
 		}
+	}
+}
+
+func TestChildChain(t *testing.T) { // MGMT-61
+	root := Chain{Parent: []ChainNode{}}
+	com := ChildChain(root, 1, models.AgentRoleSuperAdmin)
+	share := ChildChain(com, 4754, models.AgentRoleCompany)
+	agent := ChildChain(share, 5322, models.AgentRoleShareholder)
+	agent2 := ChildChain(agent, 5330, models.AgentRoleAgent)
+	tests := []struct {
+		name string
+		got  Chain
+		want []ChainNode
+	}{
+		{"ลูกของ superadmin", com, []ChainNode{{1, "superadmin"}}},
+		{"ลูกของ company", share, []ChainNode{{1, "superadmin"}, {4754, "company"}}},
+		{"ลูกของ shareholder", agent, []ChainNode{{1, "superadmin"}, {4754, "company"}, {5322, "shareholder"}}},
+		{"agent ซ้อน agent", agent2, []ChainNode{{1, "superadmin"}, {4754, "company"}, {5322, "shareholder"}, {5330, "agent"}}},
+	}
+	for _, tt := range tests {
+		if !reflect.DeepEqual(tt.got.Parent, tt.want) {
+			t.Errorf("%s: got %v, want %v", tt.name, tt.got.Parent, tt.want)
+		}
+	}
+	// สร้างลูกหลายคนจากผู้สร้างเดียวกัน ต้องไม่ทับกัน
+	a := ChildChain(share, 10, models.AgentRoleShareholder)
+	b := ChildChain(share, 11, models.AgentRoleShareholder)
+	if a.Parent[2].ID != 10 || b.Parent[2].ID != 11 || len(share.Parent) != 2 {
+		t.Errorf("ChildChain แก้ slice ของผู้สร้าง: a=%v b=%v share=%v", a.Parent, b.Parent, share.Parent)
 	}
 }

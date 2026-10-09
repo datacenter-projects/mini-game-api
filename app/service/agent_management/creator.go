@@ -23,6 +23,7 @@ type Creator struct {
 	CompanyType agentManagementCore.UserType // Company หัวสาย รวมตัวเอง · "" = ไม่อยู่ใต้ Company (Superadmin)
 	Currencies  []string
 	ReceivedBP  map[agentManagementCore.PTGroup]int // ค่าที่ผู้สร้างได้รับต่อกลุ่ม (MGMT-22)
+	Chain       agentManagementCore.Chain           // สายชั้นบนของผู้สร้าง (MGMT-61)
 }
 
 func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
@@ -33,6 +34,13 @@ func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
 	}
 	c.Agent = a
 	c.UserType = agentManagementCore.UserTypeOf(a.Role, a.AgentType)
+	cnf, err := agentManagementPostgres.GetAgentChainRepository(db, a.ID)
+	if err != nil {
+		return c, err
+	}
+	if err := json.Unmarshal([]byte(cnf), &c.Chain); err != nil {
+		return c, err
+	}
 	companyAgentType, err := agentManagementPostgres.GetChainCompanyTypeRepository(db, a.ID)
 	if err != nil {
 		return c, err

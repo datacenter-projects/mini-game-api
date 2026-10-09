@@ -89,6 +89,17 @@ docker run --rm -i --network host -v "$PWD/tests/load:/scripts" grafana/k6 run /
 - `.env.test` เปิด `LOGIN_IP_LIMIT_PER_MINUTE` กว้างเพราะทุก VU ยิงจาก IP เดียว — ห้ามใช้ค่านี้นอก test env
 - `scripts/seed_loadtest` ไม่ยอมรันถ้า `APP_ENV` เป็น `dev` / `uat` / `prod`
 
+### บัญชี mock ทุกประเภท (`scripts/seed_mock_users`)
+
+สร้างสายทุกประเภทใต้ superadmin ที่มีอยู่ (Company 4 แบบ → Share → Agent → Member + sub `{username}@staff` สิทธิ์ view) ผ่าน service ตัวเดียวกับ API ·
+รหัสผ่านพิมพ์ครั้งเดียวใช้ทุกบัญชี · จบแล้วพิมพ์ตาราง username · รันซ้ำได้ (บัญชีที่มีแล้วข้าม) · ไม่รันบน `prod` · รายละเอียดสายดูหัวไฟล์ `main.go`
+
+```bash
+APP_ENV=dev go run ./scripts/seed_mock_users -root superadmin1          # mockcomtransfer, mockshareb2b, …
+```
+
+บน dev ใช้ `APP_ENV=dev` (ไม่พิมพ์ SQL ที่มี hash ออกจอ) และ `DB_READ_HOST` ต้องชี้ที่เดียวกับ `DB_HOST`
+
 ## 4. Index และ query plan
 
 ตรวจว่า query ใช้ index จริงด้วย `EXPLAIN ANALYZE` บน test env หลัง seed ข้อมูลให้มากพอ (ตารางเล็ก Postgres อาจเลือก seq scan)
