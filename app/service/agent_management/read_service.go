@@ -115,7 +115,7 @@ func splitIDs(rows []agentManagementPostgres.DownlineRow) (agentIDs, memberIDs [
 // downlineRow — 1 แถวของรายชื่อ / ผลค้น (MGMT-28) · status = สถานะที่ใช้งานจริง · ไม่มีสิทธิ์ pt = ไม่มี field pt
 func downlineRow(r agentManagementPostgres.DownlineRow, status models.AgentStatus, extra rowExtras, showPT bool) agentManagementDto.DownlineRow {
 	row := agentManagementDto.DownlineRow{ID: r.ID, Username: r.Username, Name: StringOrEmpty(r.Name), Phone: StringOrEmpty(r.Phone),
-		Status: string(status)}
+		Status: string(status), LastLoginAt: OptionalTime(r.LastLoginAt), LastLoginIP: StringOrEmpty(r.LastLoginIP), CreatedAt: OptionalTime(&r.CreatedAt)}
 	if r.IsMember {
 		row.Role, row.UserType = string(agentManagementCore.UserTypeMember), string(agentManagementCore.UserTypeMember)
 		row.Balances = BalanceViews([]string{StringOrEmpty(r.Currency)}, extra.memberBalance[r.ID])

@@ -5,6 +5,7 @@
 - แก้หลังอนุมัติ (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): MGMT-07 ชื่อเป็นภาษาไทยได้ · MGMT-41 เบอร์โทรของ sub ซ้ำได้ · หัวข้อ 1 ยอดเงินตั้งต้นอยู่ใน module นี้ (ตรงกับ MGMT-15A) · ชื่อเส้น: สร้าง `/create` · แก้ `/update-info` `/update-status` `/update-pt` `/update-commission` `/update-hold` `/update-games` · id ของบัญชีส่งใน body ทุกเส้น (ไม่อยู่ใน path) · รายชื่อ (`/list`) และรายละเอียดเป็น `POST` · `page` / `limit` ใน body · เพิ่ม MGMT-27A ค้นหาทั้งสาย `/manage/downlines/search` · `pt` ใช้ key ระบบ `minigame` (ชุดเดียวต่อระบบ) + `created_at` `created_by` `updated_at` `updated_by` (key ตอนส่ง `game` → `minigame`) · sub: `/manage/subaccounts/list` `/detail` `/create` `/update-info` `/update-status` · MGMT-20 `pt.status` = รับ PT ไหม (`false` = เกมยังเปิด แต่ไม่รับ PT) · เปิด / ปิดเกมใช้ `status_game` อย่างเดียว · เส้นสร้างแยก 2 เส้นเหมือนเดิม (agents / members) · เปิด `update-games` ใน module นี้ · เพิ่ม MGMT-27B ค้นหาบัญชีของ ADMIN `/admin/accounts/search`
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
 - แก้ 2026-10-09 (boiledegg ตัดสิน): ลำดับเช็คบนลงล่างตาม field ใน body และข้อความ error บอก field + ค่าที่ตั้งได้ (หัวข้อ 7.1)
+- แก้ 2026-10-09 (boiledegg ตัดสิน): MGMT-28 แถวของ `downlines/list` และ `downlines/search` เพิ่ม `last_login_at` · `last_login_ip` · `created_at`
 - แก้ 2026-10-09 (lead (zerph) review BO Account A5 / A6): เมนูสิทธิ์ใหม่ `api_credential` (ทุกบัญชีหลัก — MGMT-51 / 52) · **sub ต้องมีสิทธิ์ทุกเส้น BO** ยกเว้น Profile และเส้น auth ของตัวเอง (MGMT-50)
 - แก้ 2026-10-09 (boiledegg ตัดสิน): **ลบค่าถือ `pt` ค่าเดียวของบัญชีฝั่ง agent และเส้น `update-hold`** — ถือสู้กับ Member ตั้งต่อ Member แล้ว (member_management MGMT-21) · MGMT-24 ทำตาม requirement R1–R3 ของ member_management (ค่าต่ำสุดนับ `pt` ของ Member · sync `remain_quota` · ลำดับ lock)
 - แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 lead (zerph) อนุมัติ 2026-10-09): **เงินและ % เก็บเป็นทศนิยม float ปัด 4 ตำแหน่ง** แทนจำนวนเต็ม (bp / หน่วยย่อย) · request รับไม่เกิน 4 ตำแหน่ง · API ส่งค่าตามที่เก็บ หน้าบ้านปัด 3 ตำแหน่งเอง · column ตัด `_bp` (MGMT-17, MGMT-15A, หัวข้อ 6)
@@ -153,7 +154,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-27 | ตัวกรองมีแค่ `page` / `limit` และค้นหา username บางส่วน (ไม่สนตัวพิมพ์) · เรียง username A→Z · `page` / `limit` อยู่ใน body (แก้ 2026-10-08) · `limit` ค่าเริ่มต้น 20 สูงสุด 100 (`utils.NewPage`) |
 | MGMT-27A | **ค้นหาทั้งสาย** (`/manage/downlines/search` — เพิ่ม 2026-10-08): ค้น username บางส่วน (ไม่สนตัวพิมพ์) ในบัญชี**ทุกชั้นใต้ตัวเอง** ทั้งฝั่ง agent และ Member · ไม่รวมตัวเอง ชั้นบน และสายข้างเคียง (ขอบเขตจาก token — กฎข้อ 22) · `q` บังคับ 2–32 ตัว (`422`) · เรียง username A→Z · `page` / `limit` เหมือน MGMT-27 · แต่ละแถวเหมือน MGMT-28 + `parent_username` (ผู้สร้างตรง) · `status` = สถานะที่ใช้งานจริง · ADMIN ไม่อยู่ในผล |
 | MGMT-27B | **ค้นหาบัญชีของ ADMIN** (`/admin/accounts/search` — เพิ่ม 2026-10-08 · boiledegg ตัดสิน) · **เส้นอยู่ module `admin_management`** ([admin_management.md](admin_management.md)): ADMIN เท่านั้น (`401308`) · ค้นบัญชี**ทั้งระบบ** (ADMIN ไม่มีสาย) ทุกประเภท รวม SUPERADMIN, ADMIN, sub และ Member · username **ตรงทั้งคำ** ไม่สนตัวพิมพ์ ตัดช่องว่าง (ไม่รับบางส่วน) · ผล 0–2 แถว (ฝั่ง agent / sub แล้วตามด้วย Member ที่ username ซ้ำได้) ไม่มี `page` · แต่ละแถวมีแค่ข้อมูลระบุตัวตน: `username` · `role` · `user_type` · `is_subaccount` · `status` (สถานะที่ใช้งานจริง · sub ตาม MGMT-43) · `parent_username` (ผู้สร้าง · sub = เจ้าของ · SUPERADMIN / ADMIN = `""`) · `created_at` · `last_login_at` · `last_login_ip` · **ไม่มี** ยอดเงิน, PT, id · sub ใช้ `role` / `user_type` ของเจ้าของ |
-| MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` (ACC-30) · `pt` (ตาม MGMT-51) · `balances` (ยอดแยกสกุลตาม account ACC-19 — ระหว่างยังไม่มี module การชำระเงินส่ง `0`) |
+| MGMT-28 | แต่ละแถว: `id` · `role` (บอกว่าเป็นฝั่ง agent หรือ Member) · `user_type` · username · ชื่อ · เบอร์โทร · `status` (ACC-30) · `pt` (ตาม MGMT-51) · `balances` (ยอดแยกสกุลตาม account ACC-19 — ระหว่างยังไม่มี module การชำระเงินส่ง `0`) · `last_login_at` · `last_login_ip` · `created_at` (RFC 3339 · ยังไม่เคย login = `""` — เพิ่ม 2026-10-09 boiledegg ตัดสิน · ใช้กับ `downlines/search` ด้วย) |
 | MGMT-29 | เส้นรายละเอียดแยก agent / Member: ทุก field ของบัญชี **ยกเว้น** password, passcode, hash และ token · รวม สกุลเงิน · `balances` · `pt` ชุดเดียวต่อกลุ่ม (รวม `pt_from_parent` ในกลุ่ม — MGMT-16) ชุดเดียวต่อระบบ + `status_game` ต่อเกม (MGMT-16 · รูปแบบเดียวกับ account ACC-16) · login ล่าสุด · วันที่สร้าง · ระบุได้เฉพาะบัญชีในสายล่าง |
 
 ### สถานะ
@@ -302,6 +303,9 @@ Response (ตัวอย่าง: ลูกตรงของ share01 · ห�
         "name": "agent01",
         "phone": "0898765432",
         "status": "SUSPENDED",
+        "last_login_at": "2026-10-08T21:00:00+07:00",
+        "last_login_ip": "203.0.113.10",
+        "created_at": "2026-10-01T09:00:00+07:00",
         "pt": {
           "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "share01" }
         },
@@ -316,6 +320,9 @@ Response (ตัวอย่าง: ลูกตรงของ share01 · ห�
         "name": "ใจดี",
         "phone": "",
         "status": "SUSPENDED",
+        "last_login_at": "2026-10-08T21:00:00+07:00",
+        "last_login_ip": "203.0.113.10",
+        "created_at": "2026-10-01T09:00:00+07:00",
         "pt": {
           "minigame": { "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
         },
@@ -329,7 +336,8 @@ Response (ตัวอย่าง: ลูกตรงของ share01 · ห�
 - `q` ค้น username บางส่วน ไม่สนตัวพิมพ์ · เรียง username A→Z · `limit` ค่าเริ่มต้น 20 สูงสุด 100
 - `status` = สถานะที่ใช้งานจริง (ACC-30) — ตัวอย่างนี้หัวสายถูกระงับ ทุกแถวจึง `SUSPENDED`
 - แถว `role = "MEMBER"` ไม่มีลูก · `pt` มีแค่ `commission_percent` · ไม่มีสิทธิ์ `pt` ≥ view = ไม่มี field `pt` (MGMT-51)
-- `balances` 1 รายการต่อสกุลของบัญชี (MGMT-15A · account ACC-19) · ยังไม่มียอด และบัญชี Seamless = `0.00`
+- `balances` 1 รายการต่อสกุลของบัญชี (MGMT-15A · account ACC-19) · ยังไม่มียอด และบัญชี Seamless = `0`
+- `last_login_at` / `last_login_ip` ยังไม่เคย login = `""` · `created_at` = วันที่สร้างบัญชี (เพิ่ม 2026-10-09)
 
 Error codes: `402303`, `402402`
 
@@ -360,6 +368,9 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "name": "sh1",
         "phone": "",
         "status": "ACTIVE",
+        "last_login_at": "2026-10-08T21:00:00+07:00",
+        "last_login_ip": "203.0.113.10",
+        "created_at": "2026-10-01T09:00:00+07:00",
         "parent_username": "comp01",
         "pt": {
           "minigame": { "pt_from_parent": 70, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
@@ -375,6 +386,9 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "name": "sh2",
         "phone": "",
         "status": "ACTIVE",
+        "last_login_at": "2026-10-08T21:00:00+07:00",
+        "last_login_ip": "203.0.113.10",
+        "created_at": "2026-10-01T09:00:00+07:00",
         "parent_username": "comp01",
         "pt": {
           "minigame": { "pt_from_parent": 50, "force": 0, "remain_quota": 0, "commission_percent": 0.1, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
@@ -390,6 +404,9 @@ Response (comp01 ค้น `sh` — มี sh1 sh2 sh3 อยู่ใต้ใ�
         "name": "sh3agent",
         "phone": "",
         "status": "SUSPENDED",
+        "last_login_at": "2026-10-08T21:00:00+07:00",
+        "last_login_ip": "203.0.113.10",
+        "created_at": "2026-10-01T09:00:00+07:00",
         "parent_username": "sh1",
         "pt": {
           "minigame": { "pt_from_parent": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "sh1", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "sh1" }

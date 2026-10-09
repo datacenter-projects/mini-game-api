@@ -21,15 +21,18 @@ const (
 )
 
 type downlineRow struct {
-	ID       uint              `json:"id"`
-	Role     string            `json:"role"`
-	UserType string            `json:"user_type"`
-	Username string            `json:"username"`
-	Name     string            `json:"name"`
-	Phone    string            `json:"phone"`
-	Status   string            `json:"status"`
-	PT       json.RawMessage   `json:"pt"`
-	Balances []json.RawMessage `json:"balances"`
+	ID          uint              `json:"id"`
+	Role        string            `json:"role"`
+	UserType    string            `json:"user_type"`
+	Username    string            `json:"username"`
+	Name        string            `json:"name"`
+	Phone       string            `json:"phone"`
+	Status      string            `json:"status"`
+	PT          json.RawMessage   `json:"pt"`
+	LastLoginAt *string           `json:"last_login_at"`
+	LastLoginIP *string           `json:"last_login_ip"`
+	CreatedAt   *string           `json:"created_at"`
+	Balances    []json.RawMessage `json:"balances"`
 }
 
 type downlinePage struct {
@@ -64,6 +67,17 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	}
 	if string(p.Items[0].Balances[0]) != `{"currency":"THB","amount":50}` {
 		t.Fatalf("balances %s", p.Items[0].Balances[0])
+	}
+
+	// login ล่าสุด + วันที่สร้าง (เพิ่ม 2026-10-09) · ยังไม่เคย login = ""
+	database.DBConn.Exec("UPDATE user_agents SET last_login_at = now(), last_login_ip = ? WHERE id = ?", "203.0.113.9", c.agent.ID)
+	p = get(c.shareTok, map[string]any{}, "")
+	if r := p.Items[0]; r.LastLoginIP == nil || *r.LastLoginIP != "203.0.113.9" || r.LastLoginAt == nil || *r.LastLoginAt == "" || r.CreatedAt == nil || *r.CreatedAt == "" {
+		t.Fatalf("login / created %+v", r)
+	}
+	p = get(c.agentTok, map[string]any{"q": "amember"}, "")
+	if r := p.Items[0]; r.LastLoginAt == nil || *r.LastLoginAt != "" || r.LastLoginIP == nil || *r.LastLoginIP != "" || r.CreatedAt == nil || *r.CreatedAt == "" {
+		t.Fatalf("member ที่ยังไม่เคย login %+v", r)
 	}
 
 	// ไล่ลงทีละชั้น: Agent + Member ปนกัน เรียง A→Z · role ถูกต้อง
@@ -285,6 +299,17 @@ func TestDownlinesSearch(t *testing.T) { // MGMT-27A
 	}
 	if rows[0]["role"] != "MEMBER" || rows[1]["pt"] == nil {
 		t.Fatalf("row shape %v", rows[0])
+	}
+	for _, r := range rows { // เพิ่ม 2026-10-09: ทุกแถวมี last_login_at / last_login_ip / created_at
+		if _, ok := r["last_login_at"].(string); !ok {
+			t.Fatalf("ไม่มี last_login_at %v", r)
+		}
+		if _, ok := r["last_login_ip"].(string); !ok {
+			t.Fatalf("ไม่มี last_login_ip %v", r)
+		}
+		if s, _ := r["created_at"].(string); s == "" {
+			t.Fatalf("ไม่มี created_at %v", r)
+		}
 	}
 	// share01 ค้น → เห็นแค่ใต้ตัวเอง ไม่เห็นตัวเอง / share02 สายข้าง / หัวสาย
 	rows, _ = search(c.shareTok, "share")

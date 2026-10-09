@@ -162,23 +162,26 @@ func IsInDownlineRepository(db *gorm.DB, ancestorID, id uint) (bool, error) {
 
 // DownlineRow — ลูกตรง 1 แถว (ฝั่ง agent หรือ Member) — MGMT-28
 type DownlineRow struct {
-	ID        uint
-	IsMember  bool
-	Role      models.AgentRole
-	AgentType *models.AgentType
-	Username  string
-	Name      *string
-	Phone     *string
-	Status    models.AgentStatus
-	Currency  *string // Member เท่านั้น
+	ID          uint
+	IsMember    bool
+	Role        models.AgentRole
+	AgentType   *models.AgentType
+	Username    string
+	Name        *string
+	Phone       *string
+	Status      models.AgentStatus
+	Currency    *string // Member เท่านั้น
+	LastLoginAt *time.Time
+	LastLoginIP *string
+	CreatedAt   time.Time
 }
 
 // downlineSQL — ลูกตรงของ parent ทั้งฝั่ง agent (ไม่รวม ADMIN — AUTH-43) และ Member · กรอง username บางส่วน
 const downlineSQL = `
-	SELECT id, false AS is_member, role, agent_type, username, name, phone, status, NULL AS currency
+	SELECT id, false AS is_member, role, agent_type, username, name, phone, status, NULL AS currency, last_login_at, last_login_ip, created_at
 	FROM user_agents WHERE parent_id = @parent AND role <> 'ADMIN' AND (@q = '' OR username LIKE @like ESCAPE '\')
 	UNION ALL
-	SELECT id, true, 'MEMBER', NULL, username, name, phone, status, currency
+	SELECT id, true, 'MEMBER', NULL, username, name, phone, status, currency, last_login_at, last_login_ip, created_at
 	FROM user_members WHERE agent_id = @parent AND (@q = '' OR username LIKE @like ESCAPE '\')`
 
 // ListDownlinesRepository — ลูกตรงเรียง username A→Z แบ่งหน้า + จำนวนทั้งหมด (MGMT-26, MGMT-27)
@@ -265,11 +268,13 @@ const downlineSearchSQL = `
 		WHERE u.role <> 'ADMIN'
 	), hits AS (
 		SELECT u.id, false AS is_member, u.role, u.agent_type, u.username, u.name, u.phone, u.status, NULL AS currency,
+			u.last_login_at, u.last_login_ip, u.created_at,
 			p.username AS parent_username, GREATEST(p.rnk, CASE u.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END) AS rnk
 		FROM user_agents u JOIN tree p ON u.parent_id = p.id
 		WHERE u.role <> 'ADMIN' AND u.username LIKE @like ESCAPE '\'
 		UNION ALL
 		SELECT m.id, true, 'MEMBER', NULL, m.username, m.name, m.phone, m.status, m.currency,
+			m.last_login_at, m.last_login_ip, m.created_at,
 			p.username, GREATEST(p.rnk, CASE m.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END)
 		FROM user_members m JOIN tree p ON m.agent_id = p.id
 		WHERE m.username LIKE @like ESCAPE '\'
