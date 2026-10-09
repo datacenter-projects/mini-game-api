@@ -6,7 +6,7 @@
 - แก้เพิ่มหลังอนุมัติรอบนั้น (2026-10-08 · boiledegg ตัดสิน · lead (zerph) รับทราบและอนุมัติ 2026-10-08): ไม่มีเมนูสิทธิ์ `account` แล้ว (8 เมนู — Profile / 1.3 เปิดได้เสมอ) · MGMT-04 ทุกบัญชีฝั่ง agent ได้ Key
 - แก้ 2026-10-09 (boiledegg ตัดสิน): ลำดับเช็คบนลงล่างตาม field ใน body และข้อความ error บอก field + ค่าที่ตั้งได้ (หัวข้อ 7.1)
 - แก้ 2026-10-09 (boiledegg ตัดสิน): MGMT-28 แถวของ `downlines/list` และ `downlines/search` เพิ่ม `last_login_at` · `last_login_ip` · `created_at`
-- แก้ 2026-10-09 (lead (zerph) review BO Account A5 / A6): เมนูสิทธิ์ใหม่ `api_credential` (ทุกบัญชีหลัก — MGMT-51 / 52) · **sub ต้องมีสิทธิ์ทุกเส้น BO** ยกเว้น Profile และเส้น auth ของตัวเอง (MGMT-50)
+- แก้ 2026-10-09 (lead (zerph) review BO Account A5 / A6): เมนูสิทธิ์ใหม่ `api_credential` (Company / Share / Agent — MGMT-51 / 52) · **sub ต้องมีสิทธิ์ทุกเส้น BO** ยกเว้น Profile และเส้น auth ของตัวเอง (MGMT-50)
 - แก้ 2026-10-09 (boiledegg ตัดสิน): **ลบค่าถือ `pt` ค่าเดียวของบัญชีฝั่ง agent และเส้น `update-hold`** — ถือสู้กับ Member ตั้งต่อ Member แล้ว (member_management MGMT-21) · MGMT-24 ทำตาม requirement R1–R3 ของ member_management (ค่าต่ำสุดนับ `pt` ของ Member · sync `remain_quota` · ลำดับ lock)
 - แก้ 2026-10-09 (boiledegg · ทีมตกลง · CLAUDE.md กฎข้อ 9 lead (zerph) อนุมัติ 2026-10-09): **เงินและ % เก็บเป็นทศนิยม float ปัด 4 ตำแหน่ง** แทนจำนวนเต็ม (bp / หน่วยย่อย) · request รับไม่เกิน 4 ตำแหน่ง · API ส่งค่าตามที่เก็บ หน้าบ้านปัด 3 ตำแหน่งเอง · column ตัด `_bp` (MGMT-17, MGMT-15A, หัวข้อ 6)
 - แก้ 2026-10-09 (boiledegg · lead (zerph) อนุมัติ 2026-10-09): เก็บสายชั้นบน `user_agents.cnf` (MGMT-61) และ `agent_game_settings.parent_id` (MGMT-62)
@@ -190,7 +190,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | MGMT-51 | เช็คด้วย middleware แยก `RequirePermission(menu, level)` บรรทัดเดียวกับ route (กฎข้อ 28) · route ของ admin ใช้ middleware แยก `adminMw.RequireAdmin()` ของ module admin_management (AUTH-44) · เมนู: |
 | | `dashboard` (off / view) — account 1.1 · `member` — ดูรายชื่อ / รายละเอียด (view) · สร้าง / แก้ข้อมูล / สถานะ (edit) · `pt` — เห็นค่า `pt` ใน response (view) · แก้ PT (edit) · `report` (off / view) · `bet_cancel` · `payment` (ฝาก-ถอน) · `asset` · `announcement` · `rate` (อัตราแพ้ชนะ — เฉพาะ Superadmin) · `api_credential` — account 1.3: ดู Key (view) · บันทึก (edit · ยังต้อง passcode) · เช็คด้วย `RequireSubPermission` (เช็คเฉพาะ sub · บัญชีหลักผ่านเสมอ — lead A6 2026-10-09) |
 | | ไม่มี `pt` ≥ view → response ไม่มี field `pt` · **สร้างบัญชี ต้องมี `member` = edit และ `pt` = edit** (ถ้าส่ง `balance` ต้องมี `payment` = edit ด้วย — MGMT-15A) · เปลี่ยนรหัสผ่าน / passcode ของตัวเองไม่ต้องใช้สิทธิ์ (แต่ถูก AUTH-54 กันตอนถูกระงับ) |
-| MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 9 เมนู — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · `api_credential` · **Company · Share · Agent** = 9 เมนู — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` · `api_credential` (ไม่มี `rate` — ยืนยัน 2026-10-07 · `api_credential` เพิ่ม 2026-10-09) · `api_credential` มีทุกบัญชีหลักรวม Superadmin (boiledegg 2026-10-09) — Superadmin ไม่มี Key จึงได้ `403301` ตอนเปิด (account ACC-01) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
+| MGMT-52 | เมนูที่แต่ละประเภทมี (สิทธิ์ของ sub ให้ได้เฉพาะเมนูเหล่านี้ · ส่งเมนูอื่นมา = `422`): **Superadmin** = 8 เมนู — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `rate` (อัตราแพ้ชนะ · ไม่มี `announcement`) · **Company · Share · Agent** = 9 เมนู — `dashboard` · `member` · `pt` · `report` · `bet_cancel` · `payment` · `asset` · `announcement` · `api_credential` (ไม่มี `rate` — ยืนยัน 2026-10-07 · `api_credential` เพิ่ม 2026-10-09) · Superadmin ไม่มี `api_credential` (ไม่มี Key — account ACC-01) · sub ของ Superadmin ได้สิทธิ์ `rate` เมื่อ Superadmin ให้ |
 | MGMT-53 | Profile (account ACC-12) ส่ง `permissions` เป็น object รูปแบบเดียวกับ MGMT-50 · บัญชีหลักได้ `edit` ทุกเมนูของประเภทตัวเอง |
 
 ### ประวัติ
@@ -905,7 +905,7 @@ CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, ga
 | MGMT-20 | `update-games` กับลูกของลูก · นอกสาย · เกมไม่มีในระบบ / ว่าง / `null` | `402304` · `402402` · `422` |
 | MGMT-52 | sub ของ Superadmin ได้สิทธิ์ `announcement` | `422` |
 | MGMT-52 | Superadmin ให้ sub `rate` = `edit` · Company ให้ sub `rate` | สำเร็จ · `422` |
-| MGMT-52 | Company · Superadmin ให้ sub `api_credential` = `edit` | สำเร็จทั้งคู่ |
+| MGMT-52 | Company ให้ sub `api_credential` = `edit` · Superadmin ให้ sub `api_credential` | สำเร็จ · `422` |
 | MGMT-50 | sub ที่สร้างก่อนมีเมนู `api_credential` | `api_credential = off` |
 
 ### 7.1 ลำดับเช็ค (แก้ 2026-10-09 — ทุกเส้นใน module นี้)
