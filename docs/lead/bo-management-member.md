@@ -1,8 +1,7 @@
 # สถานะ — `maofoy/bo/member-management`
 
-> **สำหรับ lead (2026-10-09):** module `member_management` **ทำงานปกติแล้ว** — อยู่ใน `dev` และ `dev_minigame` migrate ครบ
-> ทดสอบบน dev ผ่าน: สร้าง Member · แก้ข้อมูล · แก้สถานะ · แก้ PT
-> **ขอให้อ่านและอนุมัติหัวข้อ 3 ข้อ 1–3, 5** (เปลี่ยนจาก spec ที่อนุมัติไว้) — spec เต็ม `docs/modules/member_management.md` · เอกสารหน้าบ้าน `docs/frontend/member_management.md`
+> **สถานะ (2026-10-11):** lead review ครบแล้ว ([docs/reviews/member-management.md](../reviews/member-management.md)) · หัวข้อ 3 ข้อ 1–3, 5 **อนุมัติแล้ว** (MA1–MA5) ·
+> งานตามรายการแก้ (S1–S12 · C1–C9) boiledegg ทำแทนใน branch `boiledegg/bo/member_management`
 
 ## 1. ภาพรวม
 
@@ -31,7 +30,7 @@
 
 เอกสารหน้าบ้าน: `docs/frontend/member_management.md`
 
-## 3. รอ lead
+## 3. รอ lead — ✅ ปิดแล้ว (lead review 2026-10-09: ข้อ 1 = MA1 · ข้อ 2 = MA2 · ข้อ 3 = MA3 + รวมเข้า `members/detail/update` · ข้อ 5 = MA4 / MA5 · `amounts_minor` → `amounts` = E1-4)
 
 1. **agent ถือ PT สู้กับ Member แต่ละคนแยกกัน (MGMT-21)**
    - เดิม: Member ไม่ถือ PT มีแค่ commission · agent ถือสู้ Member ทุกคนด้วยค่าเดียว (ลบแล้ว)
