@@ -1,4 +1,4 @@
-// Package membermanagement คือ request / response ของเส้น /manage/members/* — spec: docs/modules/agent_management.md หัวข้อ 5
+// Package membermanagement คือ request / response ของเส้น /manage/members/* — spec: docs/modules/member_management.md หัวข้อ 3
 // ไม่มี null ใน API (account ACC-32): controller ใช้ utils.ParseBodyNoNull · ข้อความว่าง = "" · ตัวเลขว่าง = 0
 // helper ตรวจค่าใช้ร่วมกับ agent จาก dto/agent_management
 package membermanagement
@@ -8,8 +8,8 @@ import (
 	"app/pkg/utils"
 )
 
-// MemberPTRequest — ผู้สร้างตั้งให้ Member ต่อกลุ่ม: pt (ถือสู้กับ Member คนนี้) · commission_percent (MGMT-21 แก้ 2026-10-09)
-// remain_quota ระบบคิดเอง · field อื่นของฝั่ง agent = 422 · ใช้ทั้งเส้นสร้างและ update-pt
+// MemberPTRequest — ผู้สร้างตั้งให้ Member ต่อกลุ่ม: pt (ถือสู้กับ Member คนนี้) · commission_percent (MGMT-21 · lead MA1 / MA3)
+// remain_quota ระบบคิดเอง · field อื่นของฝั่ง agent = 422 · ใช้ทั้ง members/create และ members/detail/update
 type MemberPTRequest struct {
 	OwnPT             utils.Decimal `json:"pt"`
 	CommissionPercent utils.Decimal `json:"commission_percent"`
@@ -39,15 +39,28 @@ func parseMemberPT(group string, v *MemberPTRequest) error {
 	return nil
 }
 
-// CreateMemberRequest — POST /api/v1/bo/pr/manage/members/create
+// parseMemberPTGroups — ตรวจทุกกลุ่มเรียงตามชื่อกลุ่ม (error ออกตัวเดียวกันทุกครั้ง — หัวข้อ 2.1)
+func parseMemberPTGroups(pt map[string]MemberPTRequest) error {
+	for _, g := range agentManagementDto.SortedKeys(pt) {
+		v := pt[g]
+		if err := parseMemberPT(g, &v); err != nil {
+			return err
+		}
+		pt[g] = v
+	}
+	return nil
+}
+
+// CreateMemberRequest — POST /api/v1/bo/pr/manage/members/create (M1)
 type CreateMemberRequest struct {
-	RequestID string                     `json:"request_id"`
-	Username  string                     `json:"username"`
-	Password  string                     `json:"password"`
-	Name      string                     `json:"name"`
-	Phone     string                     `json:"phone"`
-	Balance   map[string]utils.Decimal   `json:"balance"`
-	PT        map[string]MemberPTRequest `json:"pt"`
+	RequestID        string                     `json:"request_id"`
+	Username         string                     `json:"username"` // Validate แปลงเป็นตัวเล็ก (MGMT-05)
+	Password         string                     `json:"password"`
+	Name             string                     `json:"name"`
+	PhoneCountryCode string                     `json:"phone_country_code"` // MGMT-08 · ไม่กรอก = "" คู่กับ phone
+	Phone            string                     `json:"phone"`
+	Balance          map[string]utils.Decimal   `json:"balance"`
+	PT               map[string]MemberPTRequest `json:"pt"`
 
 	BalanceAmounts map[string]float64 `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
 }
@@ -57,8 +70,12 @@ type CreateMemberResponse struct {
 	Username string `json:"username"`
 }
 
+// Validate — ไล่ตามลำดับ field ใน body: request_id → username → password → name → phone_country_code → phone → balance → pt (หัวข้อ 2.1)
 func (r *CreateMemberRequest) Validate() error {
-	if err := agentManagementDto.ValidateAccountFields(r.RequestID, &r.Username, r.Password, r.Name, &r.Phone); err != nil {
+	if err := agentManagementDto.ValidateIdentityFields(r.RequestID, &r.Username, r.Password, r.Name); err != nil {
+		return err
+	}
+	if err := agentManagementDto.ValidatePhonePair("", &r.PhoneCountryCode, &r.Phone); err != nil {
 		return err
 	}
 	var err error
@@ -68,11 +85,5 @@ func (r *CreateMemberRequest) Validate() error {
 	if err := agentManagementDto.CheckGroups(r.PT); err != nil {
 		return err
 	}
-	for g, v := range r.PT {
-		if err := parseMemberPT(g, &v); err != nil {
-			return err
-		}
-		r.PT[g] = v
-	}
-	return nil
+	return parseMemberPTGroups(r.PT)
 }

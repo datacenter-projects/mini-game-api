@@ -189,8 +189,8 @@ func ChangeLog(actor agentAuthService.Actor, meta agentAuthService.RequestMeta, 
 	return l, nil
 }
 
-// lockUsernameFree — lock username กันสร้างพร้อมกัน แล้วเช็คซ้ำทั้งระบบ (MGMT-05)
-func lockUsernameFree(tx *gorm.DB, username string) error {
+// LockUsernameFree — lock username กันสร้างพร้อมกัน แล้วเช็คซ้ำทั้งระบบ ข้ามตาราง user_agents / user_members (MGMT-05) · ใช้ร่วมกับ member_management
+func LockUsernameFree(tx *gorm.DB, username string) error {
 	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "username:"+username); err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func lockUsernameFree(tx *gorm.DB, username string) error {
 
 // LockAndCheckAgentIdentity — username + เบอร์ 2 field ของบัญชีฝั่ง agent (MGMT-05, MGMT-08) · ซ้ำที่คู่ (รหัส + เบอร์)
 func LockAndCheckAgentIdentity(tx *gorm.DB, username, code, phone string) error {
-	if err := lockUsernameFree(tx, username); err != nil {
+	if err := LockUsernameFree(tx, username); err != nil {
 		return err
 	}
 	return checkAgentPhone(tx, code, phone, 0)
@@ -221,31 +221,6 @@ func checkAgentPhone(tx *gorm.DB, code, phone string, selfID uint) error {
 		return err
 	}
 	taken, err := agentManagementPostgres.AgentPhoneTakenByOtherRepository(tx, code, phone, selfID)
-	if err != nil {
-		return err
-	}
-	if taken {
-		return apperr.ErrPhoneTaken
-	}
-	return nil
-}
-
-// LockAndCheckIdentity — กันสร้างพร้อมกัน แล้วเช็ค username / เบอร์ซ้ำของ **Member** (member_management · เบอร์ field เดียว)
-// member = false ไม่ใช้แล้ว — ฝั่ง agent ใช้ LockAndCheckAgentIdentity (เบอร์ 2 field — MGMT-08)
-func LockAndCheckIdentity(tx *gorm.DB, username, phone string, member bool) error {
-	if !member {
-		return apperr.ErrInternal.Wrap(errors.New("LockAndCheckIdentity: ฝั่ง agent ใช้ LockAndCheckAgentIdentity"))
-	}
-	if err := lockUsernameFree(tx, username); err != nil {
-		return err
-	}
-	if phone == "" {
-		return nil
-	}
-	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "phone:"+phone); err != nil {
-		return err
-	}
-	taken, err := memberManagementPostgres.UserMemberPhoneExistsRepository(tx, phone)
 	if err != nil {
 		return err
 	}

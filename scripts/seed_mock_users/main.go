@@ -208,7 +208,7 @@ func (s *seeder) create(creator agentAuthService.Actor, creatorType agentManagem
 
 	if n.typ == agentManagementCore.UserTypeMember {
 		body := map[string]any{"request_id": requestID(username), "username": username, "password": s.password, "name": username,
-			"phone": "", "pt": map[string]any{"minigame": map[string]any{"pt": 0, "commission_percent": 0}}}
+			"phone_country_code": "", "phone": "", "pt": map[string]any{"minigame": map[string]any{"pt": 0, "commission_percent": 0}}}
 		if balance != nil {
 			body["balance"] = balance
 		}

@@ -6,6 +6,7 @@ package backoffice_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"app/app/models"
@@ -19,6 +20,7 @@ const (
 	migPermissionsDropPT = 20261009150000 // ก่อนเบอร์ 2 field
 	migPhone             = 20261009160000 // MGMT-08A
 	migFollowCSM         = 20261009170000 // MGMT-19
+	migMemberPhone       = 20261011120000 // member_management MGMT-08A
 )
 
 // migrateDownTo — ถอย schema ไปที่ version · จบ test แล้ว up ทั้งหมดคืน (test อื่นใช้ schema ล่าสุด · cleanup นี้ทำก่อนล้างตารางของ Setup)
@@ -193,5 +195,74 @@ func TestMigrationShareMasterFollowCSM(t *testing.T) { // MGMT-19 · lead V2
 		if s.UserMemberID != k.mem.ID || s.ShareMasterID != k.sm1.ID || s.MemberPT != 50 || s.NewPTFromParent != 45 || s.Remain != 30 {
 			t.Fatalf("skipped %+v", s)
 		}
+	}
+}
+
+func TestMigrationMemberPhone(t *testing.T) { // member_management MGMT-08A · lead MQ1 / B1: ห้ามซ้ำเฉพาะภายใต้ผู้สร้างเดียวกัน
+	app := setup2(t)
+	c := buildChain(t, app)
+	var ids []uint
+	for _, n := range []struct {
+		username, tok string
+	}{{"memmig1", c.agentTok}, {"memmig2", c.agentTok}, {"memmig3", c.shareTok}, {"memmig4", c.agentTok}} {
+		r := call(t, app, "POST", createMemberPath, memberBody(n.username, 0), n.tok)
+		expect(t, r, 200, 200)
+		var d created
+		_ = json.Unmarshal(r.Data, &d)
+		ids = append(ids, d.ID)
+	}
+
+	migrateDownTo(t, migFollowCSM)
+	// ข้อมูลแบบเก่า (เบอร์เดียว ห้ามซ้ำทั้งตาราง) — ใส่ซ้ำได้ต้องถอด unique เดิมก่อน (จำลองข้อมูลที่ unique ของผู้สร้างใหม่จะจับได้)
+	execSQL(t, "DROP INDEX uq_user_members_phone")
+	old := []string{"0812345678", "66812345678", "0812345678", "12345678"}
+	for i, p := range old {
+		execSQL(t, "UPDATE user_members SET phone = ? WHERE id = ?", p, ids[i])
+	}
+	execSQL(t, "CREATE INDEX uq_user_members_phone ON user_members(phone)") // ให้ migration DROP ได้เหมือนของจริง
+	gooseUpTo(t, migMemberPhone)
+
+	str := func(s string) *string { return &s }
+	want := []phoneRow{
+		{str("66"), str("812345678")}, // 0 → 66 + ตัด 0
+		{nil, nil},                    // 66 + 11 หลัก → ซ้ำกับ memmig1 ใต้ผู้สร้างเดียวกัน → ล้าง
+		{str("66"), str("812345678")}, // เบอร์เดียวกันคนละผู้สร้าง = เก็บไว้
+		{nil, nil},                    // ไม่ขึ้นต้น 0 / 66 → ล้าง
+	}
+	eq := func(a, b *string) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
+	for i, id := range ids {
+		var got phoneRow
+		database.DBConn.Table("user_members").Select("phone_country_code, phone").Where("id = ?", id).Scan(&got)
+		if !eq(got.Code, want[i].Code) || !eq(got.Phone, want[i].Phone) {
+			t.Fatalf("%s → %v %v", old[i], got.Code, got.Phone)
+		}
+	}
+
+	type cleared struct {
+		RowID        uint   `gorm:"column:row_id"`
+		OldPhone     string `gorm:"column:old_phone"`
+		Reason       string `gorm:"column:reason"`
+		KeptMemberID *uint  `gorm:"column:kept_member_id"`
+	}
+	var logs []cleared
+	database.DBConn.Table("migration_phone_cleared").Where("table_name = ?", "user_members").Order("row_id").Find(&logs)
+	wantLogs := []cleared{
+		{ids[1], "66812345678", "DUPLICATE", &ids[0]},
+		{ids[3], "12345678", "FORMAT", nil},
+	}
+	if len(logs) != len(wantLogs) {
+		t.Fatalf("migration_phone_cleared %+v", logs)
+	}
+	for i, w := range wantLogs {
+		g := logs[i]
+		if g.RowID != w.RowID || g.OldPhone != w.OldPhone || g.Reason != w.Reason ||
+			(w.KeptMemberID == nil) != (g.KeptMemberID == nil) || (w.KeptMemberID != nil && *g.KeptMemberID != *w.KeptMemberID) {
+			t.Fatalf("log %d = %+v want %+v", i, g, w)
+		}
+	}
+
+	// unique ใหม่: คู่เดียวกันใต้ผู้สร้างเดียวกันใส่ไม่ได้ · คนละผู้สร้างได้ (ตรวจแล้วข้างบน)
+	if err := database.DBConn.Exec("UPDATE user_members SET phone_country_code = '66', phone = '812345678' WHERE id = ?", ids[3]).Error; err == nil {
+		t.Fatal("unique (agent_id, phone_country_code, phone) ต้องกันเบอร์ซ้ำใต้ผู้สร้างเดียวกัน")
 	}
 }

@@ -1,8 +1,8 @@
 # สถานะ — `maofoy/bo/member-management`
 
-> **สำหรับ lead (2026-10-09):** module `member_management` **ทำงานปกติแล้ว** — อยู่ใน `dev` และ `dev_minigame` migrate ครบ
-> ทดสอบบน dev ผ่าน: สร้าง Member · แก้ข้อมูล · แก้สถานะ · แก้ PT
-> **ขอให้อ่านและอนุมัติหัวข้อ 3 ข้อ 1–3, 5** (เปลี่ยนจาก spec ที่อนุมัติไว้) — spec เต็ม `docs/modules/member_management.md` · เอกสารหน้าบ้าน `docs/frontend/member_management.md`
+> **สถานะ (2026-10-11):** lead review ครบแล้ว ([docs/reviews/member-management.md](../reviews/member-management.md)) · หัวข้อ 3 ข้อ 1–3, 5 **อนุมัติแล้ว** (MA1–MA5) ·
+> งานตามรายการแก้ (S1–S12 · C1–C9) boiledegg ทำแทนใน branch `boiledegg/bo/member_management` · spec (PR 1 `82fcde9`) + โค้ด C1–C9 (PR 2) เสร็จ รอ lead review ·
+> ตาราง 1–2 ด้านล่างคือสถานะก่อน review (path เดิม) เก็บไว้เป็นประวัติ
 
 ## 1. ภาพรวม
 
@@ -31,7 +31,7 @@
 
 เอกสารหน้าบ้าน: `docs/frontend/member_management.md`
 
-## 3. รอ lead
+## 3. รอ lead — ✅ ปิดแล้ว (lead review 2026-10-09: ข้อ 1 = MA1 · ข้อ 2 = MA2 · ข้อ 3 = MA3 + รวมเข้า `members/detail/update` · ข้อ 5 = MA4 / MA5 · `amounts_minor` → `amounts` = E1-4)
 
 1. **agent ถือ PT สู้กับ Member แต่ละคนแยกกัน (MGMT-21)**
    - เดิม: Member ไม่ถือ PT มีแค่ commission · agent ถือสู้ Member ทุกคนด้วยค่าเดียว (ลบแล้ว)
@@ -74,3 +74,4 @@
 | 2026-10-09 | `3603c50` | merge `dev` เข้า branch: กฎข้อ 9 float (lead อนุมัติ) · R1–R3 · ลบ `pt` ของ agent / `update-hold` (boiledegg) |
 | 2026-10-09 | `ba9cd5f` | `user_member_game_settings.parent_id` (lead อนุมัติ) |
 | 2026-10-09 | — | ทดสอบมือบน dev ผ่าน (create · update-info · update-status · update-pt) · module ทำงานปกติ ส่งให้ lead อ่าน |
+| 2026-10-11 | PR 2 | (boiledegg แทน) โค้ด C1–C9: path M1–M5 (เดิม 404) · `members/list` · `detail/update` (`info` + `pt` · ค่าเดิมไม่เขียน log · ไม่มีแถวค่าตั้ง = ข้ามเงียบ) · `status/update` สถานะเดิม = 200 ไม่เขียน log · เบอร์ 2 field ห้ามซ้ำภายใต้ผู้สร้าง (migration `20261011120000`) · ลำดับเช็ค U3 · ลบ `CanSeePT` · `amounts` · integration test ผ่าน |

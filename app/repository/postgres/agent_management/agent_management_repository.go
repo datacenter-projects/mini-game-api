@@ -175,7 +175,7 @@ const downlineSQL = `
 	SELECT id, false AS is_member, role, agent_type, username, name, phone_country_code, phone, status, NULL AS currency, last_login_at, last_login_ip, created_at
 	FROM user_agents WHERE parent_id = @parent AND role <> 'ADMIN' AND (@q = '' OR username LIKE @like ESCAPE '\')
 	UNION ALL
-	SELECT id, true, 'MEMBER', NULL, username, name, NULL, phone, status, currency, last_login_at, last_login_ip, created_at
+	SELECT id, true, 'MEMBER', NULL, username, name, phone_country_code, phone, status, currency, last_login_at, last_login_ip, created_at
 	FROM user_members WHERE agent_id = @parent AND (@q = '' OR username LIKE @like ESCAPE '\')`
 
 // ListDownlinesRepository — ลูกตรงเรียง username A→Z แบ่งหน้า + จำนวนทั้งหมด (MGMT-26, MGMT-27)
@@ -271,7 +271,7 @@ const downlineSearchSQL = `
 		FROM user_agents u JOIN tree p ON u.parent_id = p.id
 		WHERE u.role <> 'ADMIN' AND u.username LIKE @like ESCAPE '\'
 		UNION ALL
-		SELECT m.id, true, 'MEMBER', NULL, m.username, m.name, NULL, m.phone, m.status, m.currency,
+		SELECT m.id, true, 'MEMBER', NULL, m.username, m.name, m.phone_country_code, m.phone, m.status, m.currency,
 			m.last_login_at, m.last_login_ip, m.created_at,
 			p.username, GREATEST(p.rnk, CASE m.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END)
 		FROM user_members m JOIN tree p ON m.agent_id = p.id

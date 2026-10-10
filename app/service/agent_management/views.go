@@ -1,7 +1,6 @@
 package agentmanagement
 
 import (
-	"context"
 	"time"
 
 	agentAuthCore "app/app/core/agent_auth"
@@ -9,7 +8,6 @@ import (
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
 	"app/app/models"
 	agentAuthPostgres "app/app/repository/postgres/agent_auth"
-	agentAuthService "app/app/service/agent_auth"
 
 	"gorm.io/gorm"
 )
@@ -68,10 +66,6 @@ func BalanceViews(currencies []string, amount map[string]float64) []agentManagem
 	}
 	return out
 }
-
-// CanSeePT — Deprecated: ไม่มีเมนู pt แล้ว (lead P4 2026-10-09) pt แสดงเสมอ · คงไว้ชั่วคราวให้ member_management build ผ่าน
-// ลบเมื่อ member_management เลิกเรียก (ทำใน branch member_management)
-func CanSeePT(_ context.Context, _ agentAuthService.Actor) (bool, error) { return true, nil }
 
 // ChainStatus — สถานะที่ใช้งานจริงของบัญชีฝั่ง agent = เข้มที่สุดของตัวเองและหัวสายทุกชั้น (ACC-30 · AUTH-53)
 func ChainStatus(db *gorm.DB, agentID uint, own models.AgentStatus) (models.AgentStatus, error) {

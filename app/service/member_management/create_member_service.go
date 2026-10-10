@@ -1,4 +1,4 @@
-// Package membermanagement คือ business logic ของเส้น /manage/members/* — spec: docs/modules/agent_management.md
+// Package membermanagement คือ business logic ของเส้น /manage/members/* — spec: docs/modules/member_management.md
 // helper ที่ใช้ร่วมกับ agent (ผู้สร้าง · ยอดตั้งต้น · log) อยู่ใน service/agent_management · import ทางเดียว
 package membermanagement
 
@@ -29,7 +29,7 @@ type memberPTValue struct {
 	Commission float64 `json:"commission"`
 }
 
-// CreateMemberService — POST /api/v1/bo/pr/manage/members/create (MGMT-02, MGMT-05 – MGMT-15A, MGMT-21, MGMT-60)
+// CreateMemberService — POST /api/v1/bo/pr/manage/members/create (M1 · MGMT-02, MGMT-05 – MGMT-15A, MGMT-21, MGMT-60)
 // pt ของ Member ไม่เกินค่าที่ผู้สร้างได้รับ (lock แถวผู้สร้าง FOR SHARE ใน LoadCreator) · remain = ค่าที่ผู้สร้างได้รับ − pt
 func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.CreateMemberRequest, meta agentAuthService.RequestMeta) (memberManagementDto.CreateMemberResponse, error) {
 	var res memberManagementDto.CreateMemberResponse
@@ -60,27 +60,31 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		if err != nil {
 			return err
 		}
+		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO — หัวข้อ 2.1 · lead U3 / MQ2):
+		// ประเภทผู้สร้าง → username → เบอร์ → balance (Seamless → ยอดไม่พอ) → pt → commission_percent
 		if !agentManagementCore.CanCreateMember(c.UserType) {
 			return apperr.ErrCannotCreateType
+		}
+		if err := agentManagementService.LockUsernameFree(tx, req.Username); err != nil {
+			return err
+		}
+		if err := lockMemberPhoneFree(tx, c.Agent.ID, req.PhoneCountryCode, req.Phone, 0); err != nil {
+			return err
 		}
 		currencies, _ := agentManagementCore.ResolveCurrencies(c.UserType, agentManagementCore.UserTypeMember, nil, c.Currencies)
 		if len(currencies) != 1 { // ผู้สร้าง Member มี 1 สกุลเสมอ (MGMT-11 – MGMT-13) — ไม่ใช่ = ข้อมูลผู้สร้างไม่ครบ
 			return apperr.ErrInternal.Wrap(fmt.Errorf("creator %d has %d currencies, want 1", c.Agent.ID, len(currencies)))
 		}
-		for g, v := range req.PT { // ไล่ตาม field: pt → commission_percent
-			received := c.Received[agentManagementCore.PTGroup(g)]
-			if err := agentManagementService.MemberPTError(g, agentManagementCore.ValidateMemberPT(v.PT, received), received); err != nil {
-				return err
-			}
-			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.Commission)); err != nil {
-				return err
-			}
-		}
 		if err := agentManagementService.CheckInitialBalance(req.BalanceAmounts, agentManagementCore.IsSeamless(c.CompanyType), currencies); err != nil {
 			return err
 		}
-		if err := agentManagementService.LockAndCheckIdentity(tx, req.Username, req.Phone, true); err != nil {
+		if err := agentManagementService.CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {
 			return err
+		}
+		for _, g := range agentManagementService.SortedGroups(req.PT) { // ในกลุ่มไล่ตาม field: pt → commission_percent
+			if err := checkMemberPT(g, req.PT[g], c.Received[agentManagementCore.PTGroup(g)]); err != nil {
+				return err
+			}
 		}
 
 		now := time.Now()
@@ -89,8 +93,8 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			return err
 		}
 		m := models.UserMember{AgentID: c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: req.Name,
-			Phone: agentManagementService.OptionalString(req.Phone), Currency: currencies[0], Status: models.AgentStatusActive,
-			Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
+			PhoneCountryCode: agentManagementService.OptionalString(req.PhoneCountryCode), Phone: agentManagementService.OptionalString(req.Phone),
+			Currency: currencies[0], Status: models.AgentStatusActive, Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
 		if err := memberManagementPostgres.CreateUserMemberRepository(tx, &m); err != nil {
 			return err
 		}
@@ -120,7 +124,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		}
 
 		created, err := agentManagementService.ChangeLog(actor, meta, req.RequestID, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeCreate, nil,
-			map[string]any{"username": m.Username, "name": req.Name, "phone": req.Phone, "agent_id": c.Agent.ID,
+			map[string]any{"username": m.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone, "agent_id": c.Agent.ID,
 				"currency": m.Currency, "pt": ptLog}, now)
 		if err != nil {
 			return err
@@ -128,7 +132,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		rows := []models.AccountChangeLog{created}
 		if len(req.BalanceAmounts) > 0 {
 			row, err := agentManagementService.ChangeLog(actor, meta, req.RequestID, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeInitialBalance, nil,
-				map[string]any{"amounts_minor": req.BalanceAmounts}, now)
+				map[string]any{"amounts": req.BalanceAmounts}, now)
 			if err != nil {
 				return err
 			}

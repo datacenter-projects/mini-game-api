@@ -2,7 +2,6 @@ package agentmanagement
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"time"
 
@@ -50,13 +49,7 @@ func NotDirectChild(tx *gorm.DB, actorAgentID, agentID uint) error {
 	return apperr.ErrDownlineNotFound
 }
 
-// InfoValue — ค่าใน log ของ Member (member_management · เบอร์ field เดียว)
-type InfoValue struct {
-	Name  string `json:"name"`
-	Phone string `json:"phone"`
-}
-
-// AgentInfoValue — ค่าใน log ของ section info ฝั่ง agent (MGMT-08 · เบอร์ 2 field)
+// AgentInfoValue — ค่าใน log ของ section info (MGMT-08 · เบอร์ 2 field) · ใช้ทั้งฝั่ง agent และ Member (member_management)
 type AgentInfoValue struct {
 	Name             string `json:"name"`
 	PhoneCountryCode string `json:"phone_country_code"`
@@ -126,27 +119,6 @@ func applyAgentInfo(ctx context.Context, tx *gorm.DB, actor agentAuthService.Act
 		return err
 	}
 	return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdateInfo, old, next, now)
-}
-
-// CheckPhoneFree — เบอร์ของ **Member** ห้ามซ้ำกับ Member อื่น (member_management · เบอร์ field เดียว) · ฝั่ง agent ใช้ checkAgentPhone (เบอร์ 2 field)
-func CheckPhoneFree(tx *gorm.DB, phone string, selfID uint, member bool) error {
-	if !member {
-		return apperr.ErrInternal.Wrap(errors.New("CheckPhoneFree: ฝั่ง agent ใช้ checkAgentPhone"))
-	}
-	if phone == "" {
-		return nil
-	}
-	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "phone:"+phone); err != nil {
-		return err
-	}
-	taken, err := memberManagementPostgres.UserMemberPhoneTakenByOtherRepository(tx, phone, selfID)
-	if err != nil {
-		return err
-	}
-	if taken {
-		return apperr.ErrPhoneTaken
-	}
-	return nil
 }
 
 type StatusValue struct {
