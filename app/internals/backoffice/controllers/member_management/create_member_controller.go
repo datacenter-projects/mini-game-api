@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// CreateMemberController — POST /api/v1/bo/pr/manage/members/create
+// CreateMemberController — POST /api/v1/bo/pr/manage/members/create (M1)
 func CreateMemberController(c *fiber.Ctx) error {
 	var req memberManagementDto.CreateMemberRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {

@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	agentInfoPath         = "/api/v1/bo/pr/manage/agents/detail/update" // section info
-	memberInfoPath        = "/api/v1/bo/pr/manage/members/update-info"
+	agentInfoPath         = "/api/v1/bo/pr/manage/agents/detail/update"  // section info
+	memberInfoPath        = "/api/v1/bo/pr/manage/members/detail/update" // section info
 	agentStatusPath       = "/api/v1/bo/pr/manage/agents/status/update"
-	memberStatusPath      = "/api/v1/bo/pr/manage/members/update-status"
-	updatePTPath          = "/api/v1/bo/pr/manage/agents/detail/update" // section pt
-	updateMemberPTPath    = "/api/v1/bo/pr/manage/members/update-pt"
-	updateGamesPath       = "/api/v1/bo/pr/manage/agents/detail/update" // section status_game
+	memberStatusPath      = "/api/v1/bo/pr/manage/members/status/update"
+	updatePTPath          = "/api/v1/bo/pr/manage/agents/detail/update"  // section pt
+	updateMemberPTPath    = "/api/v1/bo/pr/manage/members/detail/update" // section pt
+	updateGamesPath       = "/api/v1/bo/pr/manage/agents/detail/update"  // section status_game
 	agentDetailUpdatePath = "/api/v1/bo/pr/manage/agents/detail/update"
 )
 
@@ -264,7 +264,7 @@ func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, 
 	expect(t, r, 200, 200)
 	var m created
 	_ = json.Unmarshal(r.Data, &m)
-	expect(t, call(t, app, "POST", memberInfoPath, map[string]any{"id": m.ID, "name": "ใจดี", "phone": ""}, c.agentTok), 200, 200)
+	expect(t, call(t, app, "POST", memberInfoPath, map[string]any{"id": m.ID, "info": map[string]any{"name": "ใจดี", "phone_country_code": "", "phone": ""}}, c.agentTok), 200, 200)
 	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(m.ID, 0, 0.5), c.agentTok), 200, 200)
 	var ms models.UserMemberGameSetting
 	database.DBConn.Where("user_member_id = ?", m.ID).Take(&ms)
@@ -338,10 +338,10 @@ func TestMemberPT(t *testing.T) { // MGMT-21 แก้ 2026-10-09 (agent ถื�
 		}
 	}
 
-	// update-pt: เฉพาะผู้สร้างโดยตรง · pt ไม่เกินที่ได้รับ (60) · remain คิดใหม่ · ต้องครบ pt + commission_percent
+	// detail/update section pt: เฉพาะผู้สร้างโดยตรง · pt ไม่เกินที่ได้รับ (60) · remain คิดใหม่ · ต้องครบ pt + commission_percent
 	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(ma.ID, 60, 0.2), c.agentTok), 200, 200)
 	if s := memberSetting(t, ma.ID); s.PT != 60 || s.Remain != 0 || s.Commission != 0.2 || s.UpdatedBy != "agent01" {
-		t.Fatalf("update-pt %+v", s)
+		t.Fatalf("detail/update pt %+v", s)
 	}
 	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(ma.ID, 60.5, 0.2), c.agentTok), 200, 402305)
 	expect(t, call(t, app, "POST", updateMemberPTPath, memberPTBody(ma.ID, 30, 0.2), c.shareTok), 200, 402304)

@@ -362,5 +362,5 @@ Error: `422`, `402311`, `402404`
 | `agents/update-info` · `agents/update-pt` · `agents/update-games` | `agents/detail/update` (section `info` / `pt` / `status_game`) |
 | `agents/update-status` | `agents/status/update` |
 | `agents/copy-sources` (GET) | `agents/list` (POST) + `agents/detail/get` |
-| `agents/update-hold` | ถือสู้กับ Member ตั้งต่อ Member (`members/update-pt`) |
+| `agents/update-hold` | ถือสู้กับ Member ตั้งต่อ Member (`members/detail/update` section `pt`) |
 | `subaccounts/detail` · `update-info` · `update-status` | `subaccounts/detail/get` · `detail/update` · `status/update` |

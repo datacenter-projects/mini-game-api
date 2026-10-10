@@ -220,7 +220,7 @@ CREATE TABLE user_member_game_settings (        -- PT ที่ผู้สร�
 );
 CREATE INDEX idx_user_member_game_settings_parent ON user_member_game_settings(parent_id, game_code);
 
--- migration ใหม่ (MGMT-08 / 08A): ADD COLUMN phone_country_code · แปลงเบอร์เดิม · CHECK ใหม่ · unique (agent_id, code, phone) แทน uq_user_members_phone
+-- migration 20261011120000_member_management_phone_country_code (MGMT-08 / 08A): ADD COLUMN phone_country_code · แปลงเบอร์เดิม · CHECK ใหม่ · unique (agent_id, code, phone) แทน uq_user_members_phone
 --   migration_phone_cleared ADD COLUMN kept_member_id (Member ที่ได้เก็บเบอร์ไว้เมื่อ DUPLICATE)
 ```
 

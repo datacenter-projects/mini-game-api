@@ -60,18 +60,6 @@ func Invalid(field, th, en string) error {
 	return apperr.ErrValidation.WithMessage(field+" "+th, field+" "+en)
 }
 
-// ValidateAccountFields — ข้อมูลร่วมของเส้นสร้าง Member (member_management · เบอร์ field เดียวจนกว่า member_management เปลี่ยนเป็น 2 field)
-func ValidateAccountFields(requestID string, username *string, password, name string, phone *string) error {
-	if err := ValidateIdentityFields(requestID, username, password, name); err != nil {
-		return err
-	}
-	*phone = strings.TrimSpace(*phone)
-	if !agentManagementCore.IsValidPhone(*phone) {
-		return Invalid("phone", "ต้องเป็นตัวเลข 8–15 ตัว (ไม่กรอกให้ส่ง \"\")", `must be 8–15 digits (send "" to leave it empty)`)
-	}
-	return nil
-}
-
 // ValidateIdentityFields — request_id · username · password · name (MGMT-05 – MGMT-07) ตามลำดับ field ใน body
 func ValidateIdentityFields(requestID string, username *string, password, name string) error {
 	if !uuidRe.MatchString(requestID) {
@@ -113,7 +101,7 @@ func ValidatePhonePair(prefix string, code, phone *string) error {
 // ParseBalance — ยอดเงินตั้งต้นต่อสกุล (MGMT-15A) · มากกว่า 0 · ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9)
 func ParseBalance(in map[string]utils.Decimal) (map[string]float64, error) {
 	out := make(map[string]float64, len(in))
-	for _, cur := range sortedKeys(in) {
+	for _, cur := range SortedKeys(in) {
 		d := in[cur]
 		field := "balance." + cur
 		if !agentManagementCore.IsSupportedCurrency(cur) {
@@ -187,14 +175,14 @@ func (r *CreateAgentRequest) Validate() error {
 	if err := CheckGroups(r.PT); err != nil {
 		return err
 	}
-	for _, g := range sortedKeys(r.PT) {
+	for _, g := range SortedKeys(r.PT) {
 		v := r.PT[g]
 		if err := parseChildPT("pt."+g+".", &v); err != nil {
 			return err
 		}
 		r.PT[g] = v
 	}
-	for _, code := range sortedKeys(r.StatusGame) {
+	for _, code := range SortedKeys(r.StatusGame) {
 		if _, ok := agentManagementCore.GroupOfGame(code); !ok {
 			return Invalid("status_game."+code, "ไม่มีเกมนี้", "is not a known game")
 		}
@@ -238,8 +226,8 @@ func parseChildPT(prefix string, v *ChildPTRequest) error {
 	return nil
 }
 
-// sortedKeys — เรียง key ให้ error ออกตัวเดียวกันทุกครั้ง (map ใน Go วนไม่เรียง)
-func sortedKeys[V any](m map[string]V) []string {
+// SortedKeys — เรียง key ให้ error ออกตัวเดียวกันทุกครั้ง (map ใน Go วนไม่เรียง) · ใช้ร่วมกับ dto/member_management
+func SortedKeys[V any](m map[string]V) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
 		out = append(out, k)

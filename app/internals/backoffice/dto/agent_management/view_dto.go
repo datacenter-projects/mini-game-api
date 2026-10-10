@@ -46,7 +46,7 @@ type DownlineRow struct {
 	UserType         string          `json:"user_type"`
 	Username         string          `json:"username"`
 	Name             string          `json:"name"`
-	PhoneCountryCode string          `json:"phone_country_code"` // MGMT-08 · แถว Member = "" จนกว่า member_management ทำ 2 field
+	PhoneCountryCode string          `json:"phone_country_code"` // MGMT-08 · ไม่ได้กรอก = "" (ทั้งแถว agent และ Member)
 	Phone            string          `json:"phone"`
 	Status           string          `json:"status"`          // สถานะที่ใช้งานจริง (ACC-30)
 	ParentUsername   string          `json:"parent_username"` // ผู้สร้างตรง · ทุกแถว (lead E2-2)
@@ -102,7 +102,7 @@ func NormalizeKeyword(k *string) error {
 	return nil
 }
 
-// DetailRequest — POST /manage/agents/detail/get · /manage/members/detail (MGMT-29) · ผู้ดูมาจาก token
+// DetailRequest — POST /manage/agents/detail/get · /manage/members/detail/get (MGMT-29) · ผู้ดูมาจาก token
 type DetailRequest struct {
 	ID uint `json:"id"`
 }

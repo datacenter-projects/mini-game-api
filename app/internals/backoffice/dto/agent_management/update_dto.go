@@ -1,8 +1,6 @@
 package agentmanagement
 
 import (
-	"strings"
-
 	agentManagementCore "app/app/core/agent_management"
 	"app/app/models"
 	"app/pkg/utils"
@@ -11,32 +9,7 @@ import (
 // request ของการแก้บัญชี (phase 4) — spec: docs/modules/agent_management.md หัวข้อ 5
 // field ที่ไม่ใช่ของเส้นนั้น (เช่น ผู้สร้างส่ง pt ของลูก) = 422 (MGMT-23)
 
-// UpdateInfoRequest — POST /manage/members/update-info (member_management) · ฝั่ง agent ใช้ AgentInfoSection ใน agents/detail/update
-// แทนทั้งชุด: ต้องส่งทั้ง name และ phone ("" = ไม่ตั้ง)
-type UpdateInfoRequest struct {
-	ID    uint             `json:"id"` // บัญชีที่จะแก้ (ลูกตรง) — ผู้แก้มาจาก token
-	Name  string           `json:"name"`
-	Phone utils.JSONString `json:"phone"`
-}
-
-func (r *UpdateInfoRequest) Validate() error {
-	if err := CheckID(r.ID); err != nil {
-		return err
-	}
-	if !agentManagementCore.IsValidName(r.Name) {
-		return Invalid("name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
-	}
-	if !r.Phone.Present || !r.Phone.IsString {
-		return Invalid("phone", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
-	}
-	r.Phone.Value = strings.TrimSpace(r.Phone.Value)
-	if !agentManagementCore.IsValidPhone(r.Phone.Value) {
-		return Invalid("phone", "ต้องเป็นตัวเลข 8–15 ตัว (ไม่กรอกให้ส่ง \"\")", `must be 8–15 digits (send "" to leave it empty)`)
-	}
-	return nil
-}
-
-// UpdateStatusRequest — POST /manage/agents/status/update · /manage/members/update-status (MGMT-30)
+// UpdateStatusRequest — POST /manage/agents/status/update · /manage/members/status/update (MGMT-30)
 type UpdateStatusRequest struct {
 	ID     uint   `json:"id"`
 	Status string `json:"status"`
@@ -80,7 +53,7 @@ func CheckID(id uint) error {
 	return nil
 }
 
-// AgentInfoSection — section info ของ agents/detail/update · ส่งบาง field ได้ (MGMT-32)
+// AgentInfoSection — section info ของ agents/detail/update และ members/detail/update · ส่งบาง field ได้ (MGMT-32 · MGMT-32M)
 type AgentInfoSection struct {
 	Name             *string          `json:"name"`
 	PhoneCountryCode utils.JSONString `json:"phone_country_code"` // ต้องส่งคู่กับ phone (MGMT-08)
@@ -104,7 +77,7 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 		return Invalid("info / pt / status_game", "ต้องส่งอย่างน้อย 1 section", "at least 1 section is required")
 	}
 	if r.Info != nil {
-		if err := r.Info.validate(); err != nil {
+		if err := r.Info.Check(); err != nil {
 			return err
 		}
 	}
@@ -112,7 +85,7 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 		if err := CheckSomeGroups(r.PT); err != nil {
 			return err
 		}
-		for _, g := range sortedKeys(r.PT) {
+		for _, g := range SortedKeys(r.PT) {
 			v := r.PT[g]
 			p := "pt." + g + "."
 			if v.OwnPT.Present {
@@ -128,7 +101,7 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 		if len(r.StatusGame) == 0 {
 			return Invalid("status_game", "ต้องส่งอย่างน้อย 1 เกม", "must contain at least 1 game")
 		}
-		for _, code := range sortedKeys(r.StatusGame) {
+		for _, code := range SortedKeys(r.StatusGame) {
 			if _, ok := agentManagementCore.GroupOfGame(code); !ok {
 				return Invalid("status_game."+code, "ไม่มีเกมนี้", "is not a known game")
 			}
@@ -137,7 +110,8 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 	return nil
 }
 
-func (s *AgentInfoSection) validate() error {
+// Check — ตรวจ section info (ใช้ร่วมกับ members/detail/update — member_management MGMT-32M)
+func (s *AgentInfoSection) Check() error {
 	if s.Name == nil && !s.Phone.Present && !s.PhoneCountryCode.Present {
 		return Invalid("info", "ต้องมีอย่างน้อย 1 field (name / phone_country_code + phone)", "must contain at least 1 field (name / phone_country_code + phone)")
 	}

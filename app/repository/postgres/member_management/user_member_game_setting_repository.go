@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// repository ของตาราง user_member_game_settings — docs/modules/agent_management.md หัวข้อ 6
+// repository ของตาราง user_member_game_settings — docs/modules/member_management.md หัวข้อ 4
 
 func CreateUserMemberGameSettingsRepository(db *gorm.DB, rows []models.UserMemberGameSetting) error {
 	if len(rows) == 0 {

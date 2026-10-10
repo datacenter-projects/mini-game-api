@@ -66,12 +66,13 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/manage/agents/status/update", mw.PassedGates(), memberEdit, agentManagementController.UpdateAgentStatusController)
 	pr.Post("/manage/agents/list", mw.PassedGates(), memberView, agentManagementController.ListAgentsController)
 
-	// member_management — ไม่มีเมนู pt แล้ว: เส้นที่เคยใช้ pt edit เปลี่ยนเป็น member edit (lead B3 · path ยังไม่เปลี่ยน)
+	// member_management — docs/modules/member_management.md หัวข้อ 3 (lead MN1 · M1–M5) · เมนู member (MGMT-51 · MN4)
+	// payment = edit เมื่อส่ง balance ตรวจใน service (MGMT-15A · lead U3)
 	pr.Post("/manage/members/create", mw.PassedGates(), memberEdit, memberManagementController.CreateMemberController)
-	pr.Post("/manage/members/detail", mw.PassedGates(), memberView, memberManagementController.GetMemberDetailController)
-	pr.Post("/manage/members/update-info", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberInfoController)
-	pr.Post("/manage/members/update-status", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberStatusController)
-	pr.Post("/manage/members/update-pt", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberPTController)
+	pr.Post("/manage/members/detail/get", mw.PassedGates(), memberView, memberManagementController.GetMemberDetailController)
+	pr.Post("/manage/members/detail/update", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberDetailController)
+	pr.Post("/manage/members/status/update", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberStatusController)
+	pr.Post("/manage/members/list", mw.PassedGates(), memberView, memberManagementController.ListMembersController)
 
 	// sub: เฉพาะบัญชีหลัก (sub เรียก = 402311 — MGMT-40) · ไม่ใช้สิทธิ์เมนู
 	pr.Post("/manage/subaccounts/list", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.ListSubaccountsController)

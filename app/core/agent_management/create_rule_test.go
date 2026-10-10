@@ -157,26 +157,6 @@ func TestIsValidName(t *testing.T) { // MGMT-07, MGMT-41
 	}
 }
 
-func TestIsValidPhone(t *testing.T) { // MGMT-08
-	tests := []struct {
-		in   string
-		want bool
-	}{
-		{"", true},
-		{"0812345678", true},
-		{"12345678", true},
-		{"1234567", false},
-		{"1234567890123456", false},
-		{"+66812345678", false},
-		{"081-234-5678", false},
-	}
-	for _, tt := range tests {
-		if got := IsValidPhone(tt.in); got != tt.want {
-			t.Errorf("IsValidPhone(%q) = %v, want %v", tt.in, got, tt.want)
-		}
-	}
-}
-
 func TestIsValidSubName(t *testing.T) { // MGMT-41
 	tests := []struct {
 		in   string
