@@ -37,3 +37,12 @@ branch `boiledegg/bo/member_management` · merge เข้า `dev` แล้ว
 
 งาน C1–C9 ทำแล้วบน `dev` · branch `maofoy/bo/member-management` เก่ากว่า `dev` — ถ้าจะทำต่อให้แตก branch ใหม่จาก `dev`
 open item ที่ยังเหลือของ module: MQ7 (ผล `LOCKED` / `SUSPENDED` ของ Member → Player Auth) · ความหมาย Remain ตอน settle (module Settle)
+
+## 5. งานตามหลังจากตรวจรอบที่ 1 (2026-10-11 · หลัง deploy `dev-202610111423`)
+
+| เรื่อง | ผล |
+|---|---|
+| map unique violation ของเบอร์เป็น `402403` | `members/create`: ชน unique ตอน INSERT → ย้อน savepoint แล้วดูว่าเบอร์ถูกใช้ไหม — ใช่ `402403` · ไม่ใช่ = username `402401` (เดิมได้ `409`) · `members/detail/update`: ชน unique ตอนแก้เบอร์ → `402403` |
+| test ยิงพร้อมกัน | `member_management_concurrent_integration_test.go`: สร้างเบอร์ / username ซ้ำพร้อมกัน (สำเร็จ 1 ที่เหลือ `402403` / `402401`) · `request_id` เดียวกัน + ยอด (โอนครั้งเดียว) · แก้เบอร์ซ้ำพร้อมกัน · แก้ pt Member + ชั้นบนแก้ค่าที่ให้ผู้สร้าง + สร้าง + สถานะ พร้อมกัน (ไม่ deadlock · `remain_quota` ตรงทุกแถว) · แถวที่ยังไม่ commit ชน unique → `402403` / `402401` (ถอดโค้ดใหม่ออกได้ `409` = test จับได้จริง) · รันซ้ำ 5 รอบผ่าน |
+| เอกสาร | spec หัวข้อ 5 เพิ่ม test case ยิงพร้อมกัน |
+| ไม่ได้ทำในรอบนี้ | migration ล้างข้อมูลแยกขั้นเมื่อข้อมูลใหญ่ — ทำก่อนขึ้น prod |

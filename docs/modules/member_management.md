@@ -253,6 +253,10 @@ test ของเส้น Member อยู่ในชุด integration test �
 | MGMT-51 | sub `member` view เรียก `detail/get` · `list` · `detail/update` | สำเร็จ · สำเร็จ · `402303` |
 | MGMT-60 | สร้าง / แก้ข้อมูล / PT / สถานะ | `account_change_logs` `target_type = MEMBER` ค่าเก่า / ใหม่ |
 | — | เรียก path เดิม (`members/detail` · `update-info` · `update-status` · `update-pt`) | `404` |
+| MGMT-05 / 08 | ยิงพร้อมกัน: สร้าง Member เบอร์เดียวกันใต้ผู้สร้างเดียวกัน · username เดียวกัน · แก้เป็นเบอร์เดียวกัน | สำเร็จ 1 ที่เหลือ `402403` · `402401` · `402403` (ไม่มี `500`) |
+| MGMT-05 / 08 | อีก tx ใส่แถวเบอร์ / username เดียวกันไว้ยังไม่ commit แล้ว commit ระหว่างที่ request รอ (ชน unique ใน DB) | `402403` / `402401` ไม่ใช่ `409` |
+| MGMT-15A | ยิงพร้อมกันด้วย `request_id` เดียวกัน + `balance` | Member 1 คน · โอนครั้งเดียว · ledger 2 แถว |
+| MGMT-21 | ยิงพร้อมกัน: แก้ `pt` Member · ชั้นบนแก้ค่าที่ให้ผู้สร้าง · สร้าง Member · แก้สถานะ | ทุกเส้น `200` ไม่ deadlock · `remain_quota` = ค่าที่ผู้สร้างได้รับ − `pt` ทุกแถว |
 
 ## 6. Error codes
 

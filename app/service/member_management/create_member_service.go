@@ -5,6 +5,7 @@ package membermanagement
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -95,7 +96,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		m := models.UserMember{AgentID: c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: req.Name,
 			PhoneCountryCode: agentManagementService.OptionalString(req.PhoneCountryCode), Phone: agentManagementService.OptionalString(req.Phone),
 			Currency: currencies[0], Status: models.AgentStatusActive, Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
-		if err := memberManagementPostgres.CreateUserMemberRepository(tx, &m); err != nil {
+		if err := createMemberRow(tx, &m); err != nil {
 			return err
 		}
 
@@ -146,4 +147,31 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		return nil
 	})
 	return res, err
+}
+
+// createMemberRow — INSERT แถว Member (MGMT-05, MGMT-08)
+// username / เบอร์ถูกเช็คใต้ advisory lock แล้ว แต่ถ้ายังชน unique (เช่น แถวที่ยังไม่ commit ตอนเช็ค) ให้ตอบ error ของ field แทน 409:
+// ย้อนไป savepoint แล้วดูว่าเบอร์ถูกใช้ไหม — ใช่ = 402403 · ไม่ใช่ = username (unique อีกตัวเดียวของตาราง) 402401
+func createMemberRow(tx *gorm.DB, m *models.UserMember) error {
+	const sp = "create_member_row"
+	if err := tx.SavePoint(sp).Error; err != nil {
+		return err
+	}
+	err := memberManagementPostgres.CreateUserMemberRepository(tx, m)
+	if !errors.Is(err, apperr.ErrConflict) {
+		return err
+	}
+	if err := tx.RollbackTo(sp).Error; err != nil {
+		return err
+	}
+	if m.Phone != nil && m.PhoneCountryCode != nil {
+		taken, err := memberManagementPostgres.UserMemberPhoneTakenByOtherRepository(tx, m.AgentID, *m.PhoneCountryCode, *m.Phone, 0)
+		if err != nil {
+			return err
+		}
+		if taken {
+			return apperr.ErrPhoneTaken
+		}
+	}
+	return apperr.ErrUsernameTaken
 }
