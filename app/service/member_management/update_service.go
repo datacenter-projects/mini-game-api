@@ -2,6 +2,7 @@ package membermanagement
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -105,8 +106,12 @@ func applyMemberInfo(ctx context.Context, tx *gorm.DB, actor agentAuthService.Ac
 			return err
 		}
 	}
-	if err := memberManagementPostgres.UpdateUserMemberInfoRepository(tx, m.ID, next.Name,
-		agentManagementService.OptionalString(next.PhoneCountryCode), agentManagementService.OptionalString(next.Phone), now); err != nil {
+	err := memberManagementPostgres.UpdateUserMemberInfoRepository(tx, m.ID, next.Name,
+		agentManagementService.OptionalString(next.PhoneCountryCode), agentManagementService.OptionalString(next.Phone), now)
+	if errors.Is(err, apperr.ErrConflict) { // unique เดียวของคอลัมน์ที่แก้คือเบอร์ (หลุด advisory lock — เช่น แถวที่ยังไม่ commit ตอนเช็ค)
+		return apperr.ErrPhoneTaken
+	}
+	if err != nil {
 		return err
 	}
 	return agentManagementService.WriteLog(ctx, tx, actor, meta, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeUpdateInfo, old, next, now)

@@ -52,9 +52,14 @@ func LockUserMemberRowRepository(db *gorm.DB, id uint) (models.UserMember, error
 }
 
 // UpdateUserMemberInfoRepository — ชื่อ · เบอร์ 2 field (nil = ไม่ตั้ง · nil คู่กัน) — MGMT-08, MGMT-09A
+// ชน unique ของเบอร์ (uq_user_members_phone) คืน apperr.ErrConflict
 func UpdateUserMemberInfoRepository(db *gorm.DB, id uint, name string, phoneCountryCode, phone *string, at time.Time) error {
-	return db.Model(&models.UserMember{}).Where("id = ?", id).
+	err := db.Model(&models.UserMember{}).Where("id = ?", id).
 		Updates(map[string]any{"name": name, "phone_country_code": phoneCountryCode, "phone": phone, "updated_at": at}).Error
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return apperr.ErrConflict.Wrap(err)
+	}
+	return err
 }
 
 // ListUserMemberCreditsByIDsRepository — สกุล + ยอดเงิน (credit) ของ Member หลายคน
