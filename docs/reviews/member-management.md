@@ -53,3 +53,13 @@
 - C7 เบอร์ E1-5 ฝั่ง Member · **unique index `(parent, phone_country_code, phone)` WHERE phone <> ''** แทน `uq_user_members_phone` · migration แปลงเบอร์ตาม B1 (ทำพร้อม C7 ของ agent_management — ประสานกับ boiledegg ไม่ให้ทับไฟล์กัน)
 - C8 แก้ comment ที่ชี้ spec ผิด (`create_dto.go:1`, `update_dto.go:7`, `create_member_service.go:1`, `update_service.go:20`, `user_member_game_setting_repository.go:13`, `user_member_repository.go:93`)
 - C9 test ตาม S8 · **รัน integration test ของ Member ให้ผ่าน** (`scripts/testenv.ps1 up` → `make test-integration`) แนบผลใน PR · แจ้ง frontend (path, เบอร์, สิทธิ์, body)
+
+## ตรวจงานรอบที่ 1 (2026-10-11 · commit 82fcde9 + 430fe9a · merge 6d75062)
+ผลตรวจ: C1–C9 / S1–S13 / MA · MN · M · MQ ครบ ✅ · migration `20261011120000` (เบอร์ Member) ถูกตาม B1 + MQ1 · ลำดับ lock ไม่ deadlock · build / vet / unit / structure ผ่าน · integration: boiledegg รายงานว่าผ่าน
+
+**lead อนุมัติ deploy dev (2026-10-11)**
+- ก่อน migrate: นับเบอร์ที่จะถูกล้างบน RDS dev แล้วแจ้งจำนวน · แจ้งหน้าบ้าน (path เดิม 404 · เบอร์ 2 field · body ของ `members/detail/update`)
+- หลัง deploy: แจ้งจำนวนแถว `migration_phone_cleared` ของ `user_members` + tag ที่ออก · ถ้าจะ Down ให้ export ตารางนี้ก่อน
+
+ทำทีหลังได้ (ไม่บล็อก): map unique violation ของเบอร์เป็น `402403` · test ยิงพร้อมกัน · เอกสารค้างเล็กน้อย · migration แบบล้างข้อมูลต้องแยกขั้นถ้าข้อมูลใหญ่ (ก่อนขึ้น prod)
+**จำไว้ตอนทำ module เดิมพัน:** lock แถว `user_members` (MA5) ใช้ `FOR NO KEY UPDATE`
