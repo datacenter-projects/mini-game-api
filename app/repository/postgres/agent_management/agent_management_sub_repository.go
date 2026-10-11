@@ -45,15 +45,22 @@ func GetSubaccountViewRepository(db *gorm.DB, id uint) (models.Subaccount, error
 	return s, err
 }
 
-// LockSubaccountViewRepository — SELECT ... FOR UPDATE ก่อนแก้ · ไม่พบ = ผลว่าง (id 0)
+// LockSubaccountViewRepository — SELECT ... FOR NO KEY UPDATE ก่อนแก้ · ไม่พบ = ผลว่าง (id 0)
+// NO KEY UPDATE: ไม่ขวาง lock ที่ Postgres ใช้เช็ค FK ตอน insert ตารางลูก (บทเรียน deadlock ฝั่ง agent — lead V1–V7 / SQ1)
 func LockSubaccountViewRepository(db *gorm.DB, id uint) (models.Subaccount, error) {
-	return GetSubaccountViewRepository(db.Clauses(clause.Locking{Strength: "UPDATE"}), id)
+	return GetSubaccountViewRepository(db.Clauses(clause.Locking{Strength: "NO KEY UPDATE"}), id)
 }
 
-// UpdateSubaccountInfoRepository — ชื่อเล่น · เบอร์ (nil = ไม่ตั้ง) · สิทธิ์ (JSON) แทนทั้งชุด (MGMT-42)
-func UpdateSubaccountInfoRepository(db *gorm.DB, id uint, name string, code, phone *string, permissions string, at time.Time) error {
+// UpdateSubaccountInfoRepository — ชื่อเล่น · เบอร์ (nil = ไม่ตั้ง · nil คู่กัน) — section info (MGMT-42)
+func UpdateSubaccountInfoRepository(db *gorm.DB, id uint, name string, code, phone *string, at time.Time) error {
 	return db.Model(&models.Subaccount{}).Where("id = ?", id).
-		Updates(map[string]any{"name": name, "phone_country_code": code, "phone": phone, "permissions": permissions, "updated_at": at}).Error
+		Updates(map[string]any{"name": name, "phone_country_code": code, "phone": phone, "updated_at": at}).Error
+}
+
+// UpdateSubaccountPermissionsRepository — สิทธิ์ (JSON) แทนทั้งชุด — section permissions (MGMT-42 · MGMT-50)
+func UpdateSubaccountPermissionsRepository(db *gorm.DB, id uint, permissions string, at time.Time) error {
+	return db.Model(&models.Subaccount{}).Where("id = ?", id).
+		Updates(map[string]any{"permissions": permissions, "updated_at": at}).Error
 }
 
 // UpdateSubaccountStatusRepository — สถานะที่ตั้งกับ sub เอง (MGMT-43 · INACTIVE เก็บเป็น SUSPENDED)

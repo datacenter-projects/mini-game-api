@@ -101,6 +101,7 @@ const (
 	ChangeUpdateGames    AccountChangeAction = "UPDATE_GAMES"
 	ChangeSyncFromCSM    AccountChangeAction = "SYNC_FROM_CSM" // ระบบปรับ Share Master ตาม Company Seamless Master (MGMT-19)
 	ChangeSubStatus      AccountChangeAction = "SUB_STATUS"
+	ChangeSubPermissions AccountChangeAction = "SUB_PERMISSIONS" // แก้สิทธิ์ของ sub แยกจาก UPDATE_INFO (lead SQ6)
 	ChangeInitialBalance AccountChangeAction = "INITIAL_BALANCE"
 )
 
