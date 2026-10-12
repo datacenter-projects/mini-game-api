@@ -10,20 +10,22 @@ import (
 // กฎเดียวกับ section info ของ agents/detail/update จึงใช้ type เดียวกัน (MGMT-32M)
 type MemberInfoSection = agentManagementDto.AgentInfoSection
 
-// MemberDetailUpdateRequest — POST /manage/members/detail/update (M3 · MGMT-32M · lead M3-1 / MN2)
-// 2 section ไม่บังคับ ส่งเฉพาะที่แก้ (nil = ไม่ส่ง) · ไม่ส่งเลยสัก section = 422 · ตรวจบนลงล่าง info → pt
+// MemberDetailUpdateRequest — POST /manage/members/detail/update (M3 · MGMT-32M · lead M3-1 / MN2 / P13)
+// 4 section ไม่บังคับ ส่งเฉพาะที่แก้ (nil = ไม่ส่ง) · ไม่ส่งเลยสัก section = 422 · ตรวจบนลงล่าง info → pt → payment → limit
 type MemberDetailUpdateRequest struct {
-	ID   uint                       `json:"id"`
-	Info *MemberInfoSection         `json:"info"`
-	PT   map[string]MemberPTRequest `json:"pt"`
+	ID      uint                       `json:"id"`
+	Info    *MemberInfoSection         `json:"info"`
+	PT      map[string]MemberPTRequest `json:"pt"`
+	Payment *MemberPaymentSection      `json:"payment"`
+	Limit   *MemberLimitSection        `json:"limit"`
 }
 
 func (r *MemberDetailUpdateRequest) Validate() error {
 	if err := agentManagementDto.CheckID(r.ID); err != nil {
 		return err
 	}
-	if r.Info == nil && r.PT == nil {
-		return agentManagementDto.Invalid("info / pt", "ต้องส่งอย่างน้อย 1 section", "at least 1 section is required")
+	if r.Info == nil && r.PT == nil && r.Payment == nil && r.Limit == nil {
+		return agentManagementDto.Invalid("info / pt / payment / limit", "ต้องส่งอย่างน้อย 1 section", "at least 1 section is required")
 	}
 	if r.Info != nil {
 		if err := r.Info.Check(); err != nil {
@@ -37,6 +39,14 @@ func (r *MemberDetailUpdateRequest) Validate() error {
 		if err := parseMemberPTGroups(r.PT); err != nil {
 			return err
 		}
+	}
+	if r.Payment != nil {
+		if err := r.Payment.check(); err != nil {
+			return err
+		}
+	}
+	if r.Limit != nil {
+		return r.Limit.check()
 	}
 	return nil
 }

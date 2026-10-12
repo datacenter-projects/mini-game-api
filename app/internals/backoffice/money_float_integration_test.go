@@ -39,4 +39,13 @@ func TestBalanceFourDecimals(t *testing.T) {
 	b = agentBody("SHARE_B2C", "sharefloat2", []string{"THB"}, childPT(50, 0, 0, 0))
 	b["balance"] = map[string]any{"THB": 1.12345}
 	expect(t, call(t, app, "POST", createAgentPath, b, c.comTok), 200, 422)
+
+	// รับเป็น float64 (ทีมตกลง 2026-10-12): ส่งตัวเลขเป็นข้อความ = 400 · ส่วนจำนวนเต็มเกิน 11 หลัก = 422
+	b["balance"] = map[string]any{"THB": "100"}
+	expect(t, call(t, app, "POST", createAgentPath, b, c.comTok), 200, 400)
+	b["balance"] = map[string]any{"THB": 123456789012.5}
+	expect(t, call(t, app, "POST", createAgentPath, b, c.comTok), 200, 422)
+	b["balance"] = map[string]any{"THB": 10}
+	b["pt"] = map[string]any{"minigame": map[string]any{"pt_from_parent": "50", "force": 0, "remain_quota": 0, "commission_percent": 0, "status": true}}
+	expect(t, call(t, app, "POST", createAgentPath, b, c.comTok), 200, 400)
 }

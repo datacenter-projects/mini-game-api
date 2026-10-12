@@ -29,7 +29,7 @@ func (r *UpdateStatusRequest) Validate() error {
 // UpdateChildPTGroup — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม ครบ 5 ค่า · ส่ง pt = 422 (ไม่มีในเส้นนี้)
 type UpdateChildPTGroup struct {
 	ChildPTRequest
-	OwnPT utils.Decimal `json:"pt"`
+	OwnPT *float64 `json:"pt"` // มีไว้ตอบ 422 เมื่อส่งมา
 }
 
 // CheckSomeGroups — ต้องส่งอย่างน้อย 1 กลุ่ม และทุกกลุ่มต้องมีอยู่จริง (MGMT-23)
@@ -88,7 +88,7 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 		for _, g := range SortedKeys(r.PT) {
 			v := r.PT[g]
 			p := "pt." + g + "."
-			if v.OwnPT.Present {
+			if v.OwnPT != nil {
 				return Invalid(p+"pt", "ไม่มีในเส้นนี้ (ถือสู้กับ Member ตั้งต่อ Member)", "is not part of this request (hold against Members is set per Member)")
 			}
 			if err := parseChildPT(p, &v.ChildPTRequest); err != nil {

@@ -35,7 +35,8 @@ func GetUserMemberProfileRepository(db *gorm.DB, id uint) (models.UserMember, er
 // GetUserMemberDetailRepository — ไม่พบคืน apperr.ErrNotFound
 func GetUserMemberDetailRepository(db *gorm.DB, id uint) (models.UserMember, error) {
 	var m models.UserMember
-	err := db.Select("id", "agent_id", "username", "name", "phone_country_code", "phone", "currency", "credit", "status", "last_login_at", "last_login_ip", "created_at").
+	err := db.Select("id", "agent_id", "username", "name", "phone_country_code", "phone", "currency", "credit", "status",
+		"payment_type", "payment_account", "win_limit_per_day", "last_login_at", "last_login_ip", "created_at").
 		Where("id = ?", id).Take(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return m, apperr.ErrNotFound
@@ -43,12 +44,42 @@ func GetUserMemberDetailRepository(db *gorm.DB, id uint) (models.UserMember, err
 	return m, err
 }
 
-// LockUserMemberRowRepository — SELECT ... FOR UPDATE · ไม่พบ = ผลว่าง (id 0)
+// LockUserMemberRowRepository — SELECT ... FOR NO KEY UPDATE ข้อมูลที่แก้ได้ของ Member · ไม่พบ = ผลว่าง (id 0)
+// NO KEY UPDATE (ไม่แก้ id / username): ไม่ขวาง FOR KEY SHARE ที่ Postgres ใช้เช็ค FK ตอน insert ตารางลูกของ Member
+// FOR UPDATE ทำ deadlock แบบเดียวกับ LockUserAgentRowRepository (docs/lead/bo-agent-management-round1.md)
 func LockUserMemberRowRepository(db *gorm.DB, id uint) (models.UserMember, error) {
 	var m models.UserMember
-	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "agent_id", "username", "name", "phone_country_code", "phone", "status").
+	err := db.Clauses(clause.Locking{Strength: "NO KEY UPDATE"}).Select("id", "agent_id", "username", "name", "phone_country_code", "phone", "status",
+		"payment_type", "payment_account", "win_limit_per_day").
 		Where("id = ?", id).Limit(1).Find(&m).Error
 	return m, err
+}
+
+// UpdateUserMemberPaymentRepository — วิธีจ่ายเงิน · บัญชีธนาคาร (JSONB · nil = ไม่มีบัญชี) — MGMT-63 / 64
+// ชน unique ของบัญชี (uq_user_members_payment_account) คืน apperr.ErrConflict
+func UpdateUserMemberPaymentRepository(db *gorm.DB, id uint, paymentType models.PaymentType, account *string, at time.Time) error {
+	err := db.Model(&models.UserMember{}).Where("id = ?", id).
+		Updates(map[string]any{"payment_type": paymentType, "payment_account": account, "updated_at": at}).Error
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return apperr.ErrConflict.Wrap(err)
+	}
+	return err
+}
+
+// UpdateUserMemberWinLimitRepository — ลิมิตชนะต่อวัน (MGMT-65)
+func UpdateUserMemberWinLimitRepository(db *gorm.DB, id uint, winLimit float64, at time.Time) error {
+	return db.Model(&models.UserMember{}).Where("id = ?", id).Updates(map[string]any{"win_limit_per_day": winLimit, "updated_at": at}).Error
+}
+
+// UserMemberPaymentAccountTakenByOtherRepository — บัญชี (ธนาคาร + เลข) นี้มี Member อื่นของผู้สร้างคนเดียวกันใช้แล้วไหม (MGMT-64 · lead P4)
+// selfID 0 = Member ใหม่ · expression ตรงกับ index uq_user_members_payment_account
+func UserMemberPaymentAccountTakenByOtherRepository(db *gorm.DB, agentID uint, bankCode, accountNumber string, selfID uint) (bool, error) {
+	var n int64
+	err := db.Model(&models.UserMember{}).
+		Where("agent_id = ? AND payment_account IS NOT NULL AND (payment_account ->> 'bank_code') = ? AND (payment_account ->> 'account_number') = ? AND id <> ?",
+			agentID, bankCode, accountNumber, selfID).
+		Limit(1).Count(&n).Error
+	return n > 0, err
 }
 
 // UpdateUserMemberInfoRepository — ชื่อ · เบอร์ 2 field (nil = ไม่ตั้ง · nil คู่กัน) — MGMT-08, MGMT-09A

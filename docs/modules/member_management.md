@@ -9,12 +9,14 @@
 - ชื่อ module ในโค้ด: `member_management` (`controllers/member_management`, `dto/member_management`, `service/member_management`) · กฎ business ร่วมอยู่ที่ `core/agent_management`
 - rule ID ใช้ `MGMT-xx` ชุดเดียวกับ [agent_management.md](agent_management.md) (ไม่ตั้งเลขใหม่ — โค้ดและ test อ้างเลขเดิม) · error ใช้ `402xxx` ของ module `agent_management`
 - เมนู: 2 การจัดการสมาชิก — ส่วนของ Member (สร้าง · รายละเอียด · แก้ข้อมูล / PT · แก้สถานะ · dropdown Member ลูกตรง)
+- **แก้ตาม lead review 2026-10-12** ([docs/reviews/member-payment.md](../reviews/member-payment.md) — P1–P15): วิธีจ่ายเงิน · บัญชีธนาคาร · ลิมิตชนะต่อวัน (MGMT-63 – MGMT-65 · หัวข้อ 2.2)
 
 > เอกสารนี้คือ source of truth ของเส้น Member — กฎที่ใช้ร่วมกับฝั่ง agent อยู่ใน agent_management.md และอ้างด้วย ID
 
 ## 1. หน้าที่ของ module
 
-สร้างและจัดการ **Member** (ผู้เล่น — ตาราง `user_members` แยกจากฝั่ง agent): สร้าง · ดูรายละเอียด · แก้ชื่อ / เบอร์ / PT / Commission · แก้สถานะ · รายชื่อ Member ลูกตรง (dropdown)
+สร้างและจัดการ **Member** (ผู้เล่น — ตาราง `user_members` แยกจากฝั่ง agent): สร้าง · ดูรายละเอียด · แก้ชื่อ / เบอร์ / PT / Commission ·
+วิธีจ่ายเงิน / บัญชีธนาคาร / ลิมิตชนะต่อวัน · แก้สถานะ · รายชื่อ Member ลูกตรง (dropdown)
 
 **ไม่อยู่ใน module นี้:** รายชื่อ / ค้นหา Member ทั้งสาย (`downlines/list` ของ `agent_management` — MGMT-26 – MGMT-28 · Member ขึ้นปนกับฝั่ง agent ด้วย `role = MEMBER`) ·
 ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถอนเงินหลังสร้าง (module การชำระเงิน) · login ของ Member (module Player Auth)
@@ -32,12 +34,19 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | MGMT-07 | ชื่อบังคับ 3–32 ตัวอักษร ไทย / อังกฤษ / ตัวเลข ไม่มีช่องว่าง |
 | MGMT-08 | **เบอร์ 2 field** (lead E1-5 · MQ1): `phone_country_code` = รหัสโทรออกที่มีจริง 1–3 หลัก ไม่มี `+` · `phone` = ตัวเลขล้วน ไม่มี 0 นำหน้า · รวมไม่เกิน 15 หลัก · ไม่กรอก = `""` ทั้งคู่ · ส่งค่าเดียว = `422` · **ห้ามซ้ำที่คู่ (code + phone) เฉพาะภายใต้ผู้สร้างเดียวกัน** (`402403`) — Member คนเดียวกันอาจเล่นหลายเว็บ / หลายสาย ใช้เบอร์เดียวกันได้ถ้าคนละผู้สร้าง · Member กับ agent ใช้เบอร์เดียวกันได้ |
 | MGMT-08A | migration เบอร์เดิมของ Member (lead B1 · แบบเดียวกับ agent): ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` และยาว 11 หลัก → `66` + ส่วนที่เหลือ · แบบอื่นล้างเป็น `""` · แปลงแล้วซ้ำภายใต้ผู้สร้างเดียวกัน เก็บแถว `id` น้อยสุด แถวอื่นล้าง · ทุกรายการที่ถูกล้างบันทึกใน `migration_phone_cleared` (`table_name = user_members` · `reason` `FORMAT` / `DUPLICATE` · `kept_member_id` = Member ที่ได้เก็บเบอร์ไว้) |
-| MGMT-09A | แก้ได้: ชื่อ · เบอร์ · PT / Commission (เส้นเดียว `members/detail/update` — M3) · สถานะ (`members/status/update` — M4) · แก้ไม่ได้: username · สกุลเงิน · ผู้สร้าง |
+| MGMT-09A | แก้ได้: ชื่อ · เบอร์ · PT / Commission · วิธีจ่ายเงิน / บัญชีธนาคาร · ลิมิตชนะต่อวัน (เส้นเดียว `members/detail/update` — M3) · สถานะ (`members/status/update` — M4) · แก้ไม่ได้: username · สกุลเงิน · ผู้สร้าง |
 | MGMT-13 | สกุลเงิน = สกุลของผู้สร้าง (1 สกุล) ไม่ต้องส่ง |
 | MGMT-15A | ยอดเงินตั้งต้น `balance` ไม่บังคับ · ฝั่ง Transfer เท่านั้น — **สายที่เป็น Seamless ส่งแล้วได้ `422`** · โอนจากผู้สร้าง (ยอดไม่พอ `402312`) · ต้องมี `request_id` (UUID) กันส่งซ้ำ — `request_id` เดิมของตัวเองที่ใช้สร้าง Member = ได้ `id` เดิม ไม่โอนซ้ำ · ของคนอื่น / ที่เคยใช้สร้างฝั่ง agent = `422` (lead Q-R4) · ยอดของ Member เก็บที่ `user_members.credit` (Member มี 1 สกุล) · ทุกการแก้ `credit` ต้อง lock แถว `user_members` `FOR UPDATE` ก่อน (lead MA5) · `balance_ledger` `owner_type = MEMBER` |
 | MGMT-15B | Member ฝั่ง Seamless ไม่มียอด: `balances` แสดง `amount: 0` เสมอ (ACC-19 · lead MQ6) — หน้าบ้านซ่อนเอง |
 | MGMT-61 | `user_members.cnf` = สายชั้นบนของ Member `{"parent": [{"id", "position"}, …]}` เรียงจาก Superadmin ลงมาถึง**ผู้สร้าง** (= `cnf` ของผู้สร้าง + ผู้สร้าง) · ตั้งตอนสร้าง (lead MA4) |
 | MGMT-62 | `user_member_game_settings.parent_id` = id ของ agent ผู้สร้าง Member (ค่าเดียวกับ `user_members.agent_id`) · ตั้งตอนสร้าง · NOT NULL |
+| MGMT-63 | `payment_type` วิธีจ่ายเงิน = `CREDIT` / `CASH` (ส่งตัวเล็กได้ เก็บตัวใหญ่) · **บังคับ**ตอนสร้าง · **ข้อมูลแสดงผลอย่างเดียว** ไม่มีผลกับยอดเงิน การเติม / ถอน หรือการแทง (lead P1) · ผู้สร้างฝั่ง Seamless: ระบบเก็บ `CASH` เสมอ ไม่ว่าส่งค่าอะไรมา (ทั้งตอนสร้างและแก้) · Member ก่อนมี field นี้ = `CASH` (P2) |
+| MGMT-64 | `payment_account` บัญชีธนาคารของ Member · **ไม่บังคับ** (ไม่ส่ง object / `{}` / `""` ทั้งหมด = ไม่มีบัญชี) · ตัดช่องว่างหัวท้ายทุก field |
+| | • `bank_code` + `account_number` **ต้องส่งคู่กัน** (ส่งค่าเดียว = `422` — P3) · `bank_code` ต้องอยู่ในรายการหัวข้อ 2.2 (ธนาคารไทยเท่านั้น · ไม่อยู่ในรายการ = `422` — P5) · `account_number` ตัวเลขล้วน 10–15 หลัก (P6) |
+| | • **ห้ามซ้ำที่คู่ (`bank_code` + `account_number`) เฉพาะภายใต้ผู้สร้างเดียวกัน** (`402405`) · คนละผู้สร้างซ้ำได้ (P4) |
+| | • ชื่อเจ้าของบัญชี 6 field ไม่บังคับ: `name_th` · `midname_th` · `surname_th` (อักษรไทย) · `name_en` · `midname_en` · `surname_en` (A–Z a–z) · มีช่องว่าง / `-` ได้ ขึ้นต้นด้วยตัวอักษร · ไม่เกิน 50 ตัว · ส่งชื่อโดยไม่มี `bank_code` + `account_number` = `422` (P7) |
+| | • แสดง: เลขบัญชีเต็มใน `members/detail/get` · ไม่อยู่ใน `downlines/list` · ใน `account_change_logs` ปิดบางส่วน 3 ตัวแรก + `•••` + 4 ตัวท้าย (เช่น `787•••6654` — P8) · ไม่มีบัญชี = object ที่ทุก field เป็น `""` (ACC-32 · P12) · "คัดลอกการตั้งค่าจาก" ไม่คัดลอกบัญชี (P15) |
+| MGMT-65 | `win_limit_per_day` ลิมิตชนะต่อวัน **ค่าเดียวใช้ทุกเกม** · หน่วยสกุลของ Member · ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9) · JSON number (`float64` — ทีมตกลง 2026-10-12 · ส่งเป็นข้อความ = `400`) · **`0` = ไม่จำกัด** · ไม่บังคับ ไม่ส่ง = `0` (P9) · ไม่มีเพดานจากชั้นบน (P11) · รอบนี้**แค่เก็บค่า** — วิธีนับ / ตัดรอบวัน / ผลเมื่อถึงลิมิตกำหนดใน module เดิมพัน (P10) · "คัดลอกการตั้งค่าจาก" คัดลอกค่านี้ด้วย (P15) |
 | MGMT-16 | `created_by` / `updated_by` ของค่า PT = username ของคนกดจริง (sub = `comp01@staff` — lead Q-R2) |
 | MGMT-21 | ผู้สร้างตั้งให้ Member ต่อระบบ 2 ค่า (lead MA1 / MA3): `pt` = ผู้สร้าง**ถือสู้กับ Member คนนี้** (0 ถึงค่าที่ผู้สร้างได้รับ) · `commission_percent` 0–1% · Member แต่ละคน `pt` ต่างกันได้ · ส่ง `pt_from_parent` / `force` / `remain_quota` / `status` = `422` |
 | | • ขั้น (lead MQ3): `pt` ทีละ 0.5 · commission ทีละ 0.1 · ไม่ลงขั้นหรือทศนิยมเกิน 4 ตำแหน่ง = `422` · ลงขั้นแต่เกินเพดาน = `402305` (`pt` เกินค่าที่ผู้สร้างได้รับ) / `402309` (commission เกิน 1) |
@@ -45,23 +54,48 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | | • ค่าที่ผู้สร้างได้รับเปลี่ยน → sync `remain_quota` ใน tx เดียวกันทุกทาง: ชั้นบนแก้ค่าที่ให้ agent (`agents/detail/update` — agent_management MGMT-24 R1–R3) · Superadmin แก้ CSM แล้ว Share Master ตาม (MGMT-19) · ลดต่ำกว่า `pt` ของ Member ไม่ได้ (`402306`) |
 | | • Share Master ตั้ง `pt` ของ Member เองต่อ Member (lead H4) |
 | | • ผู้สร้างไม่มีแถว PT ของกลุ่มนั้น (ข้อมูลก่อน module ②) → ค่าที่ได้รับ = 0 → ตั้งได้แค่ `pt` 0 |
-| MGMT-29 | รายละเอียด: ทุก field ยกเว้น password / hash · ไม่มี `passcode_set` / `status_game` · **`pt` แสดงเสมอ** (ไม่มีเมนูสิทธิ์ `pt` แล้ว — lead P4) |
+| MGMT-29 | รายละเอียด: ทุก field ยกเว้น password / hash · ไม่มี `passcode_set` / `status_game` · **`pt` แสดงเสมอ** (ไม่มีเมนูสิทธิ์ `pt` แล้ว — lead P4) · มี `payment_type` · `payment_account` (เลขบัญชีเต็ม) · `win_limit_per_day` (MGMT-63 – MGMT-65) |
 | MGMT-30 | สถานะ `ACTIVE` / `SUSPENDED` / `LOCKED` แก้ได้เฉพาะผู้สร้างโดยตรง (`402304`) · ตั้งกลับ `ACTIVE` ได้ · ไม่ต้อง passcode · **ส่งสถานะเดิม = `200` ไม่เขียน log** (lead MQ5) · `status` ที่แสดง = สถานะที่ใช้งานจริง (หัวสายถูกระงับ = `SUSPENDED`) |
 | MGMT-30A | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน: **open item** → กำหนดตอน review Player Auth (lead MQ7 · ร่าง: LOCKED = login ไม่ได้ + ตัด session · SUSPENDED = login / ดูได้ เดิมพันไม่ได้) |
-| MGMT-32M | `members/detail/update` (lead M3-1 · MN2): section `info` / `pt` ไม่บังคับ แต่**ต้องมีอย่างน้อย 1** (`422` "ต้องส่งอย่างน้อย 1 section") · `info` ส่งบาง field ได้ (ไม่ส่ง = คงเดิม · เบอร์ต้องส่งคู่) · `pt.{กลุ่ม}` ต้องครบ `pt` + `commission_percent` · ผู้สร้างโดยตรงเท่านั้น (หลาน `402304` · นอกสาย `402402`) · tx เดียว (section ไหนผิดไม่บันทึกเลย) · log แยกแถว `UPDATE_INFO` / `UPDATE_PT` เฉพาะ section ที่เปลี่ยนจริง · ค่าเดิม = ไม่เขียน log · ไม่ต้อง passcode |
+| MGMT-32M | `members/detail/update` (lead M3-1 · MN2 · P13): section `info` / `pt` / `payment` / `limit` ไม่บังคับ แต่**ต้องมีอย่างน้อย 1** (`422` "ต้องส่งอย่างน้อย 1 section") · `info` ส่งบาง field ได้ (ไม่ส่ง = คงเดิม · เบอร์ต้องส่งคู่) · `pt.{กลุ่ม}` ต้องครบ `pt` + `commission_percent` · `payment` ส่ง `payment_type` และ / หรือ `payment_account` (ไม่ส่ง = คงเดิม · `payment_account` ที่ส่ง**แทนทั้งก้อน** · ล้างบัญชีส่ง `{}`) · `limit` ต้องมี `win_limit_per_day` · ผู้สร้างโดยตรงเท่านั้น (หลาน `402304` · นอกสาย `402402`) · tx เดียว (section ไหนผิดไม่บันทึกเลย) · ทำตามลำดับ `info` → `pt` → `payment` → `limit` · log แยกแถว `UPDATE_INFO` / `UPDATE_PT` / `UPDATE_PAYMENT` / `UPDATE_LIMIT` เฉพาะ section ที่เปลี่ยนจริง · ค่าเดิม = ไม่เขียน log · ไม่ต้อง passcode |
 | MGMT-32N | Member ไม่มีแถวค่าตั้งของกลุ่มที่ส่ง (ข้อมูลก่อน module ②) → ข้ามกลุ่มนั้นเงียบ ไม่บันทึก ไม่เขียน log (lead MQ4) |
 | MGMT-35M | `members/list` (lead M5): Member ที่เป็น**ลูกตรงของตัวเอง** ไว้ทำ dropdown "คัดลอกการตั้งค่าจาก" → เลือกแล้วเรียก `members/detail/get` · `keyword` ไม่บังคับ 4–32 ตัว (ค้น username บางส่วน ไม่สนตัวพิมพ์) · A→Z · ไม่แบ่งหน้า สูงสุด 500 · ไม่มี = `[]` |
-| MGMT-51 | สิทธิ์ของ sub (lead MN4 · P4): ดู (`detail/get` · `list`) = `member` view · สร้าง / แก้ / สถานะ = `member` edit · ส่ง `balance` ต้องมี `payment` edit เพิ่ม (เช็คใน service หลังตรวจรูปแบบ — lead U3) · ไม่มีเมนู `pt` แล้ว |
-| MGMT-60 | ทุกการสร้าง / แก้ บันทึก `account_change_logs` (`target_type = MEMBER`) · log ยอดตั้งต้น `INITIAL_BALANCE` ใช้ key `amounts` (lead E1-4) |
+| MGMT-51 | สิทธิ์ของ sub (lead MN4 · P4 · P14): ดู (`detail/get` · `list`) = `member` view · สร้าง / แก้ / สถานะ = `member` edit · ส่ง `balance` ตอนสร้าง หรือส่ง section `payment` ใน `detail/update` ต้องมี `payment` edit เพิ่ม (เช็คใน service หลังตรวจรูปแบบ — lead U3) · section `limit` ใช้ `member` edit · ไม่มีเมนู `pt` แล้ว |
+| MGMT-60 | ทุกการสร้าง / แก้ บันทึก `account_change_logs` (`target_type = MEMBER`) · log ยอดตั้งต้น `INITIAL_BALANCE` ใช้ key `amounts` (lead E1-4) · log `CREATE` / `UPDATE_PAYMENT` เลขบัญชีปิดบางส่วน (MGMT-64) |
 
 ### 2.1 ลำดับเช็ค (lead U3 · MQ2 — แบบเดียวกับ agent_management 7.1)
 
 ไล่บนลงล่างตามลำดับ field ใน body 2 รอบ · ตอบ error ของ field แรกที่ผิด · ค่าที่เป็น object (`pt`, `balance`) ไล่ key ตามตัวอักษร
 
 1. **รูปแบบ** (DTO) → `422`
-2. **กฎที่ต้องดู DB** — `members/create`: ผู้สร้างสร้าง Member ได้ไหม (`402301`) → `username` ซ้ำ (`402401`) → เบอร์ซ้ำ (`402403`) → `balance` (Seamless `422` · ยอดไม่พอ `402312`) → `pt` (`402305`) → `commission_percent` (`402309`)
-   · `members/detail/update`: `info` (เบอร์ซ้ำ `402403`) → `pt` (`402305` → `402309`)
-3. สิทธิ์ sub (`402303`) เช็คที่ middleware ก่อน · ข้อยกเว้น `payment` ตอนส่ง `balance` เช็คใน service หลังรอบรูปแบบ
+   · `members/create` ต่อจาก `pt`: `payment_type` → `payment_account` (คู่ → `bank_code` → `account_number` → ชื่อ) → `win_limit_per_day`
+2. **กฎที่ต้องดู DB** — `members/create`: ผู้สร้างสร้าง Member ได้ไหม (`402301`) → `username` ซ้ำ (`402401`) → เบอร์ซ้ำ (`402403`) → `balance` (Seamless `422` · ยอดไม่พอ `402312`) → `pt` (`402305`) → `commission_percent` (`402309`) → เลขบัญชีซ้ำ (`402405`)
+   · `members/detail/update`: `info` (เบอร์ซ้ำ `402403`) → `pt` (`402305` → `402309`) → `payment` (เลขบัญชีซ้ำ `402405`)
+3. สิทธิ์ sub (`402303`) เช็คที่ middleware ก่อน · ข้อยกเว้น `payment` ตอนส่ง `balance` / section `payment` เช็คใน service หลังรอบรูปแบบ
+
+### 2.2 รายการธนาคาร (MGMT-64 · lead P5 — ธนาคารไทยเท่านั้น)
+
+| `bank_code` | ธนาคาร |
+|---|---|
+| `BBL` | ธนาคารกรุงเทพ |
+| `KBANK` | ธนาคารกสิกรไทย |
+| `KTB` | ธนาคารกรุงไทย |
+| `SCB` | ธนาคารไทยพาณิชย์ |
+| `BAY` | ธนาคารกรุงศรีอยุธยา |
+| `TTB` | ธนาคารทหารไทยธนชาต |
+| `KKP` | ธนาคารเกียรตินาคินภัทร |
+| `CIMBT` | ธนาคารซีไอเอ็มบี ไทย |
+| `TISCO` | ธนาคารทิสโก้ |
+| `UOBT` | ธนาคารยูโอบี |
+| `LHBANK` | ธนาคารแลนด์ แอนด์ เฮ้าส์ |
+| `ICBCT` | ธนาคารไอซีบีซี (ไทย) |
+| `TCRB` | ธนาคารไทยเครดิต |
+| `GSB` | ธนาคารออมสิน |
+| `BAAC` | ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร |
+| `GHB` | ธนาคารอาคารสงเคราะห์ |
+| `ISBT` | ธนาคารอิสลามแห่งประเทศไทย |
+
+- รายการอยู่ในโค้ด `app/core/member_management` · ส่งตัวเล็กได้ เก็บตัวใหญ่ · เพิ่มธนาคารต้องแก้ spec นี้ก่อน
 
 ## 3. Endpoints (lead MN1 · M1–M5)
 
@@ -72,7 +106,7 @@ error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, 
 |---|---|---|---|
 | M1 | `/api/v1/bo/pr/manage/members/create` | `member` edit (+ `payment` edit ถ้าส่ง `balance`) | สร้าง Member |
 | M2 | `/api/v1/bo/pr/manage/members/detail/get` | `member` view | รายละเอียด Member |
-| M3 | `/api/v1/bo/pr/manage/members/detail/update` | `member` edit | แก้ชื่อ / เบอร์ (`info`) · PT / Commission (`pt`) |
+| M3 | `/api/v1/bo/pr/manage/members/detail/update` | `member` edit (+ `payment` edit ถ้าส่ง section `payment`) | แก้ชื่อ / เบอร์ (`info`) · PT / Commission (`pt`) · วิธีจ่ายเงิน / บัญชี (`payment`) · ลิมิตชนะต่อวัน (`limit`) |
 | M4 | `/api/v1/bo/pr/manage/members/status/update` | `member` edit | แก้สถานะ |
 | M5 | `/api/v1/bo/pr/manage/members/list` | `member` view | Member ลูกตรง (dropdown) |
 
@@ -88,7 +122,14 @@ Request:
   "phone_country_code": "66",
   "phone": "812345678",
   "balance": { "THB": 100.00 },
-  "pt": { "minigame": { "pt": 50, "commission_percent": 0.3 } }
+  "pt": { "minigame": { "pt": 50, "commission_percent": 0.3 } },
+  "payment_type": "CREDIT",
+  "payment_account": {
+    "bank_code": "KBANK", "account_number": "7876766654",
+    "name_th": "ใจดี", "midname_th": "", "surname_th": "มีสุข",
+    "name_en": "Jaidee", "midname_en": "", "surname_en": "Meesuk"
+  },
+  "win_limit_per_day": 5000
 }
 ```
 Response:
@@ -103,10 +144,13 @@ Response:
 | `phone_country_code` · `phone` | MGMT-08 · ไม่กรอก `""` ทั้งคู่ |
 | `balance` | ไม่บังคับ · key = สกุลของผู้สร้าง · ฝั่ง Seamless ห้ามส่ง (MGMT-15A) |
 | `pt.minigame` | `pt` + `commission_percent` บังคับทั้งคู่ · ต้องส่งครบทุกกลุ่ม (MGMT-21) |
+| `payment_type` | บังคับ `CREDIT` / `CASH` · ฝั่ง Seamless เก็บ `CASH` เสมอ (MGMT-63) |
+| `payment_account` | ไม่บังคับ · `bank_code` + `account_number` คู่กัน · ชื่อ 6 field ไม่บังคับ (MGMT-64) |
+| `win_limit_per_day` | ไม่บังคับ (ไม่ส่ง = `0` ไม่จำกัด) (MGMT-65) |
 
 - ไม่มี `user_type` · `currencies` · `status_game` · สกุลเงิน = สกุลของผู้สร้าง (MGMT-13)
 
-Error codes: `422`, `402301`, `402303`, `402305`, `402309`, `402312`, `402401`, `402403`
+Error codes: `422`, `402301`, `402303`, `402305`, `402309`, `402312`, `402401`, `402403`, `402405`
 
 ### M2 · POST /api/v1/bo/pr/manage/members/detail/get
 
@@ -122,10 +166,18 @@ Response `data`:
   "pt": {
     "minigame": { "pt": 50, "remain_quota": 10, "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
   },
+  "payment_type": "CREDIT",
+  "payment_account": {
+    "bank_code": "KBANK", "account_number": "7876766654",
+    "name_th": "ใจดี", "midname_th": "", "surname_th": "มีสุข",
+    "name_en": "Jaidee", "midname_en": "", "surname_en": "Meesuk"
+  },
+  "win_limit_per_day": 5000,
   "last_login_at": "", "last_login_ip": "", "created_at": "2026-10-02T14:30:00+07:00"
 }
 ```
 - ดูได้: ผู้สร้าง Member และชั้นบนในสาย (อื่น = `402402`) · `pt` แสดงเสมอ (MGMT-29) · ไม่มี `passcode_set` / `status_game` · ฝั่ง Seamless `amount` = 0 (MGMT-15B)
+- `payment_account` เลขบัญชีเต็ม · ไม่มีบัญชี = ทุก field `""` (MGMT-64)
 
 Error codes: `422`, `402303`, `402402`
 
@@ -136,7 +188,9 @@ Request (ส่งเฉพาะ section ที่แก้ · อย่าง�
 {
   "id": 501,
   "info": { "name": "ใจดี", "phone_country_code": "66", "phone": "822222222" },
-  "pt": { "minigame": { "pt": 40, "commission_percent": 0.3 } }
+  "pt": { "minigame": { "pt": 40, "commission_percent": 0.3 } },
+  "payment": { "payment_type": "CASH", "payment_account": { "bank_code": "SCB", "account_number": "1234567890" } },
+  "limit": { "win_limit_per_day": 3000 }
 }
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ" }`
@@ -145,10 +199,12 @@ Response: `{ "code": 200, "msg": "สำเร็จ" }`
 |---|---|
 | `info` | `name` · `phone_country_code` + `phone` — ส่งบาง field ได้ (ไม่ส่ง = คงเดิม) · เบอร์ต้องส่ง 2 field คู่กัน · ล้างเบอร์ส่ง `""` ทั้งคู่ · `{}` = `422` |
 | `pt` | ส่งเฉพาะกลุ่มที่แก้ · ในกลุ่มต้องครบ `pt` + `commission_percent` · `pt` ไม่เกินค่าที่ผู้สร้างได้รับ (`402305`) · `remain_quota` คิดใหม่ · ส่ง `pt_from_parent` / `force` / `remain_quota` / `status` = `422` |
+| `payment` | `payment_type` และ / หรือ `payment_account` (ไม่ส่ง = คงเดิม · `{}` = `422`) · `payment_account` ที่ส่ง**แทนทั้งก้อน** (ชื่อที่ไม่ส่ง = ล้าง) · ล้างบัญชีส่ง `"payment_account": {}` · เลขบัญชีซ้ำ `402405` · sub ต้องมี `payment` edit (MGMT-51) · ฝั่ง Seamless `payment_type` เป็น `CASH` เสมอ |
+| `limit` | `win_limit_per_day` บังคับใน section (`{}` = `422`) · ≥ 0 · `0` = ไม่จำกัด |
 
 - ไม่ส่งเลยสัก section (`{ "id": 501 }`) = `422` "ต้องส่งอย่างน้อย 1 section" · กติกาอื่น MGMT-32M / MGMT-32N
 
-Error codes: `422`, `402303`, `402304`, `402305`, `402309`, `402402`, `402403`
+Error codes: `422`, `402303`, `402304`, `402305`, `402309`, `402402`, `402403`, `402405`
 
 ### M4 · POST /api/v1/bo/pr/manage/members/status/update
 
@@ -190,6 +246,9 @@ CREATE TABLE user_members (
     credit             DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (credit >= 0),   -- ยอดเงิน หน่วยสกุล (MGMT-15A)
     cnf                JSONB        NOT NULL DEFAULT '{"parent": []}',            -- สายชั้นบน (MGMT-61)
     status             VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','LOCKED')),
+    payment_type       VARCHAR(10)  NOT NULL DEFAULT 'CASH' CHECK (payment_type IN ('CREDIT','CASH')),   -- MGMT-63 · แสดงผลอย่างเดียว
+    payment_account    JSONB,                                              -- MGMT-64 {"bank_code","account_number","name_th",…,"surname_en"} · NULL = ไม่มี
+    win_limit_per_day  DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (win_limit_per_day >= 0),             -- MGMT-65 · 0 = ไม่จำกัด
     last_login_at      TIMESTAMPTZ,
     last_login_ip      VARCHAR(45),
     created_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -203,6 +262,8 @@ CREATE TABLE user_members (
 CREATE INDEX idx_user_members_agent_username ON user_members(agent_id, username);
 CREATE UNIQUE INDEX uq_user_members_phone ON user_members(agent_id, phone_country_code, phone) WHERE phone IS NOT NULL;  -- MQ1 แทน unique(phone) เดิม
 CREATE INDEX idx_user_members_cnf ON user_members USING GIN (cnf jsonb_path_ops);
+CREATE UNIQUE INDEX uq_user_members_payment_account ON user_members                                     -- MGMT-64 ห้ามซ้ำที่คู่ใต้ผู้สร้างเดียวกัน
+    (agent_id, (payment_account ->> 'bank_code'), (payment_account ->> 'account_number')) WHERE payment_account IS NOT NULL;
 
 CREATE TABLE user_member_game_settings (        -- PT ที่ผู้สร้างถือสู้ + Commission ต่อเกม (MGMT-21)
     user_member_id BIGINT      NOT NULL REFERENCES user_members(id),
@@ -222,6 +283,8 @@ CREATE INDEX idx_user_member_game_settings_parent ON user_member_game_settings(p
 
 -- migration 20261011120000_member_management_phone_country_code (MGMT-08 / 08A): ADD COLUMN phone_country_code · แปลงเบอร์เดิม · CHECK ใหม่ · unique (agent_id, code, phone) แทน uq_user_members_phone
 --   migration_phone_cleared ADD COLUMN kept_member_id (Member ที่ได้เก็บเบอร์ไว้เมื่อ DUPLICATE)
+-- migration 20261012120000_member_management_payment (MGMT-63 – MGMT-65): ADD COLUMN payment_type (Member เดิม = CASH) · payment_account · win_limit_per_day
+--   + uq_user_members_payment_account
 ```
 
 ## 5. Test cases
@@ -257,6 +320,14 @@ test ของเส้น Member อยู่ในชุด integration test �
 | MGMT-05 / 08 | อีก tx ใส่แถวเบอร์ / username เดียวกันไว้ยังไม่ commit แล้ว commit ระหว่างที่ request รอ (ชน unique ใน DB) | `402403` / `402401` ไม่ใช่ `409` |
 | MGMT-15A | ยิงพร้อมกันด้วย `request_id` เดียวกัน + `balance` | Member 1 คน · โอนครั้งเดียว · ledger 2 แถว |
 | MGMT-21 | ยิงพร้อมกัน: แก้ `pt` Member · ชั้นบนแก้ค่าที่ให้ผู้สร้าง · สร้าง Member · แก้สถานะ | ทุกเส้น `200` ไม่ deadlock · `remain_quota` = ค่าที่ผู้สร้างได้รับ − `pt` ทุกแถว |
+| MGMT-63 | ไม่ส่ง `payment_type` · `"credit"` · `"DEBIT"` · ผู้สร้างฝั่ง Seamless ส่ง `CREDIT` (สร้าง / แก้) | `422` · เก็บ `CREDIT` · `422` · เก็บ `CASH` |
+| MGMT-64 | ส่งแค่ `bank_code` / แค่ `account_number` · `bank_code` `XYZ` · เลขบัญชี 9 หลัก / มีขีด · ชื่อโดยไม่มีเลขบัญชี · `name_th` อังกฤษ · `name_en` ไทย · ชื่อ 51 ตัว | `422` ทั้งหมด |
+| MGMT-64 | คู่เดียวกันซ้ำใต้ผู้สร้างเดียวกัน (สร้าง / แก้) · คนละผู้สร้าง · ธนาคารต่างกันเลขเดียวกัน · แก้เป็นบัญชีเดิมของตัวเอง | `402405` · สำเร็จ · สำเร็จ · สำเร็จ |
+| MGMT-64 | ยิงพร้อมกันสร้างคู่เดียวกันใต้ผู้สร้างเดียวกัน · แถวที่ยังไม่ commit ชน unique | สำเร็จ 1 ที่เหลือ `402405` · `402405` ไม่ใช่ `409` |
+| MGMT-64 | `detail/get` มีบัญชี · ไม่มีบัญชี · log `CREATE` / `UPDATE_PAYMENT` | เลขเต็ม · ทุก field `""` · เลข `787•••6654` |
+| MGMT-65 | ไม่ส่ง · `-1` · `10.12345` · `5000.5` · `"100"` | `0` · `422` · `422` · `5000.5` · `400` |
+| MGMT-32M | section `payment: {}` · `limit: {}` · ส่งค่าเดิม · `payment` + `limit` เปลี่ยน · `payment_account: {}` | `422` · `422` · `200` ไม่มี log · log `UPDATE_PAYMENT` + `UPDATE_LIMIT` · ล้างบัญชี (NULL) |
+| MGMT-51 | sub `member` edit ไม่มี `payment` edit ส่ง section `payment` · ส่ง `limit` | `402303` · สำเร็จ |
 
 ## 6. Error codes
 
@@ -273,6 +344,7 @@ test ของเส้น Member อยู่ในชุด integration test �
 | 402401 | username นี้ถูกใช้แล้ว |
 | 402402 | ไม่พบบัญชีในสายของคุณ |
 | 402403 | เบอร์โทรนี้ถูกใช้แล้ว (ภายใต้ผู้สร้างเดียวกัน) |
+| 402405 | บัญชีธนาคารนี้ถูกใช้แล้ว (ธนาคาร + เลขบัญชี ภายใต้ผู้สร้างเดียวกัน) |
 
 ## 7. Open items
 
@@ -280,8 +352,18 @@ test ของเส้น Member อยู่ในชุด integration test �
 |---|---|---|
 | MQ7 | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน (MGMT-30A) | review Player Auth |
 | MA2 | ความหมายของ Remain ตอน settle | module Settle |
+| P10 | `win_limit_per_day`: วิธีนับ "ชนะ" · เวลาตัดรอบวัน · ผลเมื่อถึงลิมิต (MGMT-65) | module เดิมพัน |
 
-## 8. Contract changes (แจ้ง frontend · 2026-10-11)
+## 8. Contract changes (แจ้ง frontend)
+
+### 2026-10-12 (lead review P1–P15)
+
+- `members/create` เพิ่ม `payment_type` (**บังคับ** `CREDIT` / `CASH`) · `payment_account` (ไม่บังคับ) · `win_limit_per_day` (ไม่บังคับ) — request เดิมที่ไม่ส่ง `payment_type` จะได้ `422`
+- `members/detail/get` เพิ่ม `payment_type` · `payment_account` (ไม่มี = ทุก field `""`) · `win_limit_per_day`
+- `members/detail/update` เพิ่ม section `payment` (sub ต้องมี `payment` edit) และ `limit`
+- error ใหม่ `402405` บัญชีธนาคารซ้ำใต้ผู้สร้างเดียวกัน · "คัดลอกการตั้งค่าจาก" คัดลอก `win_limit_per_day` ไม่คัดลอก `payment_account`
+
+### 2026-10-11
 
 - path ใหม่: `members/detail/get` · `members/detail/update` (รวม `update-info` + `update-pt`) · `members/status/update` · เส้นใหม่ `members/list` · path เดิมได้ `404`
 - เบอร์ 2 field `phone_country_code` + `phone` ทุก request / response · เบอร์เดิมแปลงให้แล้ว บางเบอร์ถูกล้างเป็น `""`

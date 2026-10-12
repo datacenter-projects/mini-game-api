@@ -186,3 +186,32 @@ func TestMemberUniqueViolationMapped(t *testing.T) {
 		}
 	}
 }
+
+// TestMemberLockAllowsFKCheck — lock แถว Member ตอนแก้ (lockMemberChild) ต้องไม่ขวาง FOR KEY SHARE ที่ Postgres ใช้เช็ค FK
+// ตอน insert ตารางลูกของ Member (เช่น module เดิมพัน) · FOR UPDATE จะรอจน tx นั้นจบ → deadlock ได้ (lead: ใช้ FOR NO KEY UPDATE)
+func TestMemberLockAllowsFKCheck(t *testing.T) {
+	app := setup2(t)
+	c := buildChain(t, app)
+	m := createMember(t, app, c.agentTok, "memfkcheck", nil)
+
+	tx := database.DBConn.Begin() // อีก tx ที่ insert ตารางลูกค้างไว้ = ถือ FOR KEY SHARE ของแถว Member
+	defer tx.Rollback()
+	var locked uint
+	if err := tx.Raw("SELECT id FROM user_members WHERE id = ? FOR KEY SHARE", m.ID).Scan(&locked).Error; err != nil || locked != m.ID {
+		t.Fatalf("FOR KEY SHARE: id %d, err %v", locked, err)
+	}
+	done := make(chan int, 1)
+	go func() {
+		done <- callCode(app, memberStatusPath, map[string]any{"id": m.ID, "status": "LOCKED"}, c.agentTok)
+	}()
+	select {
+	case got := <-done:
+		if got != 200 {
+			t.Fatalf("ได้ code %d, want 200", got)
+		}
+	case <-time.After(3 * time.Second):
+		tx.Rollback()
+		<-done
+		t.Fatal("members/status/update ถูก FOR KEY SHARE ขวาง — lock แถว Member ต้องเป็น FOR NO KEY UPDATE")
+	}
+}

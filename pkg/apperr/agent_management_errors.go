@@ -19,4 +19,6 @@ var (
 	ErrDownlineNotFound   = New(402402, "ไม่พบบัญชีในสายของคุณ", "Account not found in your downline")
 	ErrPhoneTaken         = New(402403, "เบอร์โทรนี้ถูกใช้แล้ว", "Phone number is already taken")
 	ErrSubaccountNotFound = New(402404, "ไม่พบบัญชีย่อยของคุณ", "Subaccount not found")
+	// ErrPaymentAccountTaken — ธนาคาร + เลขบัญชีซ้ำกับ Member อื่นของผู้สร้างเดียวกัน (member_management MGMT-64)
+	ErrPaymentAccountTaken = New(402405, "บัญชีธนาคารนี้ถูกใช้แล้ว", "Bank account is already in use")
 )

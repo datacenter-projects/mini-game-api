@@ -367,4 +367,19 @@ func TestDownlinesSearch(t *testing.T) { // MGMT-26 / 27 · lead E2: ค้น�
 	if _, ok := p.Data[0]["status_game"]; ok {
 		t.Fatalf("แถว Member ต้องไม่มี status_game %v", p.Data[0])
 	}
+	// \ ใน keyword เป็นตัวอักษรธรรมดา (เดิม "mems\hare" เจอ memshare เพราะ \h = h)
+	if rows, total := search(c.comTok, `mems\hare`); total != 0 || len(rows) != 0 {
+		t.Fatalf(`keyword มี \ ต้องไม่เจอ %v`, rows)
+	}
+	// สถานะที่ใช้งานจริงคิดจากทุกชั้นใต้ root (cnf): agent01 LOCKED → Member และ agent ใต้ agent01 เป็น LOCKED · share01 ยัง ACTIVE
+	setStatus(t, c.agent.ID, models.AgentStatusLocked)
+	rows, _ = search(c.comTok, "share")
+	got := map[string]any{}
+	for _, r := range rows {
+		got[r["username"].(string)] = r["status"]
+	}
+	if got["memshare"] != "LOCKED" || got["sharedeep"] != "LOCKED" || got["share01"] != "ACTIVE" || got["share02"] != "ACTIVE" {
+		t.Fatalf("status ใต้ agent01 LOCKED %v", got)
+	}
+	setStatus(t, c.agent.ID, models.AgentStatusActive)
 }

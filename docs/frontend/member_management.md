@@ -1,8 +1,11 @@
-# API หลังบ้าน — การจัดการ Member (สำหรับหน้าบ้าน) — 11 ต.ค. 2026 (โครงเส้นใหม่)
+# API หลังบ้าน — การจัดการ Member (สำหรับหน้าบ้าน) — 12 ต.ค. 2026 (โครงเส้นใหม่ · วิธีจ่ายเงิน / บัญชี / ลิมิต)
 
-เอกสารนี้ตรงกับโค้ดบน `dev` (**เส้นใหม่ตาม lead review** — deploy แล้ว `dev-202610111423` · `402401` / `402403` เมื่อยิงพร้อมกัน `dev-202610111437`) ·
+เอกสารนี้ตรงกับโค้ดบน `dev` (**เส้นใหม่ตาม lead review** — deploy แล้ว `dev-202610111423` · `402401` / `402403` เมื่อยิงพร้อมกัน `dev-202610111437` · วิธีจ่ายเงิน / บัญชี / ลิมิต `dev-202610120824`) ·
 spec เต็ม: `docs/modules/member_management.md` · ผู้ดูแล module: maofoy
 
+> **เปลี่ยนจากเดิม (12 ต.ค.)** — `members/create` **ต้องส่ง `payment_type`** (`CREDIT` / `CASH`) · เพิ่ม `payment_account` (บัญชีธนาคาร) และ `win_limit_per_day` (ลิมิตชนะต่อวัน) ·
+> `members/detail/get` มี 3 field นี้ · `members/detail/update` เพิ่ม section `payment` / `limit` · error ใหม่ `402405`
+>
 > **เปลี่ยนจากเดิม (11 ต.ค.)** — path ใหม่ เส้นเดิมได้ `404` (หัวข้อ 4) · `update-info` + `update-pt` รวมเป็น `members/detail/update` ·
 > เส้นใหม่ `members/list` (dropdown) · **เบอร์ 2 field** `phone_country_code` + `phone` · สิทธิ์ sub ใช้แค่ `member` · `pt` แสดงเสมอ · ส่งสถานะเดิม = 200 ไม่มีประวัติเพิ่ม
 
@@ -15,7 +18,7 @@ spec เต็ม: `docs/modules/member_management.md` · ผู้ดูแล 
 |---|---|---|---|
 | 2.1 | `/api/v1/bo/pr/manage/members/create` | สร้าง Member | `member` edit (+ `payment` edit ถ้าส่ง `balance`) |
 | 2.2 | `/api/v1/bo/pr/manage/members/detail/get` | รายละเอียด Member | `member` view |
-| 2.3 | `/api/v1/bo/pr/manage/members/detail/update` | แก้ชื่อ / เบอร์ · PT / Commission (เส้นเดียว) | `member` edit |
+| 2.3 | `/api/v1/bo/pr/manage/members/detail/update` | แก้ชื่อ / เบอร์ · PT / Commission · วิธีจ่ายเงิน / บัญชี · ลิมิตชนะ (เส้นเดียว) | `member` edit (+ `payment` edit ถ้าส่ง section `payment`) |
 | 2.4 | `/api/v1/bo/pr/manage/members/status/update` | แก้สถานะ | `member` edit |
 | 2.5 | `/api/v1/bo/pr/manage/members/list` | dropdown Member ลูกตรง ("คัดลอกการตั้งค่าจาก") | `member` view |
 
@@ -25,7 +28,13 @@ spec เต็ม: `docs/modules/member_management.md` · ผู้ดูแล 
 - **สกุลเงิน:** ใช้สกุลของผู้สร้าง ไม่ต้องส่ง · ฝั่ง Seamless ไม่มียอด (`amount` = 0 เสมอ — ซ่อนได้) และห้ามส่ง `balance`
 - **`pt`** ใต้ key `minigame` ส่ง 2 ค่า: `pt` (ผู้สร้างถือสู้กับ Member คนนี้ · 0 ถึงค่าที่ผู้สร้างได้รับ ทีละ 0.5) · `commission_percent` (0–1 ทีละ 0.1) · `remain_quota` ระบบคิด = ค่าที่ผู้สร้างได้รับ − `pt`
 - **เบอร์โทร:** กติกาเดียวกับฝั่ง agent ([agent_management.md](agent_management.md) หัวข้อ 1.5) ยกเว้นเรื่องซ้ำ: **ห้ามซ้ำเฉพาะ Member ของผู้สร้างเดียวกัน** (`402403`) · คนละผู้สร้าง / ซ้ำกับ agent ได้
-- **รายชื่อ / ค้นหา Member ทั้งสาย:** ใช้ `downlines/list` ของ agent_management (Member ปนกับฝั่ง agent ดูจาก `role = MEMBER`)
+- **รายชื่อ / ค้นหา Member ทั้งสาย:** ใช้ `downlines/list` ของ agent_management (Member ปนกับฝั่ง agent ดูจาก `role = MEMBER`) · ไม่มีข้อมูลบัญชีธนาคาร
+- **วิธีจ่ายเงิน `payment_type`:** `CREDIT` / `CASH` (ตัวเล็กได้) · **แสดงผลอย่างเดียว** ไม่มีผลกับยอดเงินหรือการแทง · ผู้สร้างฝั่ง Seamless ระบบเก็บ `CASH` เสมอ (ส่ง `CREDIT` มาก็ได้ `CASH` — ส่ง `CASH` ตรงๆ จะไม่สับสน)
+- **บัญชีธนาคาร `payment_account`:** ไม่บังคับ · `bank_code` + `account_number` ต้องส่งคู่ · ธนาคารไทยเท่านั้น
+  (`BBL` `KBANK` `KTB` `SCB` `BAY` `TTB` `KKP` `CIMBT` `TISCO` `UOBT` `LHBANK` `ICBCT` `TCRB` `GSB` `BAAC` `GHB` `ISBT` — ชื่อเต็มดู spec หัวข้อ 2.2) ·
+  เลขบัญชีตัวเลขล้วน 10–15 หลัก · ชื่อเจ้าของบัญชี 6 field ไม่บังคับ (`_th` อักษรไทย · `_en` A–Z · มีช่องว่าง / `-` ได้ · ≤ 50 ตัว · ส่งชื่อต้องมีเลขบัญชี) ·
+  **ห้ามซ้ำ (ธนาคาร + เลข) เฉพาะ Member ของผู้สร้างเดียวกัน** (`402405`) · ไม่มีบัญชี = ไม่ส่ง / `{}` / `""` ทั้งคู่
+- **ลิมิตชนะต่อวัน `win_limit_per_day`:** ค่าเดียวใช้ทุกเกม · หน่วยสกุลของ Member · ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง · ส่งเป็น number (ส่งเป็นข้อความ `"5000"` = `400`) · **`0` = ไม่จำกัด** · ไม่ส่ง = `0`
 
 **error ที่เกิดได้กับทุกเส้น:** `401202`, `401203`, `401301`, `401302`, `401312` (sub ถูกปิด) → หน้า login · `401304`, `401306`, `401307` → ด่านหลัง login · `401311` บัญชีถูกระงับ · `402303` sub ไม่มีสิทธิ์
 
@@ -36,15 +45,16 @@ spec เต็ม: `docs/modules/member_management.md` · ผู้ดูแล 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/members/create" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"request_id":"{{$guid}}","username":"Mem01","password":"aA4b4c4d4e4f","name":"ใจดี","phone_country_code":"66","phone":"812345678","balance":{"THB":100},"pt":{"minigame":{"pt":50,"commission_percent":0.3}}}'
+  -d '{"request_id":"{{$guid}}","username":"Mem01","password":"aA4b4c4d4e4f","name":"ใจดี","phone_country_code":"66","phone":"812345678","balance":{"THB":100},"pt":{"minigame":{"pt":50,"commission_percent":0.3}},"payment_type":"CREDIT","payment_account":{"bank_code":"KBANK","account_number":"7876766654","name_th":"ใจดี","midname_th":"","surname_th":"มีสุข","name_en":"Jaidee","midname_en":"","surname_en":"Meesuk"},"win_limit_per_day":5000}'
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ", "data": { "id": 501, "username": "mem01" } }`
 
-- กติกา `request_id` / `username` / `password` / `name` / `balance` เหมือนเส้นสร้างฝั่ง agent ([agent_management.md](agent_management.md) หัวข้อ 3.1)
+- กติกา `request_id` / `username` / `password` / `name` / `balance` เหมือนเส้นสร้างฝั่ง agent ([agent_management.md](agent_management.md) หัวข้อ 3.1) · `request_id` สร้าง UUID ใหม่ต่อการกดบันทึก 1 ครั้ง ใช้ค่าเดิมตอน retry
 - เบอร์ไม่กรอกส่ง `"phone_country_code": "", "phone": ""`
 - ไม่มี `user_type` · `currencies` · `status_game` · `pt` ต้องส่งทั้ง `pt` และ `commission_percent` · ส่ง `remain_quota` / `pt_from_parent` / `force` / `status` = `422`
+- **`payment_type` บังคับ** · `payment_account` / `win_limit_per_day` ไม่บังคับ (กติกาหัวข้อ 1)
 
-Error: `422`, `402301`, `402303`, `402305`, `402309`, `402312`, `402401`, `402403`
+Error: `422`, `402301`, `402303`, `402305`, `402309`, `402312`, `402401`, `402403`, `402405`
 
 ### 2.2 รายละเอียด — `members/detail/get`
 
@@ -62,10 +72,18 @@ Response `data`:
   "pt": {
     "minigame": { "pt": 50, "remain_quota": 10, "commission_percent": 0.3, "created_at": "2026-10-01T09:00:00+07:00", "created_by": "agent01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
   },
+  "payment_type": "CREDIT",
+  "payment_account": {
+    "bank_code": "KBANK", "account_number": "7876766654",
+    "name_th": "ใจดี", "midname_th": "", "surname_th": "มีสุข",
+    "name_en": "Jaidee", "midname_en": "", "surname_en": "Meesuk"
+  },
+  "win_limit_per_day": 5000,
   "last_login_at": "", "last_login_ip": "", "created_at": "2026-10-02T14:30:00+07:00"
 }
 ```
 - ดูได้: ผู้สร้าง Member และชั้นบนในสาย · `pt` แสดงเสมอ · ไม่มี `status_game` / `passcode_set`
+- `payment_account` เลขบัญชีเต็ม · ไม่มีบัญชี = ทุก field `""` (object มี 8 key เสมอ)
 
 Error: `422`, `402303`, `402402`
 
@@ -74,7 +92,7 @@ Error: `422`, `402303`, `402402`
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/members/detail/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"id":501,"info":{"name":"ใจดี","phone_country_code":"66","phone":"822222222"},"pt":{"minigame":{"pt":40,"commission_percent":0.3}}}'
+  -d '{"id":501,"info":{"name":"ใจดี","phone_country_code":"66","phone":"822222222"},"pt":{"minigame":{"pt":40,"commission_percent":0.3}},"payment":{"payment_type":"CASH","payment_account":{"bank_code":"SCB","account_number":"1234567890"}},"limit":{"win_limit_per_day":3000}}'
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ" }`
 
@@ -82,12 +100,14 @@ Response: `{ "code": 200, "msg": "สำเร็จ" }`
 |---|---|
 | `info` | `name` · `phone_country_code` + `phone` — ส่งบาง field ได้ (ไม่ส่ง = คงเดิม) · เบอร์ต้องส่ง 2 field คู่กัน · ล้างเบอร์ส่ง `""` ทั้งคู่ |
 | `pt` | ส่งเฉพาะกลุ่มที่แก้ · ในกลุ่มต้องครบ `pt` + `commission_percent` · `pt` ไม่เกินค่าที่ผู้สร้างได้รับ (`402305`) · `remain_quota` ระบบคิดใหม่ |
+| `payment` | `payment_type` และ / หรือ `payment_account` (ไม่ส่ง = คงเดิม · `{}` = `422`) · `payment_account` ที่ส่ง**แทนทั้งก้อน** (ชื่อที่ไม่ส่ง = ล้าง) · ล้างบัญชีส่ง `"payment_account": {}` · sub ต้องมี `payment` edit (`402303`) · บัญชีซ้ำ `402405` |
+| `limit` | `{"win_limit_per_day": 3000}` ต้องส่ง field นี้ · `0` = ไม่จำกัด |
 
 - **ส่งเฉพาะ section ที่แก้** · ไม่ส่งเลยสัก section = `422`
 - แก้ได้เฉพาะ**ผู้สร้างโดยตรง** (ชั้นบนอื่น = `402304` · นอกสาย = `402402`) · ไม่ต้อง passcode
 - **ทั้งคำขอสำเร็จหรือไม่บันทึกเลย** · ค่าเหมือนเดิมทั้งหมด = 200 (ไม่มีประวัติเพิ่ม)
 
-Error: `422`, `402303`, `402304`, `402305`, `402309`, `402402`, `402403`
+Error: `422`, `402303`, `402304`, `402305`, `402309`, `402402`, `402403`, `402405`
 
 ### 2.4 สถานะ — `members/status/update`
 
@@ -114,7 +134,7 @@ Response `data`:
 ]
 ```
 - Member ที่ตัวเองสร้าง (ลูกตรง) · `keyword` ไม่บังคับ 4–32 ตัว ค้น username บางส่วน · A→Z · ไม่แบ่งหน้า สูงสุด 500 · ไม่มี = `[]`
-- "คัดลอกการตั้งค่าจาก": เลือกแล้วเรียก `members/detail/get` เอา `pt` มาเติมฟอร์มสร้าง
+- "คัดลอกการตั้งค่าจาก": เลือกแล้วเรียก `members/detail/get` เอา `pt` + `win_limit_per_day` มาเติมฟอร์มสร้าง · **ห้ามคัดลอก `payment_account`** (ข้อมูลส่วนตัว)
 
 Error: `422`, `402303`
 
@@ -134,6 +154,7 @@ Error: `422`, `402303`
 | `402401` | username นี้ถูกใช้แล้ว |
 | `402402` | ไม่พบบัญชีในสายของคุณ |
 | `402403` | เบอร์โทรนี้ถูกใช้แล้ว (Member ของผู้สร้างเดียวกัน) |
+| `402405` | บัญชีธนาคารนี้ถูกใช้แล้ว (ธนาคาร + เลขบัญชี · Member ของผู้สร้างเดียวกัน) |
 
 ## 4. เส้นเดิมที่ลบ (11 ต.ค.) → ใช้แทนด้วย
 
