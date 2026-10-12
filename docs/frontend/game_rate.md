@@ -3,17 +3,21 @@
 spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** (ทำเสร็จใน branch `boiledegg/bo/game_rate-settings` · รอ lead review) · ผู้ดูแล: boiledegg ·
 พื้นฐาน (base URL · header · รูปแบบ response · ห้าม `null` · Postman) ดู [agent_management.md](agent_management.md) หัวข้อ 1 · login / ด่านหลัง login ดู [auth.md](auth.md)
 
+> ตัวอย่าง response ทุกอันในเอกสารนี้ได้จากการยิง API จริงใน test env (ตัดเฉพาะ `created_at` ให้อ่านง่าย) · ตัวเลขเป็นค่าตัวอย่าง
+
 ## 1. ภาพรวม
 
 - **ค่ากลางชุดเดียวทั้งระบบ** ต่อเกม · ใช้ได้เฉพาะ **Superadmin** และ sub ของ Superadmin ที่มีเมนู `rate` (ดู = view · บันทึก / ย้อน = edit) · บัญชีอื่น `402303`
 - 3 เกม (ตามลำดับ): `scratch_card` · `coin_toss` · `rock_paper_scissors`
-- **Coin / RPS** ตั้ง 10 ขั้น แต่ละขั้น `multiplier` + `win_percent` (RPS **ไม่มีเสมอ** — แบบเดียวกับ Coin)
+- **Coin / RPS** ตั้ง 10 ขั้น แต่ละขั้น `multiplier` + `win_percent` (RPS **ไม่มีเสมอ** — รูปแบบเดียวกับ Coin)
 - **Scratch** ตั้ง `win_percent` ของบัตร + ตารางรางวัล 1–10 แถว (`multiplier` + `share_percent` รวม 100)
 - ตัวเลขทุกตัวทศนิยมไม่เกิน 4 ตำแหน่ง · ตัวคูณ ≤ 1,000 · **`win_percent` > 0 และ ≤ 50 ทุกเกม** · **ร้านต้องได้ ≥ 1% ทุกขั้น** (ไม่ผ่าน = `406101`)
-- **ค่าที่คำนวณ backend ส่งให้ทั้งหมด** (ไม่ต้องเขียนสูตรเอง): `reach_percent` · `payout_percent` · `house_edge_percent` · `max_win_percent` (ต่อขั้น) · `min_house_edge_percent` · `min_house_edge_step` · `max_payout_percent` (สรุป) · Scratch `avg_multiplier` · `per_ticket_percent` · `payout_percent` · `house_edge_percent` · `max_win_percent`
+- **ค่าที่คำนวณ backend ส่งให้ทั้งหมด** ไม่ต้องเขียนสูตรเอง และไม่ได้เก็บใน DB (คำนวณจากค่าที่ตั้งทุกครั้ง)
 - ทุกการบันทึกที่ค่าเปลี่ยน = **เวอร์ชันใหม่** (ค่าเดิมทั้งชุด = `created: false` ไม่สร้างเวอร์ชัน) · ค่าใหม่มีผลกับเดิมพันใหม่เท่านั้น · เกมที่ยังไม่เคยตั้ง = `version: 0` (เปิดเล่นไม่ได้)
 - บันทึก / ย้อนต้องส่ง `passcode` และ `base_version` (เวอร์ชันที่หน้าจอโหลดมา) · มีคนบันทึกตัดหน้า = `406301` (msg บอกเวอร์ชันล่าสุดและคนแก้ → ให้โหลดใหม่)
-- ตัวเลขต้องเป็น JSON number (ส่งเป็นข้อความ เช่น `"50"` = code `400`) · `max_win_percent` = ค่าสูงสุดที่ตั้งได้จริง (ปัดลง 4 ตำแหน่ง · ไม่เกิน 50) กรอกค่านั้นแล้วบันทึกผ่านแน่นอน- RE3 `issues[].message` เป็นภาษาไทย · `changes[].from` / `to` เป็น `null` ได้ (รางวัลที่เพิ่ม / ลบ) — นอกนั้นไม่มี `null`
+- ตัวเลขต้องเป็น JSON number (ส่งเป็นข้อความ เช่น `"50"` = code `400`)
+- `max_win_percent` = ค่าสูงสุดที่ตั้งได้จริง (ปัดลง 4 ตำแหน่ง · ไม่เกิน 50) กรอกค่านั้นแล้วบันทึกผ่านแน่นอน
+- RE3 `issues[].message` เป็นภาษาไทย · `changes[].from` / `to` เป็น `null` ได้ (รางวัลที่เพิ่ม / ลบ) — นอกนั้นไม่มี `null`
 
 | # | Path (`POST` ทุกเส้น) | ใช้เมื่อ | สิทธิ์ |
 |---|---|---|---|
@@ -29,63 +33,345 @@ spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** 
 
 ## 2. Endpoints
 
-### RE1 · รายชื่อเกม
+### RE1 · รายชื่อเกม — `rate/list`
+
+**Request**
 ```bash
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/list" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{}'
 ```
-`data`: `[ { "game_code", "version", "min_house_edge_percent", "created_at", "created_by" } ]` · ยังไม่เคยตั้ง `version: 0` · ข้อความ `""`
 
-### RE2 · ค่าปัจจุบัน
+**Response**
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": [
+    { "game_code": "scratch_card", "version": 2, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin" },
+    { "game_code": "coin_toss", "version": 1, "min_house_edge_percent": 5, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin" },
+    { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "" }
+  ]
+}
+```
+
+| field | ความหมาย |
+|---|---|
+| `version` | เวอร์ชันปัจจุบัน · `0` = ยังไม่เคยตั้ง (เกมเปิดเล่นไม่ได้) |
+| `min_house_edge_percent` | ร้านได้ต่ำสุดของเวอร์ชันปัจจุบัน (Coin / RPS = ขั้นที่น้อยสุด · Scratch = ทั้งใบ) |
+| `created_at` / `created_by` | เวลา / คนบันทึกเวอร์ชันปัจจุบัน · ยังไม่เคยตั้ง = `""` |
+
+- ไม่แบ่งหน้า (1 แถวต่อเกม) · เรียงตามลำดับเกมด้านบน
+
+### RE2 · ค่าปัจจุบันของเกม — `rate/detail/get`
+
+**Request**
 ```bash
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/get" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"coin_toss"}'
 ```
-- Coin / RPS: `steps[]` (`step` · `multiplier` · `win_percent` · `reach_percent` · `payout_percent` · `house_edge_percent` · `max_win_percent`) + `min_house_edge_percent` · `min_house_edge_step` · `max_payout_percent` · `version` · `created_at` · `created_by`
-- Scratch: `win_percent` · `prizes[]` (`row_no` · `multiplier` · `share_percent` · `per_ticket_percent`) · `avg_multiplier` · `payout_percent` · `house_edge_percent` · `max_win_percent`
-- ยังไม่เคยตั้ง: `version: 0` · `steps` / `prizes` = `[]`
+
+**Response — Coin / RPS**
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "game_code": "coin_toss",
+    "version": 1,
+    "steps": [
+      { "step": 1,  "multiplier": 1.9,      "win_percent": 50, "reach_percent": 50,     "payout_percent": 95,      "house_edge_percent": 5,       "max_win_percent": 50 },
+      { "step": 2,  "multiplier": 3.61,     "win_percent": 48, "reach_percent": 24,     "payout_percent": 86.64,   "house_edge_percent": 13.36,   "max_win_percent": 50 },
+      { "step": 3,  "multiplier": 6.859,    "win_percent": 46, "reach_percent": 11.04,  "payout_percent": 75.7234, "house_edge_percent": 24.2766, "max_win_percent": 50 },
+      { "step": 4,  "multiplier": 13.0321,  "win_percent": 44, "reach_percent": 4.8576, "payout_percent": 63.3047, "house_edge_percent": 36.6953, "max_win_percent": 50 },
+      { "step": 5,  "multiplier": 24.761,   "win_percent": 42, "reach_percent": 2.0402, "payout_percent": 50.5172, "house_edge_percent": 49.4828, "max_win_percent": 50 },
+      { "step": 6,  "multiplier": 47.0459,  "win_percent": 40, "reach_percent": 0.8161, "payout_percent": 38.3931, "house_edge_percent": 61.6069, "max_win_percent": 50 },
+      { "step": 7,  "multiplier": 89.3872,  "win_percent": 38, "reach_percent": 0.3101, "payout_percent": 27.7198, "house_edge_percent": 72.2802, "max_win_percent": 50 },
+      { "step": 8,  "multiplier": 169.8356, "win_percent": 36, "reach_percent": 0.1116, "payout_percent": 18.9603, "house_edge_percent": 81.0397, "max_win_percent": 50 },
+      { "step": 9,  "multiplier": 322.6877, "win_percent": 34, "reach_percent": 0.038,  "payout_percent": 12.2484, "house_edge_percent": 87.7516, "max_win_percent": 50 },
+      { "step": 10, "multiplier": 613.1066, "win_percent": 32, "reach_percent": 0.0121, "payout_percent": 7.447,   "house_edge_percent": 92.553,  "max_win_percent": 50 }
+    ],
+    "min_house_edge_percent": 5,
+    "min_house_edge_step": 1,
+    "max_payout_percent": 95,
+    "created_at": "2026-10-12T17:53:14+07:00",
+    "created_by": "superadmin"
+  }
+}
+```
+
+| field (ต่อขั้น) | ความหมาย (หน้าจอ) |
+|---|---|
+| `multiplier` / `win_percent` | ค่าที่ตั้ง (ตัวคูณรางวัล / โอกาสชนะ) |
+| `reach_percent` | โอกาสถึงขั้นนี้ (ชนะติดกันตั้งแต่ขั้น 1) |
+| `payout_percent` | ผลตอบแทนผู้เล่นถ้าหยุดที่ขั้นนี้ |
+| `house_edge_percent` | ร้านได้ (= 100 − ผลตอบแทน) |
+| `max_win_percent` | โอกาสชนะสูงสุดที่ตั้งได้ของขั้นนี้ |
+
+| field (สรุป) | ความหมาย (กล่องด้านขวา) |
+|---|---|
+| `min_house_edge_percent` + `min_house_edge_step` | ร้านได้ต่ำสุด X% ที่ขั้น N |
+| `max_payout_percent` | ผลตอบแทนผู้เล่นสูงสุด |
+
+**Response — Scratch** (`{"game_code":"scratch_card"}`)
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "game_code": "scratch_card",
+    "version": 2,
+    "win_percent": 50,
+    "prizes": [
+      { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5 },
+      { "row_no": 2, "multiplier": 1,   "share_percent": 35, "per_ticket_percent": 17.5 },
+      { "row_no": 3, "multiplier": 2,   "share_percent": 18, "per_ticket_percent": 9 },
+      { "row_no": 4, "multiplier": 5,   "share_percent": 10, "per_ticket_percent": 5 },
+      { "row_no": 5, "multiplier": 8,   "share_percent": 2,  "per_ticket_percent": 1 }
+    ],
+    "avg_multiplier": 1.545,
+    "payout_percent": 77.25,
+    "house_edge_percent": 22.75,
+    "max_win_percent": 50,
+    "created_at": "2026-10-12T17:53:14+07:00",
+    "created_by": "superadmin"
+  }
+}
+```
+- `per_ticket_percent` = โอกาสได้รางวัลแถวนั้นต่อบัตร 1 ใบ · `avg_multiplier` = ตัวคูณเฉลี่ยของบัตรที่ชนะ
+
+**Response — ยังไม่เคยตั้ง**
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "coin_toss", "version": 0, "steps": [], "min_house_edge_percent": 0, "min_house_edge_step": 0, "max_payout_percent": 0, "created_at": "", "created_by": "" } }
+```
 
 Error: `422`, `406401`
 
-### RE3 · ตรวจ + คำนวณ (ไม่บันทึก)
-body เหมือน RE4 แต่**ไม่ส่ง** `passcode` / `base_version`
+### RE3 · ตรวจ + คำนวณ (ไม่บันทึก) — `rate/detail/check`
+
+**Request** = body ของ RE4 แต่**ไม่ส่ง** `passcode` / `base_version`
 ```bash
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/check" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"scratch_card","win_percent":50,"prizes":[{"multiplier":0.5,"share_percent":35},{"multiplier":1,"share_percent":35},{"multiplier":2,"share_percent":18},{"multiplier":5,"share_percent":10},{"multiplier":8,"share_percent":2}]}'
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/check" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
+  -d '{"game_code":"coin_toss","steps":[{"multiplier":1.99,"win_percent":50},{"multiplier":3.61,"win_percent":48},{"multiplier":6.859,"win_percent":46},{"multiplier":13.0321,"win_percent":44},{"multiplier":24.761,"win_percent":42},{"multiplier":47.0459,"win_percent":40},{"multiplier":89.3872,"win_percent":38},{"multiplier":169.8356,"win_percent":36},{"multiplier":322.6877,"win_percent":34},{"multiplier":613.1066,"win_percent":32}]}'
 ```
-- `data` = รูปแบบเดียวกับ RE2 + `valid` (true / false) + `issues[]` (`field` · `code` · `message`) — กฎร้านได้ < 1% / สัดส่วนไม่ครบ 100 ยังได้ `200` พร้อมค่าคำนวณ แสดง `issues` ข้างช่องได้เลย
-- รูปแบบผิด (เช่น ทศนิยม 5 ตำแหน่ง · ขาดขั้น) = `422`
+
+**Response — ผิดกฎ (ยังได้ 200 พร้อมค่าคำนวณ)**
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "game_code": "coin_toss",
+    "valid": false,
+    "issues": [
+      { "field": "steps[0].win_percent", "code": 406101, "message": "steps[0].win_percent ตั้งได้ไม่เกิน 49.7487 (ร้านต้องได้อย่างน้อย 1%)" }
+    ],
+    "steps": [
+      { "step": 1, "multiplier": 1.99, "win_percent": 50, "reach_percent": 50, "payout_percent": 99.5, "house_edge_percent": 0.5, "max_win_percent": 49.7487 },
+      { "step": 2, "multiplier": 3.61, "win_percent": 48, "reach_percent": 24, "payout_percent": 86.64, "house_edge_percent": 13.36, "max_win_percent": 50 }
+    ],
+    "min_house_edge_percent": 0.5,
+    "min_house_edge_step": 1,
+    "max_payout_percent": 99.5
+  }
+}
+```
+(`steps` ตัดเหลือ 2 ขั้น — ของจริงครบ 10)
+
+**Response — ผ่าน (Scratch)**
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "game_code": "scratch_card",
+    "valid": true,
+    "issues": [],
+    "win_percent": 50,
+    "prizes": [ { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5 } ],
+    "avg_multiplier": 1.545,
+    "payout_percent": 77.25,
+    "house_edge_percent": 22.75,
+    "max_win_percent": 50
+  }
+}
+```
+- `issues[].code`: `406101` ร้านได้ < 1% · `406102` สัดส่วนรางวัลไม่ครบ 100 · ใช้แสดงข้างช่องที่ `field` ชี้
+- รูปแบบผิด (ทศนิยม 5 ตำแหน่ง · ขาดขั้น · `win_percent` > 50 ฯลฯ) = `422` ไม่มีค่าคำนวณ
 
 Error: `422`, `406401`
 
-### RE4 · บันทึก
-```bash
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"coin_toss","base_version":0,"steps":[{"multiplier":1.9,"win_percent":50},{"multiplier":3.61,"win_percent":48},{"multiplier":6.859,"win_percent":46},{"multiplier":13.0321,"win_percent":44},{"multiplier":24.761,"win_percent":42},{"multiplier":47.0459,"win_percent":40},{"multiplier":89.3872,"win_percent":38},{"multiplier":169.8356,"win_percent":36},{"multiplier":322.6877,"win_percent":34},{"multiplier":613.1066,"win_percent":32}],"passcode":"123456"}'
+### RE4 · บันทึก — `rate/detail/update`
+
+**Request — Coin / RPS** (RPS ใช้ `"game_code":"rock_paper_scissors"` body เหมือนกัน)
+```json
+{
+  "game_code": "coin_toss",
+  "base_version": 0,
+  "steps": [
+    { "multiplier": 1.9, "win_percent": 50 }, { "multiplier": 3.61, "win_percent": 48 },
+    { "multiplier": 6.859, "win_percent": 46 }, { "multiplier": 13.0321, "win_percent": 44 },
+    { "multiplier": 24.761, "win_percent": 42 }, { "multiplier": 47.0459, "win_percent": 40 },
+    { "multiplier": 89.3872, "win_percent": 38 }, { "multiplier": 169.8356, "win_percent": 36 },
+    { "multiplier": 322.6877, "win_percent": 34 }, { "multiplier": 613.1066, "win_percent": 32 }
+  ],
+  "passcode": "123456"
+}
 ```
-- `data`: `{ "game_code", "version", "created": true }` · ค่าเท่าปัจจุบัน = `created: false` (ไม่มีเวอร์ชันใหม่)
-- RPS body เหมือน Coin (`steps` 10 ขั้น) · Scratch ส่ง `win_percent` + `prizes`
-- ส่ง field ของเกมอื่น (เช่น `prizes` ให้ Coin · `draw_percent`) = `422`
 
-Error: `422`, `401204` (passcode ผิด · msg บอกครั้งที่เหลือ), `401205`, `406101`, `406102`, `406301`, `406401`
+**Request — Scratch**
+```json
+{
+  "game_code": "scratch_card",
+  "base_version": 1,
+  "win_percent": 50,
+  "prizes": [
+    { "multiplier": 0.5, "share_percent": 35 }, { "multiplier": 1, "share_percent": 35 }, { "multiplier": 2, "share_percent": 18 },
+    { "multiplier": 5, "share_percent": 10 }, { "multiplier": 8, "share_percent": 2 }
+  ],
+  "passcode": "123456"
+}
+```
 
-### RE5 · ประวัติ
+| field | กติกา |
+|---|---|
+| `game_code` | `scratch_card` · `coin_toss` · `rock_paper_scissors` (ไม่มี = `406401`) |
+| `base_version` | `version` จาก RE2 ที่หน้าจอโหลดมา · ยังไม่เคยตั้ง = `0` · ไม่ตรง = `406301` |
+| `steps` (Coin / RPS) | ครบ 10 ขั้น · `multiplier` 1–1,000 และมากกว่าขั้นก่อน · `win_percent` > 0 และ ≤ 50 · ห้ามส่ง `draw_percent` |
+| `win_percent` + `prizes` (Scratch) | `win_percent` > 0 และ ≤ 50 · รางวัล 1–10 แถว · `multiplier` > 0 ≤ 1,000 ห้ามซ้ำ · `share_percent` > 0 รวม = 100 พอดี |
+| `passcode` | passcode ของคนที่กด |
+
+**Response**
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "scratch_card", "version": 2, "created": true } }
+```
+ค่าเท่าเวอร์ชันปัจจุบันทั้งชุด (ไม่สร้างเวอร์ชันใหม่):
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "scratch_card", "version": 2, "created": false } }
+```
+
+**Response — error (ตัวอย่างจริง)**
+```json
+{ "code": 406301, "msg": "มีคนแก้ไปแล้ว (v2 โดย superadmin) กรุณาโหลดใหม่" }
+{ "code": 422, "msg": "steps[0].win_percent ต้องมากกว่า 0 และไม่เกิน 50" }
+{ "code": 406101, "msg": "steps[0].win_percent ตั้งได้ไม่เกิน 49.7487 (ร้านต้องได้อย่างน้อย 1%)" }
+{ "code": 406102, "msg": "prizes share_percent รวมต้องเท่ากับ 100 (ตอนนี้ 99.5)" }
+```
+
+Error: `400` (ตัวเลขเป็นข้อความ), `422`, `401204` (passcode ผิด · msg บอกครั้งที่เหลือ), `401205`, `406101`, `406102`, `406301`, `406401`
+
+### RE5 · ประวัติ — `rate/versions/list`
+
+**Request**
 ```bash
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/versions/list" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"scratch_card","page":1,"limit":20}'
 ```
-- แบ่งหน้า (`response.Page`) · เรียงใหม่ → เก่า · แต่ละแถว `version` · `min_house_edge_percent` · `win_percent` (Scratch) · `rollback_from` · `same_as_current` (ปิดปุ่มย้อน) · `changes[]` (เทียบกับเวอร์ชันก่อน · เวอร์ชันแรก `[]`) · `created_at` · `created_by` · `ip`
-- `changes` Coin / RPS: `{ "type": "step", "step": 4, "field": "multiplier", "from": 13.0321, "to": 12 }` · Scratch: `win_percent` / `prize_added` / `prize_removed` / `prize_share` (จับคู่รางวัลด้วย `multiplier`)
+
+**Response**
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "current_page": 1, "total_page": 1, "total_count": 2, "limit": 20, "has_next": false, "has_prev": false,
+    "data": [
+      {
+        "version": 2,
+        "min_house_edge_percent": 22.75,
+        "win_percent": 50,
+        "rollback_from": 0,
+        "same_as_current": true,
+        "changes": [
+          { "type": "win_percent", "from": 35, "to": 50 },
+          { "type": "prize_share", "multiplier": 0.5, "from": 20, "to": 35 },
+          { "type": "prize_share", "multiplier": 1, "from": 50, "to": 35 },
+          { "type": "prize_share", "multiplier": 2, "from": 30, "to": 18 },
+          { "type": "prize_added", "multiplier": 5, "from": null, "to": 10 },
+          { "type": "prize_added", "multiplier": 8, "from": null, "to": 2 }
+        ],
+        "created_at": "2026-10-12T17:53:14+07:00",
+        "created_by": "superadmin",
+        "ip": "203.0.113.10"
+      },
+      {
+        "version": 1,
+        "min_house_edge_percent": 58,
+        "win_percent": 35,
+        "rollback_from": 0,
+        "same_as_current": false,
+        "changes": [],
+        "created_at": "2026-10-12T17:53:14+07:00",
+        "created_by": "superadmin",
+        "ip": "203.0.113.10"
+      }
+    ]
+  }
+}
+```
+
+| field | ความหมาย |
+|---|---|
+| `win_percent` | Scratch เท่านั้น (Coin / RPS ไม่มี key นี้) |
+| `rollback_from` | ย้อนมาจากเวอร์ชันไหน · `0` = บันทึกปกติ |
+| `same_as_current` | `true` = ค่าเท่าเวอร์ชันปัจจุบัน → ปิดปุ่ม "ย้อนไปใช้ค่านี้" |
+| `changes` | สิ่งที่เปลี่ยนเทียบกับเวอร์ชันก่อนหน้า · เวอร์ชันแรก `[]` |
+| `changes[].type` | `win_percent` · `prize_added` (`from` null) · `prize_removed` (`to` null) · `prize_share` (Scratch · จับคู่รางวัลด้วย `multiplier`) · `step` (Coin / RPS) |
+
+Coin / RPS `changes`:
+```json
+[ { "type": "step", "step": 1, "field": "win_percent", "from": 55, "to": 50 },
+  { "type": "step", "step": 4, "field": "multiplier", "from": 13.0321, "to": 12 } ]
+```
 
 Error: `422`, `406401`
 
-### RE6 · ค่าของเวอร์ชันเก่า
-```bash
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/versions/detail/get" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"coin_toss","version":2}'
-```
-`data` = รูปแบบเดียวกับ RE2 · Error: `422`, `406401`, `406402`
+### RE6 · ค่าของเวอร์ชันเก่า — `rate/versions/detail/get`
 
-### RE7 · ย้อนเวอร์ชัน
+**Request**
 ```bash
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/versions/rollback" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"coin_toss","version":2,"base_version":3,"passcode":"123456"}'
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/versions/detail/get" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"scratch_card","version":1}'
 ```
-- สร้างเวอร์ชันใหม่ที่ค่าเท่าเวอร์ชันที่เลือก · `data`: `{ "game_code", "version", "rollback_from", "created" }` · ค่าเท่าปัจจุบัน = `created: false`
-- เวอร์ชันเก่าที่ไม่ผ่านกฎปัจจุบัน (ร้านได้ < 1%) = `406101`
+
+**Response** (รูปแบบเดียวกับ RE2)
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "game_code": "scratch_card",
+    "version": 1,
+    "win_percent": 35,
+    "prizes": [
+      { "row_no": 1, "multiplier": 0.5, "share_percent": 20, "per_ticket_percent": 7 },
+      { "row_no": 2, "multiplier": 1,   "share_percent": 50, "per_ticket_percent": 17.5 },
+      { "row_no": 3, "multiplier": 2,   "share_percent": 30, "per_ticket_percent": 10.5 }
+    ],
+    "avg_multiplier": 1.2,
+    "payout_percent": 42,
+    "house_edge_percent": 58,
+    "max_win_percent": 50,
+    "created_at": "2026-10-12T17:53:14+07:00",
+    "created_by": "superadmin"
+  }
+}
+```
+
+Error: `422`, `406401`, `406402` (ไม่พบเวอร์ชันนี้)
+
+### RE7 · ย้อนเวอร์ชัน — `rate/versions/rollback`
+
+**Request**
+```json
+{ "game_code": "scratch_card", "version": 1, "base_version": 2, "passcode": "123456" }
+```
+- `version` = เวอร์ชันที่จะย้อนไป · `base_version` = เวอร์ชันปัจจุบันที่หน้าจอโหลดมา
+
+**Response** — สร้างเวอร์ชันใหม่ที่ค่าเท่าเวอร์ชันที่เลือก
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "scratch_card", "version": 3, "rollback_from": 1, "created": true } }
+```
+ค่าเท่าเวอร์ชันปัจจุบันอยู่แล้ว (ไม่สร้างเวอร์ชันใหม่):
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "scratch_card", "version": 3, "rollback_from": 0, "created": false } }
+```
+- เวอร์ชันเก่าที่ไม่ผ่านกฎปัจจุบัน: ร้านได้ < 1% = `406101` · ผิดรูปแบบ (เช่น `win_percent` > 50) = `422`
 
 Error: `422`, `401204`, `401205`, `406101`, `406102`, `406301`, `406401`, `406402`
 
@@ -93,6 +379,7 @@ Error: `422`, `401204`, `401205`, `406101`, `406102`, `406301`, `406401`, `40640
 
 | Code | ความหมาย | หน้าบ้านควรทำ |
 |---|---|---|
+| `400` | ตัวเลขส่งเป็นข้อความ (body ผิดชนิด) | ส่งเป็น JSON number |
 | `422` | ข้อมูลไม่ผ่าน (`msg` บอก field) | แสดงข้างช่อง |
 | `402303` | ไม่มีสิทธิ์เมนู `rate` | ซ่อนเมนู ⑥ |
 | `406101` | ร้านได้ต่ำกว่า 1% (msg บอกขั้น / แถว และค่าสูงสุดที่ตั้งได้) | แสดงข้างช่อง · ใช้ RE3 ก่อนบันทึก |
