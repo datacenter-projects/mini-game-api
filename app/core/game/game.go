@@ -20,12 +20,12 @@ type Game struct {
 	GameCode string
 }
 
-// groupGames — กลุ่ม → เกม เรียงตามลำดับที่แสดง
+// groupGames — กลุ่ม → เกม เรียงตามลำดับที่แสดง (scratch_card → coin_toss → rock_paper_scissors — 2026-10-12)
 var groupGames = map[Group][]Game{
 	GroupMinigame: {
+		{"minigame", ScratchCard},
 		{"minigame", CoinToss},
 		{"minigame", RockPaperScissors},
-		{"minigame", ScratchCard},
 	},
 }
 

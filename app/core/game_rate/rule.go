@@ -22,9 +22,9 @@ type GameSpec struct {
 
 // gameSpecs — ทุกเกมใน core/game ต้องมีที่นี่ (test บังคับ)
 var gameSpecs = map[string]GameSpec{
+	game.ScratchCard:       {KindPrizes, 0}, // RATE-30
 	game.CoinToss:          {KindSteps, 10}, // RATE-10
 	game.RockPaperScissors: {KindSteps, 10}, // RATE-20 · ไม่มีเสมอ (lead Q7)
-	game.ScratchCard:       {KindPrizes, 0}, // RATE-30
 }
 
 // SpecOf — รูปแบบอัตราของเกม · เกมที่ไม่มี = ok false (406401)

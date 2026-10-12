@@ -6,7 +6,7 @@ spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** 
 ## 1. ภาพรวม
 
 - **ค่ากลางชุดเดียวทั้งระบบ** ต่อเกม · ใช้ได้เฉพาะ **Superadmin** และ sub ของ Superadmin ที่มีเมนู `rate` (ดู = view · บันทึก / ย้อน = edit) · บัญชีอื่น `402303`
-- 3 เกม: `coin_toss` · `rock_paper_scissors` · `scratch_card`
+- 3 เกม (ตามลำดับ): `scratch_card` · `coin_toss` · `rock_paper_scissors`
 - **Coin / RPS** ตั้ง 10 ขั้น แต่ละขั้น `multiplier` + `win_percent` (RPS **ไม่มีเสมอ** — แบบเดียวกับ Coin)
 - **Scratch** ตั้ง `win_percent` ของบัตร + ตารางรางวัล 1–10 แถว (`multiplier` + `share_percent` รวม 100)
 - ตัวเลขทุกตัวทศนิยมไม่เกิน 4 ตำแหน่ง · ตัวคูณ ≤ 1,000 · `win_percent` > 0 และ ≤ 100 · **ร้านต้องได้ ≥ 1% ทุกขั้น** (ไม่ผ่าน = `406101`)

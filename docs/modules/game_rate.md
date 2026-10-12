@@ -42,7 +42,7 @@
 
 | ID | Rule |
 |---|---|
-| RATE-01 | ตั้งค่าแยกต่อเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · ชุดเดียวใช้กับ**ทุกยอดแทง** (ค่าเป็น "เท่า" ของยอดแทง) · **ชุดเดียวใช้กับทุกสกุลเงิน** (รีวิว 2026-10-08) · **ค่ากลางชุดเดียวทั้งระบบ** ไม่มีค่าต่อบัญชี (lead RS1) |
+| RATE-01 | ตั้งค่าแยกต่อเกม (ลำดับ `scratch_card`, `coin_toss`, `rock_paper_scissors` — 2026-10-12) · ชุดเดียวใช้กับ**ทุกยอดแทง** (ค่าเป็น "เท่า" ของยอดแทง) · **ชุดเดียวใช้กับทุกสกุลเงิน** (รีวิว 2026-10-08) · **ค่ากลางชุดเดียวทั้งระบบ** ไม่มีค่าต่อบัญชี (lead RS1) |
 | RATE-01A | **รายชื่อเกมอยู่ในโค้ด** `app/core/game` (รายการเดียวกับที่ `pt` / `status_game` ของ agent_management ใช้ — ย้ายจาก `core/agent_management`) · ตอนนี้ 3 เกม · เพิ่มเกมใหม่ = แก้โค้ดพร้อมเอนจิ้นของเกมนั้น · ไม่มีเส้นสร้างเกม · ปิดเกมรายบัญชีใช้ `status_game` ของ agent_management (`agents/detail/update`) · **รองรับเกมใหม่:** แต่ละเกมผูกกับ**รูปแบบอัตรา** (`core/game_rate` `gameSpecs`) — `steps` (ทายต่อเป็นขั้น · มีจำนวนขั้นของเกม · Coin / RPS) หรือ `prizes` (โอกาสชนะของใบ + ตารางรางวัล · Scratch) · เกมใหม่ที่ใช้รูปแบบเดิม = เพิ่มรหัสใน `core/game` + 1 บรรทัดใน `gameSpecs` ไม่ต้องแก้ API / ตาราง / service · รูปแบบใหม่ = เพิ่ม Kind + กฎ / สูตร (และตารางลูกถ้าโครงต่างกัน) · test บังคับว่าทุกเกมใน `core/game` มีรูปแบบอัตรา |
 | RATE-01B | **หยุดเกมด่วน** (lead RR6): ปิด `status_game` ของเกมนั้นที่ Superadmin → ทุกสายปิดตาม (MGMT-20 · เช็คทั้งสาย) · ใช้เป็นสวิตช์ฉุกเฉินแทนการแก้อัตรา · เขียนใน runbook (`docs/DEPLOYMENT.md`) · **ตอนนี้ยังไม่มีเส้นให้ Superadmin ปิด `status_game` ของตัวเอง — ทำทีหลัง (Q1) · ระหว่างนี้ปิดที่ Company ทีละตัว (`agents/detail/update`)** |
 | RATE-02 | **สิทธิ์ `rate` ทุกเส้น** (lead A5 · RS1): ดู = `rate` view · แก้ / ย้อน = `rate` edit · บัญชีหลักที่ได้เมนู `rate` มีแค่ Superadmin · Company / Share / Agent / ADMIN / sub ที่ไม่มีสิทธิ์ = `402303` · sub เรียกได้ตามสิทธิ์ (ไม่มี `402311`) · ลำดับ middleware: สิทธิ์ (`RequirePermission`) **ก่อน** passcode (`RequirePasscode`) |
@@ -125,9 +125,9 @@ request ผ่าน `utils.ParseBodyNoNull` (ห้าม `null` · `422`) · �
 Request: `{}` · Response `data`:
 ```json
 [
+  { "game_code": "scratch_card", "version": 1, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T09:00:00+07:00", "created_by": "superadmin1@staff" }
   { "game_code": "coin_toss", "version": 3, "min_house_edge_percent": 5, "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1" },
   { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "" },
-  { "game_code": "scratch_card", "version": 1, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T09:00:00+07:00", "created_by": "superadmin1@staff" }
 ]
 ```
 - เรียงตามรายชื่อเกมใน `core/game` · `min_house_edge_percent` = ค่าต่ำสุดในทุกขั้น (Scratch มีค่าเดียว) · `created_*` = ของเวอร์ชันปัจจุบัน
@@ -337,7 +337,7 @@ CREATE TABLE game_rate_versions (            -- 1 แถวต่อการบ
 
 CREATE TABLE game_rate_steps (               -- Coin Flip / RPS
     version_id     BIGINT           NOT NULL REFERENCES game_rate_versions(id),
-    step           SMALLINT         NOT NULL CHECK (step BETWEEN 1 AND 10),
+    step           SMALLINT         NOT NULL CHECK (step >= 1),         -- จำนวนขั้นตาม gameSpecs (เกมใหม่ไม่ต้องแก้ตาราง)
     multiplier     DOUBLE PRECISION NOT NULL CHECK (multiplier >= 1 AND multiplier <= 1000),
     win_percent    DOUBLE PRECISION NOT NULL CHECK (win_percent > 0 AND win_percent <= 100),
     PRIMARY KEY (version_id, step)

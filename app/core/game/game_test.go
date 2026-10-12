@@ -7,7 +7,7 @@ import (
 
 func TestAll(t *testing.T) { // RATE-01A: 3 เกม เรียงตามลำดับที่แสดง
 	got := All()
-	want := []Game{{"minigame", CoinToss}, {"minigame", RockPaperScissors}, {"minigame", ScratchCard}}
+	want := []Game{{"minigame", ScratchCard}, {"minigame", CoinToss}, {"minigame", RockPaperScissors}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("All() = %v, want %v", got, want)
 	}
