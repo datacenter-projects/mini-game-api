@@ -37,3 +37,13 @@
 - C3 SQ1: login + middleware `Authenticated` ปฏิเสธ sub ที่สถานะของตัวเองเป็น `INACTIVE` (เลือก error code ที่เหมาะ เช่นใช้ `401301` หรือ code ใหม่ — แจ้ง lead) · `status/update` → `INACTIVE` ลบ session ของ sub นั้นทันที (หลัง commit) · ใช้ lock `FOR NO KEY UPDATE` ตามบทเรียน deadlock
 - C4 SQ3: `CreateSubaccountService` ตั้ง `MustChangePassword: true`
 - C5 test: section เดียว / สองส่วน / ไม่ส่งเลย 422 / ค่าเดิมไม่เขียน log / `SUB_PERMISSIONS` · sub INACTIVE login ไม่ได้ + session เดิมถูกตัด + เรียก `/account/api-credential` ไม่ได้ · sub ใหม่ต้องเปลี่ยนรหัสผ่านก่อนเรียกเส้นอื่น (`401306`) · แก้สิทธิ์แล้ว request ถัดไปใช้สิทธิ์ใหม่ · ADMIN สร้าง sub = `402301` · รัน integration ของ sub แนบผล · แจ้ง frontend
+
+## ตรวจงานรอบที่ 1 (2026-10-12 · branch `boiledegg/bo/subaccount` @ 9c1ecf5)
+ผลตรวจ: S1–S7 / C1–C5 ครบ ✅ · SQ1 (INACTIVE login ไม่ได้ `401312` · session ถูกปฏิเสธ/ลบ · เปิดหน้า Key ไม่ได้) · SN4 · SQ3 (`401306`) · สิทธิ์อ่านจาก DB ทุก request · build / vet / unit / structure / gofmt ผ่าน · integration: boiledegg รายงานว่าผ่าน
+
+**lead อนุมัติ merge เข้า dev (2026-10-12)**
+- error code ใหม่ `401312` (sub INACTIVE) — อนุมัติ
+- ก่อน merge: แก้ conflict `docs/MIGRATION_STATUS.md` (เก็บทั้งสองฝั่ง + ลบแถว "test sub INACTIVE → 401311") · รวม dev ล่าสุดแล้วรัน integration ของ sub/auth อีกรอบ (dev เปลี่ยนการเช็คสายล่างเป็น `cnf @>`)
+- แจ้งหน้าบ้าน: body ใหม่ของ `subaccounts/detail/update` · `401312` · sub ที่ถูกปิดระหว่างใช้งานเด้งออกด้วย `401203` (รับได้ — login ใหม่จะได้ `401312`) · sub ใหม่ต้องเปลี่ยนรหัสผ่านครั้งแรก
+- ไม่ต้องทำ migration บังคับเปลี่ยนรหัสให้ sub เดิม (prod เริ่มจาก DB ว่าง)
+- merge branch `boiledegg/docs/migration-rule` เข้า dev ด้วย (เอกสารกฎ migration — lead 2026-10-11)
