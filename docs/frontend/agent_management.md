@@ -1,6 +1,6 @@
-# API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 9 ต.ค. 2026 (โครงเส้นใหม่)
+# API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 11 ต.ค. 2026 (โครงเส้นใหม่ · sub แบบ section)
 
-เอกสารนี้ตรงกับโค้ดใน branch `boiledegg/bo/agent_management` (PR 2 + PR 3 — **ตาม lead review 9 ต.ค.** ใช้บน server หลัง merge + deploy) ·
+เอกสารนี้ตรงกับโค้ดบน `dev` (agent_management PR 2 + PR 3 — **ตาม lead review 9 ต.ค.**) และ branch `boiledegg/bo/subaccount` (หัวข้อ 3.10 / 3.11 / sub เปลี่ยนรหัสผ่าน — **ตาม lead review 11 ต.ค.** ใช้บน server หลัง merge + deploy) ·
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
 
 > **เปลี่ยนจากเดิม (9 ต.ค.)** — path ใหม่ทั้งหมด เส้นเดิมได้ `404` (หัวข้อ 5) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` ·
