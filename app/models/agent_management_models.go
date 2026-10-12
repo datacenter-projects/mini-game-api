@@ -102,6 +102,8 @@ const (
 	ChangeSyncFromCSM    AccountChangeAction = "SYNC_FROM_CSM" // ระบบปรับ Share Master ตาม Company Seamless Master (MGMT-19)
 	ChangeSubStatus      AccountChangeAction = "SUB_STATUS"
 	ChangeInitialBalance AccountChangeAction = "INITIAL_BALANCE"
+	ChangeUpdatePayment  AccountChangeAction = "UPDATE_PAYMENT" // Member: วิธีจ่ายเงิน / บัญชีธนาคาร (MGMT-63 / 64)
+	ChangeUpdateLimit    AccountChangeAction = "UPDATE_LIMIT"   // Member: ลิมิตชนะต่อวัน (MGMT-65)
 )
 
 // AccountChangeLog — ประวัติการเปลี่ยนแปลงบัญชี (MGMT-60) · ห้ามเก็บรหัสผ่าน

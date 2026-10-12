@@ -5,6 +5,7 @@ package membermanagement
 
 import (
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
+	"app/app/models"
 )
 
 // MemberPTRequest — ผู้สร้างตั้งให้ Member ต่อกลุ่ม: pt (ถือสู้กับ Member คนนี้) · commission_percent (MGMT-21 · lead MA1 / MA3)
@@ -61,8 +62,13 @@ type CreateMemberRequest struct {
 	Phone            string                     `json:"phone"`
 	Balance          map[string]float64         `json:"balance"`
 	PT               map[string]MemberPTRequest `json:"pt"`
+	PaymentType      string                     `json:"payment_type"`      // MGMT-63 บังคับ
+	PaymentAccount   *PaymentAccount            `json:"payment_account"`   // MGMT-64 ไม่บังคับ
+	WinLimitPerDay   float64                    `json:"win_limit_per_day"` // MGMT-65 ไม่บังคับ (ไม่ส่ง = 0 ไม่จำกัด)
 
-	BalanceAmounts map[string]float64 `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
+	BalanceAmounts map[string]float64          `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
+	Payment        models.PaymentType          `json:"-"` // หลัง Validate (ก่อนปรับตาม Seamless)
+	Account        models.MemberPaymentAccount `json:"-"` // หลัง Validate · ว่างทั้งหมด = ไม่มีบัญชี
 }
 
 type CreateMemberResponse struct {
@@ -70,7 +76,8 @@ type CreateMemberResponse struct {
 	Username string `json:"username"`
 }
 
-// Validate — ไล่ตามลำดับ field ใน body: request_id → username → password → name → phone_country_code → phone → balance → pt (หัวข้อ 2.1)
+// Validate — ไล่ตามลำดับ field ใน body: request_id → username → password → name → phone_country_code → phone → balance → pt
+// → payment_type → payment_account → win_limit_per_day (หัวข้อ 2.1)
 func (r *CreateMemberRequest) Validate() error {
 	if err := agentManagementDto.ValidateIdentityFields(r.RequestID, &r.Username, r.Password, r.Name); err != nil {
 		return err
@@ -85,5 +92,14 @@ func (r *CreateMemberRequest) Validate() error {
 	if err := agentManagementDto.CheckGroups(r.PT); err != nil {
 		return err
 	}
-	return parseMemberPTGroups(r.PT)
+	if err := parseMemberPTGroups(r.PT); err != nil {
+		return err
+	}
+	if r.Payment, err = parsePaymentType("payment_type", r.PaymentType); err != nil {
+		return err
+	}
+	if r.Account, err = parsePaymentAccount("payment_account.", r.PaymentAccount); err != nil {
+		return err
+	}
+	return checkWinLimit("win_limit_per_day", r.WinLimitPerDay)
 }

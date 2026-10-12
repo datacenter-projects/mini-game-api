@@ -64,10 +64,16 @@ func checkMemberPT(group string, v memberManagementDto.MemberPTRequest, received
 	return agentManagementService.PTError(group, agentManagementCore.ValidateMemberCommission(v.Commission))
 }
 
-// UpdateMemberDetailService — POST /manage/members/detail/update (M3 · MGMT-32M · lead M3-1 / MN2)
-// ผู้สร้างโดยตรงเท่านั้น · tx เดียว: section ไหนผิดไม่บันทึกเลย · ทำตามลำดับ info → pt · log แยกแถวต่อ section ที่เปลี่ยนจริง
+// UpdateMemberDetailService — POST /manage/members/detail/update (M3 · MGMT-32M · lead M3-1 / MN2 / P13)
+// ผู้สร้างโดยตรงเท่านั้น · tx เดียว: section ไหนผิดไม่บันทึกเลย · ทำตามลำดับ info → pt → payment → limit · log แยกแถวต่อ section ที่เปลี่ยนจริง
+// section payment ต้องมีสิทธิ์ payment edit เพิ่ม (MGMT-51 · lead P14) — เช็คหลังรอบรูปแบบ ก่อนเปิด tx (lead U3)
 func UpdateMemberDetailService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.MemberDetailUpdateRequest,
 	meta agentAuthService.RequestMeta) error {
+	if req.Payment != nil {
+		if err := agentManagementService.CheckPermissionService(ctx, actor, agentManagementCore.MenuPayment, agentManagementCore.LevelEdit); err != nil {
+			return err
+		}
+	}
 	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		m, err := lockMemberChild(tx, actor, req.ID) // ผ่าน = ผู้เรียกเป็นผู้สร้าง (m.AgentID)
 		if err != nil {
@@ -80,7 +86,17 @@ func UpdateMemberDetailService(ctx context.Context, actor agentAuthService.Actor
 			}
 		}
 		if req.PT != nil {
-			return applyMemberPT(ctx, tx, actor, meta, m, req.PT, now)
+			if err := applyMemberPT(ctx, tx, actor, meta, m, req.PT, now); err != nil {
+				return err
+			}
+		}
+		if req.Payment != nil {
+			if err := applyMemberPayment(ctx, tx, actor, meta, m, *req.Payment, now); err != nil {
+				return err
+			}
+		}
+		if req.Limit != nil {
+			return applyMemberLimit(ctx, tx, actor, meta, m, *req.Limit, now)
 		}
 		return nil
 	})
