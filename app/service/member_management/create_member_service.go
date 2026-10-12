@@ -114,11 +114,11 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		ptLog := map[string]memberPTValue{}
 		for _, g := range agentManagementCore.Groups() {
 			v := req.PT[string(g)]
-			remain := agentManagementCore.MemberRemain(c.Received[g], v.PT)
-			ptLog[string(g)] = memberPTValue{PT: v.PT, Remain: remain, Commission: v.Commission}
+			remain := agentManagementCore.MemberRemain(c.Received[g], *v.OwnPT)
+			ptLog[string(g)] = memberPTValue{PT: *v.OwnPT, Remain: remain, Commission: *v.CommissionPercent}
 			for _, game := range agentManagementCore.GamesOf(g) {
 				settings = append(settings, models.UserMemberGameSetting{UserMemberID: m.ID, GameCode: game.GameCode, ParentID: c.Agent.ID, Category: game.Category,
-					PT: v.PT, Remain: remain, Commission: v.Commission,
+					PT: *v.OwnPT, Remain: remain, Commission: *v.CommissionPercent,
 					CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}
 		}

@@ -11,6 +11,7 @@ import (
 // MemberPTRequest — ผู้สร้างตั้งให้ Member ต่อกลุ่ม: pt (ถือสู้กับ Member คนนี้) · commission_percent (MGMT-21 · lead MA1 / MA3)
 // remain_quota ระบบคิดเอง · field อื่นของฝั่ง agent = 422 · ใช้ทั้ง members/create และ members/detail/update
 // % รับเป็น float64 (ทีมตกลง 2026-10-12) · pointer เพื่อแยก "ไม่ส่ง" (pt_from_parent / force / remain_quota / status มีไว้ตอบ 422)
+// ผ่าน Validate แล้ว OwnPT / CommissionPercent ไม่เป็น nil เสมอ — service อ่าน *v.OwnPT / *v.CommissionPercent ได้ตรงๆ
 type MemberPTRequest struct {
 	OwnPT             *float64 `json:"pt"`
 	CommissionPercent *float64 `json:"commission_percent"`
@@ -18,26 +19,20 @@ type MemberPTRequest struct {
 	Force             *float64 `json:"force"`
 	RemainQuota       *float64 `json:"remain_quota"`
 	Status            *bool    `json:"status"`
-
-	PT         float64 `json:"-"` // % หลัง Validate
-	Commission float64 `json:"-"`
 }
 
-// parseMemberPT — ตรวจ 1 กลุ่ม: field ที่ Member ไม่มี → pt → commission_percent
+// parseMemberPT — ตรวจ 1 กลุ่ม: field ที่ Member ไม่มี → pt → commission_percent (ไม่ส่ง = 422 "ต้องส่ง" จาก Percent)
 func parseMemberPT(group string, v *MemberPTRequest) error {
 	p := "pt." + group
 	if v.PTFromParent != nil || v.Force != nil || v.RemainQuota != nil || v.Status != nil {
 		return agentManagementDto.Invalid(p, "Member มีแค่ pt และ commission_percent (remain_quota ระบบคิดให้)",
 			"a Member only has pt and commission_percent (remain_quota is computed)")
 	}
-	var err error
-	if v.PT, err = agentManagementDto.Percent(p+".pt", v.OwnPT); err != nil {
+	if _, err := agentManagementDto.Percent(p+".pt", v.OwnPT); err != nil {
 		return err
 	}
-	if v.Commission, err = agentManagementDto.Percent(p+".commission_percent", v.CommissionPercent); err != nil {
-		return err
-	}
-	return nil
+	_, err := agentManagementDto.Percent(p+".commission_percent", v.CommissionPercent)
+	return err
 }
 
 // parseMemberPTGroups — ตรวจทุกกลุ่มเรียงตามชื่อกลุ่ม (error ออกตัวเดียวกันทุกครั้ง — หัวข้อ 2.1)
@@ -47,7 +42,6 @@ func parseMemberPTGroups(pt map[string]MemberPTRequest) error {
 		if err := parseMemberPT(g, &v); err != nil {
 			return err
 		}
-		pt[g] = v
 	}
 	return nil
 }

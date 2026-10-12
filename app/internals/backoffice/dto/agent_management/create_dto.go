@@ -24,7 +24,6 @@ type ChildPTRequest struct {
 	CommissionPercent *float64 `json:"commission_percent"`
 	Status            *bool    `json:"status"`
 
-	Parsed agentManagementCore.ChildPT `json:"-"` // % (float ปัด 4 ตำแหน่ง) หลัง Validate
 	// CommissionOnly — ส่งมาแค่ commission_percent · ใช้ได้เฉพาะ CSM ตั้งให้ Share Master (service ตัดสิน — 7.1 ข้อ 4)
 	CommissionOnly bool `json:"-"`
 	// Missing — field แรกที่ไม่ได้ส่ง (ไม่ใช่ CommissionOnly) · service คืน error นี้เมื่อลูกไม่ใช่ Share Master ใต้ CSM
@@ -190,24 +189,36 @@ func (r *CreateAgentRequest) Validate() error {
 	return nil
 }
 
-// parseChildPT — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม → % (ปัด 4 ตำแหน่ง) ใน v.Parsed (MGMT-16, MGMT-17)
+// Values — ค่าที่ตั้งให้ลูก 1 กลุ่มเป็น core.ChildPT (MGMT-16) · ใช้หลัง Validate · field ที่ไม่ส่ง = 0
+// (CommissionOnly / Missing — service ตัดสินว่าใช้ได้ไหม · Share Master ใต้ CSM service แทนค่าด้วยของ CSM)
+func (v ChildPTRequest) Values() agentManagementCore.ChildPT {
+	return agentManagementCore.ChildPT{PTFromParent: floatOrZero(v.PTFromParent), Force: floatOrZero(v.Force),
+		Remain: floatOrZero(v.RemainQuota), Commission: floatOrZero(v.CommissionPercent)}
+}
+
+func floatOrZero(p *float64) float64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// parseChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม (MGMT-16, MGMT-17) · อ่านค่าด้วย v.Values()
 // รูปแบบผิดตอบทันที · ไม่ครบ 5 ค่าเก็บไว้ใน v.Missing ให้ service ตัดสิน (ขึ้นกับว่าลูกเป็น Share Master ใต้ CSM ไหม — MGMT-19)
 func parseChildPT(prefix string, v *ChildPTRequest) error {
 	if v.PTFromParent == nil && v.Force == nil && v.RemainQuota == nil && v.Status == nil && v.CommissionPercent != nil {
 		v.CommissionOnly = true
-		var err error
-		v.Parsed.Commission, err = Percent(prefix+"commission_percent", v.CommissionPercent)
+		_, err := Percent(prefix+"commission_percent", v.CommissionPercent)
 		return err
 	}
 	for _, f := range []struct {
 		name string
 		in   *float64
-		out  *float64
 	}{
-		{"pt_from_parent", v.PTFromParent, &v.Parsed.PTFromParent},
-		{"force", v.Force, &v.Parsed.Force},
-		{"remain_quota", v.RemainQuota, &v.Parsed.Remain},
-		{"commission_percent", v.CommissionPercent, &v.Parsed.Commission},
+		{"pt_from_parent", v.PTFromParent},
+		{"force", v.Force},
+		{"remain_quota", v.RemainQuota},
+		{"commission_percent", v.CommissionPercent},
 	} {
 		if f.in == nil {
 			if v.Missing == nil {
@@ -215,8 +226,7 @@ func parseChildPT(prefix string, v *ChildPTRequest) error {
 			}
 			continue
 		}
-		var err error
-		if *f.out, err = Percent(prefix+f.name, f.in); err != nil {
+		if _, err := Percent(prefix+f.name, f.in); err != nil {
 			return err
 		}
 	}

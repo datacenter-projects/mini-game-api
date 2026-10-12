@@ -58,10 +58,10 @@ func lockMemberPhoneFree(tx *gorm.DB, agentID uint, code, phone string, selfID u
 
 // checkMemberPT — กฎที่ต้องดู DB ของ 1 กลุ่ม: pt ไม่เกินค่าที่ผู้สร้างได้รับ (402305) → commission_percent (402309) · ไม่ลงขั้น = 422 (lead MQ3)
 func checkMemberPT(group string, v memberManagementDto.MemberPTRequest, received float64) error {
-	if err := agentManagementService.MemberPTError(group, agentManagementCore.ValidateMemberPT(v.PT, received), received); err != nil {
+	if err := agentManagementService.MemberPTError(group, agentManagementCore.ValidateMemberPT(*v.OwnPT, received), received); err != nil {
 		return err
 	}
-	return agentManagementService.PTError(group, agentManagementCore.ValidateMemberCommission(v.Commission))
+	return agentManagementService.PTError(group, agentManagementCore.ValidateMemberCommission(*v.CommissionPercent))
 }
 
 // UpdateMemberDetailService — POST /manage/members/detail/update (M3 · MGMT-32M · lead M3-1 / MN2 / P13)
@@ -163,16 +163,16 @@ func applyMemberPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Acto
 		if err := checkMemberPT(g, v, received[group]); err != nil {
 			return err
 		}
-		remain := agentManagementCore.MemberRemain(received[group], v.PT)
-		if cur.PT == v.PT && cur.Commission == v.Commission && cur.Remain == remain {
+		remain := agentManagementCore.MemberRemain(received[group], *v.OwnPT)
+		if cur.PT == *v.OwnPT && cur.Commission == *v.CommissionPercent && cur.Remain == remain {
 			continue // ค่าเหมือนเดิม (MGMT-32M)
 		}
 		if err := memberManagementPostgres.UpdateUserMemberPTRepository(tx, m.ID, agentManagementService.GameCodes(group),
-			v.PT, remain, v.Commission, actor.Username, now); err != nil {
+			*v.OwnPT, remain, *v.CommissionPercent, actor.Username, now); err != nil {
 			return err
 		}
 		oldLog[g] = memberPTValue{PT: cur.PT, Remain: cur.Remain, Commission: cur.Commission}
-		newLog[g] = memberPTValue{PT: v.PT, Remain: remain, Commission: v.Commission}
+		newLog[g] = memberPTValue{PT: *v.OwnPT, Remain: remain, Commission: *v.CommissionPercent}
 	}
 	if len(newLog) == 0 {
 		return nil
