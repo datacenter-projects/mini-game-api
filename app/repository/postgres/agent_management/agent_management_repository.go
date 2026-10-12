@@ -2,6 +2,7 @@ package agentmanagement
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -140,16 +141,15 @@ func CreateAccountChangeLogsRepository(db *gorm.DB, rows []models.AccountChangeL
 	return db.Create(&rows).Error
 }
 
-// IsInDownlineRepository — id อยู่ในสายล่างของ ancestorID ไหม (ไม่นับตัวเอง · กฎข้อ 22 · MGMT-26)
+// chainContains — ค่าเทียบ cnf @> ของ "สายชั้นบนมี id นี้" (MGMT-61 · ใช้ GIN index jsonb_path_ops)
+func chainContains(id uint) string {
+	return fmt.Sprintf(`{"parent":[{"id":%d}]}`, id)
+}
+
+// IsInDownlineRepository — id (บัญชีฝั่ง agent) อยู่ในสายล่างของ ancestorID ไหม (ไม่นับตัวเอง — cnf ไม่รวมตัวเอง · กฎข้อ 22 · MGMT-26)
 func IsInDownlineRepository(db *gorm.DB, ancestorID, id uint) (bool, error) {
 	var ok bool
-	err := db.Raw(`
-		WITH RECURSIVE up AS (
-			SELECT parent_id FROM user_agents WHERE id = ?
-			UNION -- ไม่ใช้ UNION ALL: ถ้าข้อมูลสายวนเป็นลูป query จะหยุดเองไม่ค้าง
-			SELECT u.parent_id FROM user_agents u JOIN up ON u.id = up.parent_id
-		)
-		SELECT EXISTS (SELECT 1 FROM up WHERE parent_id = ?)`, id, ancestorID).Scan(&ok).Error
+	err := db.Raw(`SELECT EXISTS (SELECT 1 FROM user_agents WHERE id = ? AND cnf @> ?::jsonb)`, id, chainContains(ancestorID)).Scan(&ok).Error
 	return ok, err
 }
 
@@ -192,7 +192,7 @@ func ListDownlinesRepository(db *gorm.DB, parentID uint, q string, offset, limit
 	return rows, total, err
 }
 
-var likeEscaper = strings.NewReplacer(`\`, `\`, `%`, `\%`, `_`, `\_`)
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 // ListAgentDirectChildrenRepository — ลูกตรงฝั่ง agent (ไม่รวม ADMIN) เรียง A→Z · q = ค้น username บางส่วน (ตัวเล็กแล้ว · ว่าง = ไม่กรอง) · ไม่เกิน limit แถว (MGMT-35)
 func ListAgentDirectChildrenRepository(db *gorm.DB, parentID uint, q string, limit int) ([]models.UserAgent, error) {
@@ -253,35 +253,46 @@ type DownlineSearchRow struct {
 	EffectiveStatus models.AgentStatus
 }
 
-// downlineSearchSQL — ทุกบัญชีใต้ @root ทุกชั้น (ไม่รวม root · ไม่รวม ADMIN) ที่ username ตรง @like
-// tree เก็บสถานะที่ใช้งานจริงสะสมจากบนลงล่าง (rank: ACTIVE 0 · SUSPENDED 1 · LOCKED 2) จึงไม่ต้อง query หัวสายทีละแถว
+// downlineSearchSQL — ทุกบัญชีใต้ @root ทุกชั้น (cnf @> + GIN index — MGMT-61 · ไม่รวม root · ไม่รวม ADMIN) ที่ username ตรง @like
+// creator_id = ผู้สร้างตรง · cnf ใช้คิดสถานะที่ใช้งานจริงเฉพาะแถวในหน้า (downlineSearchPageSQL)
 const downlineSearchSQL = `
-	WITH RECURSIVE tree AS (
-		SELECT id, username, CASE @root_status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END AS rnk
-		FROM user_agents WHERE id = @root
-		UNION -- ไม่ใช้ UNION ALL: ถ้าข้อมูลสายวนเป็นลูป query จะหยุดเองไม่ค้าง
-		SELECT u.id, u.username,
-			GREATEST(t.rnk, CASE u.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END)
-		FROM user_agents u JOIN tree t ON u.parent_id = t.id
-		WHERE u.role <> 'ADMIN'
-	), hits AS (
-		SELECT u.id, false AS is_member, u.role, u.agent_type, u.username, u.name, u.phone_country_code, u.phone, u.status, NULL AS currency,
-			u.last_login_at, u.last_login_ip, u.created_at,
-			p.username AS parent_username, GREATEST(p.rnk, CASE u.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END) AS rnk
-		FROM user_agents u JOIN tree p ON u.parent_id = p.id
-		WHERE u.role <> 'ADMIN' AND u.username LIKE @like ESCAPE '\'
+	WITH hits AS (
+		SELECT id, false AS is_member, role, agent_type, username, name, phone_country_code, phone, status, NULL AS currency,
+			last_login_at, last_login_ip, created_at, parent_id AS creator_id, cnf
+		FROM user_agents WHERE cnf @> CAST(@chain AS jsonb) AND role <> 'ADMIN' AND username LIKE @like ESCAPE '\'
 		UNION ALL
-		SELECT m.id, true, 'MEMBER', NULL, m.username, m.name, m.phone_country_code, m.phone, m.status, m.currency,
-			m.last_login_at, m.last_login_ip, m.created_at,
-			p.username, GREATEST(p.rnk, CASE m.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END)
-		FROM user_members m JOIN tree p ON m.agent_id = p.id
-		WHERE m.username LIKE @like ESCAPE '\'
+		SELECT id, true, 'MEMBER', NULL, username, name, phone_country_code, phone, status, currency,
+			last_login_at, last_login_ip, created_at, agent_id, cnf
+		FROM user_members WHERE cnf @> CAST(@chain AS jsonb) AND username LIKE @like ESCAPE '\'
 	)`
+
+// downlineSearchPageSQL — 1 หน้าของผลค้น + ผู้สร้างตรง + rank สถานะที่ใช้งานจริง (ACTIVE 0 · SUSPENDED 1 · LOCKED 2)
+// = แย่สุดของ root (@root_status รวมหัวสายของ root แล้ว) · ตัวเอง · ทุกบัญชีใน cnf ที่อยู่ใต้ root
+// cnf ของทุกแถวใต้ root ขึ้นต้นด้วย cnf ของ root + root เสมอ → บัญชีใต้ root = ลำดับที่ (ORDINALITY) เกินความยาว cnf ของ root + 1
+const downlineSearchPageSQL = `
+	, root AS (
+		SELECT jsonb_array_length(cnf -> 'parent') + 1 AS pos FROM user_agents WHERE id = @root
+	)
+	SELECT h.id, h.is_member, h.role, h.agent_type, h.username, h.name, h.phone_country_code, h.phone, h.status, h.currency,
+		h.last_login_at, h.last_login_ip, h.created_at, p.username AS parent_username,
+		GREATEST(CASE @root_status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END,
+			CASE h.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END, COALESCE(up.rnk, 0)) AS rnk
+	FROM (SELECT * FROM hits ORDER BY username LIMIT @limit OFFSET @offset) h
+	CROSS JOIN root
+	JOIN user_agents p ON p.id = h.creator_id
+	CROSS JOIN LATERAL (
+		SELECT max(CASE a.status WHEN 'LOCKED' THEN 2 WHEN 'SUSPENDED' THEN 1 ELSE 0 END) AS rnk
+		FROM jsonb_array_elements(h.cnf -> 'parent') WITH ORDINALITY AS e(node, ord)
+		JOIN user_agents a ON a.id = (e.node ->> 'id')::bigint
+		WHERE e.ord > root.pos
+	) up
+	ORDER BY h.username`
 
 // SearchDownlinesRepository — ค้นทั้งสายใต้ rootID เรียง username A→Z แบ่งหน้า + จำนวนทั้งหมด (MGMT-27A)
 // rootStatus = สถานะที่ใช้งานจริงของ root (รวมหัวสายของ root แล้ว) · q ตัวเล็กแล้ว
 func SearchDownlinesRepository(db *gorm.DB, rootID uint, rootStatus models.AgentStatus, q string, offset, limit int) ([]DownlineSearchRow, int64, error) {
-	args := map[string]any{"root": rootID, "root_status": string(rootStatus), "like": "%" + likeEscaper.Replace(q) + "%"}
+	args := map[string]any{"root": rootID, "root_status": string(rootStatus), "chain": chainContains(rootID),
+		"like": "%" + likeEscaper.Replace(q) + "%"}
 	var total int64
 	if err := db.Raw(downlineSearchSQL+" SELECT count(*) FROM hits", args).Scan(&total).Error; err != nil {
 		return nil, 0, err
@@ -292,7 +303,7 @@ func SearchDownlinesRepository(db *gorm.DB, rootID uint, rootStatus models.Agent
 		Rnk            int
 	}
 	args["offset"], args["limit"] = offset, limit
-	err := db.Raw(downlineSearchSQL+" SELECT * FROM hits ORDER BY username LIMIT @limit OFFSET @offset", args).Scan(&rows).Error
+	err := db.Raw(downlineSearchSQL+downlineSearchPageSQL, args).Scan(&rows).Error
 	out := make([]DownlineSearchRow, len(rows))
 	for i, r := range rows {
 		status := models.AgentStatusActive
