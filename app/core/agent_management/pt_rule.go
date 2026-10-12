@@ -1,6 +1,10 @@
 package agentmanagement
 
-import "math"
+import (
+	"math"
+
+	"app/app/core/game"
+)
 
 // กฎค่าหุ้นส่วน (MGMT-16 – MGMT-25) · ทุกค่าเป็น % แบบ float64 ปัด 4 ตำแหน่ง (กฎข้อ 9 — แก้ 2026-10-09)
 
@@ -19,43 +23,22 @@ func isStep(v, step float64) bool {
 	return math.Mod(math.Round(v*10000), math.Round(step*10000)) == 0
 }
 
-// PTGroup — กลุ่ม PT ใน API (MGMT-16)
-type PTGroup string
+// PTGroup — กลุ่ม PT ใน API (MGMT-16) = กลุ่มเกมของ core/game · รายชื่อเกมอยู่ที่ core/game (game_rate RATE-01A)
+type PTGroup = game.Group
 
-const PTGroupMinigame PTGroup = "minigame"
+const PTGroupMinigame = game.GroupMinigame
 
 // GroupGame — เกมหนึ่งในกลุ่ม
-type GroupGame struct {
-	Category string
-	GameCode string
-}
-
-// groupGames — กลุ่ม → หมวด → เกม (MGMT-16) · เพิ่มเกม / กลุ่มที่นี่โดยไม่เปลี่ยน API / ตาราง
-var groupGames = map[PTGroup][]GroupGame{
-	PTGroupMinigame: {
-		{"minigame", "coin_toss"},
-		{"minigame", "rock_paper_scissors"},
-		{"minigame", "scratch_card"},
-	},
-}
+type GroupGame = game.Game
 
 // Groups — กลุ่มทั้งหมดเรียงตามชื่อ
-func Groups() []PTGroup { return []PTGroup{PTGroupMinigame} }
+func Groups() []PTGroup { return game.Groups() }
 
 // GamesOf — เกมในกลุ่ม · กลุ่มที่ไม่มี = nil
-func GamesOf(g PTGroup) []GroupGame { return groupGames[g] }
+func GamesOf(g PTGroup) []GroupGame { return game.GamesOf(g) }
 
 // GroupOfGame — กลุ่มของรหัสเกม · ไม่พบ = ok false
-func GroupOfGame(gameCode string) (PTGroup, bool) {
-	for g, games := range groupGames {
-		for _, gg := range games {
-			if gg.GameCode == gameCode {
-				return g, true
-			}
-		}
-	}
-	return "", false
-}
+func GroupOfGame(gameCode string) (PTGroup, bool) { return game.GroupOf(gameCode) }
 
 // IsPTStep — 0 ถึง max ทีละ 0.5%
 func IsPTStep(v float64) bool { return v >= 0 && v <= FullPT && isStep(v, PTStep) }
