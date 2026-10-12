@@ -317,7 +317,7 @@ Error: `422`, `401204`, `401205`, `406101`, `406102`, `406301`, `406401`, `40640
 
 ### 5.9 RE8 · POST /api/v1/bo/pr/rate/status/update (ข้อเสนอ — lead Q1 ทบทวน 2026-10-13 · รอ lead อนุมัติก่อน implement)
 
-สวิตช์ปิด / เปิดเกมทั้งระบบ (ปิดปรับปรุงเกม) · ตั้ง `agent_game_settings.status_game` ของ**บัญชี Superadmin** · ไม่มีตารางใหม่ ไม่มี migration
+สวิตช์ปิด / เปิดเกมทั้งระบบ (ปิดปรับปรุงเกม) · ตั้ง `agent_game_settings.status_game` ของ**ทุกบัญชี Superadmin** (QS1) · ไม่มีตารางใหม่ ไม่มี migration
 
 Request:
 ```json
@@ -336,8 +336,8 @@ Response `data`:
 | `passcode` | `RequirePasscode` (ผิด `401204` · ครบ 5 ครั้ง `401205`) |
 
 - **ผลไหลลงทั้งสาย:** ไม่แก้ค่าของสายล่าง · การเช็คทั้งสาย (`core.IsGameOpen` — MGMT-20) อ่านค่าของ Superadmin อยู่แล้ว (Superadmin อยู่ต้น `cnf`) → ปิดที่ Superadmin = `status_game_effective = false` ทุกบัญชีใต้ Superadmin · เปิดคืน = แต่ละบัญชีกลับไปตามค่าของตัวเอง (บัญชีที่ปิดไว้เองยังปิด)
-- **สิทธิ์:** `rate` edit + passcode (RATE-02) — Superadmin และ sub ที่มีเมนู `rate` edit · ผู้ทำเป็น sub = ตั้งค่าของ Superadmin เจ้าของ sub
-- **tx เดียว:** lock แถว `agent_game_settings` ของ Superadmin ด้วย `FOR UPDATE` (เรียง `agent_id` — กฎข้อ 10) → ค่าเท่าเดิม = `changed: false` → update → log
+- **สิทธิ์:** `rate` edit + passcode (RATE-02) — Superadmin และ sub ที่มีเมนู `rate` edit · ผู้ทำเป็น sub ก็ตั้งของทุกบัญชี Superadmin เหมือนกัน
+- **tx เดียว:** lock แถว `agent_game_settings` ของเกมนั้นของทุกบัญชี Superadmin ด้วย `FOR UPDATE` (เรียง `agent_id` — กฎข้อ 10) → ทุกบัญชีเป็นค่านั้นอยู่แล้ว = `changed: false` → update เฉพาะบัญชีที่ค่าต่าง → log 1 แถวต่อบัญชีนั้น
 - **log:** `account_change_logs` · `action = UPDATE_GAMES` (ค่าเดียวกับ `agents/detail/update`) · `target` = บัญชี Superadmin · `old_value` / `new_value` = `{"status_game": {"coin_toss": true}}` / `{"status_game": {"coin_toss": false}}` · ผู้ทำ / IP / `request_id` ตาม MGMT-60 (sub = `owner@name`)
 - **ที่อื่นที่เห็นผล (ไม่ต้องแก้โค้ด):** `agents/detail/get` `status_game_effective` ของทุกบัญชีในสาย · `account/profile` `status_game` ของ Superadmin
 - **RE1 `rate/list`:** เพิ่ม `status_game` ต่อแถว (หัวข้อ 5.1)
@@ -449,9 +449,9 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 
 | # | คำถาม | ข้อเสนอ |
 |---|---|---|
-| QS1 | ระบบมี Superadmin ได้หลายบัญชี (ไม่มี constraint · test env มี `superadmintester1` / `superadmintester2`) — สวิตช์ตั้งค่าของ Superadmin บัญชีไหน | **ทุกบัญชี Superadmin ใน tx เดียว** (= ปิดทั้งระบบจริง ตามที่ lead ขอ) · log 1 แถวต่อบัญชีที่ค่าเปลี่ยน · RE1 `status_game = true` เมื่อ Superadmin ทุกบัญชีเปิด · ทางเลือก: เฉพาะ Superadmin ของผู้ทำ (ปิดแค่สายของตัวเอง) |
-| QS2 | ปิดเกมตอนที่มีเดิมพันค้าง (Streak ยังไม่ CASH OUT · Scratch ยังไม่ขูด) | **ปิดแค่เดิมพันใหม่** · เดิมพันที่เริ่มแล้วเล่นต่อ / CASH OUT จนจบได้ (แบบเดียวกับ RATE-06) — ส่งต่อ module เดิมพัน (RH7) |
-| QS3 | log | ใช้ `account_change_logs` `UPDATE_GAMES` เดิม (เห็นในประวัติของบัญชี Superadmin) · ไม่ทำตาราง / เส้นดูประวัติแยก |
+| QS1 | ระบบมี Superadmin ได้หลายบัญชี (ไม่มี constraint · test env มี `superadmintester1` / `superadmintester2`) — สวิตช์ตั้งค่าของ Superadmin บัญชีไหน | ✅ ตอบ 2026-10-13: **ทุกบัญชี Superadmin ใน tx เดียว** (= ปิดทั้งระบบจริง) · lock เรียง `agent_id` · log 1 แถวต่อบัญชีที่ค่าเปลี่ยน · RE1 `status_game = true` เมื่อ Superadmin ทุกบัญชีเปิด · `changed: false` เมื่อทุกบัญชีเป็นค่านั้นอยู่แล้ว |
+| QS2 | ปิดเกมตอนที่มีเดิมพันค้าง (Streak ยังไม่ CASH OUT · Scratch ยังไม่ขูด) | ✅ ตอบ 2026-10-13: **ปิดแค่เดิมพันใหม่** · เดิมพันที่เริ่มแล้วเล่นต่อ / CASH OUT จนจบได้ (แบบเดียวกับ RATE-06) — ส่งต่อ module เดิมพัน (RH7) |
+| QS3 | log (⏳ รอ lead) | ใช้ `account_change_logs` `UPDATE_GAMES` เดิม (เห็นในประวัติของบัญชี Superadmin) · ไม่ทำตาราง / เส้นดูประวัติแยก |
 
 ### ส่งต่อ module เดิมพัน / engine (lead 7.3 — ไม่ต้องตัดสินตอนนี้)
 
