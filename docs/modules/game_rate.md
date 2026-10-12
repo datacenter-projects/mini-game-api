@@ -1,13 +1,13 @@
 # game_rate (อัตราแพ้ชนะ) — Spec
 
-- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ตัดสินครบ 2026-10-12 (Q2–Q8 · Q1 ทำทีหลัง) · implement C1–C8 เสร็จ รอ lead review** (branch `boiledegg/bo/game_rate-settings`)
+- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ตัดสินครบ 2026-10-12 (Q2–Q8) · Q1 สวิตช์ปิดเกม RE8 (lead ทบทวน 2026-10-13 · QS1–QS3) · implement C1–C9 เสร็จ รอ lead review** (branch `boiledegg/bo/game_rate-settings`)
   - RS1 ค่ากลางชุดเดียว Superadmin (+ sub ที่มีเมนู `rate`) ตั้ง · ไม่ไล่สาย ไม่มีค่าต่อบัญชี
   - RR1 ตัวคูณ / % เป็น float ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9 · แทน INT ×100 / bp) · RNG `0–999,999` · ตรวจสูตรด้วยเลขแม่นยำ (`big.Rat`)
   - RR2 house edge ≥ 1% ทุกจุดที่หยุดได้ · RR3 ตัวคูณ ≤ 1,000 · `win_percent > 0` · **`win_percent` ≤ 50 ทุกเกม (2026-10-12)**
   - RR4 `base_version` กันแก้ทับ (`406301`) · RR5 ค่าเท่าปัจจุบัน = 200 `created: false` · RR6 หยุดเกมด่วนด้วย `status_game`
   - RN1 path ใหม่ RE1–RE7 ทุกเส้น `POST` · RN2 เส้นตรวจค่า `detail/check` · RP1 boiledegg ทำ spec + โค้ด · ต้องเสร็จก่อน engine / module เดิมพัน
   - **Q7 (lead ตัดสิน 2026-10-12): RPS ไม่มีเสมอ** — ต่อขั้นมีแค่ `multiplier` + `win_percent` · แพ้ = 100 − ชนะ · สูตรเดียวกับ Coin (แทนตัวอย่าง "ชนะ 34 · เสมอ 30" ใน diagram)
-  - **ตัดสิน 2026-10-12 (ผ่าน boiledegg):** Q1 เส้นปิด `status_game` ของ Superadmin เอง ทำทีหลัง · Q2 `detail/check` ตอบ `valid` + `issues` · Q3 `max_win` = ค่าสูงสุดที่ house edge ≥ 1% · Q4 RE5 `changes` / `same_as_current` / `win_percent` · Q5 error ไม่มี `data` (ข้อมูลอยู่ใน `msg`) · Q6 **เพดาน `win_percent` 50 ทุกเกม** (เปลี่ยน 2026-10-12 · แทน ≤ 100) · Q8 ไม่มีอัตราชนะรวม — กล่องสรุปใช้ `min_house_edge_*` / `max_payout_percent`
+  - **ตัดสิน 2026-10-12 (ผ่าน boiledegg):** Q1 เส้นปิด `status_game` ของ Superadmin เอง ทำทีหลัง → **lead ทบทวน 2026-10-13: ทำเป็น RE8 สวิตช์ปิดเกมทั้งระบบ** (หัวข้อ 5.9) · Q2 `detail/check` ตอบ `valid` + `issues` · Q3 `max_win` = ค่าสูงสุดที่ house edge ≥ 1% · Q4 RE5 `changes` / `same_as_current` / `win_percent` · Q5 error ไม่มี `data` (ข้อมูลอยู่ใน `msg`) · Q6 **เพดาน `win_percent` 50 ทุกเกม** (เปลี่ยน 2026-10-12 · แทน ≤ 100) · Q8 ไม่มีอัตราชนะรวม — กล่องสรุปใช้ `min_house_edge_*` / `max_payout_percent`
 - ที่มาของ rule: diagram ของ lead (`Coin Flip Flow.html`, `Rock Paper Scissors Flow.html`, `Scratch Card Flow.html`) + คำตอบของ boiledegg 2026-10-08 + lead review 2026-10-12 · ไม่ได้อ้างโค้ดหรือเอกสารของโปรเจกต์เก่า
 - ชื่อ module ในโค้ด: `game_rate` (`controllers/` `dto/` `service/` `core/game_rate`) · รายชื่อเกม `core/game` · path `/api/v1/bo/pr/rate/...` · error module id `06` (ตรงกับเมนู ⑥)
 
@@ -44,7 +44,7 @@
 |---|---|
 | RATE-01 | ตั้งค่าแยกต่อเกม (ลำดับ `scratch_card`, `coin_toss`, `rock_paper_scissors` — 2026-10-12) · ชุดเดียวใช้กับ**ทุกยอดแทง** (ค่าเป็น "เท่า" ของยอดแทง) · **ชุดเดียวใช้กับทุกสกุลเงิน** (รีวิว 2026-10-08) · **ค่ากลางชุดเดียวทั้งระบบ** ไม่มีค่าต่อบัญชี (lead RS1) |
 | RATE-01A | **รายชื่อเกมอยู่ในโค้ด** `app/core/game` (รายการเดียวกับที่ `pt` / `status_game` ของ agent_management ใช้ — ย้ายจาก `core/agent_management`) · ตอนนี้ 3 เกม · เพิ่มเกมใหม่ = แก้โค้ดพร้อมเอนจิ้นของเกมนั้น · ไม่มีเส้นสร้างเกม · ปิดเกมรายบัญชีใช้ `status_game` ของ agent_management (`agents/detail/update`) · **รองรับเกมใหม่:** แต่ละเกมผูกกับ**รูปแบบอัตรา** (`core/game_rate` `gameSpecs`) — `steps` (ทายต่อเป็นขั้น · มีจำนวนขั้นของเกม · Coin / RPS) หรือ `prizes` (โอกาสชนะของใบ + ตารางรางวัล · Scratch) · เกมใหม่ที่ใช้รูปแบบเดิม = เพิ่มรหัสใน `core/game` + 1 บรรทัดใน `gameSpecs` ไม่ต้องแก้ API / ตาราง / service · รูปแบบใหม่ = เพิ่ม Kind + กฎ / สูตร (และตารางลูกถ้าโครงต่างกัน) · test บังคับว่าทุกเกมใน `core/game` มีรูปแบบอัตรา |
-| RATE-01B | **หยุดเกมด่วน** (lead RR6): ปิด `status_game` ของเกมนั้นที่ Superadmin → ทุกสายปิดตาม (MGMT-20 · เช็คทั้งสาย) · ใช้เป็นสวิตช์ฉุกเฉินแทนการแก้อัตรา · เขียนใน runbook (`docs/DEPLOYMENT.md`) · **สวิตช์ปิดเกมทั้งระบบ = RE8 `status/update` (lead Q1 ทบทวน 2026-10-13 — ข้อเสนอหัวข้อ 5.9 รอ lead อนุมัติ)** · ปิดแล้วเกมนั้นปิดทุกสาย (`status_game_effective = false`) · เปิดคืน = กลับไปตามค่าของแต่ละบัญชี (ไม่แก้ค่าของสายล่าง) |
+| RATE-01B | **หยุดเกมด่วน** (lead RR6): ปิด `status_game` ของเกมนั้นที่ Superadmin → ทุกสายปิดตาม (MGMT-20 · เช็คทั้งสาย) · ใช้เป็นสวิตช์ฉุกเฉินแทนการแก้อัตรา · เขียนใน runbook (`docs/DEPLOYMENT.md`) · **สวิตช์ปิดเกมทั้งระบบ = RE8 `status/update` (lead Q1 ทบทวน 2026-10-13 · QS1–QS3 — หัวข้อ 5.9)** · ปิดแล้วเกมนั้นปิดทุกสาย (`status_game_effective = false`) · เปิดคืน = กลับไปตามค่าของแต่ละบัญชี (ไม่แก้ค่าของสายล่าง) |
 | RATE-02 | **สิทธิ์ `rate` ทุกเส้น** (lead A5 · RS1): ดู = `rate` view · แก้ / ย้อน = `rate` edit · บัญชีหลักที่ได้เมนู `rate` มีแค่ Superadmin · Company / Share / Agent / ADMIN / sub ที่ไม่มีสิทธิ์ = `402303` · sub เรียกได้ตามสิทธิ์ (ไม่มี `402311`) · ลำดับ middleware: สิทธิ์ (`RequirePermission`) **ก่อน** passcode (`RequirePasscode`) |
 | RATE-03 | ตัวคูณ: JSON number **ทศนิยมไม่เกิน 4 ตำแหน่ง** (lead RR1 · กฎข้อ 9) · เก็บ `DOUBLE PRECISION` ค่าที่ปัด 4 ตำแหน่งแล้ว · **≥ 1 และ ≤ 1,000** (Coin / RPS) · **> 0 และ ≤ 1,000** (รางวัล Scratch) (lead RR3) |
 | RATE-04 | %: JSON number **ทศนิยมไม่เกิน 4 ตำแหน่ง** · เก็บ `DOUBLE PRECISION` · `win_percent` **> 0** และ **≤ 50 ทุกเกม** (lead RR3 · เพดาน 50 ตัดสิน 2026-10-12 · `MaxWinPercent` ใน `core/game_rate`) · RNG ของเอนจิ้นสุ่ม `0–999,999` (1 ค่า = 0.0001%) · การตรวจสูตร (RATE-07, RATE-32) ใช้**เลขแม่นยำ** (`big.Rat` จากค่าทศนิยม 4 ตำแหน่ง) ไม่ใช่ float (lead RR1) |
@@ -119,22 +119,22 @@ request ผ่าน `utils.ParseBodyNoNull` (ห้าม `null` · `422`) · �
 | RE5 | `/rate/versions/list` | `rate` view | รายการเวอร์ชันของ 1 เกม (log คนแก้) |
 | RE6 | `/rate/versions/detail/get` | `rate` view | ค่าของเวอร์ชันที่ระบุ |
 | RE7 | `/rate/versions/rollback` | `rate` edit + passcode | ย้อนไปใช้ค่าของเวอร์ชันที่ระบุ (= เวอร์ชันใหม่) |
-| RE8 | `/rate/status/update` | `rate` edit + passcode | **(ข้อเสนอ — รอ lead)** เปิด / ปิดเกมทั้งระบบ (สวิตช์ปิดปรับปรุงเกม — RATE-01B) |
+| RE8 | `/rate/status/update` | `rate` edit + passcode | เปิด / ปิดเกมทั้งระบบ (สวิตช์ปิดปรับปรุงเกม — RATE-01B) |
 
 ### 5.1 RE1 · POST /api/v1/bo/pr/rate/list
 
 Request: `{}` · Response `data`:
 ```json
 [
-  { "game_code": "scratch_card", "version": 1, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T09:00:00+07:00", "created_by": "superadmin1@staff" }
-  { "game_code": "coin_toss", "version": 3, "min_house_edge_percent": 5, "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1" },
-  { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "" },
+  { "game_code": "scratch_card", "version": 1, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T09:00:00+07:00", "created_by": "superadmin1@staff", "status_game": true },
+  { "game_code": "coin_toss", "version": 3, "min_house_edge_percent": 5, "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1", "status_game": false },
+  { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "", "status_game": true }
 ]
 ```
 - **ไม่แบ่งหน้า** — รายการคงที่ 1 แถวต่อเกม (ยกเว้น CLAUDE.md กฎข้อ 19 แบบเดียวกับ `agents/list` / `members/list` ที่ lead อนุมัติ)
 - เรียงตามรายชื่อเกมใน `core/game` · `min_house_edge_percent` = ค่าต่ำสุดในทุกขั้น (Scratch มีค่าเดียว) · `created_*` = ของเวอร์ชันปัจจุบัน
 - ยังไม่เคยตั้ง (RATE-09A): `version = 0` · ตัวเลข `0` · ข้อความ `""` — เกมนั้นยังเปิดให้เล่นไม่ได้
-- **(ข้อเสนอ RE8 — รอ lead)** เพิ่ม `"status_game": true` ทุกแถว = สถานะสวิตช์ของเกม (หัวข้อ 5.9) · เกมเล่นได้จริงเมื่อ `status_game = true` และ `version ≥ 1`
+- `status_game` ทุกแถว (RE8) = สถานะสวิตช์ของเกม (หัวข้อ 5.9) · เกมเล่นได้จริงเมื่อ `status_game = true` และ `version ≥ 1`
 
 Error: ร่วม
 
@@ -315,7 +315,7 @@ Response `data`: `{ "game_code": "coin_toss", "version": 4, "rollback_from": 2, 
 
 Error: `422`, `401204`, `401205`, `406101`, `406102`, `406301`, `406401`, `406402`
 
-### 5.9 RE8 · POST /api/v1/bo/pr/rate/status/update (ข้อเสนอ — lead Q1 ทบทวน 2026-10-13 · รอ lead อนุมัติก่อน implement)
+### 5.9 RE8 · POST /api/v1/bo/pr/rate/status/update (lead Q1 ทบทวน 2026-10-13 · QS1–QS3)
 
 สวิตช์ปิด / เปิดเกมทั้งระบบ (ปิดปรับปรุงเกม) · ตั้ง `agent_game_settings.status_game` ของ**ทุกบัญชี Superadmin** (QS1) · ไม่มีตารางใหม่ ไม่มี migration
 
@@ -416,9 +416,9 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | — | `game_code` ไม่มีในระบบ | `406401` |
 | RATE-01 | ส่ง `prizes` ให้ `coin_toss` · ส่ง `draw_percent` ให้ `coin_toss` / `rock_paper_scissors` | `422` |
 | core | `core/game_rate` table test: ตัวอย่าง diagram 5% · 13.36% · 22.75% · `max_win` ถูกตัดที่ 50 · ขอบ house edge 1% · RPS ใช้สูตร Coin | ตรงทุกค่า (`big.Rat` แล้ว Round4) |
-| RE8 (ข้อเสนอ) | Superadmin ปิด `coin_toss` · ส่งซ้ำ · เปิดคืน | `changed: true` + log `UPDATE_GAMES` · `changed: false` ไม่มี log · Company / Agent / Member ใต้สาย `status_game_effective.coin_toss = false` แล้วกลับเป็น `true` (บัญชีที่ปิดเองยัง `false`) · RE1 `status_game` ตาม |
-| RE8 (ข้อเสนอ) | Company / sub ไม่มี `rate` edit · ไม่ส่ง passcode · passcode ผิด · `game_code` ไม่มี · `status_game` เป็น `null` / ไม่ส่ง | `402303` · `422` · `401204` · `406401` · `422` |
-| RE8 (ข้อเสนอ) | sub ของ Superadmin มี `rate` edit ปิดเกม | สำเร็จ · log ผู้ทำ = `owner@name` · `actor_type = SUB` |
+| RE8 | Superadmin ปิด `coin_toss` · ส่งซ้ำ · เปิดคืน | `changed: true` + log `UPDATE_GAMES` · `changed: false` ไม่มี log · Company / Agent / Member ใต้สาย `status_game_effective.coin_toss = false` แล้วกลับเป็น `true` (บัญชีที่ปิดเองยัง `false`) · RE1 `status_game` ตาม |
+| RE8 | Company / sub ไม่มี `rate` edit · ไม่ส่ง passcode · passcode ผิด · `game_code` ไม่มี · `status_game` เป็น `null` / ไม่ส่ง | `402303` · `422` · `401204` · `406401` · `422` |
+| RE8 | sub ของ Superadmin มี `rate` edit ปิดเกม | สำเร็จ · log ผู้ทำ = `owner@name` · `actor_type = SUB` |
 
 ## 8. Error codes (`06`)
 
@@ -436,7 +436,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 
 | # | เรื่อง | ข้อเสนอ |
 |---|---|---|
-| Q1 | RR6 หยุดเกมด่วน: ตอนนี้**ไม่มีเส้นให้ Superadmin ปิด `status_game` ของตัวเอง** (`agents/detail/update` แก้ได้แค่ลูกตรง) | ⏳ 2026-10-12 ไม่เพิ่ม → **lead ทบทวน 2026-10-13: กลับมาทำ** สวิตช์ปิดเกมทั้งระบบ — ข้อเสนอ RE8 หัวข้อ 5.9 + คำถาม QS1–QS3 ด้านล่าง · รอ lead อนุมัติ |
+| Q1 | RR6 หยุดเกมด่วน: ตอนนี้**ไม่มีเส้นให้ Superadmin ปิด `status_game` ของตัวเอง** (`agents/detail/update` แก้ได้แค่ลูกตรง) | ✅ lead ทบทวน 2026-10-13: **กลับมาทำ** สวิตช์ปิดเกมทั้งระบบ — RE8 หัวข้อ 5.9 · QS1–QS3 ด้านล่าง · implement แล้ว |
 | Q2 | RE3 `detail/check` รูปแบบผลตรวจ | ✅ ตัดสิน 2026-10-12: รับตามที่เสนอ |
 | Q3 | `max_win_percent` นิยามใหม่ตาม RR2 = ค่าสูงสุดที่ยังได้ house edge ≥ 1% (เดิม = จุดคุ้มทุน 0%) | ✅ ตัดสิน 2026-10-12: รับตามที่เสนอ |
 | Q4 | หน้าบ้านขอ (12 ต.ค.): RE5 `versions/list` เพิ่มต่อแถว `same_as_current` (ปิดปุ่มย้อน — RATE-05C) · `win_percent` (Scratch เท่านั้น) · `changes` = สิ่งที่เปลี่ยนเทียบกับเวอร์ชันก่อนหน้า (เวอร์ชันแรก `[]`) — Coin / RPS `{ "type": "step", "step", "field", "from", "to" }` · Scratch `win_percent` / `prize_added` / `prize_removed` / `prize_share` จับคู่รางวัลด้วย `multiplier` | ✅ ตัดสิน 2026-10-12: รับตามที่เสนอ |
@@ -445,13 +445,13 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | Q7 | RPS ไม่มีเสมอ (คำขอหน้าบ้าน) | ✅ **lead ตัดสิน 2026-10-12: ตัดเสมอออก** — แก้หัวข้อ 2, RATE-20 – 23, 5.2, 5.4, 5.5, 6 (ไม่มีคอลัมน์ `draw_percent`), 7 แล้ว · เอนจิ้นต้องไม่มีผลเสมอ (RH5) |
 | Q8 | หน้าบ้านแจ้ง: ดีไซน์ Coin มีช่อง "อัตราชนะรวมของเกม" แต่ spec ตั้งแยกทีละขั้น | ✅ ตัดสิน 2026-10-12: ไม่มีอัตราชนะรวม (ตั้งทีละขั้น) · กล่องสรุปของหน้าบ้านใช้ค่าคำนวณ `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` และ `payout_percent` ต่อขั้น (เพิ่มใน RE2 / RE3) |
 
-### สวิตช์ปิดเกม RE8 — ขอ lead ตัดสิน (2026-10-13)
+### สวิตช์ปิดเกม RE8 — ตัดสินแล้ว 2026-10-13
 
-| # | คำถาม | ข้อเสนอ |
+| # | คำถาม | ตัดสิน |
 |---|---|---|
 | QS1 | ระบบมี Superadmin ได้หลายบัญชี (ไม่มี constraint · test env มี `superadmintester1` / `superadmintester2`) — สวิตช์ตั้งค่าของ Superadmin บัญชีไหน | ✅ ตอบ 2026-10-13: **ทุกบัญชี Superadmin ใน tx เดียว** (= ปิดทั้งระบบจริง) · lock เรียง `agent_id` · log 1 แถวต่อบัญชีที่ค่าเปลี่ยน · RE1 `status_game = true` เมื่อ Superadmin ทุกบัญชีเปิด · `changed: false` เมื่อทุกบัญชีเป็นค่านั้นอยู่แล้ว |
 | QS2 | ปิดเกมตอนที่มีเดิมพันค้าง (Streak ยังไม่ CASH OUT · Scratch ยังไม่ขูด) | ✅ ตอบ 2026-10-13: **ปิดแค่เดิมพันใหม่** · เดิมพันที่เริ่มแล้วเล่นต่อ / CASH OUT จนจบได้ (แบบเดียวกับ RATE-06) — ส่งต่อ module เดิมพัน (RH7) |
-| QS3 | log (⏳ รอ lead) | ใช้ `account_change_logs` `UPDATE_GAMES` เดิม (เห็นในประวัติของบัญชี Superadmin) · ไม่ทำตาราง / เส้นดูประวัติแยก |
+| QS3 | log | ✅ lead 2026-10-13: ใช้ `account_change_logs` `UPDATE_GAMES` เดิม (เห็นในประวัติของบัญชี Superadmin) · ไม่ทำตาราง / เส้นดูประวัติแยก |
 
 ### ส่งต่อ module เดิมพัน / engine (lead 7.3 — ไม่ต้องตัดสินตอนนี้)
 
@@ -465,7 +465,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RH6 | Streak (ตอบ 2026-10-12): Member เลือกตอนแทง (request มี field เช่น `streak: true/false` · หลังบ้านไม่มีที่ตั้ง) · ไม่เล่น Streak แล้วชนะขั้น 1 = จ่ายและปิดเดิมพันทันที · CASH OUT ได้ทุกขั้นหลังชนะ · ชนะขั้น 10 = CASH OUT อัตโนมัติ · แพ้ขั้นไหน = เสียยอดแทงตั้งต้นทั้งหมด ไม่ได้เงินสะสม · ค้างเกิน 1 วัน CASH OUT อัตโนมัติ จ่ายตามตัวคูณของขั้นล่าสุดที่ชนะ (นับ 1 วันจากเวลาที่ Member ทายครั้งล่าสุด) · `win_limit_per_day` ตรวจตอนทายแต่ละขั้น — ขั้นถัดไปจะทำให้เกินเพดาน = บังคับ CASH OUT ที่ขั้นปัจจุบัน (ขั้น 10 CASH OUT อัตโนมัติอยู่แล้ว) · PT / ค่าคอม คิดจากผลสุดท้ายของทั้ง Streak เป็น 1 เดิมพัน · **รอ lead:** "ชนะ" นับยอดจ่ายหรือกำไรสุทธิ · วันตัดรอบเวลาไหน · ขั้น 1 เกินเพดานตั้งแต่แรก · หักยอดแทงตอนเริ่มแล้วลงผลตอนจบไหม |
 | RH7 | สวิตช์ปิดเกม (RE8): ก่อนรับเดิมพันใหม่ต้องเช็ค `status_game` ทั้งสายของ Member (`core.IsGameOpen` — รวม Superadmin) · ปิด = ปฏิเสธเดิมพันใหม่ · เดิมพันค้างตาม QS2 |
 
-## 10. แผน implement (lead C1–C8 · branch `boiledegg/bo/game_rate-settings`) — ✅ เสร็จครบ 2026-10-12
+## 10. แผน implement (lead C1–C8 + C9 RE8 · branch `boiledegg/bo/game_rate-settings`) — ✅ เสร็จครบ 2026-10-12
 
 | ขั้น | งาน | ไฟล์ |
 |---|---|---|
@@ -477,5 +477,6 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | C6 | `CurrentVersionService` · `ByVersionIDService` + cache ใน memory ตาม `version_id` (หัวข้อ 5.8) | `app/service/game_rate/` |
 | C7 | integration test ตามหัวข้อ 7 + ยิง update พร้อมกัน 2 request (`406301`) · รัน `make test-integration` แนบผล | `app/internals/backoffice/game_rate_*_integration_test.go` |
 | C8 | เอกสารหน้าบ้าน (curl RE1 – RE7 · ค่าตัวอย่างให้ tester ตั้งบน dev / uat) · `MIGRATION_STATUS.md` · แจ้ง frontend | `docs/frontend/game_rate.md` |
+| C9 | RE8 สวิตช์ปิดเกมทั้งระบบ (lead Q1 ทบทวน 2026-10-13): DTO `StatusRequest` · service `SetGameStatusService` (lock แถวของทุก Superadmin `FOR UPDATE` · update เฉพาะที่ต่าง · log `UPDATE_GAMES`) · RE1 `status_game` · route `rateEdit` + passcode · integration test · เอกสารหน้าบ้าน | `app/service/game_rate/status_service.go` · `app/repository/postgres/game_rate/game_status_repository.go` · `game_rate_status_integration_test.go` |
 
 ลำดับ: C1 → C2 → C3 → C4 + C6 → C5 → C7 → C8 · PR เดียว (หรือแยก C1 ถ้าต้องการ merge ก่อน) · ก่อน merge เอา `dev` เข้า branch และเช็คเลข migration (lead MA6)

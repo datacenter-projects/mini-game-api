@@ -245,6 +245,24 @@ func (r *VersionRequest) Validate() error {
 	return nil
 }
 
+// StatusRequest — RE8 status/update (สวิตช์ปิดเกมทั้งระบบ — RATE-01B) · passcode ตรวจที่ middleware RequirePasscode
+type StatusRequest struct {
+	GameCode   string `json:"game_code"`
+	StatusGame *bool  `json:"status_game"`
+	Passcode   string `json:"passcode"`
+}
+
+// Validate — game_code → status_game
+func (r *StatusRequest) Validate() error {
+	if _, err := checkGame(r.GameCode); err != nil {
+		return err
+	}
+	if r.StatusGame == nil {
+		return invalid("status_game", "ต้องส่ง (true เปิด · false ปิด)", "is required (true = open · false = closed)")
+	}
+	return nil
+}
+
 // RollbackRequest — RE7 versions/rollback · passcode ตรวจที่ middleware RequirePasscode
 type RollbackRequest struct {
 	GameCode    string `json:"game_code"`

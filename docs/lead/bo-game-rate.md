@@ -1,4 +1,4 @@
-# Game_Rate (อัตราแพ้ชนะ · เมนู ⑥) — ทำตาม lead review (S1–S10 · C1–C8) · 2026-10-12
+# Game_Rate (อัตราแพ้ชนะ · เมนู ⑥) — ทำตาม lead review (S1–S10 · C1–C8) · 2026-10-12 · + C9 สวิตช์ปิดเกม RE8 · 2026-10-13
 
 จาก boiledegg · review: [docs/reviews/game-rate.md](../reviews/game-rate.md)
 branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3 commit เอกสาร · ไม่เอา commit test-infra เก่า · ลบ branch `boiledegg/bo/game-rate` แล้ว) ·
@@ -8,7 +8,7 @@ branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3
 
 | # | เรื่อง | ผล |
 |---|---|---|
-| Q1 | Superadmin ปิด `status_game` ของตัวเอง (RR6) | ทำทีหลัง · ระหว่างนี้ปิดที่ Company ทีละตัว |
+| Q1 | สวิตช์ปิดเกมทั้งระบบ (RR6) | **lead ทบทวน 2026-10-13: ทำ** → RE8 (C9) · QS1 ตั้งทุกบัญชี Superadmin · QS2 ปิดแค่เดิมพันใหม่ · QS3 log `account_change_logs` `UPDATE_GAMES` |
 | Q2 | `detail/check` | `200` + `valid` + `issues[]` ทุกจุดที่ผิด |
 | Q3 | `max_win_percent` | ค่าสูงสุดที่ยังได้ house edge ≥ 1% · **ปัดลง** 4 ตำแหน่ง (ค่าที่แสดงตั้งได้จริง) |
 | Q4 | RE5 | เพิ่ม `changes` (เทียบกับเวอร์ชันก่อน) · `same_as_current` · `win_percent` (Scratch) |
@@ -33,6 +33,7 @@ branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3
 | C6 | `CurrentVersionService` (version 0 = `ErrRateNotConfigured`) · `ByVersionIDService` + cache ใน memory |
 | C7 | integration test 7 ชุด: สิทธิ์ · รูปแบบ · กฎ · เวอร์ชัน / rollback / RE5 · rollback ตามกฎปัจจุบัน · ยิงพร้อมกัน (สำเร็จ 1 ที่เหลือ `406301` · รัน 5 รอบ) · ฟังก์ชันของ engine |
 | C8 | `docs/frontend/game_rate.md` (curl RE1–RE7 · error · ค่าตัวอย่างให้ tester · วิธีเกลี่ย %) · `MIGRATION_STATUS.md` |
+| C9 | RE8 `POST /bo/pr/rate/status/update` `{ game_code, status_game, passcode }` → `{ game_code, status_game, changed }` · `rate` edit + passcode · tx เดียว lock แถวของทุก Superadmin `FOR UPDATE` เรียง `agent_id` · update เฉพาะบัญชีที่ค่าต่าง · log `UPDATE_GAMES` 1 แถวต่อบัญชี · ค่าเดิม = `changed: false` ไม่มี log · ไม่แก้สายล่าง (ไหลลงผ่าน `IsGameOpen`) · RE1 เพิ่ม `status_game` · ไม่มี migration / error code ใหม่ · integration test 2 ชุด (สิทธิ์ / รูปแบบ · ปิด-ซ้ำ-เปิดคืน กับ Superadmin 2 บัญชี + sub) |
 
 ## 3. ผล test
 
@@ -42,10 +43,9 @@ branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3
 
 1. migrate RDS dev `20261012160000_game_rate` (ตารางใหม่ล้วน ไม่แตะข้อมูลเดิม)
 2. ระบบไม่มีค่าเริ่มต้น — Superadmin ต้องตั้งอัตราเองก่อนเปิดเกม (ค่าตัวอย่างใน `docs/frontend/game_rate.md` หัวข้อ 4)
-3. แจ้งหน้าบ้าน: เส้นใหม่ RE1–RE7 · เพดาน 50 · RPS ไม่มีเสมอ · `max_win_percent` ปัดลง · ล็อก / เกลี่ยเป็นฝั่งหน้าบ้าน
+3. แจ้งหน้าบ้าน: เส้นใหม่ RE1–RE8 (RE8 สวิตช์ปิดเกม · RE1 มี `status_game`) · เพดาน 50 · RPS ไม่มีเสมอ · `max_win_percent` ปัดลง · ล็อก / เกลี่ยเป็นฝั่งหน้าบ้าน
 
 ## 5. ส่งต่อ (ไม่บล็อก)
 
-- Q1 เส้นปิด `status_game` ของ Superadmin เอง (agent_management)
-- RH1–RH5 ไป module เดิมพัน / engine: เก็บ `rate_version_id` · ยอดแทง · หน้าเกมเห็นแค่ตัวคูณ · Scratch แบ่งรางวัล / CASH OUT อัตโนมัติ · RPS ไม่มีผลเสมอ
+- RH1–RH7 ไป module เดิมพัน / engine: เก็บ `rate_version_id` · ยอดแทง · หน้าเกมเห็นแค่ตัวคูณ · Scratch แบ่งรางวัล / CASH OUT อัตโนมัติ · RPS ไม่มีผลเสมอ · Streak (RH6) · เช็คสวิตช์ปิดเกมทั้งสายก่อนรับเดิมพันใหม่ (RH7)
 - RE3 `issues[].message` เป็นภาษาไทยอย่างเดียว

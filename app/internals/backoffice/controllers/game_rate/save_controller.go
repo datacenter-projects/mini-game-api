@@ -23,6 +23,19 @@ func UpdateRateController(c *fiber.Ctx) error {
 	return response.OK(c, res)
 }
 
+// SetGameStatusController — RE8 POST /api/v1/bo/pr/rate/status/update (+ passcode)
+func SetGameStatusController(c *fiber.Ctx) error {
+	var req gameRateDto.StatusRequest
+	if err := utils.ParseBodyNoNull(c, &req); err != nil {
+		return response.Error(c, err)
+	}
+	res, err := gameRateService.SetGameStatusService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c))
+	if err != nil {
+		return response.Error(c, err)
+	}
+	return response.OK(c, res)
+}
+
 // RollbackRateController — RE7 POST /api/v1/bo/pr/rate/versions/rollback (+ passcode)
 func RollbackRateController(c *fiber.Ctx) error {
 	var req gameRateDto.RollbackRequest

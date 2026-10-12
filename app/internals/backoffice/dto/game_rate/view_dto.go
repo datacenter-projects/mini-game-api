@@ -10,6 +10,14 @@ type ListRow struct {
 	MinHouseEdgePercent float64 `json:"min_house_edge_percent"`
 	CreatedAt           string  `json:"created_at"`
 	CreatedBy           string  `json:"created_by"`
+	StatusGame          bool    `json:"status_game"` // สวิตช์ของเกม (RE8) · true = Superadmin ทุกบัญชีเปิด
+}
+
+// StatusResponse — RE8 · changed false = ทุกบัญชี Superadmin เป็นค่านั้นอยู่แล้ว (ไม่เขียน log)
+type StatusResponse struct {
+	GameCode   string `json:"game_code"`
+	StatusGame bool   `json:"status_game"`
+	Changed    bool   `json:"changed"`
 }
 
 // StepView — 1 ขั้นพร้อมค่าที่คำนวณ (รูปแบบ steps)

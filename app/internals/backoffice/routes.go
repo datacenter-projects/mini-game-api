@@ -93,4 +93,5 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/rate/versions/list", mw.PassedGates(), rateView, gameRateController.ListVersionsController)
 	pr.Post("/rate/versions/detail/get", mw.PassedGates(), rateView, gameRateController.GetVersionController)
 	pr.Post("/rate/versions/rollback", mw.PassedGates(), rateEdit, mw.RequirePasscode(), gameRateController.RollbackRateController)
+	pr.Post("/rate/status/update", mw.PassedGates(), rateEdit, mw.RequirePasscode(), gameRateController.SetGameStatusController)
 }

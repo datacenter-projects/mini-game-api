@@ -28,6 +28,7 @@ spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** 
 | RE5 | `/api/v1/bo/pr/rate/versions/list` | การ์ดประวัติ | `rate` view |
 | RE6 | `/api/v1/bo/pr/rate/versions/detail/get` | ดูค่าของเวอร์ชันเก่า | `rate` view |
 | RE7 | `/api/v1/bo/pr/rate/versions/rollback` | ย้อนไปใช้ค่าเวอร์ชันเก่า (+ passcode) | `rate` edit |
+| RE8 | `/api/v1/bo/pr/rate/status/update` | เปิด / ปิดเกมทั้งระบบ (ปิดปรับปรุง · + passcode) | `rate` edit |
 
 **error ที่เกิดได้กับทุกเส้น:** `401202`, `401203`, `401301`, `401302`, `401312` → หน้า login · `401304`, `401306`, `401307` → ด่านหลัง login · `401311` บัญชีถูกระงับ · `402303` ไม่มีสิทธิ์
 
@@ -46,9 +47,9 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/list" -H "Authorization: Bearer {{TOK
   "code": 200,
   "msg": "สำเร็จ",
   "data": [
-    { "game_code": "scratch_card", "version": 2, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin" },
-    { "game_code": "coin_toss", "version": 1, "min_house_edge_percent": 5, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin" },
-    { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "" }
+    { "game_code": "scratch_card", "version": 2, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin", "status_game": true },
+    { "game_code": "coin_toss", "version": 1, "min_house_edge_percent": 5, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin", "status_game": false },
+    { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "", "status_game": true }
   ]
 }
 ```
@@ -58,6 +59,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/list" -H "Authorization: Bearer {{TOK
 | `version` | เวอร์ชันปัจจุบัน · `0` = ยังไม่เคยตั้ง (เกมเปิดเล่นไม่ได้) |
 | `min_house_edge_percent` | ร้านได้ต่ำสุดของเวอร์ชันปัจจุบัน (Coin / RPS = ขั้นที่น้อยสุด · Scratch = ทั้งใบ) |
 | `created_at` / `created_by` | เวลา / คนบันทึกเวอร์ชันปัจจุบัน · ยังไม่เคยตั้ง = `""` |
+| `status_game` | สวิตช์ของเกม (RE8) · `false` = ปิดปรับปรุงทั้งระบบ · เกมเล่นได้จริงเมื่อ `status_game = true` และ `version ≥ 1` |
 
 - ไม่แบ่งหน้า (1 แถวต่อเกม) · เรียงตามลำดับเกมด้านบน
 
@@ -374,6 +376,36 @@ Error: `422`, `406401`, `406402` (ไม่พบเวอร์ชันนี�
 - เวอร์ชันเก่าที่ไม่ผ่านกฎปัจจุบัน: ร้านได้ < 1% = `406101` · ผิดรูปแบบ (เช่น `win_percent` > 50) = `422`
 
 Error: `422`, `401204`, `401205`, `406101`, `406102`, `406301`, `406401`, `406402`
+
+### RE8 · เปิด / ปิดเกมทั้งระบบ — `rate/status/update` (เพิ่ม 13 ต.ค.)
+
+สวิตช์ปิดปรับปรุงเกม · ปิดแล้ว**ทุกสายเล่นเกมนั้นไม่ได้** (เดิมพันใหม่ · เดิมพันที่ค้างอยู่เล่นต่อจนจบได้) · เปิดคืน = แต่ละบัญชีกลับไปตามค่าที่ตั้งไว้เอง (บัญชีที่ถูกปิดใน `agents/detail/update` ยังปิด)
+
+**Request**
+```bash
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/status/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
+  -d '{"game_code":"coin_toss","status_game":false,"passcode":"123456"}'
+```
+
+| field | กติกา |
+|---|---|
+| `game_code` | ต้องส่ง · ไม่มีเกมนี้ = `406401` |
+| `status_game` | ต้องส่ง · boolean (`true` เปิด · `false` ปิด) · ไม่ส่ง / `null` = `422` |
+| `passcode` | ต้องส่ง (ไม่ส่ง `422` · ผิด `401204` · ครบ 5 ครั้ง `401205`) |
+
+**Response**
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "coin_toss", "status_game": false, "changed": true } }
+```
+ส่งค่าเดิมซ้ำ (ปิดอยู่แล้ว):
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "coin_toss", "status_game": false, "changed": false } }
+```
+- `changed: false` = ไม่มีอะไรเปลี่ยน (ไม่บันทึกประวัติ)
+- หลังสำเร็จให้โหลด RE1 ใหม่ (`status_game` ของเกมนั้นเปลี่ยน) · `agents/detail/get` ของทุกบัญชีจะเห็น `status_game_effective` ของเกมนั้นเป็น `false`
+- ประวัติการเปิด / ปิดอยู่ในประวัติการแก้ไขของบัญชี Superadmin (`UPDATE_GAMES`)
+
+Error: `422`, `401204`, `401205`, `402303`, `406401`
 
 ## 3. Error codes
 

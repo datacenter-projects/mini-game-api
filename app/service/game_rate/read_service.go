@@ -29,13 +29,21 @@ func ListRatesService(ctx context.Context) ([]gameRateDto.ListRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	closed, err := gameRatePostgres.ListClosedGamesRepository(db) // สวิตช์ปิดเกม (RE8)
+	if err != nil {
+		return nil, err
+	}
+	isClosed := make(map[string]bool, len(closed))
+	for _, code := range closed {
+		isClosed[code] = true
+	}
 	byCode := make(map[string]models.GameRateVersion, len(latest))
 	for _, v := range latest {
 		byCode[v.GameCode] = v
 	}
 	out := make([]gameRateDto.ListRow, len(codes))
 	for i, code := range codes {
-		row := gameRateDto.ListRow{GameCode: code}
+		row := gameRateDto.ListRow{GameCode: code, StatusGame: !isClosed[code]}
 		if v, ok := byCode[code]; ok {
 			row.Version, row.MinHouseEdgePercent = v.Version, minHouseEdge(rates[v.ID])
 			row.CreatedAt, row.CreatedBy = formatTime(v.CreatedAt), v.CreatedBy
