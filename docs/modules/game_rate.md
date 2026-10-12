@@ -1,6 +1,6 @@
 # game_rate (อัตราแพ้ชนะ) — Spec
 
-- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ตัดสินครบ 2026-10-12 (Q2–Q8 · Q1 ทำทีหลัง) · พร้อม implement** (branch `boiledegg/bo/game_rate-settings`)
+- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ตัดสินครบ 2026-10-12 (Q2–Q8 · Q1 ทำทีหลัง) · implement C1–C8 เสร็จ รอ lead review** (branch `boiledegg/bo/game_rate-settings`)
   - RS1 ค่ากลางชุดเดียว Superadmin (+ sub ที่มีเมนู `rate`) ตั้ง · ไม่ไล่สาย ไม่มีค่าต่อบัญชี
   - RR1 ตัวคูณ / % เป็น float ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9 · แทน INT ×100 / bp) · RNG `0–999,999` · ตรวจสูตรด้วยเลขแม่นยำ (`big.Rat`)
   - RR2 house edge ≥ 1% ทุกจุดที่หยุดได้ · RR3 ตัวคูณ ≤ 1,000 · `win_percent > 0` · **`win_percent` ≤ 50 ทุกเกม (2026-10-12)**
@@ -419,7 +419,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RH4 | Scratch ตรง 2 ช่อง แบ่งครึ่ง "ช่องแรกปัดลง" → ปัดที่ 4 ตำแหน่ง (`Round4`) · Streak ค้างเกิน 1 วัน CASH OUT อัตโนมัติ / Scratch ไม่ขูดเกิน 1 วันเปิดอัตโนมัติ (เดิม RATE-09C) — job ของ engine |
 | RH5 | RPS ไม่มีผลเสมอ (lead Q7 2026-10-12) — เอนจิ้นสุ่มแค่ชนะ / แพ้ตาม `win_percent` ของขั้น · หน้าเกมไม่ต้องแสดงผลเสมอ |
 
-## 10. แผน implement (lead C1–C8 · branch `boiledegg/bo/game_rate-settings`)
+## 10. แผน implement (lead C1–C8 · branch `boiledegg/bo/game_rate-settings`) — ✅ เสร็จครบ 2026-10-12
 
 | ขั้น | งาน | ไฟล์ |
 |---|---|---|

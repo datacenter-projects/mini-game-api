@@ -1,6 +1,6 @@
 # API หลังบ้าน — อัตราแพ้ชนะ (`game_rate` · เมนู ⑥) — 12 ต.ค. 2026
 
-spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** (กำลังทำใน branch `boiledegg/bo/game_rate-settings`) · ผู้ดูแล: boiledegg ·
+spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** (ทำเสร็จใน branch `boiledegg/bo/game_rate-settings` · รอ lead review) · ผู้ดูแล: boiledegg ·
 พื้นฐาน (base URL · header · รูปแบบ response · ห้าม `null` · Postman) ดู [agent_management.md](agent_management.md) หัวข้อ 1 · login / ด่านหลัง login ดู [auth.md](auth.md)
 
 ## 1. ภาพรวม
@@ -13,6 +13,7 @@ spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** 
 - **ค่าที่คำนวณ backend ส่งให้ทั้งหมด** (ไม่ต้องเขียนสูตรเอง): `reach_percent` · `payout_percent` · `house_edge_percent` · `max_win_percent` (ต่อขั้น) · `min_house_edge_percent` · `min_house_edge_step` · `max_payout_percent` (สรุป) · Scratch `avg_multiplier` · `per_ticket_percent` · `payout_percent` · `house_edge_percent` · `max_win_percent`
 - ทุกการบันทึกที่ค่าเปลี่ยน = **เวอร์ชันใหม่** (ค่าเดิมทั้งชุด = `created: false` ไม่สร้างเวอร์ชัน) · ค่าใหม่มีผลกับเดิมพันใหม่เท่านั้น · เกมที่ยังไม่เคยตั้ง = `version: 0` (เปิดเล่นไม่ได้)
 - บันทึก / ย้อนต้องส่ง `passcode` และ `base_version` (เวอร์ชันที่หน้าจอโหลดมา) · มีคนบันทึกตัดหน้า = `406301` (msg บอกเวอร์ชันล่าสุดและคนแก้ → ให้โหลดใหม่)
+- ตัวเลขต้องเป็น JSON number (ส่งเป็นข้อความ เช่น `"50"` = code `400`) · `max_win_percent` = ค่าสูงสุดที่ตั้งได้จริง (ปัดลง 4 ตำแหน่ง · ไม่เกิน 50) กรอกค่านั้นแล้วบันทึกผ่านแน่นอน- RE3 `issues[].message` เป็นภาษาไทย · `changes[].from` / `to` เป็น `null` ได้ (รางวัลที่เพิ่ม / ลบ) — นอกนั้นไม่มี `null`
 
 | # | Path (`POST` ทุกเส้น) | ใช้เมื่อ | สิทธิ์ |
 |---|---|---|---|
