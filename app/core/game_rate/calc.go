@@ -13,6 +13,7 @@ var (
 	ratHundred     = big.NewRat(100, 1)
 	ratMinEdge     = big.NewRat(1, 100) // 1% ในรูปสัดส่วน (lead RR2)
 	ratMaxPayout   = big.NewRat(99, 100)
+	ratMaxWin      = big.NewRat(int64(MaxWinPercent), 1) // เพดาน win_percent เป็น %
 	ratTenThousand = big.NewInt(10000)
 )
 
@@ -78,7 +79,7 @@ type RuleIssue struct {
 
 // ComputeSteps — Coin / RPS (RATE-13 · RATE-22 — สูตรเดียวกัน) · ทุกขั้นต้องได้ house edge ≥ 1% (RATE-07)
 // reach_n = Π win_i · payout_n = reach_n × multiplier_n · house_edge_n = 100% − payout_n
-// max_win_n = 99% ÷ (reach_{n−1} × multiplier_n) ไม่เกิน 100 · คืน issue ทุกขั้นที่ไม่ผ่าน (RE3 แสดงครบ)
+// max_win_n = 99% ÷ (reach_{n−1} × multiplier_n) ไม่เกิน 50 (เพดาน win_percent) · คืน issue ทุกขั้นที่ไม่ผ่าน (RE3 แสดงครบ)
 func ComputeSteps(steps []Step) ([]StepResult, StepsSummary, []RuleIssue) {
 	out := make([]StepResult, len(steps))
 	var issues []RuleIssue
@@ -91,8 +92,8 @@ func ComputeSteps(steps []Step) ([]StepResult, StepsSummary, []RuleIssue) {
 		payout := new(big.Rat).Mul(reach, mult)
 		edge := new(big.Rat).Sub(ratOne, payout)
 		maxWin := percentOf(new(big.Rat).Quo(ratMaxPayout, new(big.Rat).Mul(reachPrev, mult)))
-		if maxWin.Cmp(ratHundred) > 0 {
-			maxWin = new(big.Rat).Set(ratHundred)
+		if maxWin.Cmp(ratMaxWin) > 0 { // ไม่เกินเพดาน win_percent (50)
+			maxWin = new(big.Rat).Set(ratMaxWin)
 		}
 		out[i] = StepResult{Step: i + 1, Multiplier: s.Multiplier, WinPercent: s.WinPercent,
 			ReachPercent: round4(percentOf(reach)), PayoutPercent: round4(percentOf(payout)),
@@ -131,7 +132,7 @@ type ScratchResult struct {
 	MaxWinPercent    float64
 }
 
-// ComputeScratch — A = Σ(multiplier × share ÷ 100) · P = W × A · house_edge = 100% − P ≥ 1% · max_win = 99% ÷ A
+// ComputeScratch — A = Σ(multiplier × share ÷ 100) · P = W × A · house_edge = 100% − P ≥ 1% · max_win = 99% ÷ A ไม่เกิน 50
 // share รวมต้อง = 100 พอดี (RATE-32 · ตรวจก่อน house edge) · คืน issue ทุกข้อที่ไม่ผ่าน
 func ComputeScratch(s Scratch) (ScratchResult, []RuleIssue) {
 	res := ScratchResult{WinPercent: s.WinPercent, Prizes: make([]PrizeResult, len(s.Prizes))}
@@ -156,8 +157,8 @@ func ComputeScratch(s Scratch) (ScratchResult, []RuleIssue) {
 	res.HouseEdgePercent = round4(percentOf(edge))
 	if avg.Sign() > 0 {
 		maxWin := percentOf(new(big.Rat).Quo(ratMaxPayout, avg))
-		if maxWin.Cmp(ratHundred) > 0 {
-			maxWin = new(big.Rat).Set(ratHundred)
+		if maxWin.Cmp(ratMaxWin) > 0 { // ไม่เกินเพดาน win_percent (50)
+			maxWin = new(big.Rat).Set(ratMaxWin)
 		}
 		res.MaxWinPercent = floor4(maxWin)
 	}

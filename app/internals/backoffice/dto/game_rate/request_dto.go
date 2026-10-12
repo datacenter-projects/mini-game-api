@@ -160,7 +160,8 @@ func formatError(is *gameRateCore.FormatIssue, array string, stepCount int) erro
 	case gameRateCore.ReasonMultiplierOrder:
 		return invalid(field, "ต้องมากกว่าตัวคูณของขั้นก่อนหน้า", "must be greater than the previous step's multiplier")
 	case gameRateCore.ReasonWinRange:
-		return invalid(field, "ต้องมากกว่า 0 และไม่เกิน 100", "must be greater than 0 and at most 100")
+		m := utils.FormatNum(gameRateCore.MaxWinPercent)
+		return invalid(field, "ต้องมากกว่า 0 และไม่เกิน "+m, "must be greater than 0 and at most "+m)
 	case gameRateCore.ReasonPrizeCount:
 		return invalid(field, fmt.Sprintf("ต้องมี %d–%d แถว", gameRateCore.MinPrizes, gameRateCore.MaxPrizes),
 			fmt.Sprintf("must have %d–%d rows", gameRateCore.MinPrizes, gameRateCore.MaxPrizes))

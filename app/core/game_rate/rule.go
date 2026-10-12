@@ -37,7 +37,8 @@ func SpecOf(gameCode string) (GameSpec, bool) {
 const (
 	MinMultiplierStep   = 1.0    // ตัวคูณขั้นต่ำของรูปแบบ steps (RATE-11)
 	MaxMultiplier       = 1000.0 // เพดานตัวคูณทุกเกม (lead RR3)
-	MaxPercent          = 100.0  // win_percent / share_percent สูงสุด
+	MaxPercent          = 100.0  // share_percent สูงสุด
+	MaxWinPercent       = 50.0   // win_percent สูงสุดทุกเกม (2026-10-12 · แทน 100)
 	MinHouseEdgePercent = 1.0    // ร้านต้องได้อย่างน้อยทุกจุดที่หยุดได้ (lead RR2 · RATE-07)
 	MinPrizes           = 1      // แถวรางวัล Scratch (RATE-31)
 	MaxPrizes           = 10
@@ -68,7 +69,7 @@ const (
 	ReasonStepCount       FormatReason = "step_count"       // ไม่ครบ 10 ขั้น
 	ReasonMultiplierRange FormatReason = "multiplier_range" // Coin / RPS: 1–1,000 · รางวัล: > 0 และ ≤ 1,000
 	ReasonMultiplierOrder FormatReason = "multiplier_order" // ต้องมากกว่าขั้นก่อนหน้า
-	ReasonWinRange        FormatReason = "win_range"        // > 0 และ ≤ 100
+	ReasonWinRange        FormatReason = "win_range"        // > 0 และ ≤ 50 (MaxWinPercent)
 	ReasonPrizeCount      FormatReason = "prize_count"      // 1–10 แถว
 	ReasonShareRange      FormatReason = "share_range"      // > 0 และ ≤ 100
 	ReasonPrizeDuplicate  FormatReason = "prize_duplicate"  // ตัวคูณซ้ำ
@@ -93,7 +94,7 @@ func CheckStepsFormat(steps []Step, stepCount int) *FormatIssue {
 		if i > 0 && s.Multiplier <= steps[i-1].Multiplier {
 			return &FormatIssue{"multiplier", i, ReasonMultiplierOrder}
 		}
-		if s.WinPercent <= 0 || s.WinPercent > MaxPercent {
+		if s.WinPercent <= 0 || s.WinPercent > MaxWinPercent {
 			return &FormatIssue{"win_percent", i, ReasonWinRange}
 		}
 	}
@@ -102,7 +103,7 @@ func CheckStepsFormat(steps []Step, stepCount int) *FormatIssue {
 
 // CheckScratchFormat — Scratch Card (RATE-30 · RATE-31) · win_percent ก่อน แล้วไล่แถวรางวัล
 func CheckScratchFormat(s Scratch) *FormatIssue {
-	if s.WinPercent <= 0 || s.WinPercent > MaxPercent {
+	if s.WinPercent <= 0 || s.WinPercent > MaxWinPercent {
 		return &FormatIssue{"win_percent", -1, ReasonWinRange}
 	}
 	if len(s.Prizes) < MinPrizes || len(s.Prizes) > MaxPrizes {

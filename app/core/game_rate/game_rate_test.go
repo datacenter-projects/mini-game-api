@@ -42,13 +42,13 @@ func TestComputeStepsDiagram(t *testing.T) { // RATE-13 / RATE-22 · ตัว�
 		t.Fatalf("ชุดตัวอย่างต้องผ่าน ได้ %+v", issues)
 	}
 	want := []StepResult{
-		{1, 1.9, 50, 50, 95, 5, 52.1052},         // max_win = 99 ÷ 1.9 = 52.10526… ปัดลง
-		{2, 3.61, 48, 24, 86.64, 13.36, 54.8476}, // reach = 50% × 48% · edge = 100 − 24 × 3.61
+		{1, 1.9, 50, 50, 95, 5, 50},         // max_win = 99 ÷ 1.9 = 52.105… เกินเพดาน → 50
+		{2, 3.61, 48, 24, 86.64, 13.36, 50}, // reach = 50% × 48% · edge = 100 − 24 × 3.61
 	}
 	if !reflect.DeepEqual(res[:2], want) {
 		t.Fatalf("ขั้น 1–2 = %+v\nwant %+v", res[:2], want)
 	}
-	if res[9].MaxWinPercent != 100 { // เพดาน 100
+	if res[9].MaxWinPercent != 50 { // เพดาน win_percent 50 (MaxWinPercent)
 		t.Fatalf("ขั้น 10 max_win %v", res[9].MaxWinPercent)
 	}
 	if sum != (StepsSummary{MinHouseEdgePercent: 5, MinHouseEdgeStep: 1, MaxPayoutPercent: 95}) {
@@ -65,8 +65,8 @@ func TestComputeStepsHouseEdgeBoundary(t *testing.T) { // RATE-07 · lead RR2: �
 	}{
 		{"edge = 1% พอดี", Step{1.98, 50}, true},
 		{"edge 0.99998%", Step{1.98, 50.0001}, false},
-		{"ค่าที่ max_win บอก (ปัดลง) ตั้งได้จริง", Step{1.9, 52.1052}, true},
-		{"สูงกว่า max_win 0.0001 ไม่ผ่าน", Step{1.9, 52.1053}, false},
+		{"ค่าที่ max_win บอก (ปัดลง 49.7487) ตั้งได้จริง", Step{1.99, 49.7487}, true},
+		{"สูงกว่า max_win 0.0001 ไม่ผ่าน", Step{1.99, 49.7488}, false},
 	}
 	for _, tt := range tests {
 		s := append([]Step{tt.step1}, steps[1:]...)
@@ -89,14 +89,14 @@ func TestComputeStepsHouseEdgeBoundary(t *testing.T) { // RATE-07 · lead RR2: �
 
 func TestComputeStepsAllIssuesReported(t *testing.T) { // RE3 แสดงทุกขั้นที่ผิด · สรุปชี้ขั้นที่ร้านได้น้อยสุด
 	s := diagramSteps()
-	s[2].WinPercent = 61 // ขั้น 3 เกิน max_win (60.1399…)
+	s[2].WinPercent = 61 // ขั้น 3 เกิน max_win (สูตร 60.1399… · แสดง 50 ตามเพดาน)
 	s[4].WinPercent = 90 // ขั้น 5
 	_, sum, issues := ComputeSteps(s)
 	// ขั้น 6 ไม่ผ่านตามด้วย เพราะโอกาสถึงขั้น 6 สูงขึ้นจากขั้น 3 / 5 (reach สะสม)
 	if len(issues) != 3 || issues[0].Index != 2 || issues[1].Index != 4 || issues[2].Index != 5 {
 		t.Fatalf("issues %+v", issues)
 	}
-	if issues[0].MaxWinPercent != 60.1399 {
+	if issues[0].MaxWinPercent != 50 {
 		t.Fatalf("ขั้น 3 max_win %v", issues[0].MaxWinPercent)
 	}
 	if sum != (StepsSummary{MinHouseEdgePercent: -43.5504, MinHouseEdgeStep: 5, MaxPayoutPercent: 143.5504}) { // ขั้น 5 ร้านขาดทุนมากสุด
@@ -109,7 +109,7 @@ func TestComputeScratchDiagram(t *testing.T) { // RATE-33 / 34 · ตัวอ�
 	if len(issues) != 0 {
 		t.Fatalf("issues %+v", issues)
 	}
-	if res.AvgMultiplier != 1.545 || res.PayoutPercent != 77.25 || res.HouseEdgePercent != 22.75 || res.MaxWinPercent != 64.0776 {
+	if res.AvgMultiplier != 1.545 || res.PayoutPercent != 77.25 || res.HouseEdgePercent != 22.75 || res.MaxWinPercent != 50 { // สูตร 99 ÷ 1.545 = 64.0776 เกินเพดาน → 50
 		t.Fatalf("result %+v", res)
 	}
 	wantPer := []float64{17.5, 17.5, 9, 5, 1}
@@ -127,7 +127,7 @@ func TestComputeScratchIssues(t *testing.T) { // RATE-32 / RATE-33
 		codes []RuleCode
 	}{
 		{"W 65 ร้านขาดทุน", func(s *Scratch) { s.WinPercent = 65 }, []RuleCode{RuleHouseEdge}},
-		{"W 64.0776 ตั้งได้ (max_win)", func(s *Scratch) { s.WinPercent = 64.0776 }, nil},
+		{"W 64.0776 = house edge 1% พอดี (ช่วงตรวจที่ DTO)", func(s *Scratch) { s.WinPercent = 64.0776 }, nil},
 		{"W 64.0777 เกิน", func(s *Scratch) { s.WinPercent = 64.0777 }, []RuleCode{RuleHouseEdge}},
 		{"share รวม 99.5", func(s *Scratch) { s.Prizes[0].SharePercent = 34.5 }, []RuleCode{RuleShareSum}},
 		{"share รวม 100.0001", func(s *Scratch) { s.Prizes[0].SharePercent = 35.0001 }, []RuleCode{RuleShareSum}},
@@ -160,7 +160,7 @@ func TestCheckStepsFormat(t *testing.T) { // RATE-10 / 11 / 20 / 21 · lead RR3
 		{"ตัวคูณ 1,000 พอดี", func(s []Step) []Step { s[9].Multiplier = 1000; return s }, nil},
 		{"ตัวคูณขั้น 4 ≤ ขั้น 3", func(s []Step) []Step { s[3].Multiplier = 6.859; return s }, &FormatIssue{"multiplier", 3, ReasonMultiplierOrder}},
 		{"win 0", func(s []Step) []Step { s[1].WinPercent = 0; return s }, &FormatIssue{"win_percent", 1, ReasonWinRange}},
-		{"win 100.0001", func(s []Step) []Step { s[1].WinPercent = 100.0001; return s }, &FormatIssue{"win_percent", 1, ReasonWinRange}},
+		{"win 50.0001 (เพดาน 50)", func(s []Step) []Step { s[1].WinPercent = 50.0001; return s }, &FormatIssue{"win_percent", 1, ReasonWinRange}},
 		{"ผิดหลายจุด ได้ตัวแรก", func(s []Step) []Step { s[5].WinPercent = 0; s[2].Multiplier = 0; return s }, &FormatIssue{"multiplier", 2, ReasonMultiplierRange}},
 	}
 	for _, tt := range tests {
@@ -183,6 +183,8 @@ func TestCheckScratchFormat(t *testing.T) { // RATE-30 / 31
 	}{
 		{"ผ่าน", func(s *Scratch) {}, nil},
 		{"win 0", func(s *Scratch) { s.WinPercent = 0 }, &FormatIssue{"win_percent", -1, ReasonWinRange}},
+		{"win 50.0001 (เพดาน 50)", func(s *Scratch) { s.WinPercent = 50.0001 }, &FormatIssue{"win_percent", -1, ReasonWinRange}},
+		{"win 50 พอดี", func(s *Scratch) { s.WinPercent = 50 }, nil},
 		{"0 แถว", func(s *Scratch) { s.Prizes = nil }, &FormatIssue{"prizes", -1, ReasonPrizeCount}},
 		{"11 แถว", func(s *Scratch) { s.Prizes = many }, &FormatIssue{"prizes", -1, ReasonPrizeCount}},
 		{"รางวัล 0 เท่า", func(s *Scratch) { s.Prizes[1].Multiplier = 0 }, &FormatIssue{"multiplier", 1, ReasonMultiplierRange}},
