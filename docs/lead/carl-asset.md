@@ -6,7 +6,7 @@
 |---|---|
 | branch | `carl/asset` (แตกจาก `dev` @ `65300f1`) · merge `dev` แล้ว (ล่าสุด `0c9f595`) |
 | spec | `docs/modules/asset.md` — **DRAFT** · lead ตรวจรอบ 1 แล้ว (ฉบับ `f19a511` → **เริ่มโค้ดได้**) · **แก้ตาม AV1–AV4 + ตาราง GE แล้ว** (rule `AST-01`–`AST-61`) · รอ lead รับทราบฉบับแก้ |
-| code | **implement แล้ว (MVP)** — 16 เส้น BO (GN1–14, GN16, GN22) · ยังไม่ commit · เส้นผู้เล่น (GN23) รอ Player Auth |
+| code | **implement แล้ว (MVP)** — 16 เส้น BO (GN1–14, GN16, GN22) · commit แล้ว (`5669728` · push `origin/carl/asset`) · เส้นผู้เล่น (GN23) รอ Player Auth |
 | merge | ยังไม่ merge เข้า `dev` · ต้องแยก branch ใหม่จาก `dev` ล่าสุดตาม S13 (ผู้ใช้จัดการ git) |
 | test | `make check` ผ่าน · integration test ของ asset ผ่านบน test env ในเครื่อง (Postgres 18 + miniredis · `-race` ผ่าน) · ทั้ง suite ผ่าน · ผลที่ยืนยันจริงคือ CI (Postgres 17 + Redis 7) |
 
@@ -19,7 +19,9 @@
 | spec — แก้ตามรอบตรวจ 1 (AV1–AV4 · GE) | ✅ | Share Master ใช้ของ CSM (AV1) · `inherited_from` (AV3) · สคริปต์อัปรูป GLOBAL (AV4 · AST-61) · `games/list` ไล่สาย + ไม่กรอง `status_game` (GE1) · ตัด `description` (GE2-1) · `used/list` ส่งทุกช่อง (GE6-1) · theme ค่าเดิม = no-op (GE10-1) · `site_name` trim + ห้ามอักขระควบคุม (GE13) |
 | implement (MVP) | ✅ โค้ดเสร็จ รอ review | migration `20261012160000_asset_create_tables` · `app/core/asset` (ไล่สาย · shades · ธีม · ตรวจไฟล์) · repository / service / controller / middleware · `platform/storage` (AWS SDK v2) + `S3_*` · `utils.ReadFormFile` · test: core table test + dto + integration 13 กลุ่ม |
 | `scripts/seed_asset_global` (AST-61) | ✅ โค้ดเสร็จ | อัปรูป GLOBAL จากโฟลเดอร์ `{game_code}/{asset_type}.{ext}` ผ่าน service เดียวกับ API · รอไฟล์รูปจากทีมเกม / ออกแบบ |
-| MinIO ใน docker-compose (GQ12) | ⏳ เขียนแล้ว ยังไม่ได้ลองรัน | เครื่องที่ทำไม่มี Docker · integration test ใช้ S3 จำลองในตัว (`testutil.NewFakeS3`) |
+| MinIO ใน docker-compose (GQ12) | ⏳ เขียนแล้ว ยังไม่ได้ลองรัน | เครื่องที่ทำไม่มี Docker · integration test ใช้ S3 จำลองในตัว (`testutil.NewFakeS3`) · **MinIO เลิกแจกไบนารีแล้ว** (`dl.min.io` 410 · โปรเจกต์ถูก archive) — ควรทบทวนว่าจะคง image `minio/minio` ใน compose หรือเปลี่ยนตัวอื่น |
+| `scripts/fakes3` (S3 จำลองในเครื่อง) | ✅ ลองกับ `platform/storage` จริงแล้ว | `go run ./scripts/fakes3` → `http://127.0.0.1:9000` · bucket `minigame-asset-local` · เก็บที่ `.testenv/fakes3` · ตั้ง `S3_ENDPOINT` / `S3_BUCKET` / `S3_CDN_BASE_URL` + `AWS_*` (ค่าอะไรก็ได้) · ใช้ทดสอบเท่านั้น (ไม่ตรวจลายเซ็น) · ยังไม่ได้ลองอัปผ่าน API จริง |
+| เลขเวอร์ชัน migration | ✅ แก้แล้ว | `dev` มี `20261012120000_member_management_payment` → ของ asset เปลี่ยนเป็น `20261012160000` · ตาราง asset ยังไม่ถูกสร้างบน dev DB จนกว่าจะรัน `migrate up` (dev/prod: Job ก่อน rollout ตาม DEPLOYMENT.md — ต้องยืนยันกับ infra ว่ามี step นี้) · ตอน merge `dev` ให้เช็คเลขซ้ำอีกครั้ง |
 | `docs/MIGRATION_STATUS.md` เพิ่มแถว `asset` (S12) | ✅ | สถานะ IM |
 | อัปรูป GLOBAL ให้ครบทุกช่อง | ⏳ | ต้องเสร็จก่อน UAT (AST-24 — ไม่มี fallback ไฟล์ล่าสุดแล้ว) · ต้องมี infra + ไฟล์รูปก่อน |
 | infra (S3 / CloudFront / IAM / ConfigMap) | ⏳ | lead สั่งแล้ว 2026-10-12 · ต้องมีก่อน deploy |
@@ -47,4 +49,4 @@
 | 2026-10-12 | `1dd674f` | lead review Game_Asset — MVP, ไล่สาย, lobby (GR6), GQ1–GQ13 + รายการแก้ + infra |
 | 2026-10-12 | `f19a511` | แก้ spec ตามรีวิว S1–S11: MVP · ไล่สาย (`cnf`) · `use_now` · soft delete · ≤ 5 MB · reset 3 เส้น · path GN1–GN23 · error `05` · ลำดับเช็ค · test case ใหม่ |
 | 2026-10-12 | `0ba21e8` | lead ตรวจ spec รอบ 1 — AV1–AV4 + ตาราง GE · เริ่มโค้ดได้ |
-| 2026-10-12 | — (รอ commit) | แก้ spec ตาม AV1–AV4 + GE · **implement MVP** (migration · core · repository · service · controller · middleware · `platform/storage` · `S3_*` · script อัปรูป GLOBAL · test · MinIO compose · MIGRATION_STATUS · ERROR_CODES) |
+| 2026-10-12 | `5669728` | แก้ spec ตาม AV1–AV4 + GE · **implement MVP** (migration `20261012160000` · core · repository · service · controller · middleware · `platform/storage` · `S3_*` · script อัปรูป GLOBAL · `scripts/fakes3` · test · MinIO compose · MIGRATION_STATUS · ERROR_CODES) |
