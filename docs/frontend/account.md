@@ -10,7 +10,7 @@
 | `GET /api/v1/bo/pr/account/profile` | ✅ ใช้ได้ | ค่าจริงทุก field (หัวข้อ 2.2) |
 | `GET /api/v1/bo/pr/account/api-credential` | ✅ ใช้ได้ | |
 | `POST /api/v1/bo/pr/account/update-credential` | ✅ ใช้ได้ | |
-| `GET /api/v1/bo/pr/account/dashboard` | ⏳ contract ล่วงหน้า | รอ module เดิมพัน |
+| `GET /api/v1/bo/pr/account/dashboard` | ⏸ ยังไม่ทำ | lead ตัดออกจาก scope รอบนี้ (9 ต.ค.) |
 
 เส้น ⏳ ใช้ทำหน้าจอรอได้ แต่ยังเรียกไม่ได้ (ได้ `404001`)
 
@@ -29,7 +29,7 @@
 
 ### 1.2 ตัวเลข
 
-- เงิน = JSON number ทศนิยม 2 ตำแหน่ง เช่น `962056.00` (ทุกสกุล 2 ตำแหน่ง)
+- เงินและ % = JSON number ทศนิยมไม่เกิน 4 ตำแหน่งตามที่เก็บ (ตัด 0 ท้าย) เช่น `962056.5` · **หน้าบ้านปัดเป็น 3 ตำแหน่งตอนแสดงเอง** (แก้ 9 ต.ค.)
 - % = JSON number เช่น `20`, `0.5`
 
 ### 1.3 สถานะ `status`
@@ -91,12 +91,12 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
     { "currency": "THB", "amount": 5000.00 }
   ],
   "pt": {
-    "minigame": { "pt_from_parent": 60, "pt": 40, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
+    "minigame": { "pt_from_parent": 60, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "share01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "agent01" }
   },
   "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false },
   "permissions": {
-    "dashboard": "edit", "member": "edit", "pt": "edit", "report": "edit",
-    "bet_cancel": "edit", "payment": "edit", "asset": "edit", "announcement": "edit"
+    "dashboard": "edit", "member": "edit", "report": "edit",
+    "bet_cancel": "edit", "payment": "edit", "asset": "edit", "announcement": "edit", "api_credential": "edit"
   }
 }
 ```
@@ -133,7 +133,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 
 ```json
 "pt": {
-  "minigame": { "pt_from_parent": 90, "pt": 20, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
+  "minigame": { "pt_from_parent": 90, "force": 0, "remain_quota": 0, "commission_percent": 0.5, "status": true,  "created_at": "2026-10-01T09:00:00+07:00", "created_by": "comp01", "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "comp01" }
 },
 "status_game": { "coin_toss": true, "rock_paper_scissors": true, "scratch_card": false }
 ```
@@ -142,7 +142,6 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 |---|---|
 | `minigame` | ระบบ (ระบบอื่น เช่น `askmelotto` จะเพิ่มข้างๆ ภายหลัง) |
 | `pt_from_parent` | PT ที่ได้รับจากผู้สร้าง |
-| `pt` | PT ที่ถือจาก Member ใต้ตัวเอง |
 | `force` · `remain_quota` · `commission_percent` | บังคับถือสู้ · เอาส่วนที่เหลือ · Commission |
 | `status` | `true` = บัญชีนี้รับ PT ในระบบนั้น · `false` = ไม่รับ (ไม่ใช่สถานะเกม — เปิด/ปิดเกมดูที่ `status_game`) |
 | `created_at` · `created_by` | เวลา / username ของผู้สร้างค่า PT (ไม่เปลี่ยนหลังสร้าง) |
@@ -156,14 +155,14 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 | key | เมนู | ระดับ |
 |---|---|---|
 | `dashboard` | หน้าแรก (1.1 ภาพรวม) | off / view |
-| `member` | การจัดการสมาชิก | off / view / edit |
-| `pt` | ถือสู้ (PT) | off / view / edit |
+| `member` | การจัดการสมาชิก (รวมค่าหุ้นส่วน · เมนู `pt` เดิมถูกรวมเข้ามา 9 ต.ค.) | off / view / edit |
 | `report` | รายงาน | off / view |
 | `bet_cancel` | ยกเลิกเดิมพัน | off / view / edit |
 | `payment` | ฝาก-ถอน | off / view / edit |
 | `asset` | การจัดการ Asset | off / view / edit |
 | `announcement` | ประกาศ / เนื้อหา (Company / Share / Agent) | off / view / edit |
 | `rate` | อัตราแพ้ชนะ (Superadmin เท่านั้น) | off / view / edit |
+| `api_credential` | 1.3 ข้อมูลรับรอง API (Company / Share / Agent · **ใหม่ 9 ต.ค.**) · view = ดู Key · edit = บันทึก | off / view / edit |
 
 ระดับในตาราง = ระดับสูงสุดที่เจ้าของให้ sub ได้ · บัญชีหลักได้ `edit` ทุกเมนู · ใช้ซ่อน / แสดงเมนูในหน้าบ้านได้ · หลังบ้านเช็คซ้ำทุกเส้น (ไม่มีสิทธิ์ = `402303`)
 
@@ -173,7 +172,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/profile" -H "Authorization: Bearer {{TOKEN
 
 ## 3. ข้อมูลรับรอง API (✅ ใช้ได้)
 
-หน้า 1.3 · ทุกบัญชี **Company / Share / Agent** และ sub ของบัญชีนั้นเปิดได้เสมอ (ไม่มีสิทธิ์ต่อเมนู)
+หน้า 1.3 · ทุกบัญชี **Company / Share / Agent** เปิดได้ · **sub ต้องมีสิทธิ์ `api_credential`** (แก้ 9 ต.ค.): `view` = ดู · `edit` = บันทึก · ไม่มี = `402303`
 · Superadmin / ADMIN ได้ `403301`
 · Key สร้างให้อัตโนมัติตอนสร้างบัญชี (บัญชีที่สร้างก่อนหน้านั้นได้ Key แล้วจาก migration) หน้าบ้านไม่ต้องส่ง · Key เปลี่ยนไม่ได้
 
@@ -195,7 +194,7 @@ curl "{{MG_URL}}/api/v1/bo/pr/account/api-credential" -H "Authorization: Bearer 
 - `key` = hex 64 ตัว · สร้างให้อัตโนมัติ · สร้างใหม่ไม่ได้ · ดูซ้ำได้ (ปุ่มคัดลอก)
 - ยังไม่ตั้งลิงก์ = `""` · ไม่มี IP = `[]`
 - response มี header `Cache-Control: no-store`
-- sub เปิดได้เสมอ เห็น Key ของเจ้าของ
+- sub ที่มีสิทธิ์ `api_credential` ≥ `view` เห็น Key เต็มของเจ้าของ
 - บัญชีถูกระงับ (ตัวเอง / หัวสาย / เจ้าของของ sub) ดูได้ แต่บันทึกได้ `401311`
 
 ### 3.2 อัปเดต — `POST /api/v1/bo/pr/account/update-credential`
@@ -215,28 +214,15 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/account/update-credential" \
 
 - **แทนทั้งชุด** — IP เดิมที่ไม่อยู่ในรายการใหม่ถูกลบ
 - IP เดี่ยว `1.2.3.4` เก็บเป็น `1.2.3.4/32` · CIDR ต้องเป็นที่อยู่เครือข่าย (`1.2.3.0/24` ได้ · `1.2.3.4/24` ได้ `422`)
+- **ใหม่ 9 ต.ค.:** ห้ามช่วงกว้างกว่า `/16` (`0.0.0.0/0`, `8.0.0.0/8` → `422`) · ห้าม IP ภายใน / พิเศษ `0.0.0.0/8` · `10.0.0.0/8` · `100.64.0.0/10` · `127.0.0.0/8` · `169.254.0.0/16` · `172.16.0.0/12` · `192.168.0.0/16` · `224.0.0.0/4` (multicast) · `240.0.0.0/4` · `255.255.255.255` (broadcast) → `422` · msg บอกรายการที่ผิด เช่น `allowed_ips[0] เป็น IP ภายใน / พิเศษ ใส่ไม่ได้ (…)`
 - Response: `{ "code": 200, "msg": "สำเร็จ" }`
-- sub บันทึกได้เสมอ (ใช้ passcode ของ sub เอง)
+- sub บันทึกได้เมื่อมีสิทธิ์ `api_credential` = `edit` (ใช้ passcode ของ sub เอง)
 
-Error: `422` (msg บอก field เช่น `allowed_ips[1] ซ้ำกับรายการก่อนหน้า`) · `403301` (Superadmin / ADMIN) · `401204` (passcode ผิด) · `401205` · `401311` (บัญชีถูกระงับ)
+Error: `422` (msg บอก field เช่น `allowed_ips[1] ซ้ำกับรายการก่อนหน้า`) · `402303` (sub ไม่มีสิทธิ์ `api_credential`) · `403301` (Superadmin / ADMIN) · `401204` (passcode ผิด) · `401205` · `401311` (บัญชีถูกระงับ)
 
-## 4. Dashboard (⏳ contract ล่วงหน้า)
+## 4. Dashboard (⏸ ยังไม่ทำ)
 
-`GET /api/v1/bo/pr/account/dashboard?year=2026&month=10&currency=THB&game=coin_toss`
-
-| query | กติกา |
-|---|---|
-| `year` | บังคับ |
-| `month` | 1–12 · ไม่ส่ง = ทั้งปี |
-| `currency` | บังคับ · ต้องเป็นสกุลที่บัญชีมี |
-| `game` | ไม่ส่ง = ทุกเกม |
-
-- ข้อมูลสรุปรายวัน อัปเดตวันละครั้ง 00:15–01:00 น.
-- การ์ด: สมาชิกที่กำลังใช้งาน / สมัครใหม่ / ทั้งหมด (จำนวนคน) · ยอดเล่นทั้งหมด / ถูกรางวัล (จำนวนครั้ง) · ยอดเล่นจริง · ยอดตาม PT · Commission ที่ได้ / ที่จ่าย · รายได้ (เงิน) · แต่ละการ์ดมี `change_pct` (ไม่มีช่วงก่อนหน้า = `0`)
-- Top 10: ยอดเล่น / ยอดถูก / ยอดเสีย สูงสุด
-- sub ต้องมีสิทธิ์ `dashboard` = `view`
-
-รายละเอียด response ดู `docs/modules/account.md` หัวข้อ 5 · จะส่งเอกสารเต็มเมื่อเส้นพร้อม
+lead ตัดออกจาก scope รอบนี้ (9 ต.ค.) · contract ร่างเก็บไว้ที่ `docs/modules/account.md` หัวข้อ 10
 
 ## 5. Error codes ที่เพิ่มจากเอกสาร Auth
 

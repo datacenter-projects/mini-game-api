@@ -49,7 +49,8 @@ func TestResolveNewAgent(t *testing.T) { // MGMT-02
 		{UserTypeCompanySeamless1to1, UserTypeShareB2C, false, "", ""},
 		{UserTypeShareB2B, UserTypeAgent, true, models.AgentRoleAgent, UserTypeAgent},
 		{UserTypeShareB2C, UserTypeAgent, true, models.AgentRoleAgent, UserTypeAgent},
-		{UserTypeShareMaster, UserTypeAgent, true, models.AgentRoleAgent, UserTypeAgent},
+		{UserTypeShareMaster, UserTypeAgent, false, "", ""},   // Share Master สร้างได้แค่ Member (lead H1)
+		{UserTypeShareReseller, UserTypeAgent, false, "", ""}, // Share Reseller สร้างได้แค่ Member (lead H1)
 		{UserTypeAgent, UserTypeAgent, true, models.AgentRoleAgent, UserTypeAgent},
 		{UserTypeAgent, UserTypeShareB2C, false, "", ""},
 		{UserTypeAdmin, UserTypeCompanyTransfer, false, "", ""}, // AUTH-43
@@ -152,26 +153,6 @@ func TestIsValidName(t *testing.T) { // MGMT-07, MGMT-41
 	for _, tt := range tests {
 		if got := IsValidName(tt.in); got != tt.want {
 			t.Errorf("IsValidName(%q) = %v, want %v", tt.in, got, tt.want)
-		}
-	}
-}
-
-func TestIsValidPhone(t *testing.T) { // MGMT-08
-	tests := []struct {
-		in   string
-		want bool
-	}{
-		{"", true},
-		{"0812345678", true},
-		{"12345678", true},
-		{"1234567", false},
-		{"1234567890123456", false},
-		{"+66812345678", false},
-		{"081-234-5678", false},
-	}
-	for _, tt := range tests {
-		if got := IsValidPhone(tt.in); got != tt.want {
-			t.Errorf("IsValidPhone(%q) = %v, want %v", tt.in, got, tt.want)
 		}
 	}
 }

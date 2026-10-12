@@ -42,3 +42,12 @@ func CheckPermissionService(ctx context.Context, actor agentAuthService.Actor, m
 	}
 	return nil
 }
+
+// CheckSubPermissionService — เช็คสิทธิ์เฉพาะ sub · บัญชีหลักผ่านเสมอ (account ACC-02 · lead A5 / A6 2026-10-09)
+// ใช้กับเส้นที่บัญชีหลักทุกประเภทเรียกได้ แต่ service ตัดสินเองว่าประเภทไหนใช้ได้ (เช่น Superadmin ไม่มี Key → 403301)
+func CheckSubPermissionService(ctx context.Context, actor agentAuthService.Actor, menu agentManagementCore.Menu, need agentManagementCore.Level) error {
+	if actor.AccountType != models.AccountTypeSub {
+		return nil
+	}
+	return CheckPermissionService(ctx, actor, menu, need)
+}

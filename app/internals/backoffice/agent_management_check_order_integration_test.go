@@ -59,10 +59,11 @@ func TestCreateCheckOrderAndMessages(t *testing.T) {
 	b["balance"] = map[string]any{"THB": 100}
 	r = call(t, app, "POST", createAgentPath, b, c.agentTok)
 	expect(t, r, 200, 402312)
-	expectMsgHas(t, r.Msg, "balance.THB", "0.00")
+	expectMsgHas(t, r.Msg, "balance.THB", "(มี 0)")
 
-	// update-hold บอกค่าที่ได้รับ
-	r = call(t, app, "POST", updateHoldPath, holdBody(65), c.agentTok)
+	// pt ของ Member บอกค่าที่ผู้สร้างได้รับ (update-hold ลบแล้ว 2026-10-09)
+	mem := createMemberWithPT(t, app, c.agentTok, "memorder", 10)
+	r = call(t, app, "POST", updateMemberPTPath, memberPTBody(mem.ID, 65, 0), c.agentTok)
 	expect(t, r, 200, 402305)
 	expectMsgHas(t, r.Msg, "pt.minigame.pt", "60")
 

@@ -21,7 +21,7 @@ const profilePath = "/api/v1/bo/pr/account/profile"
 
 type profilePT struct {
 	PTFromParent      json.Number `json:"pt_from_parent"`
-	PT                json.Number `json:"pt"`
+	PT                json.Number `json:"pt"` // ต้องไม่มี (ลบ 2026-10-09) — ถ้ามีจะไม่ว่าง
 	Force             json.Number `json:"force"`
 	RemainQuota       json.Number `json:"remain_quota"`
 	CommissionPercent json.Number `json:"commission_percent"`
@@ -73,10 +73,10 @@ func getProfile(t *testing.T, app *fiber.App, tok string) (profileData, map[stri
 	return d, raw
 }
 
-func allLevel(t *testing.T, perms map[string]string, want string) {
+func allLevel(t *testing.T, perms map[string]string, want string, menus int) {
 	t.Helper()
-	if len(perms) != 8 {
-		t.Fatalf("ต้องมีสิทธิ์ 8 เมนู ได้ %v", perms)
+	if len(perms) != menus {
+		t.Fatalf("ต้องมีสิทธิ์ %d เมนู ได้ %v", menus, perms)
 	}
 	for m, lv := range perms {
 		if lv != want {
@@ -89,22 +89,22 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	app := setup2(t)
 	c := buildChain(t, app) // Superadmin → comp01 (90) → share01 (70, THB) → agent01 (60)
 
-	// SUPERADMIN: ได้รับ 100 · ถือ 0 · ครบ 27 สกุล · มี rate
+	// SUPERADMIN: ได้รับ 100 · ไม่มี pt ของบัญชี (ลบ 2026-10-09) · ครบ 27 สกุล · มี rate
 	d, _ := getProfile(t, app, c.saTok)
 	if d.UserType != "SUPERADMIN" || len(d.Currencies) != 27 || len(d.Balances) != 27 ||
-		d.PT["minigame"].PTFromParent != "100" || d.PT["minigame"].PT != "0" || d.Permissions["rate"] != "edit" {
+		d.PT["minigame"].PTFromParent != "100" || d.PT["minigame"].PT != "" || d.Permissions["rate"] != "edit" {
 		t.Fatalf("superadmin %+v", d)
 	}
-	allLevel(t, d.Permissions, "edit")
+	allLevel(t, d.Permissions, "edit", 7) // Superadmin ไม่มี api_credential (ไม่มี Key)
 
-	// Company Transfer: ประเภทย่อย · ค่าที่ Superadmin ให้ · ถือเริ่มต้น = ที่ได้รับ (MGMT-22)
-	setBalance(t, c.com.ID, "THB", 96205600)
+	// Company Transfer: ประเภทย่อย · ค่าที่ Superadmin ให้ · ไม่มี pt ของบัญชี
+	setBalance(t, c.com.ID, "THB", 962056)
 	d, _ = getProfile(t, app, c.comTok)
 	if d.Role != "COMPANY" || d.UserType != "COMPANY_TRANSFER" || len(d.Currencies) != 27 || d.IsSubaccount || d.OwnerUsername != "" {
 		t.Fatalf("company %+v", d)
 	}
 	g := d.PT["minigame"]
-	if g.PTFromParent != "90" || g.PT != "90" || g.CommissionPercent != "0.5" || g.Force != "0" || !g.Status ||
+	if g.PTFromParent != "90" || g.PT != "" || g.CommissionPercent != "0.5" || g.Force != "0" || !g.Status ||
 		g.CreatedBy == "" || g.CreatedBy != g.UpdatedBy || g.CreatedAt == "" || g.CreatedAt != g.UpdatedAt {
 		t.Fatalf("company pt %+v", g)
 	}
@@ -122,8 +122,8 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 			thb = string(x.Amount)
 		}
 	}
-	if thb != "962056.00" {
-		t.Fatalf("THB amount = %s, want 962056.00", thb)
+	if thb != "962056" {
+		t.Fatalf("THB amount = %s, want 962056", thb)
 	}
 	at, err := time.Parse(time.RFC3339Nano, d.LastLoginAt)
 	if err != nil || time.Since(at) > time.Minute || d.LastLoginIP == "" || d.CreatedAt == "" {
@@ -133,7 +133,7 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	// Share B2C: 1 สกุล · ยอดสกุลที่ยังไม่มี = 0.00
 	d, _ = getProfile(t, app, c.shareTok)
 	if d.UserType != "SHARE_B2C" || len(d.Currencies) != 1 || d.Currencies[0] != "THB" ||
-		len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"THB","amount":0.00}` || d.PT["minigame"].PTFromParent != "70" {
+		len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"THB","amount":0}` || d.PT["minigame"].PTFromParent != "70" {
 		t.Fatalf("share %+v %s", d, d.Balances)
 	}
 
@@ -145,17 +145,17 @@ func TestProfileOwnAccount(t *testing.T) { // ACC-11, ACC-12, ACC-14, ACC-16, AC
 	if d.UserType != "AGENT" || d.StatusGame["scratch_card"] || !d.StatusGame["coin_toss"] || len(d.PT) != 1 {
 		t.Fatalf("agent off %+v", d)
 	}
-	allLevel(t, d.Permissions, "edit")
+	allLevel(t, d.Permissions, "edit", 8) // รวม api_credential (lead A6)
 
-	// Company Seamless Master: ถือล็อก 0 · Seamless 1 to 1: ยอด 0 (ACC-12, ACC-19)
+	// Company Seamless Master: ไม่มี pt · Seamless 1 to 1: ยอด 0 (ACC-12, ACC-19)
 	_, masterTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_MASTER", "master01", nil, childPT(80, 0, 0, 0)))
 	d, _ = getProfile(t, app, masterTok)
-	if d.UserType != "COMPANY_SEAMLESS_MASTER" || d.PT["minigame"].PT != "0" || d.PT["minigame"].PTFromParent != "80" {
+	if d.UserType != "COMPANY_SEAMLESS_MASTER" || d.PT["minigame"].PT != "" || d.PT["minigame"].PTFromParent != "80" {
 		t.Fatalf("master %+v", d)
 	}
 	_, oneTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_1TO1", "one2one", []string{"JPY"}, childPT(80, 0, 0, 0)))
 	d, _ = getProfile(t, app, oneTok)
-	if d.UserType != "COMPANY_SEAMLESS_1TO1" || len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"JPY","amount":0.00}` {
+	if d.UserType != "COMPANY_SEAMLESS_1TO1" || len(d.Balances) != 1 || string(d.Balances[0]) != `{"currency":"JPY","amount":0}` {
 		t.Fatalf("1to1 %+v %s", d, d.Balances)
 	}
 }
@@ -188,7 +188,7 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 		d.UserType != "SHARE_B2C" || len(d.Currencies) != 1 || d.PT["minigame"].PTFromParent != "70" {
 		t.Fatalf("unexpected %+v", d)
 	}
-	if len(d.Permissions) != 8 || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" || d.Permissions["account"] != "" {
+	if _, hasPT := d.Permissions["pt"]; hasPT || len(d.Permissions) != 8 || d.Permissions["api_credential"] != "off" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" || d.Permissions["account"] != "" {
 		t.Fatalf("permissions %v", d.Permissions)
 	}
 
@@ -205,11 +205,11 @@ func TestProfileSubaccount(t *testing.T) { // ACC-11, ACC-12, ACC-15, ACC-30
 		}
 	}
 	d, _ = getProfile(t, app, c.shareTok)
-	if d.Status != "SUSPENDED" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" {
+	if d.Status != "SUSPENDED" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" || d.Permissions["api_credential"] != "view" {
 		t.Fatalf("บัญชีหลักถูกระงับ %+v", d.Permissions)
 	}
 	d, _ = getProfile(t, app, c.agentTok) // ถูกระงับจากหัวสาย
-	if d.Status != "SUSPENDED" || d.Permissions["report"] != "view" || d.Permissions["pt"] != "off" {
+	if _, hasPT := d.Permissions["pt"]; hasPT || d.Status != "SUSPENDED" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" {
 		t.Fatalf("ลูกของบัญชีที่ถูกระงับ %+v", d.Permissions)
 	}
 }

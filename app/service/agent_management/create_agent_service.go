@@ -29,7 +29,7 @@ const (
 func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.CreateAgentRequest,
 	meta agentAuthService.RequestMeta) (agentManagementDto.CreateAgentResponse, error) {
 	var res agentManagementDto.CreateAgentResponse
-	if len(req.BalanceMinor) > 0 {
+	if len(req.BalanceAmounts) > 0 {
 		if err := CheckPermissionService(ctx, actor, agentManagementCore.MenuPayment, agentManagementCore.LevelEdit); err != nil {
 			return res, err
 		}
@@ -56,27 +56,44 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		if err != nil {
 			return err
 		}
+		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
+		// Share Master ใต้ CSM: ส่งได้แค่ commission · บัญชีอื่นต้องครบ 5 ค่า — เช็คก่อนกฎที่ดู DB (เดิมเป็นรูปแบบใน DTO · 7.1 ข้อ 4 · MGMT-19)
+		if err := checkPTShape(req.PT, creatorIsMaster); err != nil {
+			return err
+		}
 		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO) — หัวข้อ 7.1
 		newAcc, ok := agentManagementCore.ResolveNewAgent(c.UserType, agentManagementCore.UserType(req.UserType))
 		if !ok {
 			return CannotCreateTypeError(c.UserType, req.UserType)
 		}
-		if err := LockAndCheckIdentity(tx, req.Username, req.Phone, false); err != nil {
+		if err := LockAndCheckAgentIdentity(tx, req.Username, req.PhoneCountryCode, req.Phone); err != nil {
 			return err
 		}
 		currencies, cv := agentManagementCore.ResolveCurrencies(c.UserType, newAcc.UserType, req.Currencies, c.Currencies)
 		if cv != agentManagementCore.CurrencyOK {
 			return CurrencyError(c.UserType, newAcc.UserType, cv, c.Currencies)
 		}
-		if err := CheckInitialBalance(req.BalanceMinor, c.newAccountSeamless(newAcc.UserType), currencies); err != nil {
+		if err := CheckInitialBalance(req.BalanceAmounts, c.newAccountSeamless(newAcc.UserType), currencies); err != nil {
 			return err
 		}
-		if err := CheckCreatorBalance(tx, c, req.BalanceMinor); err != nil {
+		if err := CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {
 			return err
 		}
-		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
+		if creatorIsMaster { // ค่าอื่นและ status_game ตาม CSM (MGMT-19)
+			if req.StatusGame != nil {
+				return shareMasterFieldError("status_game")
+			}
+			for _, g := range SortedGroups(req.PT) {
+				v := req.PT[g]
+				var status bool
+				v.Parsed, status = followCSM(c.Settings, agentManagementCore.PTGroup(g), v.Parsed.Commission)
+				v.Status = &status
+				req.PT[g] = v
+			}
+			req.StatusGame = statusGameOf(c.Settings)
+		}
 		for _, g := range SortedGroups(req.PT) {
-			is := agentManagementCore.CheckChildPT(req.PT[g].Parsed, c.ReceivedBP[agentManagementCore.PTGroup(g)], creatorIsMaster)
+			is := agentManagementCore.CheckChildPT(req.PT[g].Parsed, c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster)
 			if err := ChildPTError(g, is); err != nil {
 				return err
 			}
@@ -89,7 +106,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		now := time.Now()
 		name := req.Name
 		a := models.UserAgent{ParentID: &c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: &name,
-			Phone: OptionalString(req.Phone), AgentType: newAcc.AgentType, Role: newAcc.Role, Status: models.AgentStatusActive,
+			PhoneCountryCode: OptionalString(req.PhoneCountryCode), Phone: OptionalString(req.Phone), AgentType: newAcc.AgentType, Role: newAcc.Role, Status: models.AgentStatusActive,
 			Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
 		if err := agentAuthPostgres.CreateUserAgentRepository(tx, &a); err != nil {
 			return err
@@ -103,7 +120,6 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			return err
 		}
 
-		newIsMaster := newAcc.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
 		statusGame := map[string]bool{}
 		var settings []models.AgentGameSetting
 		for _, g := range agentManagementCore.Groups() {
@@ -116,8 +132,8 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 				}
 				statusGame[game.GameCode] = on
 				settings = append(settings, models.AgentGameSetting{AgentID: a.ID, ParentID: &c.Agent.ID, GameCode: game.GameCode, Category: game.Category,
-					PTFromParentBP: v.PTFromParentBP, PTBP: agentManagementCore.InitialOwnPT(v.PTFromParentBP, newIsMaster),
-					ForceBP: v.ForceBP, RemainBP: v.RemainBP, CommissionBP: v.CommissionBP,
+					PTFromParent: v.PTFromParent,
+					Force:        v.Force, Remain: v.Remain, Commission: v.Commission,
 					Status: groupOn, StatusGame: on, CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}
 		}
@@ -125,7 +141,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			return err
 		}
 
-		if err := TransferInitialBalance(tx, c, models.BalanceOwnerAgent, a.ID, req.BalanceMinor, req.RequestID, actor, now); err != nil {
+		if err := TransferInitialBalance(tx, c, models.BalanceOwnerAgent, a.ID, req.BalanceAmounts, req.RequestID, actor, now); err != nil {
 			return err
 		}
 		// MGMT-04: เจ้าของ Key ของ account 1.3 ได้ Key ใน tx เดียวกัน
@@ -144,15 +160,15 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			ptLog[g] = v.Parsed
 		}
 		created, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeCreate, nil,
-			map[string]any{"user_type": newAcc.UserType, "username": a.Username, "name": req.Name, "phone": req.Phone,
-				"parent_id": c.Agent.ID, "currencies": currencies, "pt_bp": ptLog, "status_game": statusGame}, now)
+			map[string]any{"user_type": newAcc.UserType, "username": a.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone,
+				"parent_id": c.Agent.ID, "currencies": currencies, "pt": ptLog, "status_game": statusGame}, now)
 		if err != nil {
 			return err
 		}
 		rows := []models.AccountChangeLog{created}
-		if len(req.BalanceMinor) > 0 {
+		if len(req.BalanceAmounts) > 0 {
 			row, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeInitialBalance, nil,
-				map[string]any{"amounts_minor": req.BalanceMinor}, now)
+				map[string]any{"amounts": req.BalanceAmounts}, now)
 			if err != nil {
 				return err
 			}

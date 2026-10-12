@@ -1,8 +1,6 @@
 package agentmanagement
 
 import (
-	"strings"
-
 	agentAuthCore "app/app/core/agent_auth"
 	agentManagementCore "app/app/core/agent_management"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
@@ -17,40 +15,36 @@ const SubStatusInactive = "INACTIVE"
 
 // SubView — 1 แถวของรายชื่อ sub และรายละเอียด sub (MGMT-46)
 type SubView struct {
-	ID          uint              `json:"id"`
-	Username    string            `json:"username"`
-	Name        string            `json:"name"`
-	Phone       string            `json:"phone"`
-	Status      string            `json:"status"` // ACTIVE / INACTIVE · หรือสถานะของเจ้าของ / หัวสายเมื่อถูกระงับ / ล็อก
-	Permissions map[string]string `json:"permissions"`
-	CreatedAt   string            `json:"created_at"`
-	LastLoginAt string            `json:"last_login_at"`
-	LastLoginIP string            `json:"last_login_ip"`
+	ID               uint              `json:"id"`
+	Username         string            `json:"username"`
+	Name             string            `json:"name"`
+	PhoneCountryCode string            `json:"phone_country_code"` // MGMT-08
+	Phone            string            `json:"phone"`
+	Status           string            `json:"status"` // ACTIVE / INACTIVE · หรือสถานะของเจ้าของ / หัวสายเมื่อถูกระงับ / ล็อก
+	Permissions      map[string]string `json:"permissions"`
+	CreatedAt        string            `json:"created_at"`
+	LastLoginAt      string            `json:"last_login_at"`
+	LastLoginIP      string            `json:"last_login_ip"`
 }
 
 // SubListRequest — POST /manage/subaccounts/list · ทุกค่าไม่บังคับ — ไม่กรองให้ส่ง {}
 type SubListRequest struct {
 	OwnerID uint   `json:"owner_id"` // 0 = ตัวเอง · อื่นต้องอยู่ในสายล่าง
-	Q       string `json:"q"`
+	Keyword string `json:"keyword"`  // ค้น username บางส่วน 4–32 ตัว (MGMT-46 — แบบเดียวกับ downlines/list)
 	Page    int    `json:"page"`
 	Limit   int    `json:"limit"`
 }
 
-func (r *SubListRequest) Validate() error {
-	r.Q = strings.ToLower(strings.TrimSpace(r.Q))
-	if len(r.Q) > 71 { // ยาวสุดของคอลัมน์ username ของ sub
-		return Invalid("q", "ยาวเกินไป", "is too long")
-	}
-	return nil
-}
+func (r *SubListRequest) Validate() error { return NormalizeKeyword(&r.Keyword) }
 
 // SubCreateRequest — POST /manage/subaccounts/create (MGMT-41)
 type SubCreateRequest struct {
-	NameSuffix  string            `json:"name_suffix"` // ส่วนหลัง @ · Validate แปลงเป็นตัวเล็ก
-	Password    string            `json:"password"`
-	Name        string            `json:"name"`
-	Phone       string            `json:"phone"`
-	Permissions map[string]string `json:"permissions"` // ไม่ส่งเมนูไหน = off (MGMT-50)
+	NameSuffix       string            `json:"name_suffix"` // ส่วนหลัง @ · Validate แปลงเป็นตัวเล็ก
+	Password         string            `json:"password"`
+	Name             string            `json:"name"`
+	PhoneCountryCode string            `json:"phone_country_code"` // MGMT-08 · ไม่กรอก = "" คู่กับ phone
+	Phone            string            `json:"phone"`
+	Permissions      map[string]string `json:"permissions"` // ไม่ส่งเมนูไหน = off (MGMT-50)
 }
 
 func (r *SubCreateRequest) Validate() error {
@@ -64,31 +58,39 @@ func (r *SubCreateRequest) Validate() error {
 	if err := agentAuthDto.PasswordPolicyError("password", agentAuthCore.CheckPasswordPolicy(r.Password)); err != nil {
 		return err
 	}
-	return validateNamePhone(r.Name, &r.Phone)
+	return validateNamePhone(r.Name, &r.PhoneCountryCode, &r.Phone)
 }
 
-// SubUpdateRequest — POST /manage/subaccounts/update-info (MGMT-42) · แทนทั้งชุด: ต้องส่งครบทุก field
+// SubUpdateRequest — POST /manage/subaccounts/detail/update (MGMT-42) · แทนทั้งชุด: ต้องส่งครบทุก field
 type SubUpdateRequest struct {
-	ID          uint               `json:"id"`
-	Name        string             `json:"name"`
-	Phone       utils.JSONString   `json:"phone"`
-	Permissions *map[string]string `json:"permissions"`
+	ID               uint               `json:"id"`
+	Name             string             `json:"name"`
+	PhoneCountryCode utils.JSONString   `json:"phone_country_code"`
+	Phone            utils.JSONString   `json:"phone"`
+	Permissions      *map[string]string `json:"permissions"`
 }
 
 func (r *SubUpdateRequest) Validate() error {
+	// ไล่ตามลำดับ field ใน body: id → name → phone_country_code → phone → permissions (7.1)
 	if err := CheckID(r.ID); err != nil {
 		return err
+	}
+	if !r.PhoneCountryCode.Present || !r.PhoneCountryCode.IsString {
+		return Invalid("phone_country_code", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
 	}
 	if !r.Phone.Present || !r.Phone.IsString {
 		return Invalid("phone", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
 	}
+	if err := validateNamePhone(r.Name, &r.PhoneCountryCode.Value, &r.Phone.Value); err != nil {
+		return err
+	}
 	if r.Permissions == nil {
 		return Invalid("permissions", "ต้องส่ง (แทนทั้งชุด — ไม่ให้สิทธิ์ใดให้ส่ง {})", "is required (replaces the whole set — send {} for none)")
 	}
-	return validateNamePhone(r.Name, &r.Phone.Value)
+	return nil
 }
 
-// SubStatusRequest — POST /manage/subaccounts/update-status (MGMT-43)
+// SubStatusRequest — POST /manage/subaccounts/status/update (MGMT-43)
 type SubStatusRequest struct {
 	ID     uint   `json:"id"`
 	Status string `json:"status"`
@@ -109,13 +111,9 @@ type SubCreateResponse struct {
 	Username string `json:"username"`
 }
 
-func validateNamePhone(name string, phone *string) error {
+func validateNamePhone(name string, code, phone *string) error {
 	if !agentManagementCore.IsValidName(name) {
 		return Invalid("name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
 	}
-	*phone = strings.TrimSpace(*phone)
-	if !agentManagementCore.IsValidPhone(*phone) {
-		return Invalid("phone", "ต้องเป็นตัวเลข 8–15 ตัว (ไม่กรอกให้ส่ง \"\")", `must be 8–15 digits (send "" to leave it empty)`)
-	}
-	return nil
+	return ValidatePhonePair("", code, phone) // MGMT-08 · sub ซ้ำได้ (MGMT-41)
 }

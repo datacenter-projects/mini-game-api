@@ -26,7 +26,7 @@ func ListSubaccountsController(c *fiber.Ctx) error {
 	return response.Page(c, rows, page, total)
 }
 
-// GetSubaccountController — POST /api/v1/bo/pr/manage/subaccounts/detail
+// GetSubaccountController — POST /api/v1/bo/pr/manage/subaccounts/detail/get
 func GetSubaccountController(c *fiber.Ctx) error {
 	var req agentManagementDto.DetailRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
@@ -52,7 +52,7 @@ func CreateSubaccountController(c *fiber.Ctx) error {
 	return response.OK(c, res)
 }
 
-// UpdateSubaccountController — POST /api/v1/bo/pr/manage/subaccounts/update-info
+// UpdateSubaccountController — POST /api/v1/bo/pr/manage/subaccounts/detail/update
 func UpdateSubaccountController(c *fiber.Ctx) error {
 	var req agentManagementDto.SubUpdateRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
@@ -61,7 +61,7 @@ func UpdateSubaccountController(c *fiber.Ctx) error {
 	return result(c, agentManagementService.UpdateSubaccountService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }
 
-// UpdateSubaccountStatusController — POST /api/v1/bo/pr/manage/subaccounts/update-status
+// UpdateSubaccountStatusController — POST /api/v1/bo/pr/manage/subaccounts/status/update
 func UpdateSubaccountStatusController(c *fiber.Ctx) error {
 	var req agentManagementDto.SubStatusRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {

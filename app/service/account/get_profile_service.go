@@ -81,7 +81,7 @@ func setAccountData(db *gorm.DB, res *accountDto.ProfileResponse, agentID uint) 
 		return err
 	}
 
-	amount := make(map[string]int64, len(balances))
+	amount := make(map[string]float64, len(balances))
 	for _, b := range balances {
 		amount[b.Currency] = b.Amount
 	}

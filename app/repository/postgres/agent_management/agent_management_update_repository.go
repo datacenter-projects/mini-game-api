@@ -33,29 +33,25 @@ func ListAgentChildIDsRepository(db *gorm.DB, parentID uint) ([]uint, error) {
 // UpdateChildPTRepository — ค่าที่ผู้สร้างตั้งให้ลูก ของทุกเกมในกลุ่ม (MGMT-16, MGMT-23)
 func UpdateChildPTRepository(db *gorm.DB, agentID uint, gameCodes []string, v models.AgentGameSetting, by string, at time.Time) error {
 	return db.Model(&models.AgentGameSetting{}).Where("agent_id = ? AND game_code IN ?", agentID, gameCodes).Updates(map[string]any{
-		"pt_from_parent_bp": v.PTFromParentBP, "force_bp": v.ForceBP, "remain_bp": v.RemainBP,
-		"commission_bp": v.CommissionBP, "status": v.Status, "updated_by": by, "updated_at": at,
+		"pt_from_parent": v.PTFromParent, "force": v.Force, "remain": v.Remain,
+		"commission": v.Commission, "status": v.Status, "updated_by": by, "updated_at": at,
 	}).Error
 }
 
-// UpdateOwnPTRepository — ค่าถือของบัญชีเอง ของทุกเกมในกลุ่ม (MGMT-22)
-func UpdateOwnPTRepository(db *gorm.DB, agentID uint, gameCodes []string, ptBP int, by string, at time.Time) error {
-	return db.Model(&models.AgentGameSetting{}).Where("agent_id = ? AND game_code IN ?", agentID, gameCodes).
-		Updates(map[string]any{"pt_bp": ptBP, "updated_by": by, "updated_at": at}).Error
-}
-
-// LockUserAgentRowRepository — SELECT ... FOR UPDATE ข้อมูลที่แก้ได้ของบัญชีฝั่ง agent · ไม่พบ = ผลว่าง (id 0)
+// LockUserAgentRowRepository — SELECT ... FOR NO KEY UPDATE ข้อมูลที่แก้ได้ของบัญชีฝั่ง agent · ไม่พบ = ผลว่าง (id 0)
+// NO KEY UPDATE (ไม่แก้ id): ไม่ขวาง FOR KEY SHARE ของ FK ตอนสร้างลูก / Member ใต้บัญชีนี้ — FOR UPDATE ทำ deadlock กับ
+// CSM สร้าง Share Master ระหว่าง Superadmin แก้ CSM (lead V5 ยิงพร้อมกัน)
 func LockUserAgentRowRepository(db *gorm.DB, id uint) (models.UserAgent, error) {
 	var a models.UserAgent
-	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "parent_id", "username", "name", "phone", "role", "agent_type", "status").
+	err := db.Clauses(clause.Locking{Strength: "NO KEY UPDATE"}).Select("id", "parent_id", "username", "name", "phone_country_code", "phone", "role", "agent_type", "status").
 		Where("id = ?", id).Limit(1).Find(&a).Error
 	return a, err
 }
 
-// UpdateUserAgentInfoRepository — ชื่อ · เบอร์ (phone nil = ไม่ตั้ง) — MGMT-09
-func UpdateUserAgentInfoRepository(db *gorm.DB, id uint, name string, phone *string, at time.Time) error {
+// UpdateUserAgentInfoRepository — ชื่อ · เบอร์ (code / phone nil = ไม่ตั้ง) — MGMT-08, MGMT-09
+func UpdateUserAgentInfoRepository(db *gorm.DB, id uint, name string, code, phone *string, at time.Time) error {
 	return db.Model(&models.UserAgent{}).Where("id = ?", id).
-		Updates(map[string]any{"name": name, "phone": phone, "updated_at": at}).Error
+		Updates(map[string]any{"name": name, "phone_country_code": code, "phone": phone, "updated_at": at}).Error
 }
 
 // UpdateUserAgentStatusRepository — สถานะที่ตั้งกับบัญชีเอง (MGMT-30)
@@ -64,9 +60,9 @@ func UpdateUserAgentStatusRepository(db *gorm.DB, id uint, status models.AgentSt
 }
 
 // AgentPhoneTakenByOtherRepository — เบอร์นี้มีบัญชีอื่นในตารางใช้แล้วไหม (MGMT-08)
-func AgentPhoneTakenByOtherRepository(db *gorm.DB, phone string, selfID uint) (bool, error) {
+func AgentPhoneTakenByOtherRepository(db *gorm.DB, code, phone string, selfID uint) (bool, error) {
 	var n int64
-	err := db.Model(&models.UserAgent{}).Where("phone = ? AND id <> ?", phone, selfID).Limit(1).Count(&n).Error
+	err := db.Model(&models.UserAgent{}).Where("phone_country_code = ? AND phone = ? AND id <> ?", code, phone, selfID).Limit(1).Count(&n).Error
 	return n > 0, err
 }
 
@@ -77,4 +73,24 @@ func UpdateStatusGameRepository(db *gorm.DB, agentID uint, gameCodes []string, o
 	}
 	return db.Model(&models.AgentGameSetting{}).Where("agent_id = ? AND game_code IN ?", agentID, gameCodes).
 		Update("status_game", on).Error
+}
+
+// UpdateStatusGameManyRepository — status_game ของหลายบัญชีพร้อมกัน (ระบบปรับ Share Master ตาม CSM — MGMT-19)
+func UpdateStatusGameManyRepository(db *gorm.DB, agentIDs []uint, gameCodes []string, on bool) error {
+	if len(agentIDs) == 0 || len(gameCodes) == 0 {
+		return nil
+	}
+	return db.Model(&models.AgentGameSetting{}).Where("agent_id IN ? AND game_code IN ?", agentIDs, gameCodes).
+		Update("status_game", on).Error
+}
+
+// SyncFollowerPTRepository — ตั้งค่าที่ได้รับ · force / remain = 0 · status ของหลายบัญชีพร้อมกัน · commission ไม่แตะ
+// ใช้กับ Share Master ใต้ CSM (MGMT-19) · ค่าทุกแถวเท่ากันจึงเขียน statement เดียว
+func SyncFollowerPTRepository(db *gorm.DB, agentIDs []uint, gameCodes []string, ptFromParent float64, status bool, by string, at time.Time) error {
+	if len(agentIDs) == 0 {
+		return nil
+	}
+	return db.Model(&models.AgentGameSetting{}).Where("agent_id IN ? AND game_code IN ?", agentIDs, gameCodes).Updates(map[string]any{
+		"pt_from_parent": ptFromParent, "force": 0, "remain": 0, "status": status, "updated_by": by, "updated_at": at,
+	}).Error
 }

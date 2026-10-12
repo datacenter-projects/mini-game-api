@@ -91,7 +91,7 @@ func ResolveNewAgent(creator UserType, requested UserType) (NewAccount, bool) {
 		if requested == UserTypeShareB2C {
 			return NewAccount{models.AgentRoleShareholder, ptr(models.AgentTypeShareMaster), UserTypeShareMaster}, true
 		}
-	case UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent:
+	case UserTypeShareB2B, UserTypeShareB2C, UserTypeAgent: // Share Reseller / Master สร้างได้แค่ Member (lead H1 2026-10-09)
 		if requested == UserTypeAgent {
 			return NewAccount{Role: models.AgentRoleAgent, UserType: UserTypeAgent}, true
 		}
@@ -120,7 +120,6 @@ func IsSeamless(companyType UserType) bool {
 var (
 	usernameRe = regexp.MustCompile(`^[a-z0-9]{3,32}$`)
 	nameRe     = regexp.MustCompile(`^[\p{Thai}A-Za-z0-9]{3,32}$`) // นับเป็นตัวอักษร (rune) ไม่ใช่ byte
-	phoneRe    = regexp.MustCompile(`^[0-9]{8,15}$`)
 	subNameRe  = regexp.MustCompile(`^[a-z0-9]{3,20}$`)
 )
 
@@ -132,9 +131,6 @@ func IsValidUsername(s string) bool { return usernameRe.MatchString(s) }
 
 // IsValidName — ชื่อ / ชื่อเล่น 3–32 ตัวอักษร ไทย อังกฤษ ตัวเลข ไม่มีช่องว่าง (MGMT-07, MGMT-41 — แก้ 2026-10-08)
 func IsValidName(s string) bool { return nameRe.MatchString(s) }
-
-// IsValidPhone — ว่าง = ไม่กรอก · ไม่ว่าง = ตัวเลข 8–15 ตัว (MGMT-08)
-func IsValidPhone(s string) bool { return s == "" || phoneRe.MatchString(s) }
 
 // IsValidSubName — ส่วนหลัง @ ของ sub 3–20 ตัว a-z 0-9 หลัง normalize (MGMT-41 · AUTH-18)
 func IsValidSubName(s string) bool { return subNameRe.MatchString(s) }
@@ -149,7 +145,7 @@ func CreatableTypes(creator UserType) []UserType {
 		return []UserType{UserTypeShareB2B, UserTypeShareB2C}
 	case UserTypeCompanySeamlessReseller, UserTypeCompanySeamlessMaster:
 		return []UserType{UserTypeShareB2C}
-	case UserTypeShareB2B, UserTypeShareB2C, UserTypeShareReseller, UserTypeShareMaster, UserTypeAgent:
+	case UserTypeShareB2B, UserTypeShareB2C, UserTypeAgent:
 		return []UserType{UserTypeAgent}
 	}
 	return nil

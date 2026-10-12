@@ -10,31 +10,22 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// UpdateMemberInfoController — POST /api/v1/bo/pr/manage/members/update-info
-func UpdateMemberInfoController(c *fiber.Ctx) error {
-	var req memberManagementDto.UpdateInfoRequest
+// UpdateMemberDetailController — POST /api/v1/bo/pr/manage/members/detail/update (M3)
+func UpdateMemberDetailController(c *fiber.Ctx) error {
+	var req memberManagementDto.MemberDetailUpdateRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
 		return response.Error(c, err)
 	}
-	return result(c, memberManagementService.UpdateMemberInfoService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
+	return result(c, memberManagementService.UpdateMemberDetailService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }
 
-// UpdateMemberStatusController — POST /api/v1/bo/pr/manage/members/update-status
+// UpdateMemberStatusController — POST /api/v1/bo/pr/manage/members/status/update (M4)
 func UpdateMemberStatusController(c *fiber.Ctx) error {
 	var req memberManagementDto.UpdateStatusRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
 		return response.Error(c, err)
 	}
 	return result(c, memberManagementService.UpdateMemberStatusService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
-}
-
-// UpdateMemberPTController — POST /api/v1/bo/pr/manage/members/update-pt
-func UpdateMemberPTController(c *fiber.Ctx) error {
-	var req memberManagementDto.UpdateMemberPTRequest
-	if err := utils.ParseBodyNoNull(c, &req); err != nil {
-		return response.Error(c, err)
-	}
-	return result(c, memberManagementService.UpdateMemberPTService(c.UserContext(), middleware.GetActor(c), req, middleware.RequestMeta(c)))
 }
 
 // result — เส้นแก้ไม่มี data

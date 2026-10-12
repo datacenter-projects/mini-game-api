@@ -1,10 +1,11 @@
-// Package membermanagement คือ business logic ของเส้น /manage/members/* — spec: docs/modules/agent_management.md
+// Package membermanagement คือ business logic ของเส้น /manage/members/* — spec: docs/modules/member_management.md
 // helper ที่ใช้ร่วมกับ agent (ผู้สร้าง · ยอดตั้งต้น · log) อยู่ใน service/agent_management · import ทางเดียว
 package membermanagement
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,16 +25,16 @@ import (
 
 // memberPTValue — ค่า PT ของ Member 1 กลุ่มใน account_change_logs (MGMT-60)
 type memberPTValue struct {
-	PTBP         int `json:"pt_bp"`
-	RemainBP     int `json:"remain_bp"`
-	CommissionBP int `json:"commission_bp"`
+	PT         float64 `json:"pt"`
+	Remain     float64 `json:"remain"`
+	Commission float64 `json:"commission"`
 }
 
-// CreateMemberService — POST /api/v1/bo/pr/manage/members/create (MGMT-02, MGMT-05 – MGMT-15A, MGMT-21, MGMT-60)
+// CreateMemberService — POST /api/v1/bo/pr/manage/members/create (M1 · MGMT-02, MGMT-05 – MGMT-15A, MGMT-21, MGMT-60)
 // pt ของ Member ไม่เกินค่าที่ผู้สร้างได้รับ (lock แถวผู้สร้าง FOR SHARE ใน LoadCreator) · remain = ค่าที่ผู้สร้างได้รับ − pt
 func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.CreateMemberRequest, meta agentAuthService.RequestMeta) (memberManagementDto.CreateMemberResponse, error) {
 	var res memberManagementDto.CreateMemberResponse
-	if len(req.BalanceMinor) > 0 {
+	if len(req.BalanceAmounts) > 0 {
 		if err := agentManagementService.CheckPermissionService(ctx, actor, agentManagementCore.MenuPayment, agentManagementCore.LevelEdit); err != nil {
 			return res, err
 		}
@@ -60,27 +61,31 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		if err != nil {
 			return err
 		}
+		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO — หัวข้อ 2.1 · lead U3 / MQ2):
+		// ประเภทผู้สร้าง → username → เบอร์ → balance (Seamless → ยอดไม่พอ) → pt → commission_percent
 		if !agentManagementCore.CanCreateMember(c.UserType) {
 			return apperr.ErrCannotCreateType
+		}
+		if err := agentManagementService.LockUsernameFree(tx, req.Username); err != nil {
+			return err
+		}
+		if err := lockMemberPhoneFree(tx, c.Agent.ID, req.PhoneCountryCode, req.Phone, 0); err != nil {
+			return err
 		}
 		currencies, _ := agentManagementCore.ResolveCurrencies(c.UserType, agentManagementCore.UserTypeMember, nil, c.Currencies)
 		if len(currencies) != 1 { // ผู้สร้าง Member มี 1 สกุลเสมอ (MGMT-11 – MGMT-13) — ไม่ใช่ = ข้อมูลผู้สร้างไม่ครบ
 			return apperr.ErrInternal.Wrap(fmt.Errorf("creator %d has %d currencies, want 1", c.Agent.ID, len(currencies)))
 		}
-		for g, v := range req.PT { // ไล่ตาม field: pt → commission_percent
-			received := c.ReceivedBP[agentManagementCore.PTGroup(g)]
-			if err := agentManagementService.OwnPTError(g, agentManagementCore.ValidateMemberPT(v.PTBP, received), received); err != nil {
-				return err
-			}
-			if err := agentManagementService.PTError(g, agentManagementCore.ValidateMemberCommission(v.CommissionBP)); err != nil {
-				return err
-			}
-		}
-		if err := agentManagementService.CheckInitialBalance(req.BalanceMinor, agentManagementCore.IsSeamless(c.CompanyType), currencies); err != nil {
+		if err := agentManagementService.CheckInitialBalance(req.BalanceAmounts, agentManagementCore.IsSeamless(c.CompanyType), currencies); err != nil {
 			return err
 		}
-		if err := agentManagementService.LockAndCheckIdentity(tx, req.Username, req.Phone, true); err != nil {
+		if err := agentManagementService.CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {
 			return err
+		}
+		for _, g := range agentManagementService.SortedGroups(req.PT) { // ในกลุ่มไล่ตาม field: pt → commission_percent
+			if err := checkMemberPT(g, req.PT[g], c.Received[agentManagementCore.PTGroup(g)]); err != nil {
+				return err
+			}
 		}
 
 		now := time.Now()
@@ -89,9 +94,9 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			return err
 		}
 		m := models.UserMember{AgentID: c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: req.Name,
-			Phone: agentManagementService.OptionalString(req.Phone), Currency: currencies[0], Status: models.AgentStatusActive,
-			Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
-		if err := memberManagementPostgres.CreateUserMemberRepository(tx, &m); err != nil {
+			PhoneCountryCode: agentManagementService.OptionalString(req.PhoneCountryCode), Phone: agentManagementService.OptionalString(req.Phone),
+			Currency: currencies[0], Status: models.AgentStatusActive, Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
+		if err := createMemberRow(tx, &m); err != nil {
 			return err
 		}
 
@@ -99,11 +104,11 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		ptLog := map[string]memberPTValue{}
 		for _, g := range agentManagementCore.Groups() {
 			v := req.PT[string(g)]
-			remain := agentManagementCore.MemberRemain(c.ReceivedBP[g], v.PTBP)
-			ptLog[string(g)] = memberPTValue{PTBP: v.PTBP, RemainBP: remain, CommissionBP: v.CommissionBP}
+			remain := agentManagementCore.MemberRemain(c.Received[g], v.PT)
+			ptLog[string(g)] = memberPTValue{PT: v.PT, Remain: remain, Commission: v.Commission}
 			for _, game := range agentManagementCore.GamesOf(g) {
-				settings = append(settings, models.UserMemberGameSetting{UserMemberID: m.ID, GameCode: game.GameCode, Category: game.Category,
-					PTBP: v.PTBP, RemainBP: remain, CommissionBP: v.CommissionBP,
+				settings = append(settings, models.UserMemberGameSetting{UserMemberID: m.ID, GameCode: game.GameCode, ParentID: c.Agent.ID, Category: game.Category,
+					PT: v.PT, Remain: remain, Commission: v.Commission,
 					CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}
 		}
@@ -111,7 +116,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			return err
 		}
 
-		if err := agentManagementService.TransferInitialBalance(tx, c, models.BalanceOwnerMember, m.ID, req.BalanceMinor, req.RequestID, actor, now); err != nil {
+		if err := agentManagementService.TransferInitialBalance(tx, c, models.BalanceOwnerMember, m.ID, req.BalanceAmounts, req.RequestID, actor, now); err != nil {
 			return err
 		}
 		if err := agentManagementPostgres.CreateCreateRequestRepository(tx, &models.CreateRequest{RequestID: req.RequestID, CreatorType: actor.AccountType,
@@ -120,15 +125,15 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		}
 
 		created, err := agentManagementService.ChangeLog(actor, meta, req.RequestID, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeCreate, nil,
-			map[string]any{"username": m.Username, "name": req.Name, "phone": req.Phone, "agent_id": c.Agent.ID,
+			map[string]any{"username": m.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone, "agent_id": c.Agent.ID,
 				"currency": m.Currency, "pt": ptLog}, now)
 		if err != nil {
 			return err
 		}
 		rows := []models.AccountChangeLog{created}
-		if len(req.BalanceMinor) > 0 {
+		if len(req.BalanceAmounts) > 0 {
 			row, err := agentManagementService.ChangeLog(actor, meta, req.RequestID, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeInitialBalance, nil,
-				map[string]any{"amounts_minor": req.BalanceMinor}, now)
+				map[string]any{"amounts": req.BalanceAmounts}, now)
 			if err != nil {
 				return err
 			}
@@ -142,4 +147,31 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		return nil
 	})
 	return res, err
+}
+
+// createMemberRow — INSERT แถว Member (MGMT-05, MGMT-08)
+// username / เบอร์ถูกเช็คใต้ advisory lock แล้ว แต่ถ้ายังชน unique (เช่น แถวที่ยังไม่ commit ตอนเช็ค) ให้ตอบ error ของ field แทน 409:
+// ย้อนไป savepoint แล้วดูว่าเบอร์ถูกใช้ไหม — ใช่ = 402403 · ไม่ใช่ = username (unique อีกตัวเดียวของตาราง) 402401
+func createMemberRow(tx *gorm.DB, m *models.UserMember) error {
+	const sp = "create_member_row"
+	if err := tx.SavePoint(sp).Error; err != nil {
+		return err
+	}
+	err := memberManagementPostgres.CreateUserMemberRepository(tx, m)
+	if !errors.Is(err, apperr.ErrConflict) {
+		return err
+	}
+	if err := tx.RollbackTo(sp).Error; err != nil {
+		return err
+	}
+	if m.Phone != nil && m.PhoneCountryCode != nil {
+		taken, err := memberManagementPostgres.UserMemberPhoneTakenByOtherRepository(tx, m.AgentID, *m.PhoneCountryCode, *m.Phone, 0)
+		if err != nil {
+			return err
+		}
+		if taken {
+			return apperr.ErrPhoneTaken
+		}
+	}
+	return apperr.ErrUsernameTaken
 }

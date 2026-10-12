@@ -23,8 +23,9 @@ type Creator struct {
 	UserType    agentManagementCore.UserType
 	CompanyType agentManagementCore.UserType // Company หัวสาย รวมตัวเอง · "" = ไม่อยู่ใต้ Company (Superadmin)
 	Currencies  []string
-	ReceivedBP  map[agentManagementCore.PTGroup]int // ค่าที่ผู้สร้างได้รับต่อกลุ่ม (MGMT-22)
-	Chain       agentManagementCore.Chain           // สายชั้นบนของผู้สร้าง (MGMT-61)
+	Received    map[agentManagementCore.PTGroup]float64 // ค่าที่ผู้สร้างได้รับต่อกลุ่ม (MGMT-22)
+	Chain       agentManagementCore.Chain               // สายชั้นบนของผู้สร้าง (MGMT-61)
+	Settings    []models.AgentGameSetting               // ค่าตั้งของผู้สร้างทุกเกม (lock FOR SHARE) · ใช้ตั้ง Share Master ตาม CSM (MGMT-19)
 }
 
 func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
@@ -57,10 +58,11 @@ func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
 	if err != nil {
 		return c, err
 	}
-	c.ReceivedBP = map[agentManagementCore.PTGroup]int{}
+	c.Settings = settings
+	c.Received = map[agentManagementCore.PTGroup]float64{}
 	for _, s := range settings { // ค่าของเกมในกลุ่มเท่ากันเสมอ (MGMT-16)
 		if g, ok := agentManagementCore.GroupOfGame(s.GameCode); ok {
-			c.ReceivedBP[g] = s.PTFromParentBP
+			c.Received[g] = s.PTFromParent
 		}
 	}
 	return c, nil
@@ -75,7 +77,7 @@ func (c Creator) newAccountSeamless(newType agentManagementCore.UserType) bool {
 }
 
 // CheckInitialBalance — ตรวจยอดเงินตั้งต้นก่อนเปิด tx (MGMT-15, MGMT-15A, MGMT-51)
-func CheckInitialBalance(amounts map[string]int64, seamless bool, accountCurrencies []string) error {
+func CheckInitialBalance(amounts map[string]float64, seamless bool, accountCurrencies []string) error {
 	if len(amounts) == 0 {
 		return nil
 	}
@@ -96,7 +98,7 @@ func CheckInitialBalance(amounts map[string]int64, seamless bool, accountCurrenc
 
 // TransferInitialBalance — โอนยอดเงินตั้งต้นจากผู้สร้างให้บัญชีใหม่ใน tx เดียวกับการสร้าง (MGMT-15A · กฎข้อ 10–12)
 // Superadmin วงเงินไม่จำกัด: ไม่หักยอด · ledger เฉพาะฝั่งที่ได้รับ
-func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerType, ownerID uint, amounts map[string]int64,
+func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerType, ownerID uint, amounts map[string]float64,
 	requestID string, actor agentAuthService.Actor, now time.Time) error {
 	if len(amounts) == 0 {
 		return nil
@@ -108,7 +110,7 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 	sort.Strings(currencies)
 
 	var ledger []models.BalanceLedger
-	entry := func(ot models.BalanceOwnerType, id uint, cur string, amount, after int64, reason models.LedgerReason, refType string, refID uint) {
+	entry := func(ot models.BalanceOwnerType, id uint, cur string, amount, after float64, reason models.LedgerReason, refType string, refID uint) {
 		ledger = append(ledger, models.BalanceLedger{OwnerType: ot, OwnerID: id, Currency: cur, Amount: amount, BalanceAfter: after,
 			Reason: reason, RefType: &refType, RefID: &refID, RequestID: requestID,
 			ActorType: actor.AccountType, ActorID: actor.AccountID(), CreatedAt: now})
@@ -121,12 +123,12 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 		if err != nil {
 			return err
 		}
-		have := map[string]int64{}
+		have := map[string]float64{}
 		for _, b := range locked {
 			have[b.Currency] = b.Amount
 		}
 		for _, cur := range currencies {
-			after := have[cur] - amounts[cur]
+			after := utils.Round4(have[cur] - amounts[cur])
 			if after < 0 {
 				return apperr.ErrInsufficientInitial
 			}
@@ -148,7 +150,7 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 		}
 	case models.BalanceOwnerMember: // ยอดอยู่ที่ user_members.credit (Member มี 1 สกุล — MGMT-13) · แถว Member เพิ่งสร้างใน tx นี้
 		for _, cur := range currencies {
-			if err := memberManagementPostgres.UpdateUserMemberCreditRepository(tx, ownerID, utils.MinorToCredit(amounts[cur]), now); err != nil {
+			if err := memberManagementPostgres.UpdateUserMemberCreditRepository(tx, ownerID, amounts[cur], now); err != nil {
 				return err
 			}
 		}
@@ -187,8 +189,8 @@ func ChangeLog(actor agentAuthService.Actor, meta agentAuthService.RequestMeta, 
 	return l, nil
 }
 
-// LockAndCheckIdentity — กันสร้างพร้อมกัน แล้วเช็ค username / เบอร์ซ้ำ (MGMT-05, MGMT-08)
-func LockAndCheckIdentity(tx *gorm.DB, username, phone string, member bool) error {
+// LockUsernameFree — lock username กันสร้างพร้อมกัน แล้วเช็คซ้ำทั้งระบบ ข้ามตาราง user_agents / user_members (MGMT-05) · ใช้ร่วมกับ member_management
+func LockUsernameFree(tx *gorm.DB, username string) error {
 	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "username:"+username); err != nil {
 		return err
 	}
@@ -199,17 +201,26 @@ func LockAndCheckIdentity(tx *gorm.DB, username, phone string, member bool) erro
 	if taken {
 		return apperr.ErrUsernameTaken
 	}
+	return nil
+}
+
+// LockAndCheckAgentIdentity — username + เบอร์ 2 field ของบัญชีฝั่ง agent (MGMT-05, MGMT-08) · ซ้ำที่คู่ (รหัส + เบอร์)
+func LockAndCheckAgentIdentity(tx *gorm.DB, username, code, phone string) error {
+	if err := LockUsernameFree(tx, username); err != nil {
+		return err
+	}
+	return checkAgentPhone(tx, code, phone, 0)
+}
+
+// checkAgentPhone — lock เบอร์ (คู่) แล้วเช็คว่าบัญชีอื่นใช้แล้วไหม · selfID 0 = บัญชีใหม่
+func checkAgentPhone(tx *gorm.DB, code, phone string, selfID uint) error {
 	if phone == "" {
 		return nil
 	}
-	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "phone:"+phone); err != nil {
+	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "phone:"+code+"-"+phone); err != nil {
 		return err
 	}
-	if member {
-		taken, err = memberManagementPostgres.UserMemberPhoneExistsRepository(tx, phone)
-	} else {
-		taken, err = agentManagementPostgres.AgentPhoneExistsRepository(tx, phone)
-	}
+	taken, err := agentManagementPostgres.AgentPhoneTakenByOtherRepository(tx, code, phone, selfID)
 	if err != nil {
 		return err
 	}
@@ -244,7 +255,7 @@ func OptionalString(s string) *string {
 	return &s
 }
 
-// PTError — แปลงผลตรวจ Commission ของ Member เป็น error (MGMT-21) · ฝั่ง agent ใช้ ChildPTError / OwnPTError
+// PTError — แปลงผลตรวจ Commission ของ Member เป็น error (MGMT-21) · ฝั่ง agent ใช้ ChildPTError · pt ของ Member ใช้ MemberPTError
 func PTError(group string, v agentManagementCore.PTViolation) error {
 	switch v {
 	case agentManagementCore.PTOK:

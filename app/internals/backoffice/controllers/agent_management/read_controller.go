@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// เส้นอ่านที่ต้องระบุบัญชีใช้ POST + id ใน body (ผู้ดูมาจาก token) — copy-sources ไม่ระบุบัญชีจึงเป็น GET
+// เส้นอ่านใช้ POST · ระบุบัญชีด้วย id ใน body (ผู้ดูมาจาก token) — spec หัวข้อ 5 (lead E2 / E3 / E6)
 
 // ListDownlinesController — POST /api/v1/bo/pr/manage/downlines/list (page / limit ใน body)
 func ListDownlinesController(c *fiber.Ctx) error {
@@ -26,21 +26,7 @@ func ListDownlinesController(c *fiber.Ctx) error {
 	return response.Page(c, rows, page, total)
 }
 
-// SearchDownlinesController — POST /api/v1/bo/pr/manage/downlines/search (page / limit ใน body)
-func SearchDownlinesController(c *fiber.Ctx) error {
-	var req agentManagementDto.DownlineSearchRequest
-	if err := utils.ParseBodyNoNull(c, &req); err != nil {
-		return response.Error(c, err)
-	}
-	page := utils.NewPage(req.Page, req.Limit)
-	rows, total, err := agentManagementService.SearchDownlinesService(c.UserContext(), middleware.GetActor(c), req, page)
-	if err != nil {
-		return response.Error(c, err)
-	}
-	return response.Page(c, rows, page, total)
-}
-
-// GetAgentDetailController — POST /api/v1/bo/pr/manage/agents/detail
+// GetAgentDetailController — POST /api/v1/bo/pr/manage/agents/detail/get
 func GetAgentDetailController(c *fiber.Ctx) error {
 	var req agentManagementDto.DetailRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
@@ -53,9 +39,13 @@ func GetAgentDetailController(c *fiber.Ctx) error {
 	return response.OK(c, res)
 }
 
-// ListCopySourcesController — GET /api/v1/bo/pr/manage/agents/copy-sources
-func ListCopySourcesController(c *fiber.Ctx) error {
-	res, err := agentManagementService.ListCopySourcesService(c.UserContext(), middleware.GetActor(c))
+// ListAgentsController — POST /api/v1/bo/pr/manage/agents/list
+func ListAgentsController(c *fiber.Ctx) error {
+	var req agentManagementDto.AgentListRequest
+	if err := utils.ParseBodyNoNull(c, &req); err != nil {
+		return response.Error(c, err)
+	}
+	res, err := agentManagementService.ListAgentsService(c.UserContext(), middleware.GetActor(c), req)
 	if err != nil {
 		return response.Error(c, err)
 	}

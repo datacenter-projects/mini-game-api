@@ -5,6 +5,7 @@ package backoffice_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"app/app/models"
@@ -15,21 +16,24 @@ import (
 
 const (
 	downlinesPath    = "/api/v1/bo/pr/manage/downlines/list"
-	agentDetailPath  = "/api/v1/bo/pr/manage/agents/detail"
-	memberDetailPath = "/api/v1/bo/pr/manage/members/detail"
-	copySourcesPath  = "/api/v1/bo/pr/manage/agents/copy-sources"
+	agentDetailPath  = "/api/v1/bo/pr/manage/agents/detail/get"
+	memberDetailPath = "/api/v1/bo/pr/manage/members/detail/get"
+	agentListPath    = "/api/v1/bo/pr/manage/agents/list"
 )
 
 type downlineRow struct {
-	ID       uint              `json:"id"`
-	Role     string            `json:"role"`
-	UserType string            `json:"user_type"`
-	Username string            `json:"username"`
-	Name     string            `json:"name"`
-	Phone    string            `json:"phone"`
-	Status   string            `json:"status"`
-	PT       json.RawMessage   `json:"pt"`
-	Balances []json.RawMessage `json:"balances"`
+	ID          uint              `json:"id"`
+	Role        string            `json:"role"`
+	UserType    string            `json:"user_type"`
+	Username    string            `json:"username"`
+	Name        string            `json:"name"`
+	Phone       string            `json:"phone"`
+	Status      string            `json:"status"`
+	PT          json.RawMessage   `json:"pt"`
+	LastLoginAt *string           `json:"last_login_at"`
+	LastLoginIP *string           `json:"last_login_ip"`
+	CreatedAt   *string           `json:"created_at"`
+	Balances    []json.RawMessage `json:"balances"`
 }
 
 type downlinePage struct {
@@ -44,7 +48,7 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	mustCreate(t, app, c.agentTok, agentBody("AGENT", "zagent", nil, childPT(10, 0, 0, 0)))
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("bmember", 0.3), c.agentTok), 200, 200)
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("amember", 0.2), c.agentTok), 200, 200)
-	setBalance(t, c.agent.ID, "THB", 5000)
+	setBalance(t, c.agent.ID, "THB", 50)
 
 	get := func(tok string, body map[string]any, query string) downlinePage {
 		t.Helper()
@@ -62,8 +66,19 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	if p.Total != 1 || p.Items[0].Username != "agent01" || p.Items[0].UserType != "AGENT" || p.Items[0].Status != "ACTIVE" {
 		t.Fatalf("share downlines %+v", p)
 	}
-	if string(p.Items[0].Balances[0]) != `{"currency":"THB","amount":50.00}` {
+	if string(p.Items[0].Balances[0]) != `{"currency":"THB","amount":50}` {
 		t.Fatalf("balances %s", p.Items[0].Balances[0])
+	}
+
+	// login ล่าสุด + วันที่สร้าง (เพิ่ม 2026-10-09) · ยังไม่เคย login = ""
+	database.DBConn.Exec("UPDATE user_agents SET last_login_at = now(), last_login_ip = ? WHERE id = ?", "203.0.113.9", c.agent.ID)
+	p = get(c.shareTok, map[string]any{}, "")
+	if r := p.Items[0]; r.LastLoginIP == nil || *r.LastLoginIP != "203.0.113.9" || r.LastLoginAt == nil || *r.LastLoginAt == "" || r.CreatedAt == nil || *r.CreatedAt == "" {
+		t.Fatalf("login / created %+v", r)
+	}
+	p = get(c.agentTok, map[string]any{"keyword": "amember"}, "")
+	if r := p.Items[0]; r.LastLoginAt == nil || *r.LastLoginAt != "" || r.LastLoginIP == nil || *r.LastLoginIP != "" || r.CreatedAt == nil || *r.CreatedAt == "" {
+		t.Fatalf("member ที่ยังไม่เคย login %+v", r)
 	}
 
 	// ไล่ลงทีละชั้น: Agent + Member ปนกัน เรียง A→Z · role ถูกต้อง
@@ -86,16 +101,16 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 		t.Fatalf("agent pt %s", p.Items[2].PT)
 	}
 
-	// q บางส่วน ไม่สนตัวพิมพ์ · limit / page
-	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID, "q": "MEM"}, "")
+	// keyword บางส่วน ไม่สนตัวพิมพ์ (ค้นทุกชั้นใต้ parent_id) · limit / page
+	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID, "keyword": "MEMB"}, "")
 	if p.Total != 2 {
-		t.Fatalf("q=MEM total %d", p.Total)
+		t.Fatalf("keyword=MEMB total %d", p.Total)
 	}
 	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID, "limit": 1, "page": 2}, "")
 	if p.Total != 3 || len(p.Items) != 1 || p.Items[0].Username != "bmember" {
 		t.Fatalf("page 2 %+v", p)
 	}
-	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID, "q": "%"}, "") // % ไม่ใช่ wildcard
+	p = get(c.comTok, map[string]any{"parent_id": c.agent.ID, "keyword": "%%%%"}, "") // % ไม่ใช่ wildcard
 	if p.Total != 0 {
 		t.Fatalf("q=%% total %d", p.Total)
 	}
@@ -116,7 +131,7 @@ func TestDownlines(t *testing.T) { // MGMT-26, MGMT-27, MGMT-28
 	}
 }
 
-func TestDownlinesPTPermission(t *testing.T) { // MGMT-51
+func TestDownlinesMemberPermission(t *testing.T) { // MGMT-51 · lead P4 / P5: ไม่มีเมนู pt · pt แสดงเสมอ · ทุกเส้นใช้ member
 	app := setup2(t)
 	c := buildChain(t, app)
 	hash, _ := utils.HashPassword(mgPassword)
@@ -127,6 +142,7 @@ func TestDownlinesPTPermission(t *testing.T) { // MGMT-51
 	}
 	tok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
 
+	// member view: รายชื่อ · รายละเอียด · agents/list ได้ และมี pt เสมอ
 	r := call(t, app, "POST", downlinesPath, map[string]any{}, tok)
 	expect(t, r, 200, 200)
 	var raw struct {
@@ -136,28 +152,31 @@ func TestDownlinesPTPermission(t *testing.T) { // MGMT-51
 	if len(raw.Items) != 1 {
 		t.Fatalf("items %s", r.Data)
 	}
-	if _, ok := raw.Items[0]["pt"]; ok {
-		t.Fatal("ไม่มีสิทธิ์ pt ต้องไม่มี field pt")
+	if _, ok := raw.Items[0]["pt"]; !ok {
+		t.Fatal("ต้องมี field pt เสมอ")
 	}
 	r = call(t, app, "POST", agentDetailPath, map[string]any{"id": c.share.ID}, tok)
 	expect(t, r, 200, 200)
 	var d map[string]json.RawMessage
 	_ = json.Unmarshal(r.Data, &d)
-	if _, ok := d["pt"]; ok {
-		t.Fatal("รายละเอียด: ไม่มีสิทธิ์ pt ต้องไม่มี field pt")
+	if _, ok := d["pt"]; !ok {
+		t.Fatal("รายละเอียดต้องมี field pt เสมอ")
 	}
-	expect(t, call(t, app, "GET", copySourcesPath, nil, tok), 200, 402303)
+	expect(t, call(t, app, "POST", agentListPath, map[string]any{}, tok), 200, 200)
+	expect(t, call(t, app, "POST", agentDetailUpdatePath, map[string]any{"id": c.share.ID, "info": map[string]any{"name": "share01"}}, tok), 200, 402303) // ต้อง edit
 
-	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"pt":"view"}`})
-	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, tok), 200, 402303) // member off
-	expect(t, call(t, app, "GET", copySourcesPath, nil, tok), 200, 200)
+	// สิทธิ์เดิมแบบ pt (ก่อน migration) ไม่มีผลแล้ว · member off = 402303 ทุกเส้นอ่าน
+	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"permissions": `{"pt":"edit"}`})
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, tok), 200, 402303)
+	expect(t, call(t, app, "POST", agentDetailPath, map[string]any{"id": c.share.ID}, tok), 200, 402303)
+	expect(t, call(t, app, "POST", agentListPath, map[string]any{}, tok), 200, 402303)
 }
 
 func TestAccountDetail(t *testing.T) { // MGMT-29
 	app := setup2(t)
 	c := buildChain(t, app)
-	setPhone := "0812345678"
-	setCols(t, models.AccountTypeAgent, c.agent.ID, map[string]any{"phone": setPhone})
+	setPhone := "812345678"
+	setCols(t, models.AccountTypeAgent, c.agent.ID, map[string]any{"phone_country_code": "66", "phone": setPhone})
 	r := call(t, app, "POST", agentDetailPath, map[string]any{"id": c.agent.ID}, c.comTok)
 	expect(t, r, 200, 200)
 	var raw map[string]json.RawMessage
@@ -174,6 +193,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	}
 	var d struct {
 		UserType       string                    `json:"user_type"`
+		PhoneCode      string                    `json:"phone_country_code"`
 		Phone          string                    `json:"phone"`
 		ParentUsername string                    `json:"parent_username"`
 		Currencies     []string                  `json:"currencies"`
@@ -183,7 +203,7 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 		LastLoginAt    string                    `json:"last_login_at"`
 	}
 	_ = json.Unmarshal(r.Data, &d)
-	if d.UserType != "AGENT" || d.Phone != setPhone || d.ParentUsername != "share01" || len(d.Currencies) != 1 ||
+	if d.UserType != "AGENT" || d.PhoneCode != "66" || d.Phone != setPhone || d.ParentUsername != "share01" || len(d.Currencies) != 1 ||
 		d.PT["minigame"]["pt_from_parent"] != float64(60) || len(d.StatusGame) != 3 || !d.PasscodeSet || d.LastLoginAt == "" {
 		t.Fatalf("detail %s", r.Data)
 	}
@@ -220,39 +240,46 @@ func TestAccountDetail(t *testing.T) { // MGMT-29
 	expect(t, call(t, app, "POST", memberDetailPath, map[string]any{"id": 99999}, c.comTok), 200, 402402)
 }
 
-func TestCopySources(t *testing.T) { // MGMT-35
+func TestAgentList(t *testing.T) { // MGMT-35 · lead E6
 	app := setup2(t)
 	c := buildChain(t, app)
 	mustCreate(t, app, c.comTok, agentBody("SHARE_B2B", "ashare", []string{"THB"}, childPT(40, 5, 5, 0.1)))
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("nomem", 0), c.agentTok), 200, 200)
 
-	r := call(t, app, "GET", copySourcesPath, nil, c.comTok)
-	expect(t, r, 200, 200)
-	var list []struct {
-		Username   string                    `json:"username"`
-		UserType   string                    `json:"user_type"`
-		PT         map[string]map[string]any `json:"pt"`
-		StatusGame map[string]bool           `json:"status_game"`
+	list := func(tok string, body map[string]any) []map[string]any {
+		t.Helper()
+		r := call(t, app, "POST", agentListPath, body, tok)
+		expect(t, r, 200, 200)
+		var out []map[string]any
+		if err := json.Unmarshal(r.Data, &out); err != nil {
+			t.Fatalf("%s: %v", r.Data, err)
+		}
+		return out
 	}
-	if err := json.Unmarshal(r.Data, &list); err != nil {
-		t.Fatal(err)
+	rows := list(c.comTok, map[string]any{})
+	if len(rows) != 2 || rows[0]["username"] != "ashare" || rows[1]["username"] != "share01" || rows[0]["user_type"] != "SHARE_B2B" ||
+		rows[0]["name"] != "Nameashare" || rows[0]["status"] != "ACTIVE" {
+		t.Fatalf("agents/list %v", rows)
 	}
-	if len(list) != 2 || list[0].Username != "ashare" || list[1].Username != "share01" || list[0].UserType != "SHARE_B2B" ||
-		list[0].PT["minigame"]["force"] != float64(5) || len(list[0].StatusGame) != 3 {
-		t.Fatalf("copy-sources %s", r.Data)
+	if _, has := rows[0]["pt"]; has {
+		t.Fatalf("agents/list ต้องไม่มี pt (ดูค่าที่ detail/get) %v", rows[0])
 	}
-	// ไม่มีลูก = []
-	r = call(t, app, "GET", copySourcesPath, nil, c.agentTok) // ลูกของ agent01 เป็น Member อย่างเดียว
+	if rows := list(c.comTok, map[string]any{"keyword": " ASHA "}); len(rows) != 1 || rows[0]["username"] != "ashare" {
+		t.Fatalf("keyword %v", rows)
+	}
+	expect(t, call(t, app, "POST", agentListPath, map[string]any{"keyword": "abc"}, c.comTok), 200, 422) // สั้นกว่า 4 ตัว
+	// ไม่มีลูกฝั่ง agent = [] (ลูกของ agent01 เป็น Member อย่างเดียว)
+	r := call(t, app, "POST", agentListPath, map[string]any{}, c.agentTok)
 	expect(t, r, 200, 200)
 	if string(r.Data) != "[]" {
 		t.Fatalf("ไม่มีลูกฝั่ง agent ต้องได้ [] ได้ %s", r.Data)
 	}
 }
 
-func TestDownlinesSearch(t *testing.T) { // MGMT-27A
+func TestDownlinesSearch(t *testing.T) { // MGMT-26 / 27 · lead E2: ค้นทั้งสายด้วย keyword ใน downlines/list
 	app := setup2(t)
 	c := buildChain(t, app) // comp01 → share01 → agent01
-	const searchPath = "/api/v1/bo/pr/manage/downlines/search"
+	searchPath := downlinesPath
 	mustCreate(t, app, c.comTok, agentBody("SHARE_B2B", "share02", []string{"THB"}, childPT(40, 0, 0, 0)))
 	mustCreate(t, app, c.agentTok, agentBody("AGENT", "sharedeep", nil, childPT(10, 0, 0, 0))) // ชื่อมี "share" อยู่ลึก 3 ชั้น
 	expect(t, call(t, app, "POST", createMemberPath, memberBody("memshare", 0.2), c.agentTok), 200, 200)
@@ -261,7 +288,7 @@ func TestDownlinesSearch(t *testing.T) { // MGMT-27A
 
 	search := func(tok, q string) ([]map[string]any, int64) {
 		t.Helper()
-		r := call(t, app, "POST", searchPath, map[string]any{"q": q}, tok)
+		r := call(t, app, "POST", searchPath, map[string]any{"keyword": q}, tok)
 		expect(t, r, 200, 200)
 		var p struct {
 			Data  []map[string]any `json:"data"`
@@ -286,6 +313,17 @@ func TestDownlinesSearch(t *testing.T) { // MGMT-27A
 	if rows[0]["role"] != "MEMBER" || rows[1]["pt"] == nil {
 		t.Fatalf("row shape %v", rows[0])
 	}
+	for _, r := range rows { // เพิ่ม 2026-10-09: ทุกแถวมี last_login_at / last_login_ip / created_at
+		if _, ok := r["last_login_at"].(string); !ok {
+			t.Fatalf("ไม่มี last_login_at %v", r)
+		}
+		if _, ok := r["last_login_ip"].(string); !ok {
+			t.Fatalf("ไม่มี last_login_ip %v", r)
+		}
+		if s, _ := r["created_at"].(string); s == "" {
+			t.Fatalf("ไม่มี created_at %v", r)
+		}
+	}
 	// share01 ค้น → เห็นแค่ใต้ตัวเอง ไม่เห็นตัวเอง / share02 สายข้าง / หัวสาย
 	rows, _ = search(c.shareTok, "share")
 	if names(rows) != "memshare<agent01 sharedeep<agent01 " {
@@ -303,7 +341,7 @@ func TestDownlinesSearch(t *testing.T) { // MGMT-27A
 	}
 	setStatus(t, c.share.ID, models.AgentStatusActive)
 	// page / limit
-	r := call(t, app, "POST", searchPath, map[string]any{"q": "share", "limit": 1, "page": 2}, c.comTok)
+	r := call(t, app, "POST", searchPath, map[string]any{"keyword": "share", "limit": 1, "page": 2}, c.comTok)
 	var p struct {
 		Data  []map[string]any `json:"data"`
 		Total int64            `json:"total_count"`
@@ -312,6 +350,21 @@ func TestDownlinesSearch(t *testing.T) { // MGMT-27A
 	if p.Total != 4 || len(p.Data) != 1 || p.Data[0]["username"] != "share01" {
 		t.Fatalf("page 2 %v", p)
 	}
-	expect(t, call(t, app, "POST", searchPath, map[string]any{"q": "s"}, c.comTok), 200, 422)
-	expect(t, call(t, app, "POST", searchPath, map[string]any{}, c.comTok), 200, 422)
+	expect(t, call(t, app, "POST", searchPath, map[string]any{"keyword": "sha"}, c.comTok), 200, 422) // 3 ตัว
+	expect(t, call(t, app, "POST", searchPath, map[string]any{"keyword": strings.Repeat("a", 33)}, c.comTok), 200, 422)
+	// ค้นใต้ parent_id: ใต้ agent01 มี memshare กับ sharedeep
+	r = call(t, app, "POST", searchPath, map[string]any{"parent_id": c.agent.ID, "keyword": "share"}, c.comTok)
+	expect(t, r, 200, 200)
+	p.Data, p.Total = nil, 0 // ห้ามใช้ map เดิมซ้ำ (json merge ค่าเก่า)
+	_ = json.Unmarshal(r.Data, &p)
+	if p.Total != 2 || len(p.Data) != 2 || p.Data[0]["username"] != "memshare" || p.Data[1]["username"] != "sharedeep" {
+		t.Fatalf("ค้นใต้ parent_id %v", p)
+	}
+	// แถว agent มี status_game · แถว Member ไม่มี (lead Q-C1)
+	if _, ok := p.Data[1]["status_game"]; !ok {
+		t.Fatalf("แถว agent ต้องมี status_game %v", p.Data[1])
+	}
+	if _, ok := p.Data[0]["status_game"]; ok {
+		t.Fatalf("แถว Member ต้องไม่มี status_game %v", p.Data[0])
+	}
 }

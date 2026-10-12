@@ -5,6 +5,7 @@ package backoffice_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"app/app/models"
@@ -15,16 +16,17 @@ import (
 
 const (
 	subListPath   = "/api/v1/bo/pr/manage/subaccounts/list"
-	subDetailPath = "/api/v1/bo/pr/manage/subaccounts/detail"
+	subDetailPath = "/api/v1/bo/pr/manage/subaccounts/detail/get"
 	subCreatePath = "/api/v1/bo/pr/manage/subaccounts/create"
-	subUpdatePath = "/api/v1/bo/pr/manage/subaccounts/update-info"
-	subStatusPath = "/api/v1/bo/pr/manage/subaccounts/update-status"
+	subUpdatePath = "/api/v1/bo/pr/manage/subaccounts/detail/update"
+	subStatusPath = "/api/v1/bo/pr/manage/subaccounts/status/update"
 )
 
 type subData struct {
 	ID          uint              `json:"id"`
 	Username    string            `json:"username"`
 	Name        string            `json:"name"`
+	PhoneCode   string            `json:"phone_country_code"`
 	Phone       string            `json:"phone"`
 	Status      string            `json:"status"`
 	Permissions map[string]string `json:"permissions"`
@@ -33,7 +35,7 @@ type subData struct {
 }
 
 func subBody(suffix string, perms map[string]string) map[string]any {
-	b := map[string]any{"name_suffix": suffix, "password": mgPassword, "name": "staff01", "phone": ""}
+	b := map[string]any{"name_suffix": suffix, "password": mgPassword, "name": "staff01", "phone_country_code": "", "phone": ""}
 	if perms != nil {
 		b["permissions"] = perms
 	}
@@ -67,7 +69,7 @@ func TestSubCreate(t *testing.T) { // MGMT-40, MGMT-41, MGMT-50, MGMT-52
 	}
 	var perms map[string]string
 	_ = json.Unmarshal([]byte(s.Permissions), &perms)
-	if len(perms) != 8 || perms["member"] != "edit" || perms["report"] != "view" || perms["pt"] != "off" {
+	if _, hasPT := perms["pt"]; len(perms) != 8 || hasPT || perms["api_credential"] != "off" || perms["member"] != "edit" || perms["report"] != "view" {
 		t.Fatalf("permissions %v", perms)
 	}
 
@@ -90,7 +92,9 @@ func TestSubCreate(t *testing.T) { // MGMT-40, MGMT-41, MGMT-50, MGMT-52
 		{"dashboard edit", c.comTok, subBody("staff2", map[string]string{"dashboard": "edit"}), 422},
 		{"Company ให้ rate", c.comTok, subBody("staff2", map[string]string{"rate": "view"}), 422},
 		{"Superadmin ให้ announcement", c.saTok, subBody("staff2", map[string]string{"announcement": "view"}), 422},
-		{"รหัสผ่านผิดกฎ", c.comTok, map[string]any{"name_suffix": "staff2", "password": "aaaa1111", "name": "staff01", "phone": ""}, 422},
+		{"รหัสผ่านผิดกฎ", c.comTok, map[string]any{"name_suffix": "staff2", "password": "aaaa1111", "name": "staff01", "phone_country_code": "", "phone": ""}, 422},
+		{"เบอร์ไม่มีรหัสประเทศ", c.comTok, map[string]any{"name_suffix": "staff2", "password": mgPassword, "name": "staff01", "phone_country_code": "", "phone": "899999999"}, 422},
+		{"รหัสประเทศไม่มีจริง", c.comTok, map[string]any{"name_suffix": "staff2", "password": mgPassword, "name": "staff01", "phone_country_code": "999", "phone": "899999999"}, 422},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -100,10 +104,10 @@ func TestSubCreate(t *testing.T) { // MGMT-40, MGMT-41, MGMT-50, MGMT-52
 
 	// Superadmin ให้ rate ได้ · ชื่อเล่นภาษาไทย · เบอร์ซ้ำได้ (MGMT-41)
 	b := subBody("ratestaff", map[string]string{"rate": "edit"})
-	b["name"], b["phone"] = "พนักงาน1", "0899999999"
+	b["name"], b["phone_country_code"], b["phone"] = "พนักงาน1", "66", "899999999"
 	expect(t, call(t, app, "POST", subCreatePath, b, c.saTok), 200, 200)
 	b = subBody("staff2", nil)
-	b["phone"] = "0899999999"
+	b["phone_country_code"], b["phone"] = "66", "899999999"
 	expect(t, call(t, app, "POST", subCreatePath, b, c.comTok), 200, 200)
 
 	// sub สร้าง / ดูรายชื่อ sub ไม่ได้ (MGMT-40)
@@ -115,7 +119,7 @@ func TestSubCreate(t *testing.T) { // MGMT-40, MGMT-41, MGMT-50, MGMT-52
 func TestSubListAndDetail(t *testing.T) { // MGMT-45, MGMT-46
 	app := setup2(t)
 	c := buildChain(t, app)
-	createSubAPI(t, app, c.shareTok, "bstaff", map[string]string{"pt": "view"})
+	createSubAPI(t, app, c.shareTok, "bstaff", map[string]string{"report": "view"})
 	a := createSubAPI(t, app, c.shareTok, "astaff", nil)
 	createSubAPI(t, app, c.comTok, "comstaff", nil)
 
@@ -132,14 +136,20 @@ func TestSubListAndDetail(t *testing.T) { // MGMT-45, MGMT-46
 	}
 
 	rows, total := list(c.shareTok, map[string]any{})
-	if total != 2 || rows[0].Username != "share01@astaff" || rows[1].Username != "share01@bstaff" || rows[1].Permissions["pt"] != "view" ||
+	if total != 2 || rows[0].Username != "share01@astaff" || rows[1].Username != "share01@bstaff" || rows[1].Permissions["report"] != "view" ||
 		len(rows[0].Permissions) != 8 || rows[0].Status != "ACTIVE" || rows[0].CreatedAt == "" {
 		t.Fatalf("share subs %+v", rows)
 	}
-	// ชั้นบนดู sub ของสายล่างได้ · q บางส่วน · page / limit ใน body
-	rows, total = list(c.comTok, map[string]any{"owner_id": c.share.ID, "q": "BST"})
+	// ชั้นบนดู sub ของสายล่างได้ · keyword บางส่วน ไม่สนตัวพิมพ์ 4–32 ตัว · page / limit ใน body
+	rows, total = list(c.comTok, map[string]any{"owner_id": c.share.ID, "keyword": " BSTA "})
 	if total != 1 || rows[0].Username != "share01@bstaff" {
-		t.Fatalf("q %+v", rows)
+		t.Fatalf("keyword %+v", rows)
+	}
+	for _, k := range []string{"bst", strings.Repeat("a", 33)} {
+		expect(t, call(t, app, "POST", subListPath, map[string]any{"keyword": k}, c.shareTok), 200, 422)
+	}
+	if _, total = list(c.shareTok, map[string]any{"q": "bstaff"}); total != 2 {
+		t.Fatalf("q เลิกใช้แล้ว ต้องไม่กรอง ได้ %d", total)
 	}
 	rows, total = list(c.comTok, map[string]any{"owner_id": c.share.ID, "limit": 1, "page": 2})
 	if total != 2 || len(rows) != 1 || rows[0].Username != "share01@bstaff" {
@@ -167,17 +177,41 @@ func TestSubUpdate(t *testing.T) { // MGMT-42, MGMT-43, MGMT-44, MGMT-45, MGMT-6
 	c := buildChain(t, app)
 	s := createSubAPI(t, app, c.shareTok, "staff", map[string]string{"member": "edit"})
 
-	upd := map[string]any{"id": s.ID, "name": "ใจดี", "phone": "0811111111", "permissions": map[string]string{"report": "view"}}
+	upd := map[string]any{"id": s.ID, "name": "ใจดี", "phone_country_code": "66", "phone": "811111111", "permissions": map[string]string{"report": "view"}}
 	expect(t, call(t, app, "POST", subUpdatePath, upd, c.shareTok), 200, 200)
 	r := call(t, app, "POST", subDetailPath, map[string]any{"id": s.ID}, c.shareTok)
 	var d subData
 	_ = json.Unmarshal(r.Data, &d)
-	if d.Name != "ใจดี" || d.Phone != "0811111111" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" {
+	if d.Name != "ใจดี" || d.PhoneCode != "66" || d.Phone != "811111111" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" {
 		t.Fatalf("after update %+v", d)
 	}
-	expect(t, call(t, app, "POST", subUpdatePath, upd, c.comTok), 200, 402404) // ชั้นบนแก้ไม่ได้
-	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "name": "ใจดี", "phone": ""}, c.shareTok), 200, 422)
+	expect(t, call(t, app, "POST", subUpdatePath, upd, c.comTok), 200, 402404)                                                                              // ชั้นบนแก้ไม่ได้
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "name": "ใจดี", "phone_country_code": "", "phone": ""}, c.shareTok), 200, 422) // ไม่ส่ง permissions
 	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "name": "ใจดี", "permissions": map[string]string{}}, c.shareTok), 200, 422)
+	// เบอร์ (MGMT-08): ต้องส่งทั้ง 2 field · คู่กัน · ล้างด้วย "" ทั้งคู่
+	perms := map[string]string{"report": "view"}
+	for name, v := range map[string]map[string]any{
+		"ไม่ส่ง phone_country_code": {"phone": "811111111"},
+		"code null":                 {"phone_country_code": nil, "phone": "811111111"},
+		"ล้างแค่ code":              {"phone_country_code": "", "phone": "811111111"},
+		"0 นำหน้า":                  {"phone_country_code": "66", "phone": "0811111111"},
+	} {
+		b := map[string]any{"id": s.ID, "name": "ใจดี", "permissions": perms}
+		for k, x := range v {
+			b[k] = x
+		}
+		r := call(t, app, "POST", subUpdatePath, b, c.shareTok)
+		expect(t, r, 200, 422)
+		if !strings.Contains(r.Msg, "phone") {
+			t.Fatalf("%s: msg %q", name, r.Msg)
+		}
+	}
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "name": "ใจดี", "phone_country_code": "", "phone": "", "permissions": perms}, c.shareTok), 200, 200)
+	var cleared models.Subaccount
+	database.DBConn.Where("id = ?", s.ID).Take(&cleared)
+	if cleared.Phone != nil || cleared.PhoneCountryCode != nil {
+		t.Fatalf(`ส่ง "" ทั้งคู่ ต้องเก็บ NULL %+v`, cleared)
+	}
 
 	// INACTIVE เก็บเป็น SUSPENDED · แสดง INACTIVE · ตั้งกลับ ACTIVE ได้
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "INACTIVE"}, c.shareTok), 200, 200)
@@ -200,13 +234,14 @@ func TestSubUpdate(t *testing.T) { // MGMT-42, MGMT-43, MGMT-44, MGMT-45, MGMT-6
 	expect(t, call(t, app, "GET", profilePath, nil, subTok), 200, 200)
 	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 403, 401311)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200)
-	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303) // กลับมาใช้สิทธิ์ตามปกติ (ไม่มีสิทธิ์ member)
+	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200) // สถานะเดิม = ไม่เขียน log (นับใน logs ด้านล่าง)
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303)                                // กลับมาใช้สิทธิ์ตามปกติ (ไม่มีสิทธิ์ member)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "INACTIVE"}, c.comTok), 200, 402404)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "SUSPENDED"}, c.shareTok), 200, 422)
 
 	var logs []models.AccountChangeLog
 	database.DBConn.Where("target_type = ? AND target_id = ?", "SUB", s.ID).Order("id").Find(&logs)
-	if len(logs) != 4 || logs[0].Action != models.ChangeCreate || logs[1].Action != models.ChangeUpdateInfo || logs[2].Action != models.ChangeSubStatus {
+	if len(logs) != 5 || logs[0].Action != models.ChangeCreate || logs[1].Action != models.ChangeUpdateInfo || logs[2].Action != models.ChangeUpdateInfo || logs[3].Action != models.ChangeSubStatus {
 		t.Fatalf("logs %+v", logs)
 	}
 }

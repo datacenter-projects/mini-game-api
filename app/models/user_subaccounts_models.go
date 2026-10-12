@@ -15,7 +15,8 @@ type Subaccount struct {
 	MustChangePasscode    bool        `gorm:"column:must_change_passcode"`
 	TempPasswordExpiresAt *time.Time  `gorm:"column:temp_password_expires_at"`
 	TempPasscodeExpiresAt *time.Time  `gorm:"column:temp_passcode_expires_at"`
-	Name                  *string     `gorm:"column:name"` // ชื่อเล่น (module ② MGMT-41)
+	Name                  *string     `gorm:"column:name"`               // ชื่อเล่น (module ② MGMT-41)
+	PhoneCountryCode      *string     `gorm:"column:phone_country_code"` // MGMT-08 · sub เบอร์ซ้ำได้ (MGMT-41)
 	Phone                 *string     `gorm:"column:phone"`
 	Permissions           string      `gorm:"column:permissions;default:'{}'"` // JSONB {"menu":"view"|"edit"} · ไม่มี key = off (MGMT-50)
 	Status                AgentStatus `gorm:"column:status"`

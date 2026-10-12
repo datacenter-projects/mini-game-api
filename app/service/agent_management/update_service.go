@@ -49,60 +49,83 @@ func NotDirectChild(tx *gorm.DB, actorAgentID, agentID uint) error {
 	return apperr.ErrDownlineNotFound
 }
 
-type InfoValue struct {
-	Name  string `json:"name"`
-	Phone string `json:"phone"`
+// AgentInfoValue — ค่าใน log ของ section info (MGMT-08 · เบอร์ 2 field) · ใช้ทั้งฝั่ง agent และ Member (member_management)
+type AgentInfoValue struct {
+	Name             string `json:"name"`
+	PhoneCountryCode string `json:"phone_country_code"`
+	Phone            string `json:"phone"`
 }
 
-// UpdateAgentInfoService — POST /manage/agents/update-info (MGMT-08, MGMT-09)
-func UpdateAgentInfoService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateInfoRequest,
+// UpdateAgentDetailService — POST /manage/agents/detail/update (MGMT-32 – MGMT-34 · lead E4)
+// ลูกตรงเท่านั้น · tx เดียว: section ไหนผิดไม่บันทึกเลย · ทำตามลำดับ info → pt → status_game · log แยกแถวต่อ section ที่เปลี่ยนจริง
+func UpdateAgentDetailService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.AgentDetailUpdateRequest,
 	meta agentAuthService.RequestMeta) error {
 	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		a, err := lockAgentChild(tx, actor, req.ID)
+		child, err := lockAgentChild(tx, actor, req.ID)
 		if err != nil {
 			return err
 		}
-		if err := CheckPhoneFree(tx, req.Phone.Value, a.ID, false); err != nil {
+		// ลูกเป็น Share Master (ผู้เรียกคือ CSM) — MGMT-19: pt ส่งได้แค่ commission · ห้ามส่ง status_game · บัญชีอื่นต้องครบ 5 ค่า (7.1 ข้อ 4)
+		// เช็คก่อนแก้ section ใดๆ (เดิมเป็นรูปแบบใน DTO)
+		shareMaster := isShareMaster(child.Role, child.AgentType)
+		shapes := make(map[string]agentManagementDto.ChildPTRequest, len(req.PT))
+		for g, v := range req.PT {
+			shapes[g] = v.ChildPTRequest
+		}
+		if err := checkPTShape(shapes, shareMaster); err != nil {
 			return err
+		}
+		if shareMaster && req.StatusGame != nil {
+			return shareMasterFieldError("status_game")
 		}
 		now := time.Now()
-		if err := agentManagementPostgres.UpdateUserAgentInfoRepository(tx, a.ID, req.Name, OptionalString(req.Phone.Value), now); err != nil {
-			return err
+		if req.Info != nil {
+			if err := applyAgentInfo(ctx, tx, actor, meta, child, *req.Info, now); err != nil {
+				return err
+			}
 		}
-		return WriteLog(ctx, tx, actor, meta, targetAgent, a.ID, a.Username, models.ChangeUpdateInfo,
-			InfoValue{StringOrEmpty(a.Name), StringOrEmpty(a.Phone)}, InfoValue{req.Name, req.Phone.Value}, now)
+		if req.PT != nil {
+			if err := applyChildPT(ctx, tx, actor, meta, child, req.PT, now); err != nil {
+				return err
+			}
+		}
+		if req.StatusGame != nil {
+			return applyGames(ctx, tx, actor, meta, child, req.StatusGame, now)
+		}
+		return nil
 	})
 }
 
-// CheckPhoneFree — เบอร์ห้ามซ้ำกับบัญชีอื่นในตารางเดียวกัน (MGMT-08) · lock key เดียวกับเส้นสร้าง
-func CheckPhoneFree(tx *gorm.DB, phone string, selfID uint, member bool) error {
-	if phone == "" {
+// applyAgentInfo — section info (MGMT-08, MGMT-09) · field ที่ไม่ส่งคงค่าเดิม · ไม่เปลี่ยน = ไม่เขียน log
+func applyAgentInfo(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta,
+	child models.UserAgent, in agentManagementDto.AgentInfoSection, now time.Time) error {
+	old := AgentInfoValue{StringOrEmpty(child.Name), StringOrEmpty(child.PhoneCountryCode), StringOrEmpty(child.Phone)}
+	next := old
+	if in.Name != nil {
+		next.Name = *in.Name
+	}
+	if in.Phone.Present { // DTO บังคับส่งคู่กับ phone_country_code
+		next.PhoneCountryCode, next.Phone = in.PhoneCountryCode.Value, in.Phone.Value
+	}
+	if next == old {
 		return nil
 	}
-	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "phone:"+phone); err != nil {
+	if next.PhoneCountryCode != old.PhoneCountryCode || next.Phone != old.Phone {
+		if err := checkAgentPhone(tx, next.PhoneCountryCode, next.Phone, child.ID); err != nil {
+			return err
+		}
+	}
+	if err := agentManagementPostgres.UpdateUserAgentInfoRepository(tx, child.ID, next.Name, OptionalString(next.PhoneCountryCode), OptionalString(next.Phone), now); err != nil {
 		return err
 	}
-	var taken bool
-	var err error
-	if member {
-		taken, err = memberManagementPostgres.UserMemberPhoneTakenByOtherRepository(tx, phone, selfID)
-	} else {
-		taken, err = agentManagementPostgres.AgentPhoneTakenByOtherRepository(tx, phone, selfID)
-	}
-	if err != nil {
-		return err
-	}
-	if taken {
-		return apperr.ErrPhoneTaken
-	}
-	return nil
+	return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdateInfo, old, next, now)
 }
 
 type StatusValue struct {
 	Status models.AgentStatus `json:"status"`
 }
 
-// UpdateAgentStatusService — POST /manage/agents/update-status (MGMT-30, MGMT-31)
+// UpdateAgentStatusService — POST /manage/agents/status/update (MGMT-30, MGMT-31)
 // แก้สถานะที่ตั้งกับบัญชีนั้นเอง · สายล่างได้ผลผ่านสถานะที่ใช้งานจริง ไม่แก้แถวของชั้นล่าง
 func UpdateAgentStatusService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateStatusRequest,
 	meta agentAuthService.RequestMeta) error {
@@ -113,6 +136,9 @@ func UpdateAgentStatusService(ctx context.Context, actor agentAuthService.Actor,
 		}
 		now := time.Now()
 		next := models.AgentStatus(req.Status)
+		if next == a.Status {
+			return nil // ค่าเดิม = 200 ไม่เขียน log (MGMT-34 · lead MQ5 / V1)
+		}
 		if err := agentManagementPostgres.UpdateUserAgentStatusRepository(tx, a.ID, next, now); err != nil {
 			return err
 		}
@@ -121,108 +147,170 @@ func UpdateAgentStatusService(ctx context.Context, actor agentAuthService.Actor,
 	})
 }
 
-// UpdateChildPTService — POST /manage/agents/update-pt (MGMT-18 – MGMT-25)
-// lock: ผู้สร้าง (SHARE ใน loadCreator) → ลูก (UPDATE) → ลูกของลูก (SHARE) — id เรียงจากชั้นบนลงล่างเสมอ
-func UpdateChildPTService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateChildPTRequest,
-	meta agentAuthService.RequestMeta) error {
-	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		child, err := lockAgentChild(tx, actor, req.ID)
-		if err != nil {
-			return err
-		}
-		c, err := LoadCreator(tx, actor)
-		if err != nil {
-			return err
-		}
-		childSettings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, []uint{child.ID}, "UPDATE")
-		if err != nil {
-			return err
-		}
-		grandIDs, err := agentManagementPostgres.ListAgentChildIDsRepository(tx, child.ID)
-		if err != nil {
-			return err
-		}
-		grandSettings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, grandIDs, "SHARE")
-		if err != nil {
-			return err
-		}
+// applyChildPT — section pt (MGMT-18 – MGMT-25) · กลุ่มที่ค่าเหมือนเดิมไม่เขียน · ไม่มีกลุ่มเปลี่ยน = ไม่เขียน log
+// ลูกเป็น Share Master (ผู้เรียกคือ CSM): แก้ได้แค่ Commission ค่าอื่นคงตาม CSM (MGMT-19)
+// ลูกเป็น CSM (ผู้เรียกคือ Superadmin): ระบบตั้งค่าของ Share Master ทุกคนตาม ใน tx เดียว (MGMT-19 · ข้อยกเว้นของ MGMT-24)
+// lock: ผู้สร้าง (SHARE ใน loadCreator) → ลูก (UPDATE) → ลูกของลูก (SHARE · UPDATE เมื่อลูกเป็น CSM) → ค่าของ Member (UPDATE — R3)
+func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta,
+	child models.UserAgent, req map[string]agentManagementDto.UpdateChildPTGroup, now time.Time) error {
+	c, err := LoadCreator(tx, actor)
+	if err != nil {
+		return err
+	}
+	childIsCSM := isCSM(child.Role, child.AgentType)
+	childIsShareMaster := isShareMaster(child.Role, child.AgentType)
+	childSettings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, []uint{child.ID}, "UPDATE")
+	if err != nil {
+		return err
+	}
+	grandIDs, err := agentManagementPostgres.ListAgentChildIDsRepository(tx, child.ID)
+	if err != nil {
+		return err
+	}
+	grandLock := "SHARE"
+	if childIsCSM {
+		grandLock = "UPDATE" // Share Master ถูกปรับตาม CSM
+	}
+	grandSettings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, grandIDs, grandLock)
+	if err != nil {
+		return err
+	}
+	// R3: ค่าของ Member lock หลัง agent_game_settings เสมอ · ลูกเป็น CSM = Member ของ Share Master ทุกคน (CSM สร้าง Member ไม่ได้)
+	var codes []string
+	for _, g := range SortedGroups(req) {
+		codes = append(codes, GameCodes(agentManagementCore.PTGroup(g))...)
+	}
+	memberOwners := []uint{child.ID}
+	if childIsCSM {
+		memberOwners = grandIDs
+	}
+	memberSettings, err := memberManagementPostgres.LockUserMemberGameSettingsByAgentsRepository(tx, memberOwners, codes)
+	if err != nil {
+		return err
+	}
 
-		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
-		now := time.Now()
-		oldLog, newLog := map[string]agentManagementCore.ChildPT{}, map[string]agentManagementCore.ChildPT{}
-		for _, g := range SortedGroups(req.PT) {
-			v := req.PT[g].Parsed
-			group := agentManagementCore.PTGroup(g)
-			// ไล่ตาม field: pt_from_parent (เพดาน → ต่ำสุดที่ลูกใช้ MGMT-24) → force → remain_quota → commission_percent
-			is := agentManagementCore.CheckChildPT(v, c.ReceivedBP[group], creatorIsMaster)
-			if is.Field == "pt_from_parent" {
-				return ChildPTError(g, is)
-			}
-			cur, ok := groupSetting(childSettings, group)
-			if !ok {
-				continue // บัญชีไม่มีแถวของกลุ่มนี้ (ข้อมูลก่อน module ②) — ไม่มีอะไรให้แก้
-			}
-			var grand []int
+	creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
+	oldLog, newLog := map[string]agentManagementCore.ChildPT{}, map[string]agentManagementCore.ChildPT{}
+	var remains []models.UserMemberGameSetting
+	var followerLogs []models.AccountChangeLog
+	for _, g := range SortedGroups(req) {
+		group := agentManagementCore.PTGroup(g)
+		cur, ok := groupSetting(childSettings, group)
+		if !ok {
+			continue // บัญชีไม่มีแถวของกลุ่มนี้ (ข้อมูลก่อน module ②) — ไม่มีอะไรให้แก้
+		}
+		v := req[g].Parsed
+		var status bool
+		if childIsShareMaster { // CSM แก้ได้แค่ Commission (MGMT-19)
+			v = agentManagementCore.ChildPT{PTFromParent: cur.PTFromParent, Force: cur.Force, Remain: cur.Remain, Commission: v.Commission}
+			status = cur.Status
+		} else {
+			status = *req[g].Status
+		}
+		// ไล่ตาม field: pt_from_parent (เพดาน → ต่ำสุดที่ลูกใช้ MGMT-24) → force → remain_quota → commission_percent
+		is := agentManagementCore.CheckChildPT(v, c.Received[group], creatorIsMaster)
+		if is.Field == "pt_from_parent" {
+			return ChildPTError(g, is)
+		}
+		var grand []float64
+		if !childIsCSM { // ลูกเป็น CSM: Share Master ตามค่าใหม่เอง ไม่นับเป็นค่าต่ำสุด
 			for _, s := range grandSettings {
 				if gg, ok := agentManagementCore.GroupOfGame(s.GameCode); ok && gg == group {
-					grand = append(grand, s.PTFromParentBP)
+					grand = append(grand, s.PTFromParent)
 				}
 			}
-			if min := agentManagementCore.MinPTFromParent(cur.PTBP, grand); v.PTFromParentBP < min { // MGMT-24
-				p, _ := utils.Percent(min).MarshalJSON()
-				return apperr.ErrPTBelowChildUsage.WithMessage(
-					"pt."+g+".pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด "+string(p),
-					"pt."+g+".pt_from_parent is lower than what the child uses, minimum is "+string(p))
-			}
-			if err := ChildPTError(g, is); err != nil {
-				return err
-			}
-			if err := agentManagementPostgres.UpdateChildPTRepository(tx, child.ID, GameCodes(group), models.AgentGameSetting{
-				PTFromParentBP: v.PTFromParentBP, ForceBP: v.ForceBP, RemainBP: v.RemainBP, CommissionBP: v.CommissionBP,
-				Status: *req.PT[g].Status}, actor.Username, now); err != nil {
-				return err
-			}
-			oldLog[g] = agentManagementCore.ChildPT{PTFromParentBP: cur.PTFromParentBP, ForceBP: cur.ForceBP, RemainBP: cur.RemainBP, CommissionBP: cur.CommissionBP}
-			newLog[g] = v
 		}
-		return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdatePT, oldLog, newLog, now)
-	})
+		var memberPTs []float64
+		for _, s := range memberSettings {
+			if gg, ok := agentManagementCore.GroupOfGame(s.GameCode); ok && gg == group {
+				memberPTs = append(memberPTs, s.PT)
+			}
+		}
+		if min := agentManagementCore.MinPTFromParent(grand, memberPTs); v.PTFromParent < min { // MGMT-24 · R1 · MGMT-19
+			p := utils.FormatNum(min)
+			return apperr.ErrPTBelowChildUsage.WithMessage(
+				"pt."+g+".pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด "+p,
+				"pt."+g+".pt_from_parent is lower than what the child uses, minimum is "+p)
+		}
+		if err := ChildPTError(g, is); err != nil {
+			return err
+		}
+		if cur.PTFromParent == v.PTFromParent && cur.Force == v.Force && cur.Remain == v.Remain && cur.Commission == v.Commission && cur.Status == status {
+			continue // ค่าเหมือนเดิม (MGMT-34)
+		}
+		if err := agentManagementPostgres.UpdateChildPTRepository(tx, child.ID, GameCodes(group), models.AgentGameSetting{
+			PTFromParent: v.PTFromParent, Force: v.Force, Remain: v.Remain, Commission: v.Commission,
+			Status: status}, actor.Username, now); err != nil {
+			return err
+		}
+		if v.PTFromParent != cur.PTFromParent { // R2: remain_quota ของ Member = ค่าที่ได้รับใหม่ − pt
+			for i, s := range memberSettings {
+				if gg, ok := agentManagementCore.GroupOfGame(s.GameCode); ok && gg == group {
+					memberSettings[i].Remain = agentManagementCore.MemberRemain(v.PTFromParent, s.PT)
+					remains = append(remains, memberSettings[i])
+				}
+			}
+		}
+		if childIsCSM && (v.PTFromParent != cur.PTFromParent || status != cur.Status) {
+			rows, err := syncFollowersPT(ctx, tx, actor, meta, child.ID, grandIDs, grandSettings, group, v.PTFromParent, status, now)
+			if err != nil {
+				return err
+			}
+			followerLogs = append(followerLogs, rows...)
+		}
+		oldLog[g] = agentManagementCore.ChildPT{PTFromParent: cur.PTFromParent, Force: cur.Force, Remain: cur.Remain, Commission: cur.Commission}
+		newLog[g] = v
+	}
+	if len(newLog) == 0 {
+		return nil
+	}
+	if err := memberManagementPostgres.UpdateUserMemberRemainsRepository(tx, remains); err != nil {
+		return err
+	}
+	if err := agentManagementPostgres.CreateAccountChangeLogsRepository(tx, followerLogs); err != nil {
+		return err
+	}
+	return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdatePT, oldLog, newLog, now)
 }
 
-// UpdateOwnHoldService — POST /manage/agents/update-hold (MGMT-19, MGMT-22)
-// ค่าถือจาก Member ใต้ตัวเอง · ไม่เกินค่าที่ได้รับ · Company Seamless Master ล็อก 0
-func UpdateOwnHoldService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateOwnPTRequest,
-	meta agentAuthService.RequestMeta) error {
-	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		me, err := agentManagementPostgres.GetAgentProfileRepository(tx, actor.AgentID)
+// followerPTValue — ค่าใน log SYNC_FROM_CSM ของ section pt
+type followerPTValue struct {
+	PTFromParent float64 `json:"pt_from_parent"`
+	Force        float64 `json:"force"`
+	Remain       float64 `json:"remain_quota"`
+	Status       bool    `json:"status"`
+}
+
+// syncFollowersPT — ตั้ง Share Master ทุกคนใต้ CSM ตามค่าใหม่ของ CSM (MGMT-19): pt_from_parent · force / remain = 0 · status · commission คงเดิม
+// เขียน statement เดียว · คืนแถว log SYNC_FROM_CSM ต่อ Share Master (ผู้ทำ = คนที่แก้ CSM · request_id เดียวกับการแก้ CSM · new_value มี csm_id — lead B5 / V6)
+func syncFollowersPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta, csmID uint, followerIDs []uint,
+	followerSettings []models.AgentGameSetting, group agentManagementCore.PTGroup, ptFromParent float64, status bool, now time.Time) ([]models.AccountChangeLog, error) {
+	if len(followerIDs) == 0 {
+		return nil, nil
+	}
+	if err := agentManagementPostgres.SyncFollowerPTRepository(tx, followerIDs, GameCodes(group), ptFromParent, status, actor.Username, now); err != nil {
+		return nil, err
+	}
+	names, err := agentManagementPostgres.ListUsernamesByIDsRepository(tx, followerIDs)
+	if err != nil {
+		return nil, err
+	}
+	byID := map[uint][]models.AgentGameSetting{}
+	for _, s := range followerSettings {
+		byID[s.AgentID] = append(byID[s.AgentID], s)
+	}
+	rows := make([]models.AccountChangeLog, 0, len(followerIDs))
+	for _, id := range followerIDs {
+		cur, _ := groupSetting(byID[id], group)
+		row, err := ChangeLog(actor, meta, logger.RequestID(ctx), targetAgent, id, names[id], models.ChangeSyncFromCSM,
+			map[string]followerPTValue{string(group): {cur.PTFromParent, cur.Force, cur.Remain, cur.Status}},
+			map[string]any{"csm_id": csmID, string(group): followerPTValue{ptFromParent, 0, 0, status}}, now)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		settings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, []uint{me.ID}, "UPDATE")
-		if err != nil {
-			return err
-		}
-		isMaster := agentManagementCore.UserTypeOf(me.Role, me.AgentType) == agentManagementCore.UserTypeCompanySeamlessMaster
-		now := time.Now()
-		oldLog, newLog := map[string]int{}, map[string]int{}
-		for _, g := range SortedGroups(req.PT) {
-			group := agentManagementCore.PTGroup(g)
-			cur, ok := groupSetting(settings, group)
-			if !ok {
-				return OwnPTError(g, agentManagementCore.PTExceedsReceived, 0) // ไม่มีค่าที่ได้รับในกลุ่มนี้
-			}
-			bp := req.PT[g].PTBP
-			if err := OwnPTError(g, agentManagementCore.ValidateOwnPT(bp, cur.PTFromParentBP, isMaster), cur.PTFromParentBP); err != nil {
-				return err
-			}
-			if err := agentManagementPostgres.UpdateOwnPTRepository(tx, me.ID, GameCodes(group), bp, actor.Username, now); err != nil {
-				return err
-			}
-			oldLog[g], newLog[g] = cur.PTBP, bp
-		}
-		return WriteLog(ctx, tx, actor, meta, targetAgent, me.ID, me.Username, models.ChangeUpdatePT,
-			map[string]any{"pt_bp": oldLog}, map[string]any{"pt_bp": newLog}, now)
-	})
+		rows = append(rows, row)
+	}
+	return rows, nil
 }
 
 // groupSetting — แถวของเกมแรกในกลุ่ม (ค่าในกลุ่มเท่ากันทุกเกม — MGMT-16)
@@ -263,50 +351,110 @@ func WriteLog(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, me
 	return agentManagementPostgres.CreateAccountChangeLogsRepository(tx, []models.AccountChangeLog{row})
 }
 
-// UpdateGamesService — POST /manage/agents/update-games (MGMT-20)
+// applyGames — section status_game (MGMT-20) · เกมที่ค่าเหมือนเดิมข้าม · ไม่มีเกมเปลี่ยน = ไม่เขียน log
+// ลูกเป็น CSM: Share Master ทุกคนได้ค่าเดียวกันใน tx เดียว (MGMT-19)
 // เปิด / ปิดเกมรายบัญชีให้ลูกตรง · ไม่ส่งต่อลงสายล่าง — ตอนเล่นเช็คทั้งสาย (core.IsGameOpen)
-func UpdateGamesService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.UpdateGamesRequest,
-	meta agentAuthService.RequestMeta) error {
-	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		child, err := lockAgentChild(tx, actor, req.ID)
+func applyGames(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta,
+	child models.UserAgent, req map[string]bool, now time.Time) error {
+	settings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, []uint{child.ID}, "UPDATE")
+	if err != nil {
+		return err
+	}
+	cur := make(map[string]bool, len(settings))
+	for _, s := range settings {
+		cur[s.GameCode] = s.StatusGame
+	}
+	codes := make([]string, 0, len(req))
+	for code := range req {
+		codes = append(codes, code)
+	}
+	sort.Strings(codes)
+	var on, off []string
+	oldLog, newLog := map[string]bool{}, map[string]bool{}
+	for _, code := range codes {
+		was, ok := cur[code]
+		if !ok {
+			continue // บัญชีไม่มีแถวของเกมนี้ (ข้อมูลก่อน module ②) — ไม่มีอะไรให้แก้
+		}
+		next := req[code]
+		if next == was {
+			continue // ค่าเหมือนเดิม (MGMT-34)
+		}
+		if next {
+			on = append(on, code)
+		} else {
+			off = append(off, code)
+		}
+		oldLog[code], newLog[code] = was, next
+	}
+	if len(newLog) == 0 {
+		return nil
+	}
+	if err := agentManagementPostgres.UpdateStatusGameRepository(tx, child.ID, on, true); err != nil {
+		return err
+	}
+	if err := agentManagementPostgres.UpdateStatusGameRepository(tx, child.ID, off, false); err != nil {
+		return err
+	}
+	if isCSM(child.Role, child.AgentType) { // Share Master ทุกคนเปิด / ปิดเกมตาม CSM (MGMT-19)
+		if err := syncFollowersGames(ctx, tx, actor, meta, child.ID, on, off, now); err != nil {
+			return err
+		}
+	}
+	return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdateGames,
+		map[string]any{"status_game": oldLog}, map[string]any{"status_game": newLog}, now)
+}
+
+// syncFollowersGames — Share Master ทุกคนใต้ CSM เปิด / ปิดเกมตาม CSM (MGMT-19) · log SYNC_FROM_CSM เฉพาะคนที่ค่าเปลี่ยน
+func syncFollowersGames(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta,
+	csmID uint, on, off []string, now time.Time) error {
+	followerIDs, err := agentManagementPostgres.ListAgentChildIDsRepository(tx, csmID)
+	if err != nil || len(followerIDs) == 0 {
+		return err
+	}
+	settings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, followerIDs, "UPDATE")
+	if err != nil {
+		return err
+	}
+	next := map[string]bool{}
+	for _, code := range on {
+		next[code] = true
+	}
+	for _, code := range off {
+		next[code] = false
+	}
+	oldBy, newBy := map[uint]map[string]bool{}, map[uint]map[string]bool{}
+	for _, s := range settings {
+		want, ok := next[s.GameCode]
+		if !ok || s.StatusGame == want {
+			continue
+		}
+		if oldBy[s.AgentID] == nil {
+			oldBy[s.AgentID], newBy[s.AgentID] = map[string]bool{}, map[string]bool{}
+		}
+		oldBy[s.AgentID][s.GameCode], newBy[s.AgentID][s.GameCode] = s.StatusGame, want
+	}
+	if err := agentManagementPostgres.UpdateStatusGameManyRepository(tx, followerIDs, on, true); err != nil {
+		return err
+	}
+	if err := agentManagementPostgres.UpdateStatusGameManyRepository(tx, followerIDs, off, false); err != nil {
+		return err
+	}
+	names, err := agentManagementPostgres.ListUsernamesByIDsRepository(tx, followerIDs)
+	if err != nil {
+		return err
+	}
+	var rows []models.AccountChangeLog
+	for _, id := range followerIDs {
+		if oldBy[id] == nil {
+			continue
+		}
+		row, err := ChangeLog(actor, meta, logger.RequestID(ctx), targetAgent, id, names[id], models.ChangeSyncFromCSM,
+			map[string]any{"status_game": oldBy[id]}, map[string]any{"csm_id": csmID, "status_game": newBy[id]}, now)
 		if err != nil {
 			return err
 		}
-		settings, err := agentManagementPostgres.LockAgentGameSettingsRepository(tx, []uint{child.ID}, "UPDATE")
-		if err != nil {
-			return err
-		}
-		cur := make(map[string]bool, len(settings))
-		for _, s := range settings {
-			cur[s.GameCode] = s.StatusGame
-		}
-		codes := make([]string, 0, len(req.StatusGame))
-		for code := range req.StatusGame {
-			codes = append(codes, code)
-		}
-		sort.Strings(codes)
-		var on, off []string
-		oldLog, newLog := map[string]bool{}, map[string]bool{}
-		for _, code := range codes {
-			was, ok := cur[code]
-			if !ok {
-				continue // บัญชีไม่มีแถวของเกมนี้ (ข้อมูลก่อน module ②) — ไม่มีอะไรให้แก้
-			}
-			next := req.StatusGame[code]
-			if next {
-				on = append(on, code)
-			} else {
-				off = append(off, code)
-			}
-			oldLog[code], newLog[code] = was, next
-		}
-		if err := agentManagementPostgres.UpdateStatusGameRepository(tx, child.ID, on, true); err != nil {
-			return err
-		}
-		if err := agentManagementPostgres.UpdateStatusGameRepository(tx, child.ID, off, false); err != nil {
-			return err
-		}
-		return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdateGames,
-			map[string]any{"status_game": oldLog}, map[string]any{"status_game": newLog}, time.Now())
-	})
+		rows = append(rows, row)
+	}
+	return agentManagementPostgres.CreateAccountChangeLogsRepository(tx, rows)
 }

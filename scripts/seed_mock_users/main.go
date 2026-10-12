@@ -7,15 +7,15 @@
 // รันซ้ำได้: request_id คิดจาก username → บัญชีที่สร้างแล้วถูกข้าม (รหัสผ่านเดิมไม่เปลี่ยน)
 // จบแล้วพิมพ์ตาราง username / รหัสผ่าน · ทุกบัญชีต้องตั้ง passcode ตอน login ครั้งแรก
 //
-// สาย (ค่าได้รับลดชั้นละ 10 · ใต้ Seamless Master ได้เท่าที่ Master ได้ · force / remain / commission = 0):
+// สาย (ค่าได้รับลดชั้นละ 10 · Share Master ใต้ CSM ใช้ค่าตาม CSM ส่งแค่ commission · force / remain / commission = 0):
 //
 //	root
 //	├─ COMPANY_TRANSFER ─┬─ SHARE_B2B → AGENT → AGENT
 //	│                    └─ SHARE_B2C ─┬─ AGENT → MEMBER
 //	│                                  └─ MEMBER
 //	├─ COMPANY_SEAMLESS_1TO1 → MEMBER
-//	├─ COMPANY_SEAMLESS_RESELLER → SHARE_RESELLER → AGENT → MEMBER
-//	└─ COMPANY_SEAMLESS_MASTER → SHARE_MASTER → AGENT → MEMBER
+//	├─ COMPANY_SEAMLESS_RESELLER → SHARE_RESELLER → MEMBER
+//	└─ COMPANY_SEAMLESS_MASTER → SHARE_MASTER → MEMBER
 //
 // ฝั่ง Transfer ทุกบัญชีเหลือยอด THB 10,000 (ผู้สร้างโอนให้เท่ากับ 10,000 × จำนวนบัญชีในสายนั้น) · Seamless ไม่มียอดเงิน
 // บัญชีฝั่ง agent ได้ sub `{username}@staff` บัญชีละ 1 ตัว สิทธิ์ view ทุกเมนูของเจ้าของ
@@ -30,6 +30,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	agentAuthCore "app/app/core/agent_auth"
@@ -83,8 +84,8 @@ func tree() []node {
 			}},
 		}},
 		{"com1to1", c11, []node{{"mem1to1", mem, nil}}},
-		{"comreseller", cr, []node{{"sharereseller", sbc, []node{{"agentreseller", ag, []node{{"memreseller", mem, nil}}}}}}},
-		{"commaster", cm, []node{{"sharemaster", sbc, []node{{"agentmaster", ag, []node{{"memmaster", mem, nil}}}}}}},
+		{"comreseller", cr, []node{{"sharereseller", sbc, []node{{"memreseller", mem, nil}}}}}, // Share Reseller / Master สร้างได้แค่ Member (lead H1)
+		{"commaster", cm, []node{{"sharemaster", sbc, []node{{"memmaster", mem, nil}}}}},
 	}
 }
 
@@ -153,7 +154,7 @@ func run(rootName, prefix string) error {
 	s := &seeder{ctx: context.Background(), prefix: prefix, password: password, meta: agentAuthService.RequestMeta{IP: "127.0.0.1", UserAgent: "seed_mock_users"}}
 	rootActor := actorOf(r.ID, r.ParentID, r.Username, r.Role)
 	for _, n := range tree() {
-		if err := s.create(rootActor, agentManagementCore.UserTypeSuperadmin, agentManagementCore.FullPTBP, false, n, 1); err != nil {
+		if err := s.create(rootActor, agentManagementCore.UserTypeSuperadmin, agentManagementCore.FullPT, false, n, 1); err != nil {
 			return err
 		}
 	}
@@ -175,14 +176,14 @@ func requestID(username string) string {
 }
 
 // give — ค่า pt_from_parent ที่ให้ลูก: ชั้นละ 10 ลดลง (90, 80, 70 …) · ใต้ Seamless Master ต้องเท่าที่ Master ได้รับ (MGMT-19)
-func give(creator agentManagementCore.UserType, creatorReceived, depth int) int {
+func give(creator agentManagementCore.UserType, creatorReceived float64, depth int) float64 {
 	if creator == agentManagementCore.UserTypeCompanySeamlessMaster {
 		return creatorReceived
 	}
-	return min(agentManagementCore.FullPTBP-depth*1000, creatorReceived)
+	return min(agentManagementCore.FullPT-float64(depth*10), creatorReceived)
 }
 
-func pct(bp int) json.Number { return json.Number(fmt.Sprintf("%d.%02d", bp/100, bp%100)) }
+func pct(v float64) json.Number { return json.Number(strconv.FormatFloat(v, 'f', -1, 64)) }
 
 func money(baht int64) json.Number { return json.Number(fmt.Sprintf("%d.00", baht)) }
 
@@ -197,7 +198,7 @@ func decode(body map[string]any, out interface{ Validate() error }) error {
 	return out.Validate()
 }
 
-func (s *seeder) create(creator agentAuthService.Actor, creatorType agentManagementCore.UserType, creatorReceived int,
+func (s *seeder) create(creator agentAuthService.Actor, creatorType agentManagementCore.UserType, creatorReceived float64,
 	seamless bool, n node, depth int) error {
 	username := s.prefix + n.suffix
 	var balance map[string]any
@@ -207,7 +208,7 @@ func (s *seeder) create(creator agentAuthService.Actor, creatorType agentManagem
 
 	if n.typ == agentManagementCore.UserTypeMember {
 		body := map[string]any{"request_id": requestID(username), "username": username, "password": s.password, "name": username,
-			"phone": "", "pt": map[string]any{"minigame": map[string]any{"pt": 0, "commission_percent": 0}}}
+			"phone_country_code": "", "phone": "", "pt": map[string]any{"minigame": map[string]any{"pt": 0, "commission_percent": 0}}}
 		if balance != nil {
 			body["balance"] = balance
 		}
@@ -224,8 +225,11 @@ func (s *seeder) create(creator agentAuthService.Actor, creatorType agentManagem
 
 	g := give(creatorType, creatorReceived, depth)
 	body := map[string]any{"request_id": requestID(username), "user_type": string(n.typ), "username": username, "password": s.password,
-		"name": username, "phone": "", "pt": map[string]any{"minigame": map[string]any{"pt_from_parent": pct(g), "force": 0,
+		"name": username, "phone_country_code": "", "phone": "", "pt": map[string]any{"minigame": map[string]any{"pt_from_parent": pct(g), "force": 0,
 			"remain_quota": 0, "commission_percent": 0, "status": true}}}
+	if creatorType == agentManagementCore.UserTypeCompanySeamlessMaster { // Share Master ส่งแค่ commission ค่าอื่นตาม CSM (MGMT-19)
+		body["pt"] = map[string]any{"minigame": map[string]any{"commission_percent": 0}}
+	}
 	switch agentManagementCore.CurrencyRequirementOf(creatorType, n.typ) {
 	case agentManagementCore.CurrencyPickOne, agentManagementCore.CurrencyPickMany:
 		body["currencies"] = []string{"THB"}
@@ -263,7 +267,7 @@ func (s *seeder) createSub(owner agentAuthService.Actor) error {
 	for _, m := range agentManagementCore.MenusForRole(owner.Role) {
 		perms[string(m)] = string(agentManagementCore.LevelView)
 	}
-	body := map[string]any{"name_suffix": subSuffix, "password": s.password, "name": "staff" + owner.Username, "phone": "", "permissions": perms}
+	body := map[string]any{"name_suffix": subSuffix, "password": s.password, "name": "staff" + owner.Username, "phone_country_code": "", "phone": "", "permissions": perms}
 	username := owner.Username + "@" + subSuffix
 	var req agentManagementDto.SubCreateRequest
 	if err := decode(body, &req); err != nil {
