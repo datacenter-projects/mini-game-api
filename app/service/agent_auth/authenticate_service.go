@@ -62,6 +62,10 @@ func AuthenticateService(ctx context.Context, rawToken, ip string) (Actor, error
 		endAllSessions(ctx, acc)
 		return Actor{}, apperr.ErrUplineLocked
 	}
+	if acc.SubInactive() { // MGMT-43 · lead SQ1: ปกติ session ถูกลบตอนตั้ง INACTIVE แล้ว — กันกรณีลบไม่สำเร็จ
+		endAllSessions(ctx, acc)
+		return Actor{}, apperr.ErrSubaccountInactive
+	}
 
 	if ip != session.IP { // AUTH-16: log อย่างเดียว
 		logger.Ctx(ctx).Warnw("session ip mismatch", "account_type", acc.Type, "account_id", acc.ID, "login_ip", session.IP, "request_ip", ip)

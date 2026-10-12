@@ -300,10 +300,9 @@ func TestEffectiveStatus(t *testing.T) { // AUTH-53
 		t.Fatalf("sub ที่ upline ของผู้สร้าง SUSPENDED ได้ %s", got)
 	}
 	setStatus(t, company.ID, models.AgentStatusActive)
+	// sub ที่สถานะของตัวเองเป็น SUSPENDED (= INACTIVE) ใช้งานไม่ได้เลย ไม่ใช่ "ดูได้อย่างเดียว" (agent_management MGMT-43 · lead SQ1)
 	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusSuspended})
-	if got := effective(subTok); got != "SUSPENDED" {
-		t.Fatalf("sub SUSPENDED ได้ %s", got)
-	}
+	expect(t, call(t, app, "GET", viewPath, nil, subTok), 403, 401312)
 	if got := effective(agentTok); got != "ACTIVE" {
 		t.Fatalf("sub SUSPENDED ต้องไม่กระทบผู้สร้าง ได้ %s", got)
 	}
@@ -341,18 +340,19 @@ func TestSuspendedAccess(t *testing.T) { // AUTH-54
 		}
 	})
 
-	t.Run("sub SUSPENDED: ผู้สร้างไม่กระทบ", func(t *testing.T) {
+	t.Run("sub INACTIVE (SUSPENDED ที่ตัวเอง): ใช้ไม่ได้เลย + session ถูกตัด · ผู้สร้างไม่กระทบ", func(t *testing.T) { // MGMT-43 · lead SQ1
 		setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusSuspended})
 		t.Cleanup(func() {
 			setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusActive})
 		})
-		expect(t, call(t, app, "GET", viewPath, nil, subTok), 200, 200)
-		denied(t, subTok)
+		expect(t, call(t, app, "GET", viewPath, nil, subTok), 403, 401312)
+		expect(t, call(t, app, "GET", viewPath, nil, subTok), 401, 401203) // session ถูกลบแล้ว
 		expect(t, call(t, app, "GET", gatedPath, nil, agentTok), 200, 200)
 	})
 
 	t.Run("ปลดระงับแล้วใช้งานได้ปกติ", func(t *testing.T) {
 		expect(t, call(t, app, "GET", gatedPath, nil, agentTok), 200, 200)
+		subTok = loginReady(t, app, models.AccountTypeSub, sub.ID, "agent01@staff") // session เดิมถูกตัดตอน INACTIVE
 		expect(t, call(t, app, "GET", gatedPath, nil, subTok), 200, 200)
 	})
 

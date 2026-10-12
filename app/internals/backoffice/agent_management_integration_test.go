@@ -65,9 +65,11 @@ func seedSuperadmin(t *testing.T, app *fiber.App) (models.UserAgent, string) {
 	return sa, readyToken(t, app, models.AccountTypeAgent, sa.ID, "superadmin")
 }
 
+// readyToken — token ที่ผ่านด่านหลัง login ครบ: ตั้ง passcode และข้ามการบังคับเปลี่ยนรหัสผ่าน (sub ที่สร้างผ่าน API ถูกบังคับ — lead SQ3)
 func readyToken(t *testing.T, app *fiber.App, at models.AccountType, id uint, username string) string {
 	t.Helper()
 	setPasscode(t, at, id, passcode)
+	setCols(t, at, id, map[string]any{"must_change_password": false})
 	return loginToken2(t, app, username, mgPassword)
 }
 
