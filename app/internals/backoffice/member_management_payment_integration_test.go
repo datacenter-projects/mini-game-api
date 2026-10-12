@@ -85,6 +85,12 @@ func TestMemberPaymentCreate(t *testing.T) { // MGMT-63 – MGMT-65 · P1–P9 �
 		t.Fatalf("detail %+v", d)
 	}
 
+	// ลิมิตเท่าเพดาน 1,000,000 พอดี = ได้ (MGMT-65)
+	top := createMember(t, app, c.agentTok, "mempaytop", func(b map[string]any) { b["win_limit_per_day"] = 1000000 })
+	if got := getMember(t, top.ID).WinLimitPerDay; got != 1000000 {
+		t.Fatalf("win_limit_per_day %v, want 1000000", got)
+	}
+
 	// ไม่ส่งบัญชี / ลิมิต: NULL · detail ทุก field "" · ลิมิต 0
 	plain := createMember(t, app, c.agentTok, "mempay2", nil)
 	if _, ok := storedAccount(t, plain.ID); ok || getMember(t, plain.ID).WinLimitPerDay != 0 {
@@ -120,6 +126,7 @@ func TestMemberPaymentCreate(t *testing.T) { // MGMT-63 – MGMT-65 · P1–P9 �
 		"payment_account null":       {func(b map[string]any) { b["payment_account"] = nil }, "payment_account"},
 		"win_limit ติดลบ":            {func(b map[string]any) { b["win_limit_per_day"] = -1 }, "win_limit_per_day"},
 		"win_limit ทศนิยม 5 ตำแหน่ง": {func(b map[string]any) { b["win_limit_per_day"] = 10.12345 }, "win_limit_per_day"},
+		"win_limit เกิน 1,000,000":   {func(b map[string]any) { b["win_limit_per_day"] = 1000000.5 }, "ต้องไม่เกิน 1000000"},
 	} {
 		b := memberBody("mempaybad", 0)
 		tc.edit(b)
@@ -179,6 +186,7 @@ func TestMemberPaymentUpdate(t *testing.T) { // MGMT-32M · MGMT-63 – MGMT-65 
 	upd(map[string]any{"id": m.ID, "payment": map[string]any{"payment_type": 1}}, 422)
 	upd(map[string]any{"id": m.ID, "payment": map[string]any{"payment_account": kbank("7876766654", "bank_code", "XYZ")}}, 422)
 	upd(map[string]any{"id": m.ID, "limit": map[string]any{"win_limit_per_day": -5}}, 422)
+	upd(map[string]any{"id": m.ID, "limit": map[string]any{"win_limit_per_day": 1000001}}, 422) // เกินเพดาน (MGMT-65)
 
 	// payment + limit = log 2 แถว · เลขบัญชีใน log ปิดบางส่วน
 	upd(map[string]any{"id": m.ID, "payment": map[string]any{"payment_type": "CREDIT", "payment_account": kbank("7876766654", "name_en", "Jaidee")},

@@ -100,6 +100,25 @@ func TestNormalizePaymentAccount(t *testing.T) { // MGMT-64
 	}
 }
 
+func TestWinLimitWithinMax(t *testing.T) { // MGMT-65
+	tests := []struct {
+		in   float64
+		want bool
+	}{
+		{0, true},
+		{5000.5, true},
+		{1_000_000, true},
+		{1_000_000.0001, false},
+		{2_000_000, false},
+		{-1, false},
+	}
+	for _, tt := range tests {
+		if got := WinLimitWithinMax(tt.in); got != tt.want {
+			t.Errorf("WinLimitWithinMax(%v) = %v, want %v", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestMaskAccountNumber(t *testing.T) { // MGMT-64 · lead P8
 	tests := []struct{ in, want string }{
 		{"7876766654", "787•••6654"},

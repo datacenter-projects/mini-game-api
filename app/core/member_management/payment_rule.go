@@ -33,6 +33,12 @@ func StoredPaymentType(t models.PaymentType, seamless bool) models.PaymentType {
 	return t
 }
 
+// MaxWinLimitPerDay — ลิมิตชนะต่อวันตั้งได้ไม่เกินเท่านี้ (หน่วยสกุลของ Member · ตัวเลขเดียวทุกสกุล — MGMT-65 · maofoy 2026-10-12)
+const MaxWinLimitPerDay = 1_000_000
+
+// WinLimitWithinMax — ลิมิตชนะต่อวัน 0 (ไม่จำกัด) ถึง MaxWinLimitPerDay (MGMT-65)
+func WinLimitWithinMax(v float64) bool { return v >= 0 && v <= MaxWinLimitPerDay }
+
 // NameMaxLen — ชื่อเจ้าของบัญชีแต่ละ field ไม่เกินกี่ตัวอักษร (lead P7)
 const NameMaxLen = 50
 
