@@ -2,6 +2,7 @@ package asset
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -71,7 +72,7 @@ func TestResolveTargetWithoutScope(t *testing.T) { // AST-01 · AST-08: เส�
 func checkResolve(t *testing.T, name string, got assetCore.Target, err error, want assetCore.Target, wantErr string) {
 	t.Helper()
 	if wantErr == "" {
-		if err != nil || got != want {
+		if err != nil || !reflect.DeepEqual(got, want) {
 			t.Errorf("%s: got (%+v, %v), want %+v", name, got, err, want)
 		}
 		return

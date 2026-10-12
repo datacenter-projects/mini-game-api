@@ -49,7 +49,10 @@ func putObject(ctx context.Context, key string, file []byte, info assetCore.Imag
 }
 
 // removeObject — ลบ object ที่อัปแล้วเมื่อบันทึก DB ไม่สำเร็จ (AST-19) · ลบไม่ได้แค่ log พร้อม key (ให้ job กวาดภายหลัง)
+// ใช้ ctx ที่ตัดการยกเลิกออก — DB อาจล้มเพราะ ctx ของ request หมดเวลา / ถูกยกเลิกไปแล้ว ถ้าใช้ ctx เดิมจะลบไม่ได้และไฟล์ค้าง
+// (storage.Delete ตั้ง timeout ของตัวเองอยู่แล้ว)
 func removeObject(ctx context.Context, key string) {
+	ctx = context.WithoutCancel(ctx)
 	if err := storage.Delete(ctx, key); err != nil {
 		logger.Ctx(ctx).Errorw("asset: cleanup of uploaded object failed", "key", key, "error", err)
 	}
@@ -119,7 +122,7 @@ func UploadFileService(ctx context.Context, actor agentAuthService.Actor, target
 		agentID = *cfg.AgentID
 	}
 	return assetDto.UploadResponse{ConfigID: cfg.ID, Scope: string(target.Scope), AgentID: agentID, GameCode: slot.GameCode,
-		AssetType: slot.AssetType, URL: urlOf(key), IsUsed: req.UseNowValue, CreatedBy: actor.Username, CreatedAt: timeText(time.Now())}, nil
+		AssetType: slot.AssetType, URL: urlOf(key), IsUsed: req.UseNowValue, CreatedBy: actor.Username, CreatedAt: timeText(cfg.CreatedAt)}, nil
 }
 
 // ListFilesService — POST asset/files/list (GN4 · AST-27) · คลังรูปของช่อง: ของเป้าหมาย + ของ GLOBAL ใหม่ → เก่า
@@ -165,7 +168,8 @@ func DeleteFileService(ctx context.Context, actor agentAuthService.Actor, target
 		return errTargetNotResolved
 	}
 	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		cfg, err := assetPostgres.LockAssetConfigRepository(tx, req.ConfigID) // ล็อกแถวก่อนตัดสิน กันแข่งกับ used/update (AST-28)
+		// ล็อกแถวก่อนตัดสิน กันแข่งกับ used/update (AST-28) · ลบได้เฉพาะของเป้าหมายเอง (AST-07)
+		cfg, err := assetPostgres.LockAssetConfigRepository(tx, req.ConfigID, targetAgentID(target), false)
 		if isNotFound(err) {
 			return apperr.ErrAssetConfigNotFound
 		}

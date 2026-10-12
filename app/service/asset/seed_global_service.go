@@ -61,10 +61,13 @@ func SeedGlobalService(ctx context.Context, dir string, force bool, by string, o
 			continue
 		}
 		files, err := os.ReadDir(filepath.Join(dir, g.Name()))
-		if err != nil {
-			return res, err
+		if err != nil { // โฟลเดอร์เดียวอ่านไม่ได้ไม่หยุดทั้งชุด — รายงานแล้วไปเกมถัดไป
+			res.Failed++
+			_, _ = fmt.Fprintf(out, "ล้มเหลว  %s/ — อ่านโฟลเดอร์ไม่ได้: %v\n", g.Name(), err)
+			continue
 		}
 		sort.Slice(files, func(i, j int) bool { return files[i].Name() < files[j].Name() })
+		perSlot := seedFilesPerSlot(files)
 		for _, f := range files {
 			ext := strings.ToLower(filepath.Ext(f.Name()))
 			if f.IsDir() || !seedImageExts[ext] {
@@ -73,6 +76,12 @@ func SeedGlobalService(ctx context.Context, dir string, force bool, by string, o
 			slot := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
 			label := g.Name() + "/" + slot
 			path := filepath.Join(dir, g.Name(), f.Name())
+
+			if names := perSlot[slot]; len(names) > 1 { // ไม่เดาว่าไฟล์ไหนถูก — ให้ทีมเหลือไฟล์เดียวแล้วรันใหม่
+				res.Failed++
+				_, _ = fmt.Fprintf(out, "ล้มเหลว  %s — มีหลายไฟล์ของช่องเดียวกัน (%s) ให้เหลือไฟล์เดียว\n", label+filepath.Ext(f.Name()), strings.Join(names, ", "))
+				continue
+			}
 
 			if !force {
 				has, err := HasGlobalUsedService(ctx, g.Name(), slot)
@@ -107,6 +116,19 @@ func SeedGlobalService(ctx context.Context, dir string, force bool, by string, o
 
 	res.Gaps, err = ListGlobalGapsService(ctx)
 	return res, err
+}
+
+// seedFilesPerSlot — ชื่อไฟล์รูปของแต่ละช่องในโฟลเดอร์เกม (ชื่อไฟล์ไม่รวมนามสกุล = ชื่อช่อง)
+func seedFilesPerSlot(files []os.DirEntry) map[string][]string {
+	m := map[string][]string{}
+	for _, f := range files {
+		if f.IsDir() || !seedImageExts[strings.ToLower(filepath.Ext(f.Name()))] {
+			continue
+		}
+		slot := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
+		m[slot] = append(m[slot], f.Name())
+	}
+	return m
 }
 
 func seedReadLimited(path string, limit int64) ([]byte, error) {

@@ -78,3 +78,29 @@ func TestTargetZeroValueIsNotResolved(t *testing.T) { // AST-09: ค่า zero 
 		t.Errorf("zero Target ต้องไม่ resolved และไม่ใช่ GLOBAL: %+v", tg)
 	}
 }
+
+func TestRelationOf(t *testing.T) { // AST-04 / AST-05: ตัวเอง · สายล่าง (ผู้เรียกอยู่ใน cnf.parent ของเป้าหมาย) · นอกสาย
+	tests := []struct {
+		name    string
+		caller  uint
+		target  uint
+		parents []uint
+		want    Relation
+	}{
+		{"ตัวเอง", 12, 12, []uint{1, 10}, RelationSelf},
+		{"ตัวเอง ไม่ดู parents", 12, 12, nil, RelationSelf},
+		{"ลูกตรง", 12, 15, []uint{1, 10, 12}, RelationDownline},
+		{"หลานลงไป", 10, 15, []uint{1, 10, 12}, RelationDownline},
+		{"superadmin เห็นทุกสาย", 1, 15, []uint{1, 10, 12}, RelationDownline},
+		{"ชั้นบนของผู้เรียก = นอกสาย", 15, 12, []uint{1, 10}, RelationOutside},
+		{"สายข้างเคียง", 20, 15, []uint{1, 10, 12}, RelationOutside},
+		{"ไม่มี parents", 12, 15, nil, RelationOutside},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := RelationOf(tc.caller, tc.target, tc.parents); got != tc.want {
+				t.Fatalf("RelationOf(%d, %d, %v) = %v, ต้องได้ %v", tc.caller, tc.target, tc.parents, got, tc.want)
+			}
+		})
+	}
+}

@@ -83,7 +83,8 @@ func UpdateUsedService(ctx context.Context, actor agentAuthService.Actor, target
 		return err
 	}
 	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		cfg, err := assetPostgres.LockAssetConfigRepository(tx, req.ConfigID) // ล็อกแถวเดียวกับ files/delete (AST-28)
+		// ล็อกแถวเดียวกับ files/delete (AST-28) · AGENT เลือกได้ของตัวเอง + GLOBAL (AST-23 ข้อ ค)
+		cfg, err := assetPostgres.LockAssetConfigRepository(tx, req.ConfigID, targetAgentID(target), true)
 		if isNotFound(err) {
 			return apperr.ErrAssetConfigNotFound
 		}

@@ -15,26 +15,38 @@ import (
 // คลังรูป (asset_configs) — docs/modules/asset.md AST-20, AST-27, AST-28
 
 // CreateAssetConfigRepository — เพิ่มรูปเข้าคลัง 1 เวอร์ชัน (ไม่มีโควตา ไม่มีการตัดเวอร์ชันเก่า — AST-20)
+// คืน id + created_at ที่ DB ตั้ง (now()) กลับมาใน c — response ใช้ค่าเดียวกับที่ files/list อ่าน
 func CreateAssetConfigRepository(db *gorm.DB, c *models.AssetConfig) error {
-	return db.Omit("id", "is_deleted", "deleted_at", "deleted_by", "created_at").Create(c).Error
+	return db.Omit("id", "is_deleted", "deleted_at", "deleted_by", "created_at").
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}, {Name: "created_at"}}}).Create(c).Error
 }
 
 var configColumns = []string{"id", "scope", "agent_id", "asset_type_id", "storage_key", "created_by", "is_deleted", "created_at"}
 
-// GetAssetConfigRepository — config ตาม id (ทั้งที่ลบแล้ว) · ไม่พบคืน apperr.ErrNotFound
-func GetAssetConfigRepository(db *gorm.DB, id uint) (models.AssetConfig, error) {
+// LockAssetConfigRepository — SELECT ... FOR UPDATE ใช้ใน tx ที่ service เปิด · ทั้ง `files/delete` และ `used/update`
+// ล็อกแถวนี้ก่อนตัดสิน จึงชนะได้ฝั่งเดียวเมื่อแข่งกัน (AST-28)
+// scope ด้วยเจ้าของใน query (กฎข้อ 22) — ไม่อ่าน / ไม่ล็อก config ของบัญชีอื่น:
+//
+//	agentID nil   : เฉพาะ config GLOBAL
+//	agentID != nil: config ของบัญชีนั้น · withGlobal = true รวม config GLOBAL ด้วย
+//
+// ไม่พบ / ลบแล้ว / ไม่ใช่ของเจ้าของ = apperr.ErrNotFound เหมือนกัน
+func LockAssetConfigRepository(db *gorm.DB, id uint, agentID *uint, withGlobal bool) (models.AssetConfig, error) {
+	q := db.Clauses(clause.Locking{Strength: "UPDATE"}).Select(configColumns).Where("id = ? AND is_deleted = false", id)
+	switch {
+	case agentID == nil:
+		q = q.Where("agent_id IS NULL")
+	case withGlobal:
+		q = q.Where("(agent_id IS NULL OR agent_id = ?)", *agentID)
+	default:
+		q = q.Where("agent_id = ?", *agentID)
+	}
 	var c models.AssetConfig
-	err := db.Select(configColumns).Where("id = ?", id).Take(&c).Error
+	err := q.Take(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c, apperr.ErrNotFound
 	}
 	return c, err
-}
-
-// LockAssetConfigRepository — SELECT ... FOR UPDATE ใช้ใน tx ที่ service เปิด · ทั้ง `files/delete` และ `used/update`
-// ล็อกแถวนี้ก่อนตัดสิน จึงชนะได้ฝั่งเดียวเมื่อแข่งกัน (AST-28)
-func LockAssetConfigRepository(db *gorm.DB, id uint) (models.AssetConfig, error) {
-	return GetAssetConfigRepository(db.Clauses(clause.Locking{Strength: "UPDATE"}), id)
 }
 
 // SoftDeleteAssetConfigRepository — ตั้ง is_deleted (ทั้ง GLOBAL และ AGENT — AST-28) · ไม่แตะ storage (AST-29)

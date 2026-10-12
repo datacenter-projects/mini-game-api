@@ -187,33 +187,53 @@ func (s *server) fail(w http.ResponseWriter, status int, code, msg string) {
 }
 
 // decodeAWSChunked ถอด body แบบ aws-chunked: "<hex size>[;chunk-signature=...]\r\n<data>\r\n" ... "0\r\n" + trailer
+// เป็น io.Reader ธรรมดา (ไม่ใช้ goroutine) — handler เลิกอ่านกลางทางเมื่อไรก็ไม่มีอะไรค้าง
 func decodeAWSChunked(r io.Reader) io.Reader {
-	pr, pw := io.Pipe()
-	go func() {
-		br := bufio.NewReader(r)
-		for {
-			line, err := br.ReadString('\n')
-			if err != nil {
-				pw.CloseWithError(err)
-				return
-			}
-			sizeText, _, _ := strings.Cut(strings.TrimSpace(line), ";")
-			size, err := strconv.ParseInt(sizeText, 16, 64)
-			if err != nil {
-				pw.CloseWithError(errors.New("bad aws-chunked size"))
-				return
-			}
-			if size == 0 {
-				_, _ = io.Copy(io.Discard, br) // trailer (x-amz-checksum-*) ทิ้ง
-				pw.Close()
-				return
-			}
-			if _, err := io.CopyN(pw, br, size); err != nil {
-				pw.CloseWithError(err)
-				return
-			}
-			_, _ = br.Discard(2) // \r\n หลังข้อมูลแต่ละ chunk
+	return &chunkedReader{br: bufio.NewReader(r)}
+}
+
+type chunkedReader struct {
+	br     *bufio.Reader
+	remain int64 // byte ที่เหลือของ chunk ปัจจุบัน
+	done   bool
+}
+
+func (c *chunkedReader) Read(p []byte) (int, error) {
+	if c.done {
+		return 0, io.EOF
+	}
+	if c.remain == 0 {
+		line, err := c.br.ReadString('\n')
+		if err != nil {
+			return 0, unexpectedEOF(err) // body จบก่อนเจอ chunk สุดท้าย (0) = ไม่ครบ ไม่ใช่จบปกติ
 		}
-	}()
-	return pr
+		sizeText, _, _ := strings.Cut(strings.TrimSpace(line), ";")
+		size, err := strconv.ParseInt(sizeText, 16, 64)
+		if err != nil || size < 0 {
+			return 0, errors.New("bad aws-chunked size")
+		}
+		if size == 0 {
+			c.done = true
+			_, _ = io.Copy(io.Discard, c.br) // trailer (x-amz-checksum-*) ทิ้ง
+			return 0, io.EOF
+		}
+		c.remain = size
+	}
+	if int64(len(p)) > c.remain {
+		p = p[:c.remain]
+	}
+	n, err := c.br.Read(p)
+	c.remain -= int64(n)
+	if c.remain == 0 && err == nil {
+		_, err = c.br.Discard(2) // \r\n หลังข้อมูลแต่ละ chunk
+	}
+	return n, unexpectedEOF(err)
+}
+
+// unexpectedEOF — ระหว่างถอด chunk ยังไม่ถึง chunk สุดท้าย io.EOF แปลว่า body ขาด
+func unexpectedEOF(err error) error {
+	if errors.Is(err, io.EOF) {
+		return io.ErrUnexpectedEOF
+	}
+	return err
 }

@@ -2,6 +2,7 @@ package asset
 
 import (
 	"context"
+	"errors"
 
 	assetCore "app/app/core/asset"
 	assetDto "app/app/internals/backoffice/dto/asset"
@@ -15,49 +16,46 @@ import (
 )
 
 // GamesListService — POST asset/games/list (GN1 · AST-51)
-// ปกเกม = ช่อง game_cover ที่ไล่สายจากผู้เรียก ผ่าน resolveUsed ตัวเดียวกับ used/list (lead GE1-1)
+// ปกเกม = ช่อง game_cover ที่ไล่สายจากผู้เรียก ด้วยกฎเดียวกับ used/list (core.ResolveUsed — lead GE1-1) · ทุกเกมใน query เดียว
 // ไม่กรองเกมที่ status_game ปิด (lead GE1-2) · เกมที่ไม่มีปก / อ่านปกไม่สำเร็จ = "" โดยไม่ทำให้ทั้งเส้นล้ม
 func GamesListService(ctx context.Context, actor agentAuthService.Actor) ([]assetDto.GameItem, error) {
 	db := database.DBConn.WithContext(ctx)
-	owner, err := loadOwner(db, actor)
+	chain, err := chainOf(db, actor.AgentID) // บัญชีหลักที่ request ทำงานในนาม (sub = เจ้าของ — AUTH-26)
+	if errors.Is(err, apperr.ErrDownlineNotFound) {
+		return nil, apperr.ErrSessionEnded
+	}
 	if err != nil {
 		return nil, err
 	}
-	chain, err := chainOf(db, owner.ID)
+	covers, err := gameCovers(db, chain)
 	if err != nil {
-		return nil, err
+		logger.Ctx(ctx).Warnw("asset games/list: read covers failed", "error", err)
 	}
 	games := assetCore.GameCodes()
-	out := make([]assetDto.GameItem, 0, len(games))
-	for _, game := range games {
-		item := assetDto.GameItem{GameCode: game}
-		cover, err := gameCover(db, game, chain)
-		if err != nil {
-			logger.Ctx(ctx).Warnw("asset games/list: read cover failed", "game", game, "error", err)
-		} else {
-			item.GameCover = cover
-		}
-		out = append(out, item)
+	out := make([]assetDto.GameItem, len(games))
+	for i, game := range games {
+		out[i] = assetDto.GameItem{GameCode: game, GameCover: covers[game]}
 	}
 	return out, nil
 }
 
-func gameCover(db *gorm.DB, game string, chain []uint) (string, error) {
-	slot, err := assetPostgres.FindAssetTypeRepository(db, game, assetCore.ChannelGameCover)
+// gameCovers — URL ปกที่ใช้งานจริงของทุกเกม (game_code → url) · เกมที่ไม่มีปกไม่อยู่ใน map
+func gameCovers(db *gorm.DB, chain []uint) (map[string]string, error) {
+	rows, err := assetPostgres.ListUsedCandidatesByTypeRepository(db, assetCore.ChannelGameCover, chain)
 	if err != nil {
-		if isNotFound(err) {
-			return "", nil
-		}
-		return "", err
+		return nil, err
 	}
-	resolved, err := resolveUsed(db, game, chain)
-	if err != nil {
-		return "", err
+	gameOf := make(map[uint]string, len(rows))
+	cands := make([]assetCore.UsedCandidate, len(rows))
+	for i, r := range rows {
+		gameOf[r.AssetTypeID] = r.GameCode
+		cands[i] = assetCore.UsedCandidate{SlotID: r.AssetTypeID, OwnerID: r.AgentID, ConfigID: r.AssetConfigID, StorageKey: r.StorageKey}
 	}
-	if r, ok := resolved[slot.ID]; ok {
-		return urlOf(r.StorageKey), nil
+	out := make(map[string]string, len(gameOf))
+	for slotID, r := range assetCore.ResolveUsed(chain, cands) {
+		out[gameOf[slotID]] = urlOf(r.StorageKey)
 	}
-	return "", nil
+	return out, nil
 }
 
 // SlotsListService — POST asset/slots/list (GN2 · AST-12) · ไม่รวมช่องที่เลิกใช้ · ไม่มี description (lead GE2-1)

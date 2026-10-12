@@ -17,6 +17,9 @@ type Target struct {
 	Resolved bool
 	Scope    Scope
 	AgentID  uint // 0 เมื่อ scope = GLOBAL
+	// Chain — สายของเป้าหมาย AGENT (ตัวเอง → ชั้นบนจากใกล้ → ไกล) ที่โหลดไว้ตอนตรวจสิทธิ์ต่อเป้าหมาย
+	// ให้ service ไล่ค่าต่อโดยไม่อ่าน user_agents ซ้ำ · nil = ยังไม่โหลด (GLOBAL / เรียกจากสคริปต์)
+	Chain []uint
 }
 
 // Relation — เป้าหมาย AGENT เทียบกับผู้เรียก (บัญชีหลักที่ request ทำงานในนาม)
@@ -27,6 +30,20 @@ const (
 	RelationSelf                     // ตัวเอง
 	RelationDownline                 // บัญชีในสายล่าง
 )
+
+// RelationOf — เป้าหมาย AGENT เทียบกับผู้เรียก · parents = ชั้นบนของเป้าหมายจาก cnf (MGMT-61)
+// ผู้เรียกอยู่ใน parents ของเป้าหมาย = เป้าหมายอยู่สายล่าง (กฎเดียวกับ cnf @> parent ของ agent_management)
+func RelationOf(callerID, targetID uint, parents []uint) Relation {
+	if targetID == callerID {
+		return RelationSelf
+	}
+	for _, id := range parents {
+		if id == callerID {
+			return RelationDownline
+		}
+	}
+	return RelationOutside
+}
 
 // Outcome — ผลตัดสินสิทธิ์ต่อเป้าหมาย
 type Outcome int

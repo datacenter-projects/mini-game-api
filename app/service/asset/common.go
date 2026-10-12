@@ -60,13 +60,17 @@ func chainOf(db *gorm.DB, agentID uint) ([]uint, error) {
 	return assetCore.ChainIDs(agentID, parents), nil
 }
 
-// targetChain — สายสำหรับไล่ค่าของเป้าหมาย: GLOBAL = ว่าง (เอาเฉพาะค่ากลาง) · AGENT = chainOf
+// targetChain — สายสำหรับไล่ค่าของเป้าหมาย: GLOBAL = ว่าง (เอาเฉพาะค่ากลาง) ·
+// AGENT = สายที่ RequireAssetTarget โหลดไว้แล้ว (ไม่มี = อ่านเอง)
 func targetChain(db *gorm.DB, t assetCore.Target) ([]uint, error) {
 	if !t.Resolved {
 		return nil, errTargetNotResolved
 	}
 	if t.Scope == assetCore.ScopeGlobal {
 		return nil, nil
+	}
+	if len(t.Chain) > 0 {
+		return t.Chain, nil
 	}
 	return chainOf(db, t.AgentID)
 }

@@ -18,9 +18,22 @@ import (
 // resolveTheme — theme ที่ใช้งานจริงของเกมตามสาย (AST-37 · query เดียว + pure function)
 // ค่ากลางถูก seed ทุกเกม — ถ้าหายไป (ข้อมูลผิดปกติ) ใช้ค่าตั้งต้นแทนการล้มทั้งเส้น พร้อม log
 func resolveTheme(ctx context.Context, db *gorm.DB, game string, chain []uint) (assetCore.ResolvedTheme, error) {
+	resolved, ok, err := resolveThemeRow(db, game, chain)
+	if err != nil {
+		return resolved, err
+	}
+	if !ok {
+		logger.Ctx(ctx).Warnw("asset: global theme row missing, using default", "game", game)
+		return assetCore.ResolvedTheme{Theme: assetCore.DefaultTheme(), Source: assetCore.SourceGlobal}, nil
+	}
+	return resolved, nil
+}
+
+// resolveThemeRow — เหมือน resolveTheme แต่ไม่เติมค่าตั้งต้น · ok = false เมื่อไม่มีแถวในสายเลย (แม้แต่ GLOBAL)
+func resolveThemeRow(db *gorm.DB, game string, chain []uint) (assetCore.ResolvedTheme, bool, error) {
 	rows, err := assetPostgres.ListThemeCandidatesRepository(db, game, chain)
 	if err != nil {
-		return assetCore.ResolvedTheme{}, err
+		return assetCore.ResolvedTheme{}, false, err
 	}
 	cands := make([]assetCore.ThemeCandidate, len(rows))
 	for i, r := range rows {
@@ -28,11 +41,7 @@ func resolveTheme(ctx context.Context, db *gorm.DB, game string, chain []uint) (
 			MainColor1: r.MainColor1, MainColor2: r.MainColor2, StatsBarColor: r.StatsBarColor, StatsBarFontFamily: r.StatsBarFontFamily}}
 	}
 	resolved, ok := assetCore.ResolveTheme(chain, cands)
-	if !ok {
-		logger.Ctx(ctx).Warnw("asset: global theme row missing, using default", "game", game)
-		return assetCore.ResolvedTheme{Theme: assetCore.DefaultTheme(), Source: assetCore.SourceGlobal}, nil
-	}
-	return resolved, nil
+	return resolved, ok, nil
 }
 
 // themeBase — ธีม + shades คำนวณสดจากสีที่ resolve แล้ว (AST-40)
@@ -111,11 +120,13 @@ func UpdateThemeService(ctx context.Context, actor agentAuthService.Actor, targe
 	if err != nil {
 		return err
 	}
-	current, err := resolveTheme(ctx, db, req.GameCode, chain)
+	// ค่าเดิมทั้งชุด = ไม่เขียน (GE10-1) — นับเฉพาะเมื่อมีแถวจริงในสาย · แถว GLOBAL หาย (อ่านได้ค่าตั้งต้นแทน)
+	// ต้องเขียนได้เสมอ ไม่อย่างนั้นบันทึกค่าตั้งต้นเพื่อกู้แถวคืนจะกลายเป็น no-op
+	current, ok, err := resolveThemeRow(db, req.GameCode, chain)
 	if err != nil {
 		return err
 	}
-	if current.Theme == next {
+	if ok && current.Theme == next {
 		return nil
 	}
 	return assetPostgres.UpsertGameThemeRepository(db, targetAgentID(target), req.GameCode, models.GameTheme{

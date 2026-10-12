@@ -45,9 +45,11 @@ func ResolveAssetTarget(withScope bool) fiber.Handler {
 // ไม่เจอเป้าหมายที่ resolve แล้ว = ปฏิเสธ (fail-closed — AST-09)
 func RequireAssetTarget(write bool) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if err := assetService.CheckAssetTargetService(c.UserContext(), GetActor(c), GetAssetTarget(c), write); err != nil {
+		target, err := assetService.CheckAssetTargetService(c.UserContext(), GetActor(c), GetAssetTarget(c), write)
+		if err != nil {
 			return response.Error(c, err)
 		}
+		c.Locals(assetTargetLocalsKey, target) // เติม Chain ที่โหลดแล้ว — service ไม่ต้องอ่านสายซ้ำ
 		return c.Next()
 	}
 }
@@ -83,11 +85,8 @@ func readTargetFields(c *fiber.Ctx) (utils.JSONString, string, error) {
 	if len(body) == 0 {
 		return utils.JSONString{}, "", nil
 	}
-	if path, ok := utils.FindJSONNull(body); ok { // ไม่มี null ใน API (ACC-32)
-		if path == "" {
-			path = "body"
-		}
-		return utils.JSONString{}, "", apperr.ErrValidation.WithMessage(path+" ห้ามเป็น null", path+" must not be null")
+	if err := utils.CheckNoNull(body); err != nil { // ไม่มี null ใน API (ACC-32) — ข้อความเดียวกับ ParseBodyNoNull
+		return utils.JSONString{}, "", err
 	}
 	var in struct {
 		Scope   utils.JSONString `json:"scope"`

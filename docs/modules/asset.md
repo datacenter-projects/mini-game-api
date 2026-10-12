@@ -757,7 +757,7 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-59 | (เลื่อน) site-themes / `site_theme` | ยังไม่ทดสอบรอบนี้ |
 | AST-60 | (เลื่อน) change log | ยังไม่ทดสอบรอบนี้ |
 
-### 7.1 ลำดับเช็ค (แบบเดียวกับ agent_management 7.1 — lead U3)
+### 7.1 ลำดับเช็ค (ต่างจาก agent_management 7.1 — สิทธิ์ต่อเป้าหมายมาก่อนตรวจ body · schneider ตัดสิน 2026-10-12 · รอ lead รับทราบ)
 
 เช็คตามลำดับนี้ทุกเส้น · ผิดข้อแรกที่เจอตอบ error นั้นทันที · msg บอก field และค่าที่รับได้
 
@@ -765,18 +765,25 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 |---|---|---|
 | 1 | `Authenticated` → `PassedGates()` | `401202` · `401203` · `401301` · `401302` · `401304` · `401306` · `401307` · `401311` |
 | 2 | `RequirePermission(MenuAsset, view / edit)` | `402303` |
-| 3 | อ่าน body / form + `Validate()` (`scope` · `agent_id` · ค่า field · ไม่มี `null`) | `400` · `422` |
-| 4 | `ResolveAssetTarget` + `RequireAssetTarget` (AST-03 / AST-04 / AST-05) | `402402` → `405301` |
-| 5 | service — `files/upload`: catalog → เลิกใช้ → ขนาดไฟล์ → ชนิดไฟล์ → ขนาดภาพ → storage (AST-15) | `405401` → `405304` → `405103` → `405102` → `405101` → `505801` / `505802` |
-| 5 | service — `used/update`: เกม → config (ไม่พบ / ลบแล้ว / ไม่ใช่ของที่เลือกได้ / คนละเกม) → ช่องเลิกใช้ (AST-23) | `405401` → `405402` → `405304` — ตรวจความเป็นเจ้าของก่อนบอกว่าช่องเลิกใช้ เพื่อไม่เปิดเผยสถานะของ config ที่ไม่ใช่ของตัวเอง |
-| 5 | service — `files/delete`: config → ยังถูกใช้ (AST-28) | `405402` → `405403` |
-| 5 | service — `used/reset` · `theme/reset` · `branding/reset` | `422` (scope GLOBAL) |
+| 3 | `ResolveAssetTarget` — ไม่มี `null` ใน body · `scope` · `agent_id` (AST-08) | `400` · `422` |
+| 4 | `RequireAssetTarget` — สิทธิ์ต่อเป้าหมาย (AST-03 / AST-04 / AST-05) | `402402` → `405301` |
+| 5 | controller — อ่าน body / form + `Validate()` (field อื่น เช่น `game_code` · `asset_type` · `config_id` · `use_now` · `site_theme` · ไฟล์แนบ) | `400` · `422` |
+| 6 | service — ค่าที่ต้องปรับก่อนตรวจ: ธีม 5 ค่า (AST-34 – AST-36) · `site_name` (AST-42) | `422` |
+| 6 | service — `files/upload`: catalog → เลิกใช้ → ขนาดไฟล์ → ชนิดไฟล์ → ขนาดภาพ → storage (AST-15) | `405401` → `405304` → `405103` → `405102` → `405101` → `505801` / `505802` |
+| 6 | service — `used/update`: เกม → config (ไม่พบ / ลบแล้ว / ไม่ใช่ของที่เลือกได้ / คนละเกม) → ช่องเลิกใช้ (AST-23) | `405401` → `405402` → `405304` — ตรวจความเป็นเจ้าของก่อนบอกว่าช่องเลิกใช้ เพื่อไม่เปิดเผยสถานะของ config ที่ไม่ใช่ของตัวเอง |
+| 6 | service — `files/delete`: config → ยังถูกใช้ (AST-28) | `405402` → `405403` |
+| 6 | service — `used/reset` · `theme/reset` · `branding/reset` | `422` (scope GLOBAL) |
+
+**ทำไมต่างจาก agent_management:** เป้าหมายของ asset ระบุใน body (`scope` + `agent_id`) และตรวจสิทธิ์ต่อเป้าหมายใน middleware บรรทัดเดียวกับ route
+(กฎข้อ 28) ซึ่งรันก่อน controller · ผลคือ request ที่ทั้ง**ไม่มีสิทธิ์กับเป้าหมาย**และ**body ผิด** ได้ `402402` / `405301` ไม่ใช่ `422`
+(ไม่มีสิทธิ์ = ไม่ต้องบอกว่า body ผิดตรงไหน) · ถ้ามีสิทธิ์ ได้ `422` ตามปกติ · agent_management ตรวจสายใน service จึงได้ `422` ก่อน
 
 ## 8. Contract changes (แจ้ง frontend)
 
 - **path / method ใหม่ทั้งหมด** (หัวข้อ 5 · ตาม lead GN) · ทุกเส้น `POST` · ไม่มี `DELETE` · ไม่มี `?agent_id=` และ `me` — ส่ง `scope` + `agent_id` ใน body / form field (multipart)
 - จัดกลุ่มใหม่: ไฟล์รูปอยู่ใต้ `files/*` · รูปที่ใช้งานใต้ `used/*` · ธีมใต้ `theme/*` · branding ใต้ `branding/*` · รูปแบบชื่อ `…/detail/get` · `…/detail/update` (lead N1)
 - **เส้นใหม่:** `used/reset` · `theme/reset` · `branding/reset` (กลับไปใช้ของชั้นบน)
+- **ลำดับ error:** ไม่มีสิทธิ์กับบัญชีเป้าหมาย (`402402` / `405301`) ตอบก่อน body ผิด (`422`) — ถ้าได้ `402402` / `405301` ให้แสดงว่าไม่มีสิทธิ์ ไม่ต้องชี้ช่องที่กรอก (หัวข้อ 7.1 · ต่างจากเส้น `manage/*`)
 - **อัปแล้วขึ้นจริงไหม:** ใช้งานจริง = `used` เท่านั้น · `files/upload` ส่ง `use_now` (ไม่ส่ง = `true` = ใช้ทันที) · ไม่มีกฎ "ใช้ไฟล์ล่าสุดอัตโนมัติ" แล้ว
 - **ลบ = soft delete ทั้งค่ากลางและของบัญชี** · ลบรูปที่ยังถูกเลือกใช้ไม่ได้ (`405403`) ต้อง `used/update` หรือ `used/reset` ก่อน · ลบได้ไม่ผูกกับคนอัป
 - **ไล่สาย:** บัญชีที่ไม่ได้ตั้งได้ค่าของชั้นบนที่ใกล้ที่สุด แล้วค่ากลาง (asset ทีละช่อง · theme / branding ทั้งชุด) · `source` เป็น `self` / `upline` / `global` / `mixed` (เดิม `agent` / `global` / `mixed`)
@@ -859,6 +866,8 @@ validation ทั่วไปใช้ `422` + msg บอก field · สิท�
 3. **สคริปต์ AST-61** — รูปแบบโฟลเดอร์ `{game_code}/{asset_type}.{ext}` · `-force` · `created_by = script:<user>` เป็นร่างของผม ขอ lead / ทีมเกมยืนยันว่าไฟล์ที่ส่งมาตั้งชื่อแบบนี้ได้ไหม
 4. **`/player/asset/bundle`** (GN23) — `game_code` ใน body ตามที่ร่างไว้ · เส้นผู้เล่น + lobby ตัดสินพร้อม review Player Auth (GE22-2)
 5. **รายชื่อช่อง / ขนาด / palette** (GQ7) — รอทีมเกม / หน้าบ้านยืนยัน (ไม่ตอบใน ~3 วัน seed ตามร่าง)
+6. **ลำดับเช็คสิทธิ์ต่อเป้าหมาย กับ body** (หัวข้อ 7.1) — ฉบับก่อนเขียนให้ตรวจ body (`422`) ก่อนสิทธิ์ต่อเป้าหมาย แต่โค้ดตรวจสิทธิ์ใน middleware ก่อน controller ·
+   schneider เลือก**แก้ spec ให้ตรงโค้ด** (สิทธิ์ต่อเป้าหมายก่อน) แทนการย้ายการตรวจ body 12 เส้นไปไว้ใน middleware · ต่างจาก agent_management เฉพาะกรณีที่ผิดทั้งสองอย่างพร้อมกัน · ขอ lead รับทราบ
 
 ### ส่วนกลางที่ lead อนุมัติแล้ว (GQ12) — ทำแล้วพร้อมโค้ด (2026-10-12) ยกเว้นที่ระบุว่ายังไม่ได้ทำ
 

@@ -7,7 +7,7 @@
 | branch | `carl/asset` (แตกจาก `dev` @ `65300f1`) · merge `dev` แล้ว (ล่าสุด `0c9f595`) |
 | spec | `docs/modules/asset.md` — **DRAFT** · lead ตรวจรอบ 1 แล้ว (ฉบับ `f19a511` → **เริ่มโค้ดได้**) · **แก้ตาม AV1–AV4 + ตาราง GE แล้ว** (rule `AST-01`–`AST-61`) · รอ lead รับทราบฉบับแก้ |
 | code | **implement แล้ว (MVP)** — 16 เส้น BO (GN1–14, GN16, GN22) · commit แล้ว (`5669728` · push `origin/carl/asset`) · เส้นผู้เล่น (GN23) รอ Player Auth |
-| merge | ยังไม่ merge เข้า `dev` · ต้องแยก branch ใหม่จาก `dev` ล่าสุดตาม S13 (ผู้ใช้จัดการ git) |
+| merge | ยังไม่ merge เข้า `dev` · `carl/asset` คือ branch ของ module asset (S13) · ก่อนเปิด PR ต้อง merge `dev` ล่าสุด — ชน `ParseBodyNoNull` (dev ใช้ `FieldLabel` → ย้ายไปไว้ใน `utils.CheckNoNull`) · เช็คเลข migration ไม่ซ้ำ |
 | test | `make check` ผ่าน · integration test ของ asset ผ่านบน test env ในเครื่อง (Postgres 18 + miniredis · `-race` ผ่าน) · ทั้ง suite ผ่าน · ผลที่ยืนยันจริงคือ CI (Postgres 17 + Redis 7) |
 
 ## 2. งาน
@@ -37,6 +37,7 @@
 4. **GN23 / lobby** — `game_code` ใน body · ใครทำเส้นผู้เล่น (GE22-2) ตัดสินพร้อม review Player Auth
 5. **รายชื่อช่อง / ขนาด / palette** (GQ7) — รอทีมเกม / หน้าบ้านยืนยัน (ไม่ตอบ ~3 วัน seed ตามร่าง)
 6. **ลำดับตรวจของ `used/update`** — โค้ดตรวจความเป็นเจ้าของ config ก่อนบอกว่าช่องเลิกใช้ (`405402` ก่อน `405304`) เพื่อไม่เปิดเผยสถานะของ config ที่ไม่ใช่ของตัวเอง — spec หัวข้อ 7.1 แก้ตามนี้แล้ว
+7. **ลำดับสิทธิ์ต่อเป้าหมาย กับ body** (พบตอนรีวิวโค้ด) — spec เดิมให้ตรวจ body (`422`) ก่อน แต่โค้ดตรวจสิทธิ์ต่อเป้าหมายใน middleware ก่อน controller · schneider เลือก**แก้ spec ให้ตรงโค้ด** (7.1 · หัวข้อ 8 · คำถามข้อ 6 ในหัวข้อ 9) · ต่างจาก agent_management เฉพาะกรณีที่ไม่มีสิทธิ์และ body ผิดพร้อมกัน (ได้ `402402` / `405301` แทน `422`) · กระทบ 12 เส้น · มี test ล็อกลำดับไว้ — ขอรับทราบ
 
 ## 4. ประวัติอัปเดต
 
@@ -49,4 +50,5 @@
 | 2026-10-12 | `1dd674f` | lead review Game_Asset — MVP, ไล่สาย, lobby (GR6), GQ1–GQ13 + รายการแก้ + infra |
 | 2026-10-12 | `f19a511` | แก้ spec ตามรีวิว S1–S11: MVP · ไล่สาย (`cnf`) · `use_now` · soft delete · ≤ 5 MB · reset 3 เส้น · path GN1–GN23 · error `05` · ลำดับเช็ค · test case ใหม่ |
 | 2026-10-12 | `0ba21e8` | lead ตรวจ spec รอบ 1 — AV1–AV4 + ตาราง GE · เริ่มโค้ดได้ |
+| 2026-10-12 | — (รอ commit) | รีวิวโค้ดเอง + แก้: ลบไฟล์ S3 ด้วย ctx ที่ไม่ถูกยกเลิก · กู้แถวธีม GLOBAL ได้ · `created_at` จาก DB · reset timeout ของ storage · seed (โฟลเดอร์อ่านไม่ได้ / ไฟล์ซ้ำช่อง) · `utils.CheckNoNull` · กรอง config ที่ลบแล้ว · `games/list` query เดียว (+ migration `20261012170000` index) · ส่งสายเป้าหมายจาก middleware · ล็อก config scope เจ้าของ · fakes3 ไม่ใช้ goroutine · spec 7.1 สิทธิ์ต่อเป้าหมายก่อน body (schneider เลือก) · test ใหม่ |
 | 2026-10-12 | `5669728` | แก้ spec ตาม AV1–AV4 + GE · **implement MVP** (migration `20261012160000` · core · repository · service · controller · middleware · `platform/storage` · `S3_*` · script อัปรูป GLOBAL · `scripts/fakes3` · test · MinIO compose · MIGRATION_STATUS · ERROR_CODES) |

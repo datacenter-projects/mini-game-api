@@ -43,3 +43,15 @@ func TestInitConfigured(t *testing.T) {
 		t.Errorf("Init ว่าง: err=%v available=%v", err, Available())
 	}
 }
+
+func TestInitResetsTimeout(t *testing.T) { // Init ครั้งหลังที่ไม่ตั้ง timeout ต้องกลับเป็นค่าตั้งต้น ไม่ใช้ค่าของครั้งก่อน
+	t.Cleanup(func() { _ = Init(context.Background(), configs.StorageConfig{}) })
+	_ = Init(context.Background(), configs.StorageConfig{UploadTimeout: 500 * time.Millisecond})
+	if timeout != 500*time.Millisecond {
+		t.Fatalf("timeout = %v, want 500ms", timeout)
+	}
+	_ = Init(context.Background(), configs.StorageConfig{})
+	if timeout != defaultTimeout {
+		t.Fatalf("Init ที่ไม่ตั้ง timeout: timeout = %v, want %v", timeout, defaultTimeout)
+	}
+}

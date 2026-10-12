@@ -26,16 +26,19 @@ var (
 	ErrUploadFailed = errors.New("storage: request failed")
 )
 
+// defaultTimeout — timeout ของการเรียก storage เมื่อไม่ได้ตั้ง S3_UPLOAD_TIMEOUT
+const defaultTimeout = 30 * time.Second
+
 var (
 	client  *s3.Client
 	bucket  string
-	timeout = 30 * time.Second
+	timeout = defaultTimeout
 )
 
 // Init สร้าง client ตาม config · คืน error เมื่อสร้างไม่ได้ (ผู้เรียก log แล้ว boot ต่อ — storage จะไม่พร้อม)
 // ไม่ตั้ง Bucket = ไม่พร้อมโดยไม่ถือเป็น error (เครื่อง local ที่ไม่ใช้ storage)
 func Init(ctx context.Context, c configs.StorageConfig) error {
-	client, bucket = nil, ""
+	client, bucket, timeout = nil, "", defaultTimeout // reset ทุกครั้ง — ไม่ให้ค่าของ Init ครั้งก่อนค้าง
 	if c.UploadTimeout > 0 {
 		timeout = c.UploadTimeout
 	}

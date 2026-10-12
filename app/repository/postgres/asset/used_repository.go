@@ -36,26 +36,35 @@ func DeleteAssetUsedRepository(db *gorm.DB, agentID, assetTypeID uint) error {
 // UsedRow — แถว used ที่เป็นไปได้ของช่องหนึ่ง พร้อมไฟล์
 type UsedRow struct {
 	AssetTypeID   uint
+	GameCode      string
 	AgentID       *uint // nil = GLOBAL
 	AssetConfigID uint
 	StorageKey    string
 }
 
-// ListUsedCandidatesRepository — แถว used ทุกช่องของเกม ที่เจ้าของอยู่ในสาย หรือเป็น GLOBAL (query เดียว — AST-57)
-// chainIDs ว่าง = เป้าหมาย GLOBAL (เอาเฉพาะแถว GLOBAL)
-func ListUsedCandidatesRepository(db *gorm.DB, gameCode string, chainIDs []uint) ([]UsedRow, error) {
+// usedCandidates — แถว used ที่เจ้าของอยู่ในสาย หรือเป็น GLOBAL · chainIDs ว่าง = เป้าหมาย GLOBAL (เอาเฉพาะแถว GLOBAL)
+func usedCandidates(db *gorm.DB, chainIDs []uint) *gorm.DB {
 	q := db.Table("asset_used u").
-		Select("u.asset_type_id, u.agent_id, u.asset_config_id, c.storage_key").
+		Select("u.asset_type_id, t.game_code, u.agent_id, u.asset_config_id, c.storage_key").
 		Joins("JOIN asset_types t ON t.id = u.asset_type_id").
-		Joins("JOIN asset_configs c ON c.id = u.asset_config_id").
-		Where("t.game_code = ?", gameCode)
+		Joins("JOIN asset_configs c ON c.id = u.asset_config_id AND c.is_deleted = false") // กันไว้ชั้นที่สอง — ลบได้เฉพาะ config ที่ไม่มี used ชี้ (AST-28)
 	if len(chainIDs) == 0 {
-		q = q.Where("u.agent_id IS NULL")
-	} else {
-		q = q.Where("(u.agent_id IS NULL OR u.agent_id IN ?)", chainIDs)
+		return q.Where("u.agent_id IS NULL")
 	}
+	return q.Where("(u.agent_id IS NULL OR u.agent_id IN ?)", chainIDs)
+}
+
+// ListUsedCandidatesRepository — แถว used ทุกช่องของเกม ที่เจ้าของอยู่ในสาย หรือเป็น GLOBAL (query เดียว — AST-57)
+func ListUsedCandidatesRepository(db *gorm.DB, gameCode string, chainIDs []uint) ([]UsedRow, error) {
 	var rows []UsedRow
-	err := q.Scan(&rows).Error
+	err := usedCandidates(db, chainIDs).Where("t.game_code = ?", gameCode).Scan(&rows).Error
+	return rows, err
+}
+
+// ListUsedCandidatesByTypeRepository — แถว used ของช่องชื่อนี้ในทุกเกม (เช่น game_cover ของ games/list — AST-51) query เดียว
+func ListUsedCandidatesByTypeRepository(db *gorm.DB, assetType string, chainIDs []uint) ([]UsedRow, error) {
+	var rows []UsedRow
+	err := usedCandidates(db, chainIDs).Where("t.asset_type = ?", assetType).Scan(&rows).Error
 	return rows, err
 }
 
