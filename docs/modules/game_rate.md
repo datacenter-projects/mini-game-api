@@ -1,6 +1,6 @@
 # game_rate (อัตราแพ้ชนะ) — Spec
 
-- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ร่างแก้ รอ lead อนุมัติ**
+- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ตัดสินครบ 2026-10-12 (Q2–Q8 · Q1 ทำทีหลัง) · พร้อม implement** (branch `boiledegg/bo/game_rate-settings`)
   - RS1 ค่ากลางชุดเดียว Superadmin (+ sub ที่มีเมนู `rate`) ตั้ง · ไม่ไล่สาย ไม่มีค่าต่อบัญชี
   - RR1 ตัวคูณ / % เป็น float ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9 · แทน INT ×100 / bp) · RNG `0–999,999` · ตรวจสูตรด้วยเลขแม่นยำ (`big.Rat`)
   - RR2 house edge ≥ 1% ทุกจุดที่หยุดได้ · RR3 ตัวคูณ ≤ 1,000 · `win_percent > 0`
@@ -164,7 +164,7 @@ Response `data` (Coin Flip — ค่าตัวอย่างจาก diagra
 }
 ```
 > ตัวอย่างขั้น 1–2 ตรงกับ diagram · ขั้น 3–10 เป็นชุดประกอบเอกสาร (ตัวคูณ `1.9^n` ปัด 4 ตำแหน่ง · ชนะลดขั้นละ 2%) คำนวณด้วย `big.Rat` แล้ว Round4 · ค่าที่ test ยึดคือตัวอย่าง diagram (5% · 13.36% · 22.75% · 64.0777%)
-> `max_win_percent` ไม่เกิน 100
+> `max_win_percent` ไม่เกิน 100 · **ค่าที่คำนวณทุกตัว (`reach_*` · `payout_*` · `house_edge_*` · `max_win_*` · `min_house_edge_*` · `max_payout_*` · Scratch `avg_multiplier` / `per_ticket_percent`) ไม่ได้เก็บใน DB** — คำนวณจากค่าที่ตั้งทุกครั้งที่ตอบ (RE1 / RE2 / RE3 / RE5 / RE6) · ตัวเลขในตัวอย่างและในดีไซน์หน้าบ้านเป็นแค่ตัวอย่าง
 
 - Coin / RPS: `payout_percent` ต่อขั้น = `reach × multiplier` (ผลตอบแทนผู้เล่นถ้าหยุดที่ขั้นนั้น · = 100 − `house_edge_percent`) · สรุปทั้งเกม `min_house_edge_percent` / `min_house_edge_step` (ขั้นที่ร้านได้น้อยสุด — ค่าเท่ากันเอาขั้นแรก) · `max_payout_percent` = 100 − ค่านั้น (กล่องสรุปของหน้าบ้าน — Q8)
 - RPS: รูปแบบเดียวกับ Coin (`multiplier` · `win_percent` · ค่าคำนวณ) · ไม่มี `draw_percent` / `lose_percent` (RATE-20)
@@ -418,3 +418,18 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RH3 | หน้าเกมของ Member ต้องได้ตารางตัวคูณ (Coin / RPS 10 ขั้น · รางวัล Scratch) — ส่งแค่ตัวคูณ ไม่ส่ง `win_percent` / `share_percent` · เป็นเส้นฝั่งผู้เล่นของ module เดิมพัน |
 | RH4 | Scratch ตรง 2 ช่อง แบ่งครึ่ง "ช่องแรกปัดลง" → ปัดที่ 4 ตำแหน่ง (`Round4`) · Streak ค้างเกิน 1 วัน CASH OUT อัตโนมัติ / Scratch ไม่ขูดเกิน 1 วันเปิดอัตโนมัติ (เดิม RATE-09C) — job ของ engine |
 | RH5 | RPS ไม่มีผลเสมอ (lead Q7 2026-10-12) — เอนจิ้นสุ่มแค่ชนะ / แพ้ตาม `win_percent` ของขั้น · หน้าเกมไม่ต้องแสดงผลเสมอ |
+
+## 10. แผน implement (lead C1–C8 · branch `boiledegg/bo/game_rate-settings`)
+
+| ขั้น | งาน | ไฟล์ |
+|---|---|---|
+| C1 | รายชื่อเกมย้ายไป `app/core/game` (รหัส · หมวด · กลุ่ม `minigame`) · agent_management (`pt` / `status_game`) เรียกจาก `core/game` แทน `pt_rule.go` · commit แรก ไม่เปลี่ยนพฤติกรรม | `app/core/game/game.go` + test · `app/core/agent_management/pt_rule.go` |
+| C2 | กฎและสูตรเป็น pure function ด้วย `big.Rat`: ตรวจ Coin / RPS (RATE-10 – 13, 20 – 22) · Scratch (RATE-30 – 33) · คำนวณ reach / payout / house edge / max win / สรุปทั้งเกม / avg / per ticket · ค่าคงที่ (ขั้นต่ำ house edge 1% · ตัวคูณ ≤ 1,000 · 10 ขั้น · 1–10 รางวัล) · เทียบค่าเท่ากัน (RATE-05C) · `changes` ของ RE5 · table test ตัวอย่าง diagram (5% · 13.36% · 22.75% · 64.0777%) | `app/core/game_rate/*.go` + `*_test.go` |
+| C3 | migration 3 ตาราง (หัวข้อ 6 · timestamp หลัง `20261011120000`) · models · repository (`db` param แรก · ไม่มี tx · insert batch · โหลดหลายเวอร์ชันแบบ batch) | `database/migrations/*_game_rate.sql` · `app/models/game_rate_models.go` · `app/repository/postgres/game_rate/` |
+| C4 | service: tx เดียว · advisory lock ต่อเกม → `base_version` (`406301` · msg บอกเวอร์ชัน + คนแก้) → กฎ → ค่าเท่าปัจจุบัน (`created: false`) → insert · rollback (RATE-05A) · list / detail / check / versions | `app/service/game_rate/` |
+| C5 | DTO `Validate()` แบบ `if` (≤ 4 ตำแหน่ง · ไม่รับ field ของเกมอื่น ยกเว้น `passcode`) · controller · routes RE1 – RE7 (`RequirePermission(rate, …)` ก่อน `RequirePasscode()`) · `pkg/apperr/game_rate_errors.go` | `app/internals/backoffice/{dto,controllers}/game_rate/` · `routes.go` · `pkg/apperr/` |
+| C6 | `CurrentVersionService` · `ByVersionIDService` + cache ใน memory ตาม `version_id` (หัวข้อ 5.8) | `app/service/game_rate/` |
+| C7 | integration test ตามหัวข้อ 7 + ยิง update พร้อมกัน 2 request (`406301`) · รัน `make test-integration` แนบผล | `app/internals/backoffice/game_rate_*_integration_test.go` |
+| C8 | เอกสารหน้าบ้าน (curl RE1 – RE7 · ค่าตัวอย่างให้ tester ตั้งบน dev / uat) · `MIGRATION_STATUS.md` · แจ้ง frontend | `docs/frontend/game_rate.md` |
+
+ลำดับ: C1 → C2 → C3 → C4 + C6 → C5 → C7 → C8 · PR เดียว (หรือแยก C1 ถ้าต้องการ merge ก่อน) · ก่อน merge เอา `dev` เข้า branch และเช็คเลข migration (lead MA6)

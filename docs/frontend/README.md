@@ -9,5 +9,6 @@
 | [agent_management.md](agent_management.md) | สร้างบัญชี, รายชื่อ / ค้นหาดาวน์ไลน์, รายละเอียด, แก้ข้อมูล / สถานะ / PT / เปิด-ปิดเกม, บัญชีย่อย | `agent_management.md` |
 | [member_management.md](member_management.md) | สร้าง Member, รายละเอียด, แก้ข้อมูล / สถานะ / Commission (ผู้ดูแล maofoy) | `member_management.md` |
 | [admin_management.md](admin_management.md) | ADMIN: รีเซ็ต passcode / รหัสผ่านให้บัญชีอื่น, ค้นหาบัญชีทั้งระบบ | `admin_management.md` |
+| [game_rate.md](game_rate.md) | อัตราแพ้ชนะ (เมนู ⑥): รายชื่อเกม, ค่าปัจจุบัน, ตรวจ / คำนวณ, บันทึก, ประวัติ, ย้อนเวอร์ชัน — **ยังไม่ deploy** | `game_rate.md` |
 
 แก้ spec แล้วต้องแก้ไฟล์ในโฟลเดอร์นี้ใน PR เดียวกัน
