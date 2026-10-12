@@ -56,7 +56,8 @@ func parsePaymentAccount(prefix string, in *PaymentAccount) (models.MemberPaymen
 	case memberManagementCore.AccountNumberInvalid:
 		return a, agentManagementDto.Invalid(prefix+"account_number", "ต้องเป็นตัวเลขล้วน 10–15 หลัก", "must be 10–15 digits")
 	case memberManagementCore.NameWithoutAccount:
-		return a, agentManagementDto.Invalid(prefix+issue.Field, "ส่งได้เมื่อมี bank_code และ account_number", "is allowed only with bank_code and account_number")
+		th, en := utils.SubFieldLabels("payment_account", "bank_code", "account_number")
+		return a, agentManagementDto.Invalid(prefix+issue.Field, "ส่งได้เมื่อมี"+th[0]+"และ"+th[1], "is allowed only with "+en[0]+" and "+en[1])
 	default:
 		if issue.Field == "name_th" || issue.Field == "midname_th" || issue.Field == "surname_th" {
 			return a, agentManagementDto.Invalid(prefix+issue.Field, "ต้องเป็นอักษรไทย มีช่องว่างหรือ - ได้ ไม่เกิน 50 ตัว",
@@ -92,8 +93,9 @@ type MemberPaymentSection struct {
 
 func (s *MemberPaymentSection) check() error {
 	if !s.PaymentType.Present && s.PaymentAccount == nil {
-		return agentManagementDto.Invalid("payment", "ต้องมีอย่างน้อย 1 field (payment_type / payment_account)",
-			"must contain at least 1 field (payment_type / payment_account)")
+		th, en := utils.SubFieldLabels("payment", "payment_type", "payment_account")
+		return agentManagementDto.Invalid("payment", "ต้องมีอย่างน้อย 1 อย่าง ("+th[0]+" / "+th[1]+")",
+			"must contain at least 1 of ("+en[0]+" / "+en[1]+")")
 	}
 	if s.PaymentType.Present {
 		if !s.PaymentType.IsString {

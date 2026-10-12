@@ -82,40 +82,41 @@ func CurrencyError(creator, newType agentManagementCore.UserType, cv agentManage
 
 // ChildPTError — ผลตรวจค่าที่ผู้สร้างตั้งให้ลูก → error ที่บอก field และค่าที่ตั้งได้ (MGMT-18, MGMT-19, MGMT-25)
 func ChildPTError(group string, is agentManagementCore.PTIssue) error {
-	f := "pt." + group + "." + is.Field
+	th, en := utils.FieldLabel("pt." + group + "." + is.Field)
 	switch is.Violation {
 	case agentManagementCore.PTOK:
 		return nil
 	case agentManagementCore.PTInvalidStep:
 		if is.Field == "commission_percent" {
-			return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – 1 ทีละ 0.1", f+" must be 0 – 1 in steps of 0.1")
+			return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 1 ทีละ 0.1", en+" must be 0 – 1 in steps of 0.1")
 		}
-		return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – 100 ทีละ 0.5", f+" must be 0 – 100 in steps of 0.5")
+		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 100 ทีละ 0.5", en+" must be 0 – 100 in steps of 0.5")
 	case agentManagementCore.PTExceedsReceived:
-		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่คุณได้รับ)",
-			f+" must not exceed "+pct(is.Limit)+" (what you received)")
+		return apperr.ErrPTExceedsReceived.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่คุณได้รับ)",
+			en+" must not exceed "+pct(is.Limit)+" (what you received)")
 	case agentManagementCore.PTSeamlessMasterLock: // Share Master ใช้ค่าตาม CSM (MGMT-19 · lead E1-2)
-		return apperr.ErrSeamlessMasterPTLocked.WithMessage(f+": Share Master ใช้ค่า PT ตาม Company Seamless Master (ต้องเป็น "+pct(is.Limit)+")",
-			f+": Share Master uses the PT of its Company Seamless Master (must be "+pct(is.Limit)+")")
+		return apperr.ErrSeamlessMasterPTLocked.WithMessage(th+": Share Master ใช้ค่า PT ตาม Company Seamless Master (ต้องเป็น "+pct(is.Limit)+")",
+			en+": Share Master uses the PT of its Company Seamless Master (must be "+pct(is.Limit)+")")
 	case agentManagementCore.PTForceRemainExceeded:
-		return apperr.ErrForceRemainExceeded.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่ให้ลูก)",
-			f+" must not exceed "+pct(is.Limit)+" (pt_from_parent)")
+		_, given := utils.SubFieldLabels("pt", "pt_from_parent")
+		return apperr.ErrForceRemainExceeded.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่ให้ลูก)",
+			en+" must not exceed "+pct(is.Limit)+" ("+given[0]+")")
 	default:
-		return apperr.ErrCommissionExceeded.WithMessage(f+" ตั้งได้ 0 – 1", f+" must be 0 – 1")
+		return apperr.ErrCommissionExceeded.WithMessage(th+" ตั้งได้ 0 – 1", en+" must be 0 – 1")
 	}
 }
 
 // MemberPTError — ค่าที่ผู้สร้างถือสู้กับ Member (member_management MGMT-21) · ไม่เกินค่าที่ผู้สร้างได้รับ ทีละ 0.5
 func MemberPTError(group string, v agentManagementCore.PTViolation, received float64) error {
-	f := "pt." + group + ".pt"
+	th, en := utils.FieldLabel("pt." + group + ".pt")
 	switch v {
 	case agentManagementCore.PTOK:
 		return nil
 	case agentManagementCore.PTInvalidStep:
-		return apperr.ErrValidation.WithMessage(f+" ตั้งได้ 0 – "+pct(received)+" ทีละ 0.5", f+" must be 0 – "+pct(received)+" in steps of 0.5")
+		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – "+pct(received)+" ทีละ 0.5", en+" must be 0 – "+pct(received)+" in steps of 0.5")
 	default:
-		return apperr.ErrPTExceedsReceived.WithMessage(f+" ตั้งได้ไม่เกิน "+pct(received)+" (ค่าที่คุณได้รับ)",
-			f+" must not exceed "+pct(received)+" (what you received)")
+		return apperr.ErrPTExceedsReceived.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(received)+" (ค่าที่คุณได้รับ)",
+			en+" must not exceed "+pct(received)+" (what you received)")
 	}
 }
 
@@ -137,8 +138,8 @@ func CheckCreatorBalance(tx *gorm.DB, c Creator, amounts map[string]float64) err
 	for _, cur := range currencies {
 		if have[cur] < amounts[cur] {
 			b := utils.FormatNum(have[cur])
-			return apperr.ErrInsufficientInitial.WithMessage("balance."+cur+" ยอดของคุณไม่พอ (มี "+b+")",
-				"balance."+cur+" exceeds your balance ("+b+")")
+			th, en := utils.FieldLabel("balance." + cur)
+			return apperr.ErrInsufficientInitial.WithMessage(th+" ยอดของคุณไม่พอ (มี "+b+")", en+" exceeds your balance ("+b+")")
 		}
 	}
 	return nil

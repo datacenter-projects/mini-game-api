@@ -1,10 +1,13 @@
 package agentmanagement
 
 import (
+	"strings"
+
 	agentManagementCore "app/app/core/agent_management"
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
 	"app/app/models"
 	"app/pkg/apperr"
+	"app/pkg/utils"
 )
 
 // Company Seamless Master (CSM) กับ Share Master — MGMT-19 (lead H2 / H3 / Q-R1 / E1-1 / B2 2026-10-09)
@@ -20,14 +23,18 @@ func isShareMaster(role models.AgentRole, agentType *models.AgentType) bool {
 
 // shareMasterFieldError — ส่งค่าที่ระบบตั้งเองให้ Share Master (422 ตาม lead E1-1)
 func shareMasterFieldError(field string) error {
-	return apperr.ErrValidation.WithMessage(field+": Share Master ใช้ค่าตาม Company Seamless Master (ส่งได้แค่ commission_percent)",
-		field+": Share Master follows its Company Seamless Master (only commission_percent can be sent)")
+	th, en := utils.FieldLabel(field)
+	cTH, cEN := utils.SubFieldLabels("pt", "commission_percent")
+	return apperr.ErrValidation.WithMessage(th+": Share Master ใช้ค่าตาม Company Seamless Master (ส่งได้แค่ "+cTH[0]+")",
+		en+": Share Master follows its Company Seamless Master (only "+cEN[0]+" can be sent)")
 }
 
 // fullPTRequiredError — ส่งแค่ commission_percent ให้บัญชีที่ไม่ใช่ Share Master ใต้ CSM (ต้องครบ 5 ค่า — MGMT-23)
 func fullPTRequiredError(group string) error {
-	return apperr.ErrValidation.WithMessage("pt."+group+".pt_from_parent ต้องส่ง (ต้องครบ 5 ค่า: pt_from_parent · force · remain_quota · commission_percent · status)",
-		"pt."+group+".pt_from_parent is required (all 5 values: pt_from_parent, force, remain_quota, commission_percent, status)")
+	th, en := utils.FieldLabel("pt." + group + ".pt_from_parent")
+	allTH, allEN := utils.SubFieldLabels("pt", "pt_from_parent", "force", "remain_quota", "commission_percent", "status")
+	return apperr.ErrValidation.WithMessage(th+" ต้องส่ง (ต้องครบ 5 ค่า: "+strings.Join(allTH, " · ")+")",
+		en+" is required (all 5 values: "+strings.Join(allEN, ", ")+")")
 }
 
 // checkPTShape — Share Master ใต้ CSM ต้องส่งแค่ commission · บัญชีอื่นต้องครบ 5 ค่า (7.1 ข้อ 4) · ไล่กลุ่มตามตัวอักษร

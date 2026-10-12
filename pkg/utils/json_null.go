@@ -56,7 +56,8 @@ func ParseBodyNoNull(c *fiber.Ctx, out Validatable) error {
 			if path == "" {
 				path = "body"
 			}
-			return apperr.ErrValidation.WithMessage(path+" ห้ามเป็น null", path+" must not be null")
+			th, en := FieldLabel(path)
+			return apperr.ErrValidation.WithMessage(th+" ห้ามเป็น null", en+" must not be null")
 		}
 	}
 	return ParseBody(c, out)

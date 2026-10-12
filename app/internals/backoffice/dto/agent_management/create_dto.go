@@ -56,8 +56,10 @@ type CreateAgentResponse struct {
 
 var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
+// Invalid — 422 ที่ขึ้นต้นด้วยชื่อ field · path มีจุด (เช่น pt.minigame.force) แปลงเป็นชื่อที่ผู้ใช้อ่านได้ (utils.FieldLabel)
 func Invalid(field, th, en string) error {
-	return apperr.ErrValidation.WithMessage(field+" "+th, field+" "+en)
+	labelTH, labelEN := utils.FieldLabel(field)
+	return apperr.ErrValidation.WithMessage(labelTH+" "+th, labelEN+" "+en)
 }
 
 // ValidateIdentityFields — request_id · username · password · name (MGMT-05 – MGMT-07) ตามลำดับ field ใน body

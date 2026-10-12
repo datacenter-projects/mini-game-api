@@ -113,7 +113,9 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 // Check — ตรวจ section info (ใช้ร่วมกับ members/detail/update — member_management MGMT-32M)
 func (s *AgentInfoSection) Check() error {
 	if s.Name == nil && !s.Phone.Present && !s.PhoneCountryCode.Present {
-		return Invalid("info", "ต้องมีอย่างน้อย 1 field (name / phone_country_code + phone)", "must contain at least 1 field (name / phone_country_code + phone)")
+		th, en := utils.SubFieldLabels("info", "name", "phone_country_code", "phone")
+		return Invalid("info", "ต้องมีอย่างน้อย 1 อย่าง ("+th[0]+" / "+th[1]+" + "+th[2]+")",
+			"must contain at least 1 of ("+en[0]+" / "+en[1]+" + "+en[2]+")")
 	}
 	if s.Name != nil && !agentManagementCore.IsValidName(*s.Name) {
 		return Invalid("info.name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")

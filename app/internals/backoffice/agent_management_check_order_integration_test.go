@@ -42,30 +42,30 @@ func TestCreateCheckOrderAndMessages(t *testing.T) {
 	// pt เกินที่ได้รับ — บอกค่าสูงสุด
 	r = call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "share02", []string{"THB"}, childPT(95, 0, 0, 0)), c.comTok)
 	expect(t, r, 200, 402305)
-	expectMsgHas(t, r.Msg, "pt.minigame.pt_from_parent", "90")
+	expectMsgHas(t, r.Msg, "PT ที่ให้ (Minigame)", "90")
 
 	// force เกินที่ให้ลูก — บอกค่าสูงสุด · ผิดหลาย field ใน pt ได้ field แรก
 	r = call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "share02", []string{"THB"}, childPT(50, 60, 70, 2)), c.comTok)
 	expect(t, r, 200, 402308)
-	expectMsgHas(t, r.Msg, "pt.minigame.force", "50")
+	expectMsgHas(t, r.Msg, "Force (Minigame)", "50")
 
 	// Commission เกิน — บอกช่วง
 	r = call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "share02", []string{"THB"}, childPT(50, 0, 0, 2)), c.comTok)
 	expect(t, r, 200, 402309)
-	expectMsgHas(t, r.Msg, "pt.minigame.commission_percent", "0 – 1")
+	expectMsgHas(t, r.Msg, "Commission (Minigame)", "0 – 1")
 
 	// ยอดไม่พอ (balance อยู่เหนือ pt) มาก่อน pt เกิน — บอกยอดที่มี
 	b := agentBody("AGENT", "agentx", nil, childPT(95, 0, 0, 0))
 	b["balance"] = map[string]any{"THB": 100}
 	r = call(t, app, "POST", createAgentPath, b, c.agentTok)
 	expect(t, r, 200, 402312)
-	expectMsgHas(t, r.Msg, "balance.THB", "(มี 0)")
+	expectMsgHas(t, r.Msg, "ยอดเงินตั้งต้น (THB)", "(มี 0)")
 
 	// pt ของ Member บอกค่าที่ผู้สร้างได้รับ (update-hold ลบแล้ว 2026-10-09)
 	mem := createMemberWithPT(t, app, c.agentTok, "memorder", 10)
 	r = call(t, app, "POST", updateMemberPTPath, memberPTBody(mem.ID, 65, 0), c.agentTok)
 	expect(t, r, 200, 402305)
-	expectMsgHas(t, r.Msg, "pt.minigame.pt", "60")
+	expectMsgHas(t, r.Msg, "PT ที่ถือสู้ (Minigame)", "60")
 
 	// update-pt: เพดานของ pt_from_parent มาก่อนเงื่อนไขอื่น
 	r = call(t, app, "POST", updatePTPath, ptBody(c.share.ID, 95, 0, 0, 5), c.comTok)
@@ -75,5 +75,5 @@ func TestCreateCheckOrderAndMessages(t *testing.T) {
 	// สิทธิ์ sub ที่ไม่มีเมนู — บอกเมนูที่ให้ได้
 	r = call(t, app, "POST", subCreatePath, subBody("staffx", map[string]string{"rate": "view"}), c.comTok)
 	expect(t, r, 200, 422)
-	expectMsgHas(t, r.Msg, "permissions.rate", "member", "announcement")
+	expectMsgHas(t, r.Msg, "สิทธิ์เมนู rate", "member", "announcement")
 }

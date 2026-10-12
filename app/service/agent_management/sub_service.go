@@ -299,7 +299,7 @@ func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.A
 
 // permissionError — สิทธิ์ที่ส่งมาผิด (MGMT-50, MGMT-52) → 422 บอกเมนู
 func permissionError(v agentManagementCore.PermissionViolation, ownerRole models.AgentRole) error {
-	field := "permissions." + v.Menu
+	th, en := utils.FieldLabel("permissions." + v.Menu)
 	if v.Reason == "menu" {
 		menus := agentManagementCore.MenusForRole(ownerRole)
 		names := make([]string, len(menus))
@@ -307,10 +307,10 @@ func permissionError(v agentManagementCore.PermissionViolation, ownerRole models
 			names[i] = string(m)
 		}
 		list := strings.Join(names, ", ")
-		return apperr.ErrValidation.WithMessage(field+" ไม่มีเมนูนี้ · เมนูที่ให้ได้: "+list, field+" is not a menu · allowed menus: "+list)
+		return apperr.ErrValidation.WithMessage(th+" ไม่มีเมนูนี้ · เมนูที่ให้ได้: "+list, en+" is not a menu · allowed menus: "+list)
 	}
-	return apperr.ErrValidation.WithMessage(field+" ต้องเป็น off / view / edit (dashboard และ report สูงสุด view)",
-		field+" must be off, view or edit (dashboard and report up to view)")
+	return apperr.ErrValidation.WithMessage(th+" ต้องเป็น off / view / edit (dashboard และ report สูงสุด view)",
+		en+" must be off, view or edit (dashboard and report up to view)")
 }
 
 func notFoundAs(err, as error) error {

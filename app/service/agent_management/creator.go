@@ -90,7 +90,8 @@ func CheckInitialBalance(amounts map[string]float64, seamless bool, accountCurre
 	}
 	for cur := range amounts {
 		if !has[cur] {
-			return apperr.ErrValidation.WithMessage("balance."+cur+" ไม่ใช่สกุลของบัญชีใหม่", "balance."+cur+" is not a currency of the new account")
+			th, en := utils.FieldLabel("balance." + cur)
+			return apperr.ErrValidation.WithMessage(th+" ไม่ใช่สกุลของบัญชีใหม่", en+" is not a currency of the new account")
 		}
 	}
 	return nil
@@ -257,12 +258,12 @@ func OptionalString(s string) *string {
 
 // PTError — แปลงผลตรวจ Commission ของ Member เป็น error (MGMT-21) · ฝั่ง agent ใช้ ChildPTError · pt ของ Member ใช้ MemberPTError
 func PTError(group string, v agentManagementCore.PTViolation) error {
+	th, en := utils.FieldLabel("pt." + group + ".commission_percent")
 	switch v {
 	case agentManagementCore.PTOK:
 		return nil
 	case agentManagementCore.PTInvalidStep: // ใช้กับ Commission ของ Member (member_management)
-		return apperr.ErrValidation.WithMessage("pt."+group+".commission_percent ตั้งได้ 0 – 1 ทีละ 0.1",
-			"pt."+group+".commission_percent must be 0 – 1 in steps of 0.1")
+		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 1 ทีละ 0.1", en+" must be 0 – 1 in steps of 0.1")
 	case agentManagementCore.PTExceedsReceived:
 		return apperr.ErrPTExceedsReceived
 	case agentManagementCore.PTSeamlessMasterLock:
@@ -270,6 +271,6 @@ func PTError(group string, v agentManagementCore.PTViolation) error {
 	case agentManagementCore.PTForceRemainExceeded:
 		return apperr.ErrForceRemainExceeded
 	default:
-		return apperr.ErrCommissionExceeded.WithMessage("pt."+group+".commission_percent ตั้งได้ 0 – 1", "pt."+group+".commission_percent must be 0 – 1")
+		return apperr.ErrCommissionExceeded.WithMessage(th+" ตั้งได้ 0 – 1", en+" must be 0 – 1")
 	}
 }
