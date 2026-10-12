@@ -166,6 +166,34 @@ metric ที่มี
 - migrate fail = exit code ≠ 0 → ห้าม rollout ต่อ
 - migration ต้องเข้ากันได้กับ pod เวอร์ชันเก่าที่ยังรันอยู่ระหว่าง rolling update (เพิ่มคอลัมน์ก่อน ลบทีหลังในอีก release)
 
+### prod ครั้งแรก (lead 2026-10-11)
+
+prod เริ่มจาก **DB ว่าง** ไม่ย้ายข้อมูลจากระบบเก่า (ถ้าวันหน้าต้องย้ายจะวางแผนเป็นงานแยก)
+migration ชุดก่อน prod ที่แปลง / ล้างข้อมูลในไฟล์เดียวกับการเปลี่ยน schema จึง**รัน `migrate up` ตรงได้เลย** ไม่ต้องแยกขั้น เพราะไม่มีแถวให้แปลง:
+
+| migration | ข้อมูลที่แปลง / ล้าง |
+|---|---|
+| `20261009120000_agent_management_chain` | backfill `user_agents.cnf` · `agent_game_settings.parent_id` |
+| `20261009120050_member_management_member_pt` | ตั้ง `pt` / `remain` ของ Member จากค่าของผู้สร้าง |
+| `20261009120100_member_management_member_cnf_credit` | `user_members.cnf` · ย้ายยอดไป `credit` · DROP `user_member_balances` |
+| `20261009140000_agent_management_drop_own_pt` | DROP คอลัมน์ `agent_game_settings.pt` (ค่าเดิมหาย) |
+| `20261009140100_member_management_settings_parent` | backfill `user_member_game_settings.parent_id` |
+| `20261009150000_agent_management_drop_pt_permission` | ลบ key `pt` ออกจาก `subaccounts.permissions` |
+| `20261009160000_agent_management_phone_country_code` · `20261011120000_member_management_phone_country_code` | แปลงเบอร์เป็น 2 field · ล้างเบอร์ที่แปลงไม่ได้ / ซ้ำ (`migration_phone_cleared`) |
+| `20261009170000_agent_management_share_master_follow_csm` | ตั้ง Share Master ตาม CSM · Member ที่คิด remain ไม่ได้บันทึกใน `migration_member_remain_skipped` |
+
+ไม่แก้ไฟล์เหล่านี้ (CLAUDE.md กฎข้อ 20)
+
+### migration ที่แปลง / ล้างข้อมูล — หลัง prod มีข้อมูลจริง (lead 2026-10-11)
+
+**ต้องแยก 3 ขั้น** เมื่อตารางที่แตะมีเกิน **100,000 แถว** หรือคาดว่า lock นานเกิน **5 วินาที**:
+
+1. **migration schema** — เพิ่มคอลัมน์แบบ nullable / ไม่มี default ที่ต้องเขียนทุกแถว · pod เวอร์ชันเก่ายังทำงานได้
+2. **script แปลงข้อมูล** (`scripts/…`) — ทีละ batch **10,000 แถว** (เรียงตาม primary key · commit ทีละ batch) · รันซ้ำได้ (ข้ามแถวที่แปลงแล้ว) · บันทึกแถวที่ถูกล้างเหมือน `migration_phone_cleared` · รันก่อนขั้น 3 และจดผลใน PR
+3. **migration constraint / index** — `ADD CONSTRAINT … NOT VALID` แล้ว `VALIDATE CONSTRAINT` · index ใช้ `CREATE INDEX CONCURRENTLY` (ไฟล์นี้ใส่ `-- +goose NO TRANSACTION` และมี statement เดียวต่อ index)
+
+ตารางเล็กกว่าเกณฑ์ทำในไฟล์เดียวได้เหมือนเดิม · ระบุใน PR ว่าตารางมีกี่แถว
+
 ### Rollback
 
 deploy image tag ก่อนหน้ากลับไป ไม่ต้องรัน `migrate down` ถ้า migration เข้ากันได้ย้อนหลังตามข้อบน ถ้าต้อง down จริงให้ lead ตัดสินใจเป็นกรณีไป
