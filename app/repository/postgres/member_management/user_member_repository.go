@@ -43,10 +43,12 @@ func GetUserMemberDetailRepository(db *gorm.DB, id uint) (models.UserMember, err
 	return m, err
 }
 
-// LockUserMemberRowRepository — SELECT ... FOR UPDATE · ไม่พบ = ผลว่าง (id 0)
+// LockUserMemberRowRepository — SELECT ... FOR NO KEY UPDATE ข้อมูลที่แก้ได้ของ Member · ไม่พบ = ผลว่าง (id 0)
+// NO KEY UPDATE (ไม่แก้ id / username): ไม่ขวาง FOR KEY SHARE ที่ Postgres ใช้เช็ค FK ตอน insert ตารางลูกของ Member
+// FOR UPDATE ทำ deadlock แบบเดียวกับ LockUserAgentRowRepository (docs/lead/bo-agent-management-round1.md)
 func LockUserMemberRowRepository(db *gorm.DB, id uint) (models.UserMember, error) {
 	var m models.UserMember
-	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "agent_id", "username", "name", "phone_country_code", "phone", "status").
+	err := db.Clauses(clause.Locking{Strength: "NO KEY UPDATE"}).Select("id", "agent_id", "username", "name", "phone_country_code", "phone", "status").
 		Where("id = ?", id).Limit(1).Find(&m).Error
 	return m, err
 }
