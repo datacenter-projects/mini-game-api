@@ -7,7 +7,7 @@
   - RR4 `base_version` กันแก้ทับ (`406301`) · RR5 ค่าเท่าปัจจุบัน = 200 `created: false` · RR6 หยุดเกมด่วนด้วย `status_game`
   - RN1 path ใหม่ RE1–RE7 ทุกเส้น `POST` · RN2 เส้นตรวจค่า `detail/check` · RP1 boiledegg ทำ spec + โค้ด · ต้องเสร็จก่อน engine / module เดิมพัน
   - **Q7 (lead ตัดสิน 2026-10-12): RPS ไม่มีเสมอ** — ต่อขั้นมีแค่ `multiplier` + `win_percent` · แพ้ = 100 − ชนะ · สูตรเดียวกับ Coin (แทนตัวอย่าง "ชนะ 34 · เสมอ 30" ใน diagram)
-  - **ตัดสิน 2026-10-12 (ผ่าน boiledegg):** Q1 เส้นปิด `status_game` ของ Superadmin เอง ทำทีหลัง · Q2 `detail/check` ตอบ `valid` + `issues` · Q3 `max_win` = ค่าสูงสุดที่ house edge ≥ 1% · Q4 RE5 `changes` / `same_as_current` / `win_percent` · Q5 error ไม่มี `data` (ข้อมูลอยู่ใน `msg`) · Q6 เพดาน `win_percent` 50% (ขอบเขตรอยืนยัน) · Q8 รอ
+  - **ตัดสิน 2026-10-12 (ผ่าน boiledegg):** Q1 เส้นปิด `status_game` ของ Superadmin เอง ทำทีหลัง · Q2 `detail/check` ตอบ `valid` + `issues` · Q3 `max_win` = ค่าสูงสุดที่ house edge ≥ 1% · Q4 RE5 `changes` / `same_as_current` / `win_percent` · Q5 error ไม่มี `data` (ข้อมูลอยู่ใน `msg`) · Q6 ไม่มีเพดาน 50% (คง ≤ 100) · Q8 ไม่มีอัตราชนะรวม — กล่องสรุปใช้ `min_house_edge_*` / `max_payout_percent`
 - ที่มาของ rule: diagram ของ lead (`Coin Flip Flow.html`, `Rock Paper Scissors Flow.html`, `Scratch Card Flow.html`) + คำตอบของ boiledegg 2026-10-08 + lead review 2026-10-12 · ไม่ได้อ้างโค้ดหรือเอกสารของโปรเจกต์เก่า
 - ชื่อ module ในโค้ด: `game_rate` (`controllers/` `dto/` `service/` `core/game_rate`) · รายชื่อเกม `core/game` · path `/api/v1/bo/pr/rate/...` · error module id `06` (ตรงกับเมนู ⑥)
 
@@ -55,7 +55,7 @@
 | RATE-06 | ค่าใหม่มีผลกับ**เดิมพันใหม่เท่านั้น** · เดิมพันที่เริ่มแล้ว (รวม Streak ที่ค้างอยู่) ใช้เวอร์ชันเดิมจนจบ · module เดิมพันเก็บ `rate_version_id` คู่กับเดิมพันทุกครั้ง (หัวข้อ 9 RH1) |
 | RATE-07 | **ร้านต้องได้ house edge ≥ 1% ทุกจุดที่ Member หยุดได้** (lead RR2 · แทน "> 0" เดิม) — Coin / RPS ทุกขั้น · Scratch ทั้งใบ · ไม่ผ่านที่จุดไหน บันทึกไม่ได้ทั้งชุด (`406101`) และ msg บอกขั้น / field และ `win_percent` สูงสุดที่ตั้งได้ · ค่าคงที่ขั้นต่ำ / เพดานอยู่ใน `core/game_rate` |
 | RATE-08 | **บันทึก / ย้อนต้องยืนยัน passcode** (`RequirePasscode`) · ทุกเวอร์ชันเก็บ log คนแก้: `created_by` (username ณ เวลานั้น · sub = `owner@name`), `actor_type` / `actor_id`, `ip`, `request_id`, `created_at` · ตารางเวอร์ชันคือ log (ห้ามแก้ / ลบ) ดูได้ที่ `versions/list` |
-| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `house_edge_percent`, `max_win_percent`, `payout_percent`, `avg_multiplier`, `per_ticket_percent`) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · หน้าบ้านปัดแสดงเอง |
+| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · หน้าบ้านปัดแสดงเอง |
 | RATE-09A | **ไม่มีค่าเริ่มต้น**: เกมที่ยังไม่เคยตั้งค่า = `version = 0` · เอนจิ้นต้อง**ไม่รับเดิมพัน**ของเกมนั้นจนกว่าจะบันทึกครั้งแรก (หัวข้อ 5.8 · RH1) · ค่าตัวอย่างสำหรับ tester อยู่ใน `docs/frontend/game_rate.md` |
 
 ### Coin Flip (`coin_toss`)
@@ -145,17 +145,20 @@ Response `data` (Coin Flip — ค่าตัวอย่างจาก diagra
   "game_code": "coin_toss",
   "version": 3,
   "steps": [
-    { "step": 1,  "multiplier": 1.9,      "win_percent": 50, "reach_percent": 50,     "house_edge_percent": 5,       "max_win_percent": 52.1053 },
-    { "step": 2,  "multiplier": 3.61,     "win_percent": 48, "reach_percent": 24,     "house_edge_percent": 13.36,   "max_win_percent": 54.8476 },
-    { "step": 3,  "multiplier": 6.859,    "win_percent": 46, "reach_percent": 11.04,  "house_edge_percent": 24.2766, "max_win_percent": 60.14 },
-    { "step": 4,  "multiplier": 13.0321,  "win_percent": 44, "reach_percent": 4.8576, "house_edge_percent": 36.6953, "max_win_percent": 68.81 },
-    { "step": 5,  "multiplier": 24.761,   "win_percent": 42, "reach_percent": 2.0402, "house_edge_percent": 49.4828, "max_win_percent": 82.3086 },
-    { "step": 6,  "multiplier": 47.0459,  "win_percent": 40, "reach_percent": 0.8161, "house_edge_percent": 61.6069, "max_win_percent": 100 },
-    { "step": 7,  "multiplier": 89.3872,  "win_percent": 38, "reach_percent": 0.3101, "house_edge_percent": 72.2802, "max_win_percent": 100 },
-    { "step": 8,  "multiplier": 169.8356, "win_percent": 36, "reach_percent": 0.1116, "house_edge_percent": 81.0397, "max_win_percent": 100 },
-    { "step": 9,  "multiplier": 322.6877, "win_percent": 34, "reach_percent": 0.038,  "house_edge_percent": 87.7516, "max_win_percent": 100 },
-    { "step": 10, "multiplier": 613.1066, "win_percent": 32, "reach_percent": 0.0121, "house_edge_percent": 92.553,  "max_win_percent": 100 }
+    { "step": 1,  "multiplier": 1.9,      "win_percent": 50, "reach_percent": 50,     "payout_percent": 95,      "house_edge_percent": 5,       "max_win_percent": 52.1053 },
+    { "step": 2,  "multiplier": 3.61,     "win_percent": 48, "reach_percent": 24,     "payout_percent": 86.64,   "house_edge_percent": 13.36,   "max_win_percent": 54.8476 },
+    { "step": 3,  "multiplier": 6.859,    "win_percent": 46, "reach_percent": 11.04,  "payout_percent": 75.7234, "house_edge_percent": 24.2766, "max_win_percent": 60.14 },
+    { "step": 4,  "multiplier": 13.0321,  "win_percent": 44, "reach_percent": 4.8576, "payout_percent": 63.3047, "house_edge_percent": 36.6953, "max_win_percent": 68.81 },
+    { "step": 5,  "multiplier": 24.761,   "win_percent": 42, "reach_percent": 2.0402, "payout_percent": 50.5172, "house_edge_percent": 49.4828, "max_win_percent": 82.3086 },
+    { "step": 6,  "multiplier": 47.0459,  "win_percent": 40, "reach_percent": 0.8161, "payout_percent": 38.3931, "house_edge_percent": 61.6069, "max_win_percent": 100 },
+    { "step": 7,  "multiplier": 89.3872,  "win_percent": 38, "reach_percent": 0.3101, "payout_percent": 27.7198, "house_edge_percent": 72.2802, "max_win_percent": 100 },
+    { "step": 8,  "multiplier": 169.8356, "win_percent": 36, "reach_percent": 0.1116, "payout_percent": 18.9603, "house_edge_percent": 81.0397, "max_win_percent": 100 },
+    { "step": 9,  "multiplier": 322.6877, "win_percent": 34, "reach_percent": 0.038,  "payout_percent": 12.2484, "house_edge_percent": 87.7516, "max_win_percent": 100 },
+    { "step": 10, "multiplier": 613.1066, "win_percent": 32, "reach_percent": 0.0121, "payout_percent": 7.447,   "house_edge_percent": 92.553,  "max_win_percent": 100 }
   ],
+  "min_house_edge_percent": 5,
+  "min_house_edge_step": 1,
+  "max_payout_percent": 95,
   "created_at": "2026-10-12T10:00:00+07:00",
   "created_by": "superadmin1"
 }
@@ -163,6 +166,7 @@ Response `data` (Coin Flip — ค่าตัวอย่างจาก diagra
 > ตัวอย่างขั้น 1–2 ตรงกับ diagram · ขั้น 3–10 เป็นชุดประกอบเอกสาร (ตัวคูณ `1.9^n` ปัด 4 ตำแหน่ง · ชนะลดขั้นละ 2%) คำนวณด้วย `big.Rat` แล้ว Round4 · ค่าที่ test ยึดคือตัวอย่าง diagram (5% · 13.36% · 22.75% · 64.0777%)
 > `max_win_percent` ไม่เกิน 100
 
+- Coin / RPS: `payout_percent` ต่อขั้น = `reach × multiplier` (ผลตอบแทนผู้เล่นถ้าหยุดที่ขั้นนั้น · = 100 − `house_edge_percent`) · สรุปทั้งเกม `min_house_edge_percent` / `min_house_edge_step` (ขั้นที่ร้านได้น้อยสุด — ค่าเท่ากันเอาขั้นแรก) · `max_payout_percent` = 100 − ค่านั้น (กล่องสรุปของหน้าบ้าน — Q8)
 - RPS: รูปแบบเดียวกับ Coin (`multiplier` · `win_percent` · ค่าคำนวณ) · ไม่มี `draw_percent` / `lose_percent` (RATE-20)
 - Scratch Card:
 ```json
@@ -199,7 +203,8 @@ Response `data` = รูปแบบเดียวกับ RE2 (ไม่ม�
   "game_code": "coin_toss",
   "valid": false,
   "issues": [ { "field": "steps[2].win_percent", "code": 406101, "message": "steps[2].win_percent ตั้งได้ไม่เกิน 60.14 (house edge ต่ำกว่า 1%)" } ],
-  "steps": [ { "step": 1, "multiplier": 1.9, "win_percent": 50, "reach_percent": 50, "house_edge_percent": 5, "max_win_percent": 52.1053 } ]
+  "steps": [ { "step": 1, "multiplier": 1.9, "win_percent": 50, "reach_percent": 50, "payout_percent": 95, "house_edge_percent": 5, "max_win_percent": 52.1053 } ],
+  "min_house_edge_percent": 5, "min_house_edge_step": 1, "max_payout_percent": 95
 }
 ```
 - กฎ RATE-07 / RATE-32 ไม่ผ่าน = ยังตอบ `200` พร้อมค่าคำนวณ · `valid: false` · `issues` บอกทุกจุดที่ผิด (หน้าบ้านแสดงข้างช่องได้ ไม่ต้องเขียนสูตรเอง) · ผ่านทั้งหมด = `valid: true` · `issues: []`
@@ -400,9 +405,9 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | Q3 | `max_win_percent` นิยามใหม่ตาม RR2 = ค่าสูงสุดที่ยังได้ house edge ≥ 1% (เดิม = จุดคุ้มทุน 0%) | ✅ ตัดสิน 2026-10-12: รับตามที่เสนอ |
 | Q4 | หน้าบ้านขอ (12 ต.ค.): RE5 `versions/list` เพิ่มต่อแถว `same_as_current` (ปิดปุ่มย้อน — RATE-05C) · `win_percent` (Scratch เท่านั้น) · `changes` = สิ่งที่เปลี่ยนเทียบกับเวอร์ชันก่อนหน้า (เวอร์ชันแรก `[]`) — Coin / RPS `{ "type": "step", "step", "field", "from", "to" }` · Scratch `win_percent` / `prize_added` / `prize_removed` / `prize_share` จับคู่รางวัลด้วย `multiplier` | ✅ ตัดสิน 2026-10-12: รับตามที่เสนอ |
 | Q5 | หน้าบ้านขอ: error ส่ง `data` — `406301` ส่ง `{ version, created_by, created_at }` ของเวอร์ชันล่าสุด · `401204` ส่ง `remaining_attempts` | ✅ ตัดสิน 2026-10-12: ไม่เพิ่ม `data` · `406301` ใส่เวอร์ชันล่าสุด + คนแก้ใน `msg` (RATE-05B) · `401204` ใช้ msg "เหลือ N ครั้ง" เดิม |
-| Q6 | หน้าบ้านขอ (ดีไซน์ "ตั้งได้สูงสุด 50%"): เพดาน `win_percent` ≤ 50% | ✅ ต้องการเพดาน 50% (2026-10-12) · **รอยืนยันขอบเขต** (เกมไหน · Coin / RPS ใช้ต่อขั้นไหม) ก่อนเขียนกฎ RATE-30A + `406103` |
+| Q6 | หน้าบ้านขอ (ดีไซน์ "ตั้งได้สูงสุด 50%"): เพดาน `win_percent` ≤ 50% | ✅ ตัดสิน 2026-10-12: **ไม่มีเพดาน 50%** · คง `win_percent` > 0 และ ≤ 100 (RATE-04) |
 | Q7 | RPS ไม่มีเสมอ (คำขอหน้าบ้าน) | ✅ **lead ตัดสิน 2026-10-12: ตัดเสมอออก** — แก้หัวข้อ 2, RATE-20 – 23, 5.2, 5.4, 5.5, 6 (ไม่มีคอลัมน์ `draw_percent`), 7 แล้ว · เอนจิ้นต้องไม่มีผลเสมอ (RH5) |
-| Q8 | หน้าบ้านแจ้ง: ดีไซน์ Coin มีช่อง "อัตราชนะรวมของเกม" แต่ spec ตั้งแยกทีละขั้น | **เสนอไม่มี** (หน้าบ้านตัดช่องนี้ออก) · ถ้าต้องการต้องนิยามใหม่ |
+| Q8 | หน้าบ้านแจ้ง: ดีไซน์ Coin มีช่อง "อัตราชนะรวมของเกม" แต่ spec ตั้งแยกทีละขั้น | ✅ ตัดสิน 2026-10-12: ไม่มีอัตราชนะรวม (ตั้งทีละขั้น) · กล่องสรุปของหน้าบ้านใช้ค่าคำนวณ `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` และ `payout_percent` ต่อขั้น (เพิ่มใน RE2 / RE3) |
 
 ### ส่งต่อ module เดิมพัน / engine (lead 7.3 — ไม่ต้องตัดสินตอนนี้)
 
