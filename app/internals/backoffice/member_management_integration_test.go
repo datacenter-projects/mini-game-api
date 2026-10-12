@@ -73,7 +73,7 @@ func TestMemberPhone(t *testing.T) { // MGMT-08 · lead E1-5 / MQ1
 		edit(b)
 		r := call(t, app, "POST", createMemberPath, b, c.agentTok)
 		expect(t, r, 200, 422)
-		if !strings.Contains(r.Msg, "phone") {
+		if !strings.Contains(r.Msg, "เบอร์โทร") && !strings.Contains(r.Msg, "รหัสประเทศ") {
 			t.Fatalf("%s: msg ต้องบอก field %q", name, r.Msg)
 		}
 	}
@@ -388,7 +388,7 @@ func TestMemberCreateRules(t *testing.T) { // MGMT-15A · MGMT-60 · หัว�
 	sb["balance"] = map[string]any{"JPY": 10}
 	r = call(t, app, "POST", createMemberPath, sb, oneTok)
 	expect(t, r, 200, 422)
-	expectMsgHas(t, r.Msg, "balance", "Seamless")
+	expectMsgHas(t, r.Msg, "ยอดเงินตั้งต้น", "Seamless")
 }
 
 func TestMemberRemovedPaths(t *testing.T) { // lead MN1: path เดิมได้ 404 (ไม่คง alias)

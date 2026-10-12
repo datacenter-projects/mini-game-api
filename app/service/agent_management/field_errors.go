@@ -34,9 +34,10 @@ func CannotCreateTypeError(creator agentManagementCore.UserType, sent string) er
 	if allowed := agentManagementCore.CreatableTypes(creator); len(allowed) > 0 {
 		allowedTH, allowedEN = c+" สร้างได้เฉพาะ "+joinTypes(allowed), c+" can only create "+joinTypes(allowed)
 	}
+	th, en := utils.FieldLabel("user_type")
 	return apperr.ErrCannotCreateType.WithMessage(
-		"user_type: ส่ง "+sent+" ไม่ได้ · "+whyTH+" · "+allowedTH,
-		"user_type: "+sent+" is not allowed · "+whyEN+" · "+allowedEN)
+		th+": ส่ง "+sent+" ไม่ได้ · "+whyTH+" · "+allowedTH,
+		en+": "+sent+" is not allowed · "+whyEN+" · "+allowedEN)
 }
 
 func cannotCreateReason(creator, sent agentManagementCore.UserType) (string, string) {
@@ -59,25 +60,26 @@ func cannotCreateReason(creator, sent agentManagementCore.UserType) (string, str
 
 // CurrencyError — 422 / 402310 พร้อมกฎ currencies ของประเภทบัญชีใหม่ (MGMT-10 – MGMT-14)
 func CurrencyError(creator, newType agentManagementCore.UserType, cv agentManagementCore.CurrencyViolation, creatorCurrencies []string) error {
+	th, en := utils.FieldLabel("currencies")
 	if cv == agentManagementCore.CurrencyNotInCreators {
 		return apperr.ErrCurrencyNotInCreator.WithMessage(
-			"currencies: เลือกได้เฉพาะสกุลของคุณ ("+strings.Join(creatorCurrencies, ", ")+")",
-			"currencies: choose only from your currencies ("+strings.Join(creatorCurrencies, ", ")+")")
+			th+": เลือกได้เฉพาะสกุลของคุณ ("+strings.Join(creatorCurrencies, ", ")+")",
+			en+": choose only from your currencies ("+strings.Join(creatorCurrencies, ", ")+")")
 	}
 	t := string(newType)
 	switch agentManagementCore.CurrencyRequirementOf(creator, newType) {
 	case agentManagementCore.CurrencyAllNoSend:
-		return apperr.ErrValidation.WithMessage("currencies: "+t+" ได้ครบทุกสกุล ห้ามส่ง currencies",
-			"currencies: "+t+" gets every currency, do not send currencies")
+		return apperr.ErrValidation.WithMessage(th+": "+t+" ได้ครบทุกสกุล ไม่ต้องเลือก",
+			en+": "+t+" gets every currency, do not choose any")
 	case agentManagementCore.CurrencyFromCreatorNoSend:
-		return apperr.ErrValidation.WithMessage("currencies: "+t+" ใช้สกุลของผู้สร้าง ห้ามส่ง currencies",
-			"currencies: "+t+" uses the creator's currency, do not send currencies")
+		return apperr.ErrValidation.WithMessage(th+": "+t+" ใช้สกุลของผู้สร้าง ไม่ต้องเลือก",
+			en+": "+t+" uses the creator's currency, do not choose any")
 	case agentManagementCore.CurrencyPickOne:
-		return apperr.ErrValidation.WithMessage("currencies: "+t+" ต้องเลือก 1 สกุล (ไม่ซ้ำ)",
-			"currencies: "+t+" needs exactly 1 currency")
+		return apperr.ErrValidation.WithMessage(th+": "+t+" ต้องเลือก 1 สกุล (ไม่ซ้ำ)",
+			en+": "+t+" needs exactly 1 currency")
 	}
-	return apperr.ErrValidation.WithMessage("currencies: "+t+" ต้องเลือกอย่างน้อย 1 สกุล (ไม่ซ้ำ)",
-		"currencies: "+t+" needs at least 1 currency (no duplicates)")
+	return apperr.ErrValidation.WithMessage(th+": "+t+" ต้องเลือกอย่างน้อย 1 สกุล (ไม่ซ้ำ)",
+		en+": "+t+" needs at least 1 currency (no duplicates)")
 }
 
 // ChildPTError — ผลตรวจค่าที่ผู้สร้างตั้งให้ลูก → error ที่บอก field และค่าที่ตั้งได้ (MGMT-18, MGMT-19, MGMT-25)

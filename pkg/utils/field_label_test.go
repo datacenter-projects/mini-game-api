@@ -26,10 +26,18 @@ func TestFieldLabel(t *testing.T) {
 		{"payment_account.bank_code / payment_account.account_number", "ธนาคาร / เลขบัญชี", "Bank / Account number"},
 		{"payment.payment_account.surname_en", "นามสกุล (อังกฤษ)", "Last name (English)"},
 		{"limit.win_limit_per_day", "ยอดชนะสูงสุดต่อวัน", "Daily win limit"},
-		// ไม่มีจุด / ไม่รู้จัก = คืน path เดิม
+		// ระดับบนสุด · มี index
+		{"win_limit_per_day", "ยอดชนะสูงสุดต่อวัน", "Daily win limit"},
+		{"phone_country_code / phone", "รหัสประเทศ / เบอร์โทร", "Country code / Phone"},
+		{"currencies[1]", "สกุลเงิน ลำดับที่ 2", "Currencies #2"},
+		// ไม่อยู่ในตาราง (คำบนหน้าจอ / field ที่ผู้ใช้ไม่ได้กรอก / module อื่น) = คืน path เดิม
 		{"username", "username", "username"},
+		{"password", "password", "password"},
+		{"allowed_ips[0]", "allowed_ips[0]", "allowed_ips[0]"},
+		{"request_id", "request_id", "request_id"},
 		{"pt", "pt", "pt"},
-		{"currencies[1]", "currencies[1]", "currencies[1]"},
+		{"unknown[1]", "unknown[1]", "unknown[1]"},
+		{"currencies[x]", "currencies[x]", "currencies[x]"},
 		{"pt.minigame.unknown", "pt.minigame.unknown", "pt.minigame.unknown"},
 		{"info.unknown", "info.unknown", "info.unknown"},
 		{"payment_account.unknown", "payment_account.unknown", "payment_account.unknown"},

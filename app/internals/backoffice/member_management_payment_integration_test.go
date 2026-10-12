@@ -112,8 +112,8 @@ func TestMemberPaymentCreate(t *testing.T) { // MGMT-63 – MGMT-65 · P1–P9 �
 		edit  func(b map[string]any)
 		field string
 	}{
-		"ไม่ส่ง payment_type":        {func(b map[string]any) { delete(b, "payment_type") }, "payment_type"},
-		"payment_type DEBIT":         {withPayment("DEBIT", nil), "payment_type"},
+		"ไม่ส่ง payment_type":        {func(b map[string]any) { delete(b, "payment_type") }, "ประเภทการชำระ"},
+		"payment_type DEBIT":         {withPayment("DEBIT", nil), "ประเภทการชำระ"},
 		"ส่งแค่ bank_code":           {withPayment("CASH", map[string]any{"bank_code": "KBANK"}), "เลขบัญชี"},
 		"ส่งแค่ account_number":      {withPayment("CASH", map[string]any{"account_number": "7876766654"}), "ธนาคาร"},
 		"ธนาคารไม่อยู่ในรายการ":      {withPayment("CASH", kbank("7876766654", "bank_code", "XYZ")), "ธนาคาร"},
@@ -124,8 +124,8 @@ func TestMemberPaymentCreate(t *testing.T) { // MGMT-63 – MGMT-65 · P1–P9 �
 		"name_en เป็นไทย":            {withPayment("CASH", kbank("7876766654", "name_en", "ใจดี")), "ชื่อ (อังกฤษ)"},
 		"ชื่อ 51 ตัว":                {withPayment("CASH", kbank("7876766654", "surname_en", strings.Repeat("a", 51))), "นามสกุล (อังกฤษ)"},
 		"payment_account null":       {func(b map[string]any) { b["payment_account"] = nil }, "payment_account"},
-		"win_limit ติดลบ":            {func(b map[string]any) { b["win_limit_per_day"] = -1 }, "win_limit_per_day"},
-		"win_limit ทศนิยม 5 ตำแหน่ง": {func(b map[string]any) { b["win_limit_per_day"] = 10.12345 }, "win_limit_per_day"},
+		"win_limit ติดลบ":            {func(b map[string]any) { b["win_limit_per_day"] = -1 }, "ยอดชนะสูงสุดต่อวัน"},
+		"win_limit ทศนิยม 5 ตำแหน่ง": {func(b map[string]any) { b["win_limit_per_day"] = 10.12345 }, "ยอดชนะสูงสุดต่อวัน"},
 		"win_limit เกิน 1,000,000":   {func(b map[string]any) { b["win_limit_per_day"] = 1000000.5 }, "ต้องไม่เกิน 1000000"},
 	} {
 		b := memberBody("mempaybad", 0)

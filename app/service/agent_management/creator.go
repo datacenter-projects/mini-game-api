@@ -82,7 +82,8 @@ func CheckInitialBalance(amounts map[string]float64, seamless bool, accountCurre
 		return nil
 	}
 	if seamless {
-		return apperr.ErrValidation.WithMessage("balance บัญชีฝั่ง Seamless ไม่มียอดเงิน ห้ามส่ง", "balance is not allowed for Seamless accounts")
+		th, en := utils.FieldLabel("balance")
+		return apperr.ErrValidation.WithMessage(th+" บัญชีฝั่ง Seamless ไม่มียอดเงิน ห้ามส่ง", en+" is not allowed for Seamless accounts")
 	}
 	has := map[string]bool{}
 	for _, c := range accountCurrencies {

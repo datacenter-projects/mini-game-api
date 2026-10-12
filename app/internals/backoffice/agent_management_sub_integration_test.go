@@ -243,7 +243,7 @@ func TestSubUpdate(t *testing.T) { // MGMT-42, MGMT-44, MGMT-45, MGMT-60 · lead
 	} {
 		r := call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "info": v}, c.shareTok)
 		expect(t, r, 200, 422)
-		if !strings.Contains(r.Msg, "info.") {
+		if !strings.Contains(r.Msg, "เบอร์โทร") && !strings.Contains(r.Msg, "รหัสประเทศ") {
 			t.Fatalf("%s: msg %q", name, r.Msg)
 		}
 	}

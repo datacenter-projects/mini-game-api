@@ -1,9 +1,12 @@
 package utils
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // FieldLabel — path ของ field ใน body (เช่น "pt.minigame.pt_from_parent") → ชื่อที่ผู้ใช้อ่านได้ สำหรับขึ้นต้น msg ของ error
-// เช่น "PT ที่ให้ (Minigame)" · path ไม่มีจุด หรือไม่อยู่ในตาราง = คืน path เดิม · path คู่ "a / b" แปลงทีละตัว
+// เช่น "PT ที่ให้ (Minigame)" · ไม่อยู่ในตาราง = คืน path เดิม · path คู่ "a / b" แปลงทีละตัว
 // ชื่อกลุ่ม / เกม แปลงจากรหัส (coin_toss → Coin Toss) · สกุลเงิน / เมนู ใช้รหัสตามเดิม
 func FieldLabel(path string) (th, en string) {
 	parts := strings.Split(path, " / ")
@@ -63,7 +66,32 @@ var sectionLabels = map[string]map[string]label{
 	},
 }
 
+// topLabels — field ระดับบนสุดของ agent_management / member_management ที่ผู้ใช้อ่านไม่ออก
+// ไม่ใส่ username / password (คำบนหน้าจอ · กฎรหัสผ่านมาจาก agent_auth) และ field ที่ผู้ใช้ไม่ได้กรอก (request_id · id · ชื่อ section)
+// ชื่อเดียวกันกับใน section ใช้ label เดียวกัน (เช่น phone = info.phone)
+var topLabels = map[string]label{
+	"name":               {"ชื่อ", "Name"},
+	"phone_country_code": {"รหัสประเทศ", "Country code"},
+	"phone":              {"เบอร์โทร", "Phone"},
+	"name_suffix":        {"ชื่อบัญชีย่อย", "Subaccount name"},
+	"user_type":          {"ประเภทบัญชี", "Account type"},
+	"currencies":         {"สกุลเงิน", "Currencies"},
+	"balance":            {"ยอดเงินตั้งต้น", "Initial balance"},
+	"payment_type":       {"ประเภทการชำระ", "Payment type"},
+	"win_limit_per_day":  {"ยอดชนะสูงสุดต่อวัน", "Daily win limit"},
+	"keyword":            {"คำค้นหา", "Keyword"},
+}
+
 func fieldLabel(path string) (string, string) {
+	if l, ok := topLabels[path]; ok {
+		return l.th, l.en
+	}
+	if name, i, ok := indexed(path); ok { // currencies[1] → สกุลเงิน ลำดับที่ 2
+		if l, ok := topLabels[name]; ok {
+			n := strconv.Itoa(i + 1)
+			return l.th + " ลำดับที่ " + n, l.en + " #" + n
+		}
+	}
 	seg := strings.Split(path, ".")
 	n := len(seg)
 	switch {
@@ -88,6 +116,19 @@ func fieldLabel(path string) (string, string) {
 		}
 	}
 	return path, path
+}
+
+// indexed — "allowed_ips[2]" → ("allowed_ips", 2, true) · ไม่ใช่รูปแบบนี้ = ok false
+func indexed(path string) (string, int, bool) {
+	open := strings.IndexByte(path, '[')
+	if open <= 0 || !strings.HasSuffix(path, "]") {
+		return "", 0, false
+	}
+	i, err := strconv.Atoi(path[open+1 : len(path)-1])
+	if err != nil || i < 0 {
+		return "", 0, false
+	}
+	return path[:open], i, true
 }
 
 // titleCode — รหัสกลุ่ม / เกม → ชื่อแสดง เช่น "rock_paper_scissors" → "Rock Paper Scissors"

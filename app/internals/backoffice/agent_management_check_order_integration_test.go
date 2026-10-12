@@ -25,7 +25,7 @@ func TestCreateCheckOrderAndMessages(t *testing.T) {
 	// 402301 บอก user_type ที่สร้างได้
 	r := call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "newshare", []string{"THB"}, childPT(50, 0, 0, 0)), c.saTok)
 	expect(t, r, 200, 402301)
-	expectMsgHas(t, r.Msg, "user_type", "ส่ง SHARE_B2C ไม่ได้", "SHARE_B2C สร้างได้โดย COMPANY_TRANSFER", "แต่คุณเป็น SUPERADMIN", "COMPANY_SEAMLESS_1TO1")
+	expectMsgHas(t, r.Msg, "ประเภทบัญชี", "ส่ง SHARE_B2C ไม่ได้", "SHARE_B2C สร้างได้โดย COMPANY_TRANSFER", "แต่คุณเป็น SUPERADMIN", "COMPANY_SEAMLESS_1TO1")
 	r = call(t, app, "POST", createAgentPath, agentBody("SHARE_B2", "newshare", []string{"THB"}, childPT(50, 0, 0, 0)), c.saTok)
 	expect(t, r, 200, 402301)
 	expectMsgHas(t, r.Msg, "ไม่มีประเภท SHARE_B2")
@@ -33,7 +33,7 @@ func TestCreateCheckOrderAndMessages(t *testing.T) {
 	// currencies ของ Company Transfer ห้ามส่ง — บอกเหตุผล
 	r = call(t, app, "POST", createAgentPath, agentBody("COMPANY_TRANSFER", "newcom", []string{"THB"}, childPT(90, 0, 0, 0)), c.saTok)
 	expect(t, r, 200, 422)
-	expectMsgHas(t, r.Msg, "currencies", "ห้ามส่ง")
+	expectMsgHas(t, r.Msg, "สกุลเงิน", "ไม่ต้องเลือก")
 
 	// username ซ้ำ (field บน) มาก่อน pt เกิน (field ล่าง)
 	r = call(t, app, "POST", createAgentPath, agentBody("SHARE_B2C", "share01", []string{"THB"}, childPT(95, 0, 0, 0)), c.comTok)
