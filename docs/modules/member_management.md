@@ -307,7 +307,9 @@ test ของเส้น Member อยู่ในชุด integration test �
 | | • นับซ้ำที่คู่ (`bank_code` + `account_number`) หรือเลขบัญชีอย่างเดียว | ❓ เสนอคู่ |
 | | • `bank_code` = รหัสจากรายการคงที่ (เช่น `KBANK`, `SCB`) · รายการธนาคาร · รองรับต่างประเทศไหม | ❓ |
 | | • รูปแบบ `account_number` (เสนอ ตัวเลขล้วน 10–15 หลัก) | ❓ |
-| | • ชื่อเจ้าของบัญชี (`name` / `midname` / `surname` หรือ ไทย/อังกฤษ) **ยังไม่ทำ** — หน้าจอไม่มีช่อง · เพิ่มเป็น key ใน JSONB ได้ภายหลังโดยไม่ต้อง migration | ✅ |
+| | • ชื่อเจ้าของบัญชี 6 field **ไม่บังคับ**: `name_th` · `midname_th` · `surname_th` · `name_en` · `midname_en` · `surname_en` · ไม่ส่ง / `""` = ไม่กรอก · response ส่ง `""` เมื่อไม่มี (ACC-32) | ✅ |
+| | • รูปแบบชื่อ: เสนอ `_th` เฉพาะอักษรไทย · `_en` เฉพาะ A–Z a–z · มีช่องว่าง / `-` ได้ · ยาวไม่เกิน 50 ตัว · ตัดช่องว่างหัวท้าย | ❓ |
+| | • ส่งชื่อโดยไม่มี `bank_code` + `account_number` | ❓ เสนอ `422` |
 | | • แสดงเลขบัญชีเต็ม / ปิดบางส่วน ใน `detail/get` · `downlines/list` · `account_change_logs` | ❓ เสนอ เต็มใน `detail/get` · ไม่อยู่ใน `downlines/list` · log เต็ม |
 | MGMT-65 | `win_limit_per_day` = ลิมิตชนะต่อวัน **ค่าเดียวใช้ทุกเกม** · หน่วยสกุลของ Member · ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9) · **`0` = ไม่ได้ตั้ง (ไม่จำกัด)** | ✅ |
 | | • ไม่บังคับ · ไม่ส่ง = `0` | ❓ |
@@ -325,7 +327,11 @@ test ของเส้น Member อยู่ในชุด integration test �
   "balance": { "THB": 100 },
   "pt": { "minigame": { "pt": 50, "commission_percent": 0.3 } },
   "payment_type": "CREDIT",
-  "payment_account": { "bank_code": "KBANK", "account_number": "7876766654" },
+  "payment_account": {
+    "bank_code": "KBANK", "account_number": "7876766654",
+    "name_th": "", "midname_th": "", "surname_th": "",
+    "name_en": "", "midname_en": "", "surname_en": ""
+  },
   "win_limit_per_day": 0
 }
 ```
@@ -343,7 +349,7 @@ test ของเส้น Member อยู่ในชุด integration test �
 ```sql
 ALTER TABLE user_members
     ADD COLUMN payment_type      VARCHAR(10)      NOT NULL DEFAULT 'CASH' CHECK (payment_type IN ('CREDIT','CASH')),
-    ADD COLUMN payment_account   JSONB,                                          -- {"bank_code","account_number"} · NULL = ไม่มี
+    ADD COLUMN payment_account   JSONB,                                          -- {"bank_code","account_number","name_th",…,"surname_en"} · NULL = ไม่มี
     ADD COLUMN win_limit_per_day DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (win_limit_per_day >= 0);  -- 0 = ไม่จำกัด
 CREATE UNIQUE INDEX uq_user_members_payment_account ON user_members
     (agent_id, (payment_account ->> 'bank_code'), (payment_account ->> 'account_number')) WHERE payment_account IS NOT NULL;
