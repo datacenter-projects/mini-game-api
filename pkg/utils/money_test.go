@@ -30,6 +30,37 @@ func TestRound4(t *testing.T) { // กฎข้อ 9
 	}
 }
 
+func TestIsDecimal4(t *testing.T) { // กฎข้อ 9 · ACC-18 · MGMT-17 (รับเป็น float64 — 2026-10-12)
+	tests := []struct {
+		json string
+		want bool
+	}{
+		{`70`, true},
+		{`0.5`, true},
+		{`0`, true},
+		{`1234.56`, true},
+		{`10000.1234`, true},
+		{`10000.00`, true},
+		{`-1.5`, true},
+		{`0.1`, true},
+		{`99999999999.9999`, true},
+		{`1e2`, true}, // JSON number รูป exponent = 100
+		{`30.12345`, false},
+		{`0.00001`, false},
+		{`123456789012`, false}, // ส่วนจำนวนเต็ม 12 หลัก
+		{`100000000000`, false},
+	}
+	for _, tt := range tests {
+		var v float64
+		if err := json.Unmarshal([]byte(tt.json), &v); err != nil {
+			t.Fatalf("%s: %v", tt.json, err)
+		}
+		if got := IsDecimal4(v); got != tt.want {
+			t.Errorf("IsDecimal4(%s) = %v, want %v", tt.json, got, tt.want)
+		}
+	}
+}
+
 func TestFloatJSON(t *testing.T) { // API ส่งค่าตามที่เก็บ ตัด 0 ท้าย (ACC-18)
 	tests := []struct {
 		in   float64

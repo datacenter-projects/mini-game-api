@@ -16,12 +16,13 @@ import (
 )
 
 // ChildPTRequest — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม (MGMT-16) · ครบ 5 ค่า หรือแค่ commission_percent (Share Master ใต้ CSM — MGMT-19)
+// % รับเป็น float64 (ทีมตกลง 2026-10-12) · pointer เพื่อแยก "ไม่ส่ง" ออกจาก 0
 type ChildPTRequest struct {
-	PTFromParent      utils.Decimal `json:"pt_from_parent"`
-	Force             utils.Decimal `json:"force"`
-	RemainQuota       utils.Decimal `json:"remain_quota"`
-	CommissionPercent utils.Decimal `json:"commission_percent"`
-	Status            *bool         `json:"status"`
+	PTFromParent      *float64 `json:"pt_from_parent"`
+	Force             *float64 `json:"force"`
+	RemainQuota       *float64 `json:"remain_quota"`
+	CommissionPercent *float64 `json:"commission_percent"`
+	Status            *bool    `json:"status"`
 
 	Parsed agentManagementCore.ChildPT `json:"-"` // % (float ปัด 4 ตำแหน่ง) หลัง Validate
 	// CommissionOnly — ส่งมาแค่ commission_percent · ใช้ได้เฉพาะ CSM ตั้งให้ Share Master (service ตัดสิน — 7.1 ข้อ 4)
@@ -41,7 +42,7 @@ type CreateAgentRequest struct {
 	PhoneCountryCode string                    `json:"phone_country_code"` // MGMT-08 · ไม่กรอก = "" คู่กับ phone
 	Phone            string                    `json:"phone"`
 	Currencies       []string                  `json:"currencies"`
-	Balance          map[string]utils.Decimal  `json:"balance"`
+	Balance          map[string]float64        `json:"balance"`
 	PT               map[string]ChildPTRequest `json:"pt"`
 	StatusGame       map[string]bool           `json:"status_game"`
 
@@ -99,16 +100,15 @@ func ValidatePhonePair(prefix string, code, phone *string) error {
 }
 
 // ParseBalance — ยอดเงินตั้งต้นต่อสกุล (MGMT-15A) · มากกว่า 0 · ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9)
-func ParseBalance(in map[string]utils.Decimal) (map[string]float64, error) {
+func ParseBalance(in map[string]float64) (map[string]float64, error) {
 	out := make(map[string]float64, len(in))
 	for _, cur := range SortedKeys(in) {
-		d := in[cur]
+		v := in[cur]
 		field := "balance." + cur
 		if !agentManagementCore.IsSupportedCurrency(cur) {
 			return nil, Invalid(field, "สกุลเงินไม่ถูกต้อง", "is not a supported currency")
 		}
-		v, ok := d.Float4()
-		if !ok {
+		if !utils.IsDecimal4(v) {
 			return nil, Invalid(field, "ต้องเป็นตัวเลข ทศนิยมไม่เกิน 4 ตำแหน่ง", "must be a number with at most 4 decimals")
 		}
 		if v <= 0 {
@@ -120,12 +120,12 @@ func ParseBalance(in map[string]utils.Decimal) (map[string]float64, error) {
 }
 
 // Percent — ค่า % ใน API (MGMT-17) · ต้องส่ง ต้องเป็นตัวเลข ทศนิยมไม่เกิน 4 ตำแหน่ง · 0 – 100
-func Percent(field string, d utils.Decimal) (float64, error) {
-	if !d.Present {
+func Percent(field string, d *float64) (float64, error) {
+	if d == nil {
 		return 0, Invalid(field, "ต้องส่ง", "is required")
 	}
-	v, ok := d.Float4()
-	if !ok {
+	v := *d
+	if !utils.IsDecimal4(v) {
 		return 0, Invalid(field, "ต้องเป็นตัวเลข ทศนิยมไม่เกิน 4 ตำแหน่ง", "must be a number with at most 4 decimals")
 	}
 	if v < 0 || v > agentManagementCore.FullPT {
@@ -193,7 +193,7 @@ func (r *CreateAgentRequest) Validate() error {
 // parseChildPT — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม → % (ปัด 4 ตำแหน่ง) ใน v.Parsed (MGMT-16, MGMT-17)
 // รูปแบบผิดตอบทันที · ไม่ครบ 5 ค่าเก็บไว้ใน v.Missing ให้ service ตัดสิน (ขึ้นกับว่าลูกเป็น Share Master ใต้ CSM ไหม — MGMT-19)
 func parseChildPT(prefix string, v *ChildPTRequest) error {
-	if !v.PTFromParent.Present && !v.Force.Present && !v.RemainQuota.Present && v.Status == nil && v.CommissionPercent.Present {
+	if v.PTFromParent == nil && v.Force == nil && v.RemainQuota == nil && v.Status == nil && v.CommissionPercent != nil {
 		v.CommissionOnly = true
 		var err error
 		v.Parsed.Commission, err = Percent(prefix+"commission_percent", v.CommissionPercent)
@@ -201,7 +201,7 @@ func parseChildPT(prefix string, v *ChildPTRequest) error {
 	}
 	for _, f := range []struct {
 		name string
-		in   utils.Decimal
+		in   *float64
 		out  *float64
 	}{
 		{"pt_from_parent", v.PTFromParent, &v.Parsed.PTFromParent},
@@ -209,7 +209,7 @@ func parseChildPT(prefix string, v *ChildPTRequest) error {
 		{"remain_quota", v.RemainQuota, &v.Parsed.Remain},
 		{"commission_percent", v.CommissionPercent, &v.Parsed.Commission},
 	} {
-		if !f.in.Present {
+		if f.in == nil {
 			if v.Missing == nil {
 				v.Missing = Invalid(prefix+f.name, "ต้องส่ง", "is required")
 			}

@@ -5,18 +5,18 @@ package membermanagement
 
 import (
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
-	"app/pkg/utils"
 )
 
 // MemberPTRequest — ผู้สร้างตั้งให้ Member ต่อกลุ่ม: pt (ถือสู้กับ Member คนนี้) · commission_percent (MGMT-21 · lead MA1 / MA3)
 // remain_quota ระบบคิดเอง · field อื่นของฝั่ง agent = 422 · ใช้ทั้ง members/create และ members/detail/update
+// % รับเป็น float64 (ทีมตกลง 2026-10-12) · pointer เพื่อแยก "ไม่ส่ง" (pt_from_parent / force / remain_quota / status มีไว้ตอบ 422)
 type MemberPTRequest struct {
-	OwnPT             utils.Decimal `json:"pt"`
-	CommissionPercent utils.Decimal `json:"commission_percent"`
-	PTFromParent      utils.Decimal `json:"pt_from_parent"`
-	Force             utils.Decimal `json:"force"`
-	RemainQuota       utils.Decimal `json:"remain_quota"`
-	Status            *bool         `json:"status"`
+	OwnPT             *float64 `json:"pt"`
+	CommissionPercent *float64 `json:"commission_percent"`
+	PTFromParent      *float64 `json:"pt_from_parent"`
+	Force             *float64 `json:"force"`
+	RemainQuota       *float64 `json:"remain_quota"`
+	Status            *bool    `json:"status"`
 
 	PT         float64 `json:"-"` // % หลัง Validate
 	Commission float64 `json:"-"`
@@ -25,7 +25,7 @@ type MemberPTRequest struct {
 // parseMemberPT — ตรวจ 1 กลุ่ม: field ที่ Member ไม่มี → pt → commission_percent
 func parseMemberPT(group string, v *MemberPTRequest) error {
 	p := "pt." + group
-	if v.PTFromParent.Present || v.Force.Present || v.RemainQuota.Present || v.Status != nil {
+	if v.PTFromParent != nil || v.Force != nil || v.RemainQuota != nil || v.Status != nil {
 		return agentManagementDto.Invalid(p, "Member มีแค่ pt และ commission_percent (remain_quota ระบบคิดให้)",
 			"a Member only has pt and commission_percent (remain_quota is computed)")
 	}
@@ -59,7 +59,7 @@ type CreateMemberRequest struct {
 	Name             string                     `json:"name"`
 	PhoneCountryCode string                     `json:"phone_country_code"` // MGMT-08 · ไม่กรอก = "" คู่กับ phone
 	Phone            string                     `json:"phone"`
-	Balance          map[string]utils.Decimal   `json:"balance"`
+	Balance          map[string]float64         `json:"balance"`
 	PT               map[string]MemberPTRequest `json:"pt"`
 
 	BalanceAmounts map[string]float64 `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
