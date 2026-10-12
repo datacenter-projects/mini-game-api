@@ -49,14 +49,15 @@ func parsePaymentAccount(prefix string, in *PaymentAccount) (models.MemberPaymen
 	case memberManagementCore.PaymentAccountOK:
 		return a, nil
 	case memberManagementCore.AccountNotPaired:
-		return a, agentManagementDto.Invalid(prefix+"bank_code / "+prefix+"account_number", `ต้องส่งคู่กัน (ไม่มีบัญชีให้ส่ง "" ทั้งคู่)`,
-			`must be sent together (send "" for both when there is no account)`)
+		return a, agentManagementDto.Invalid(prefix+"bank_code / "+prefix+"account_number", "ต้องกรอกคู่กัน (ไม่มีบัญชีให้เว้นว่างทั้งคู่)",
+			"must be filled in together (leave both empty when there is no account)")
 	case memberManagementCore.BankCodeInvalid:
 		return a, agentManagementDto.Invalid(prefix+"bank_code", "ต้องเป็นรหัสธนาคารไทยในรายการ (เช่น KBANK, SCB)", "must be a Thai bank code from the list (e.g. KBANK, SCB)")
 	case memberManagementCore.AccountNumberInvalid:
 		return a, agentManagementDto.Invalid(prefix+"account_number", "ต้องเป็นตัวเลขล้วน 10–15 หลัก", "must be 10–15 digits")
 	case memberManagementCore.NameWithoutAccount:
-		return a, agentManagementDto.Invalid(prefix+issue.Field, "ส่งได้เมื่อมี bank_code และ account_number", "is allowed only with bank_code and account_number")
+		th, en := utils.SubFieldLabels("payment_account", "bank_code", "account_number")
+		return a, agentManagementDto.Invalid(prefix+issue.Field, "กรอกได้เมื่อมี"+th[0]+"และ"+th[1], "is allowed only with "+en[0]+" and "+en[1])
 	default:
 		if issue.Field == "name_th" || issue.Field == "midname_th" || issue.Field == "surname_th" {
 			return a, agentManagementDto.Invalid(prefix+issue.Field, "ต้องเป็นอักษรไทย มีช่องว่างหรือ - ได้ ไม่เกิน 50 ตัว",
@@ -92,8 +93,9 @@ type MemberPaymentSection struct {
 
 func (s *MemberPaymentSection) check() error {
 	if !s.PaymentType.Present && s.PaymentAccount == nil {
-		return agentManagementDto.Invalid("payment", "ต้องมีอย่างน้อย 1 field (payment_type / payment_account)",
-			"must contain at least 1 field (payment_type / payment_account)")
+		th, en := utils.SubFieldLabels("payment", "payment_type", "payment_account")
+		return agentManagementDto.Invalid("payment", "ต้องมีอย่างน้อย 1 อย่าง ("+th[0]+" / "+th[1]+")",
+			"must contain at least 1 of ("+en[0]+" / "+en[1]+")")
 	}
 	if s.PaymentType.Present {
 		if !s.PaymentType.IsString {
@@ -123,7 +125,7 @@ type MemberLimitSection struct {
 
 func (s *MemberLimitSection) check() error {
 	if s.WinLimitPerDay == nil {
-		return agentManagementDto.Invalid("limit.win_limit_per_day", "ต้องส่ง", "is required")
+		return agentManagementDto.Invalid("limit.win_limit_per_day", "ต้องกรอก", "is required")
 	}
 	return checkWinLimit("limit.win_limit_per_day", *s.WinLimitPerDay)
 }

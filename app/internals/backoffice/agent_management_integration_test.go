@@ -316,7 +316,7 @@ func TestCreatePTSettings(t *testing.T) { // MGMT-16, MGMT-19, MGMT-20, MGMT-22
 	// ผู้สร้างที่ไม่ใช่ CSM ต้องส่งครบ 5 ค่า (ส่งแค่ commission = 422)
 	r := call(t, app, "POST", createAgentPath, agentBody("AGENT", "agcomm", nil, commissionOnly(0)), c.agentTok)
 	expect(t, r, 200, 422)
-	expectMsgHas(t, r.Msg, "pt.minigame.pt_from_parent")
+	expectMsgHas(t, r.Msg, "PT ที่ให้ (Minigame)")
 }
 
 func TestCreateShareMasterFollowsCSM(t *testing.T) { // MGMT-19 · lead E1-1 / B2

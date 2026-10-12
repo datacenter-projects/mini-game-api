@@ -6,6 +6,7 @@ package membermanagement
 import (
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
 	"app/app/models"
+	"app/pkg/utils"
 )
 
 // MemberPTRequest — ผู้สร้างตั้งให้ Member ต่อกลุ่ม: pt (ถือสู้กับ Member คนนี้) · commission_percent (MGMT-21 · lead MA1 / MA3)
@@ -25,8 +26,9 @@ type MemberPTRequest struct {
 func parseMemberPT(group string, v *MemberPTRequest) error {
 	p := "pt." + group
 	if v.PTFromParent != nil || v.Force != nil || v.RemainQuota != nil || v.Status != nil {
-		return agentManagementDto.Invalid(p, "Member มีแค่ pt และ commission_percent (remain_quota ระบบคิดให้)",
-			"a Member only has pt and commission_percent (remain_quota is computed)")
+		th, en := utils.SubFieldLabels("pt", "pt", "commission_percent", "remain_quota")
+		return agentManagementDto.Invalid(p, "Member ตั้งได้แค่ "+th[0]+" และ "+th[1]+" ("+th[2]+" ระบบคิดให้)",
+			"a Member only has "+en[0]+" and "+en[1]+" ("+en[2]+" is computed)")
 	}
 	if _, err := agentManagementDto.Percent(p+".pt", v.OwnPT); err != nil {
 		return err

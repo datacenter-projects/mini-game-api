@@ -56,8 +56,10 @@ type CreateAgentResponse struct {
 
 var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
+// Invalid — 422 ที่ขึ้นต้นด้วยชื่อ field · path มีจุด (เช่น pt.minigame.force) แปลงเป็นชื่อที่ผู้ใช้อ่านได้ (utils.FieldLabel)
 func Invalid(field, th, en string) error {
-	return apperr.ErrValidation.WithMessage(field+" "+th, field+" "+en)
+	labelTH, labelEN := utils.FieldLabel(field)
+	return apperr.ErrValidation.WithMessage(labelTH+" "+th, labelEN+" "+en)
 }
 
 // ValidateIdentityFields — request_id · username · password · name (MGMT-05 – MGMT-07) ตามลำดับ field ใน body
@@ -86,7 +88,7 @@ func ValidatePhonePair(prefix string, code, phone *string) error {
 	*code, *phone = strings.TrimSpace(*code), strings.TrimSpace(*phone)
 	switch agentManagementCore.CheckPhone(*code, *phone) {
 	case agentManagementCore.PhoneNotPaired:
-		return Invalid(prefix+"phone_country_code / "+prefix+"phone", `ต้องส่งคู่กัน (ไม่กรอกให้ส่ง "" ทั้งคู่)`, `must be sent together (send "" for both to leave empty)`)
+		return Invalid(prefix+"phone_country_code / "+prefix+"phone", "ต้องกรอกคู่กัน (ไม่ใช้เบอร์ให้เว้นว่างทั้งคู่)", "must be filled in together (leave both empty for no phone)")
 	case agentManagementCore.PhoneCodeInvalid:
 		return Invalid(prefix+"phone_country_code", "ต้องเป็นรหัสโทรออกของประเทศที่มีจริง ตัวเลข 1–3 หลัก ไม่มี + (เช่น 66)", "must be a real country calling code of 1–3 digits without + (e.g. 66)")
 	case agentManagementCore.PhoneNumberInvalid:
@@ -121,7 +123,7 @@ func ParseBalance(in map[string]float64) (map[string]float64, error) {
 // Percent — ค่า % ใน API (MGMT-17) · ต้องส่ง ต้องเป็นตัวเลข ทศนิยมไม่เกิน 4 ตำแหน่ง · 0 – 100
 func Percent(field string, d *float64) (float64, error) {
 	if d == nil {
-		return 0, Invalid(field, "ต้องส่ง", "is required")
+		return 0, Invalid(field, "ต้องกรอก", "is required")
 	}
 	v := *d
 	if !utils.IsDecimal4(v) {
@@ -142,7 +144,7 @@ func CheckGroups[T any](pt map[string]T) error {
 	}
 	for _, g := range agentManagementCore.Groups() {
 		if _, ok := pt[string(g)]; !ok {
-			return Invalid("pt."+string(g), "ต้องส่ง", "is required")
+			return Invalid("pt."+string(g), "ต้องกรอก", "is required")
 		}
 	}
 	return nil
@@ -154,7 +156,7 @@ func (r *CreateAgentRequest) Validate() error {
 		return Invalid("request_id", "ต้องเป็น UUID", "must be a UUID")
 	}
 	if r.UserType == "" {
-		return Invalid("user_type", "ต้องส่ง", "is required")
+		return Invalid("user_type", "ต้องเลือก", "is required")
 	}
 	if err := ValidateIdentityFields(r.RequestID, &r.Username, r.Password, r.Name); err != nil {
 		return err
@@ -222,7 +224,7 @@ func parseChildPT(prefix string, v *ChildPTRequest) error {
 	} {
 		if f.in == nil {
 			if v.Missing == nil {
-				v.Missing = Invalid(prefix+f.name, "ต้องส่ง", "is required")
+				v.Missing = Invalid(prefix+f.name, "ต้องกรอก", "is required")
 			}
 			continue
 		}
@@ -231,7 +233,7 @@ func parseChildPT(prefix string, v *ChildPTRequest) error {
 		}
 	}
 	if v.Status == nil && v.Missing == nil {
-		v.Missing = Invalid(prefix+"status", "ต้องส่ง", "is required")
+		v.Missing = Invalid(prefix+"status", "ต้องเลือก", "is required")
 	}
 	return nil
 }

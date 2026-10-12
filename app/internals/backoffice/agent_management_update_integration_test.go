@@ -245,7 +245,7 @@ func TestUpdateInfoAndCommission(t *testing.T) { // MGMT-08, MGMT-09, MGMT-09A, 
 	} {
 		r := call(t, app, "POST", agentInfoPath, info(c.agent.ID, v), c.shareTok)
 		expect(t, r, 200, 422)
-		if !strings.Contains(r.Msg, "info.") {
+		if !strings.Contains(r.Msg, "เบอร์โทร") && !strings.Contains(r.Msg, "รหัสประเทศ") {
 			t.Fatalf("%s: msg ต้องบอก field ใน info %q", name, r.Msg)
 		}
 	}

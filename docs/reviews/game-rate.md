@@ -46,3 +46,15 @@
 - RH2 ยอดแทงบาทเต็ม ขั้นต่ำ 1 (RATE-09B 8 ต.ค.) vs กฎข้อ 9 float · ช่วงยอดแทง 10–500 ใน diagram · เพดานยอดจ่ายต่อบิล (เกี่ยวกับ RR3)
 - RH3 หน้าเกมของ Member ต้องได้ตารางตัวคูณ (Coin/RPS 10 ขั้น · รางวัล Scratch) — **ควรให้เห็นแค่ตัวคูณ ไม่ส่ง `win_percent` / `share_percent`** · เป็นเส้นฝั่งผู้เล่นของ module เดิมพัน
 - RH4 Scratch ตรง 2 ช่อง แบ่งครึ่ง "ช่องแรกปัดลง" (RATE-35) → ปัดที่ 4 ตำแหน่ง (`Round4`) ไม่ใช่สตางค์ · Streak ค้างเกิน 1 วัน CASH OUT อัตโนมัติ (RATE-09C) — job ของ engine
+
+## การตัดสินที่ผ่าน boiledegg (spec หัวข้อ 9 Q1–Q8) — lead ทบทวน 2026-10-13
+| # | เรื่อง | lead |
+|---|---|---|
+| Q1 | หยุดเกมด่วน (RR6) — spec เดิม: ไม่เพิ่มเส้น ให้ปิดที่ Company ทีละตัว | **กลับมาทำสวิตช์ปิดเกม** ให้ Superadmin ปิด / เปิดเกมทั้งระบบได้ในที่เดียว (ใช้ตอนปิดปรับปรุงเกม) — ข้อเสนอ: เส้นใหม่ใต้ `/bo/pr/rate/` เช่น `status/update` `{ game_code, status_game }` (สิทธิ์ `rate` edit + passcode) ตั้ง `status_game` ของ Superadmin แล้วผลไหลลงทั้งสายผ่านการเช็คทั้งสาย (`IsGameOpen`) · `rate/list` แสดงสถานะ · log การปิด/เปิด · เอนจิ้น / Player ต้องเช็คก่อนรับเดิมพัน (RH) — boiledegg เสนอรายละเอียดก่อน implement |
+| Q2 | `detail/check` ตอบ `valid` + `issues` | รับ |
+| Q3 | `max_win_percent` = ค่าสูงสุดที่ house edge ≥ 1% | รับ |
+| Q4 | `versions/list` เพิ่ม `same_as_current` · `win_percent` (Scratch) · `changes` | รับ |
+| Q5 | error ไม่มี `data` — ข้อมูลอยู่ใน `msg` | รับ |
+| Q6 | `win_percent` ≤ 50 ทุกเกม | **lead ตัดสินเอง (ยืนยัน 2026-10-13)** |
+| Q7 | RPS ไม่มีผลเสมอ (แพ้ = 100 − ชนะ · `draw_percent` = 422) | **lead ตัดสินเอง (ยืนยัน 2026-10-13)** · เอนจิ้นต้องไม่มีผลเสมอ |
+| Q8 | ไม่มีอัตราชนะรวม — กล่องสรุปใช้ `min_house_edge_*` / `max_payout_percent` | รับ |

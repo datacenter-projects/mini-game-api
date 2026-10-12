@@ -199,7 +199,7 @@ Error: `422`, `402303`
 
 ## 3. Error codes
 
-ตอบ HTTP 200 ทั้งหมด · ดูที่ `code` · `msg` บอกชื่อ field (ยกเว้น `400`)
+ตอบ HTTP 200 ทั้งหมด · ดูที่ `code` · `msg` บอกชื่อ field (ยกเว้น `400`) · field ที่ซ้อนใช้ชื่อที่ผู้ใช้อ่านได้แทน path (แก้ 12 ต.ค.) เช่น `pt.minigame.pt` → "PT ที่ถือสู้ (Minigame)" · `payment_account.account_number` → "เลขบัญชี" · `limit.win_limit_per_day` → "ยอดชนะสูงสุดต่อวัน"
 
 | Code | ความหมาย |
 |---|---|
