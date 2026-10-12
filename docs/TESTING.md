@@ -51,12 +51,30 @@ go test -count=1 -tags=integration ./...
 
 ### Integration test ของ asset (อัปโหลดไฟล์)
 
-test ของ asset อัปไฟล์ผ่าน `pkg/testutil.NewFakeS3(t)` — S3 จำลองในตัว (httptest) ที่ต่อผ่าน `S3_ENDPOINT` เหมือน MinIO
-จึงเรียก `platform/storage` จริงโดยไม่ต้องเปิด MinIO และใช้ได้บนเครื่องที่ไม่มี Docker · test ที่ไม่เรียก `NewFakeS3`
+test ของ asset อัปไฟล์ผ่าน `pkg/testutil.NewFakeS3(t)` — S3 จำลองในตัว (httptest) ที่ต่อผ่าน `S3_ENDPOINT` เหมือน S3 จริง
+จึงเรียก `platform/storage` จริงโดยไม่ต้องเปิด storage ตัวใด และใช้ได้บนเครื่องที่ไม่มี Docker · test ที่ไม่เรียก `NewFakeS3`
 ไม่มี storage (ไม่ตั้ง `S3_BUCKET`) = เส้นอัปโหลดตอบ `505801` (ตรงตาม AST-30)
 
-MinIO ใน `docker-compose.yml` / `docker-compose.test.yml` ไว้ลองอัปจริงด้วยมือหรือรัน `scripts/seed_asset_global`
-(ค่า env ที่ต้องตั้งอยู่ในคอมเมนต์ของไฟล์ compose) — `scripts/testenv.ps1` ไม่เปิด MinIO
+ลองอัปรูปจริงด้วยมือ (Postman) หรือรัน `scripts/seed_asset_global` ใช้ **`scripts/fakes3`** — S3 จำลองที่รันด้วย `go run` ไม่ต้องใช้ Docker
+(MinIO เลิกแจกไบนารีและ image แล้ว จึงเอาออกจาก compose — GQ12):
+
+```bash
+go run ./scripts/fakes3        # http://127.0.0.1:9000 · bucket minigame-asset-local · เก็บไฟล์ที่ .testenv/fakes3
+```
+
+ตั้งค่าใน `.env` แล้ว restart API (อ่านตอน boot):
+
+```
+S3_ENDPOINT=http://127.0.0.1:9000
+S3_BUCKET=minigame-asset-local
+S3_CDN_BASE_URL=http://127.0.0.1:9000/minigame-asset-local   # ให้ URL รูปเปิดดูในเบราว์เซอร์ได้
+AWS_ACCESS_KEY_ID=local
+AWS_SECRET_ACCESS_KEY=local                                  # ค่าอะไรก็ได้ — ไม่ตรวจลายเซ็น
+```
+
+- รองรับ PUT / GET / HEAD / DELETE แบบ path-style เท่านั้น (ไม่มี list / multipart) · listen เฉพาะ loopback · ไม่ตรวจ credential
+- ใช้ทดสอบบนเครื่องเท่านั้น — ผลที่ยืนยันจริงคือ S3 บน dev · `scripts/testenv.ps1` ไม่เปิด fakes3 (เปิดแยกเอง)
+- ลบไฟล์ที่อัปไว้: ลบโฟลเดอร์ `.testenv/fakes3` (`testenv.ps1 reset` ลบทั้ง `.testenv` รวมไฟล์นี้ด้วย)
 
 ## 3. Load test (k6)
 

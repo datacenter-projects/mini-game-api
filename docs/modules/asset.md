@@ -822,7 +822,7 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | GQ7 | ช่อง / ขนาด / palette | ส่งทีมเกมยืนยัน · ไม่ได้คำตอบ ~3 วัน seed ตามร่าง → หัวข้อ 6 · AST-40 |
 | GQ8 | ที่เก็บ branding | ตาราง 1:1 `site_brandings` → AST-41 · หัวข้อ 6 |
 | GQ10 | theme ฝั่งผู้เล่น | รวมใน bundle → AST-45, 48 |
-| GQ12 | ส่วนกลาง | อนุมัติ (ตารางด้านล่าง) · credential ใช้ IRSA / default chain · boot ได้แม้ storage ไม่พร้อม · MinIO ใน test env → AST-30, 49 |
+| GQ12 | ส่วนกลาง | อนุมัติ (ตารางด้านล่าง) · credential ใช้ IRSA / default chain · boot ได้แม้ storage ไม่พร้อม · ~~MinIO ใน test env~~ → `scripts/fakes3` (MinIO เลิกแจก image / ไบนารี — schneider ตัดสิน 2026-10-12) → AST-30, 49 |
 | GQ13 | บั๊กเก่าที่ spec ปิด | รับทราบ → หัวข้อ 4 |
 
 **lead ตรวจ spec รอบ 1 (2026-10-12 · ฉบับ `f19a511`) — เริ่มโค้ดได้หลังแก้ข้อด้านล่าง ✅ แก้แล้วในฉบับนี้:**
@@ -874,12 +874,12 @@ validation ทั่วไปใช้ `422` + msg บอก field · สิท�
 | เรื่อง | ที่ต้องแก้ |
 |---|---|
 | dependency S3 | `go.mod` เพิ่ม AWS SDK v2 (s3) |
-| config | `pkg/configs/config.go` + `.env.example`: `S3_REGION` · `S3_BUCKET` · `S3_CDN_BASE_URL` · `S3_UPLOAD_TIMEOUT` · `S3_ENDPOINT` (MinIO ใน local / test) · credential จาก IRSA / default chain ห้าม key ใน env · ขึ้นได้แม้ storage ไม่พร้อม (AST-30) |
+| config | `pkg/configs/config.go` + `.env.example`: `S3_REGION` · `S3_BUCKET` · `S3_CDN_BASE_URL` · `S3_UPLOAD_TIMEOUT` · `S3_ENDPOINT` (S3 จำลอง `scripts/fakes3` ใน local) · credential จาก IRSA / default chain ห้าม key ใน env · ขึ้นได้แม้ storage ไม่พร้อม (AST-30) |
 | storage client | package ใหม่ `platform/storage` |
 | ขนาด body | **ไม่แตะ** `BodyLimit` (10 MB ทั้ง request ครอบไฟล์ 5 MB ได้) |
 | multipart | helper อ่าน multipart + `Validate()` ใน `pkg/utils` |
 | middleware | `ResolveAssetTarget` / `RequireAssetTarget` ใน `app/internals/backoffice/middleware` · ใช้ `RequirePermission` ของ module ② |
-| test env | MinIO ใน `docker-compose.yml` / `docker-compose.test.yml` (ทำแล้ว · ยังไม่ได้ลองรัน — เครื่องที่ทำไม่มี Docker) · `scripts/testenv.ps1` ไม่เปิด MinIO · integration test ใช้ S3 จำลองในตัว `testutil.NewFakeS3` |
+| test env | **ไม่ใช้ MinIO แล้ว** (เลิกแจก image / ไบนารี · Docker Hub ไม่พบ `minio/minio`) — เอาออกจาก `docker-compose*.yml` · ลองอัปด้วยมือใช้ `go run ./scripts/fakes3` (docs/TESTING.md) · integration test ใช้ S3 จำลองในตัว `testutil.NewFakeS3` · ขอ lead รับทราบว่าเปลี่ยนจากที่อนุมัติ (GQ12) |
 | เอกสารกลาง | จอง module id `05` ใน `docs/ERROR_CODES.md` (game_rate = `06`) · เพิ่มแถว `asset` ใน `docs/MIGRATION_STATUS.md` · หลัง spec อนุมัติ: `docs/frontend/asset.md` + แถวใน `docs/frontend/README.md` |
 | migration | ไฟล์ใหม่ต้องมี timestamp หลัง `20261011120000_member_management_phone_country_code.sql` (ล่าสุดบน `dev` ตอนตรวจ 2026-10-12) |
 
