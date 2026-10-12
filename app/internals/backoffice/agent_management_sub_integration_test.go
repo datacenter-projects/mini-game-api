@@ -172,76 +172,161 @@ func TestSubListAndDetail(t *testing.T) { // MGMT-45, MGMT-46
 	}
 }
 
-func TestSubUpdate(t *testing.T) { // MGMT-42, MGMT-43, MGMT-44, MGMT-45, MGMT-60
+func TestSubUpdate(t *testing.T) { // MGMT-42, MGMT-44, MGMT-45, MGMT-60 · lead SN4 / SQ5 / SQ6
 	app := setup2(t)
 	c := buildChain(t, app)
 	s := createSubAPI(t, app, c.shareTok, "staff", map[string]string{"member": "edit"})
-
-	upd := map[string]any{"id": s.ID, "name": "ใจดี", "phone_country_code": "66", "phone": "811111111", "permissions": map[string]string{"report": "view"}}
-	expect(t, call(t, app, "POST", subUpdatePath, upd, c.shareTok), 200, 200)
-	r := call(t, app, "POST", subDetailPath, map[string]any{"id": s.ID}, c.shareTok)
-	var d subData
-	_ = json.Unmarshal(r.Data, &d)
-	if d.Name != "ใจดี" || d.PhoneCode != "66" || d.Phone != "811111111" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" {
-		t.Fatalf("after update %+v", d)
+	detail := func() subData {
+		t.Helper()
+		r := call(t, app, "POST", subDetailPath, map[string]any{"id": s.ID}, c.shareTok)
+		expect(t, r, 200, 200)
+		var d subData
+		_ = json.Unmarshal(r.Data, &d)
+		return d
 	}
-	expect(t, call(t, app, "POST", subUpdatePath, upd, c.comTok), 200, 402404)                                                                              // ชั้นบนแก้ไม่ได้
-	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "name": "ใจดี", "phone_country_code": "", "phone": ""}, c.shareTok), 200, 422) // ไม่ส่ง permissions
-	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "name": "ใจดี", "permissions": map[string]string{}}, c.shareTok), 200, 422)
-	// เบอร์ (MGMT-08): ต้องส่งทั้ง 2 field · คู่กัน · ล้างด้วย "" ทั้งคู่
-	perms := map[string]string{"report": "view"}
+	logsOf := func(action models.AccountChangeAction) int64 {
+		return countRows(t, &models.AccountChangeLog{}, "target_type = ? AND target_id = ? AND action = ?", "SUB", s.ID, action)
+	}
+
+	// รูปแบบ: ไม่ส่ง section = 422 · info {} = 422 · permissions null = 422 · เมนูที่ไม่มี = 422
+	r := call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID}, c.shareTok)
+	expect(t, r, 200, 422)
+	expectMsgHas(t, r.Msg, "ต้องส่งอย่างน้อย 1 section")
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "info": map[string]any{}}, c.shareTok), 200, 422)
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "permissions": nil}, c.shareTok), 200, 422)
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "permissions": map[string]string{"pt": "edit"}}, c.shareTok), 200, 422)
+
+	// section info อย่างเดียว · ส่งบาง field ได้ · สิทธิ์คงเดิม
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "info": map[string]any{"name": "ใจดี"}}, c.shareTok), 200, 200)
+	if d := detail(); d.Name != "ใจดี" || d.Permissions["member"] != "edit" {
+		t.Fatalf("info only %+v", d)
+	}
+	// section permissions อย่างเดียว = แทนทั้งชุด (เมนูที่ไม่ส่ง = off) · ชื่อคงเดิม
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "permissions": map[string]string{"report": "view"}}, c.shareTok), 200, 200)
+	if d := detail(); d.Name != "ใจดี" || d.Permissions["report"] != "view" || d.Permissions["member"] != "off" {
+		t.Fatalf("permissions only %+v", d)
+	}
+	if logsOf(models.ChangeUpdateInfo) != 1 || logsOf(models.ChangeSubPermissions) != 1 {
+		t.Fatalf("log info %d permissions %d", logsOf(models.ChangeUpdateInfo), logsOf(models.ChangeSubPermissions))
+	}
+	// 2 section พร้อมกัน = log 2 แถว
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID,
+		"info":        map[string]any{"phone_country_code": "66", "phone": "811111111"},
+		"permissions": map[string]string{"member": "view", "report": "view"}}, c.shareTok), 200, 200)
+	if d := detail(); d.PhoneCode != "66" || d.Phone != "811111111" || d.Permissions["member"] != "view" {
+		t.Fatalf("both %+v", d)
+	}
+	if logsOf(models.ChangeUpdateInfo) != 2 || logsOf(models.ChangeSubPermissions) != 2 {
+		t.Fatal("2 section ต้องได้ log แยก 2 แถว")
+	}
+	// ค่าเดิมทั้งหมด = 200 ไม่เขียน log (สิทธิ์เทียบแบบครบทุกเมนู — ส่ง off ตรงๆ ก็นับว่าเดิม)
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID,
+		"info":        map[string]any{"name": "ใจดี", "phone_country_code": "66", "phone": "811111111"},
+		"permissions": map[string]string{"member": "view", "report": "view", "payment": "off"}}, c.shareTok), 200, 200)
+	if logsOf(models.ChangeUpdateInfo) != 2 || logsOf(models.ChangeSubPermissions) != 2 {
+		t.Fatal("ค่าเดิมต้องไม่เขียน log")
+	}
+	// info ถูก + permissions ผิด = 422 และชื่อไม่เปลี่ยน
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "info": map[string]any{"name": "ชื่อใหม่"},
+		"permissions": map[string]string{"dashboard": "edit"}}, c.shareTok), 200, 422)
+	if d := detail(); d.Name != "ใจดี" {
+		t.Fatalf("permissions ผิดต้องไม่บันทึก info %+v", d)
+	}
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "info": map[string]any{"name": "ใจดี"}}, c.comTok), 200, 402404) // ชั้นบนแก้ไม่ได้
+
+	// เบอร์ (MGMT-08): ต้องส่งคู่กัน · ล้างด้วย "" ทั้งคู่
 	for name, v := range map[string]map[string]any{
-		"ไม่ส่ง phone_country_code": {"phone": "811111111"},
-		"code null":                 {"phone_country_code": nil, "phone": "811111111"},
-		"ล้างแค่ code":              {"phone_country_code": "", "phone": "811111111"},
-		"0 นำหน้า":                  {"phone_country_code": "66", "phone": "0811111111"},
+		"ส่งแค่ phone": {"phone": "811111111"},
+		"code null":    {"phone_country_code": nil, "phone": "811111111"},
+		"ล้างแค่ code": {"phone_country_code": "", "phone": "811111111"},
+		"0 นำหน้า":     {"phone_country_code": "66", "phone": "0811111111"},
 	} {
-		b := map[string]any{"id": s.ID, "name": "ใจดี", "permissions": perms}
-		for k, x := range v {
-			b[k] = x
-		}
-		r := call(t, app, "POST", subUpdatePath, b, c.shareTok)
+		r := call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "info": v}, c.shareTok)
 		expect(t, r, 200, 422)
-		if !strings.Contains(r.Msg, "phone") {
+		if !strings.Contains(r.Msg, "info.") {
 			t.Fatalf("%s: msg %q", name, r.Msg)
 		}
 	}
-	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "name": "ใจดี", "phone_country_code": "", "phone": "", "permissions": perms}, c.shareTok), 200, 200)
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "info": map[string]any{"phone_country_code": "", "phone": ""}}, c.shareTok), 200, 200)
 	var cleared models.Subaccount
 	database.DBConn.Where("id = ?", s.ID).Take(&cleared)
 	if cleared.Phone != nil || cleared.PhoneCountryCode != nil {
-		t.Fatalf(`ส่ง "" ทั้งคู่ ต้องเก็บ NULL %+v`, cleared)
+		t.Fatalf("ส่งค่าว่างทั้งคู่ ต้องเก็บ NULL %+v", cleared)
 	}
 
-	// INACTIVE เก็บเป็น SUSPENDED · แสดง INACTIVE · ตั้งกลับ ACTIVE ได้
+	// แก้สิทธิ์แล้ว request ถัดไปของ sub ใช้สิทธิ์ใหม่ทันที
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "permissions": map[string]string{"member": "view"}}, c.shareTok), 200, 200)
+	subTok := readyToken(t, app, models.AccountTypeSub, s.ID, "share01@staff")
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 200)
+	expect(t, call(t, app, "POST", subUpdatePath, map[string]any{"id": s.ID, "permissions": map[string]string{}}, c.shareTok), 200, 200) // {} = ปิดทุกเมนู
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303)
+}
+
+func TestSubInactive(t *testing.T) { // MGMT-43 · lead SA1 / SQ1: INACTIVE = login ไม่ได้ + session เดิมถูกตัด (401312)
+	app := setup2(t)
+	c := buildChain(t, app)
+	s := createSubAPI(t, app, c.shareTok, "staff", map[string]string{"member": "view", "api_credential": "view"})
+	subTok := readyToken(t, app, models.AccountTypeSub, s.ID, "share01@staff")
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, subTok), 200, 200)
+
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "INACTIVE"}, c.shareTok), 200, 200)
 	var row models.Subaccount
 	database.DBConn.Where("id = ?", s.ID).Take(&row)
 	if row.Status != models.AgentStatusSuspended {
 		t.Fatalf("stored %s", row.Status)
 	}
-	r = call(t, app, "POST", subDetailPath, map[string]any{"id": s.ID}, c.shareTok)
+	r := call(t, app, "POST", subDetailPath, map[string]any{"id": s.ID}, c.shareTok)
+	var d subData
 	_ = json.Unmarshal(r.Data, &d)
 	if d.Status != "INACTIVE" {
 		t.Fatalf("status %s", d.Status)
 	}
-	setPasscode(t, models.AccountTypeSub, s.ID, passcode)
-	subTok := loginToken2(t, app, "share01@staff", mgPassword)
-	if subTok == "" {
-		t.Fatal("INACTIVE ต้อง login ได้")
-	}
-	// AUTH-54: เปิดได้แค่ Profile / Report · route อื่น 401311 (เช็คก่อนสิทธิ์ของ sub)
-	expect(t, call(t, app, "GET", profilePath, nil, subTok), 200, 200)
-	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 403, 401311)
+	// session เดิมถูกตัดทันที · ไม่เข้าข่าย "SUSPENDED ดูได้" (AUTH-54) — Profile / api-credential ก็ไม่ได้
+	expect(t, call(t, app, "GET", profilePath, nil, subTok), 401, 401203)
+	expect(t, call(t, app, "GET", apiCredentialPath, nil, subTok), 401, 401203)
+	// login ใหม่ไม่ได้ (หลังรหัสผ่านถูก) · รหัสผิดยังได้ 401201 เหมือนเดิม
+	expect(t, login(t, app, "share01@staff", mgPassword), 403, 401312)
+	expect(t, login(t, app, "share01@staff", "wrong"+mgPassword), 401, 401201)
+
+	// ตั้งกลับ ACTIVE = login ได้ · สถานะเดิม = 200 ไม่เขียน log (SA1)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200)
-	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200) // สถานะเดิม = ไม่เขียน log (นับใน logs ด้านล่าง)
-	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 402303)                                // กลับมาใช้สิทธิ์ตามปกติ (ไม่มีสิทธิ์ member)
+	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "ACTIVE"}, c.shareTok), 200, 200)
+	subTok = readyToken(t, app, models.AccountTypeSub, s.ID, "share01@staff")
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 200, 200)
+	if n := countRows(t, &models.AccountChangeLog{}, "target_type = ? AND target_id = ? AND action = ?", "SUB", s.ID, models.ChangeSubStatus); n != 2 {
+		t.Fatalf("SUB_STATUS logs %d, want 2", n)
+	}
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "INACTIVE"}, c.comTok), 200, 402404)
 	expect(t, call(t, app, "POST", subStatusPath, map[string]any{"id": s.ID, "status": "SUSPENDED"}, c.shareTok), 200, 422)
 
-	var logs []models.AccountChangeLog
-	database.DBConn.Where("target_type = ? AND target_id = ?", "SUB", s.ID).Order("id").Find(&logs)
-	if len(logs) != 5 || logs[0].Action != models.ChangeCreate || logs[1].Action != models.ChangeUpdateInfo || logs[2].Action != models.ChangeUpdateInfo || logs[3].Action != models.ChangeSubStatus {
-		t.Fatalf("logs %+v", logs)
+	// ตั้ง INACTIVE ตรงใน DB (เหมือนลบ session ไม่สำเร็จ) — middleware ปฏิเสธเอง
+	setCols(t, models.AccountTypeSub, s.ID, map[string]any{"status": models.AgentStatusSuspended})
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, subTok), 403, 401312)
+}
+
+func TestSubMustChangePassword(t *testing.T) { // MGMT-41 · lead SQ3 · AUTH-43
+	app := setup2(t)
+	c := buildChain(t, app)
+	s := createSubAPI(t, app, c.shareTok, "newstaff", map[string]string{"member": "view"})
+	var row models.Subaccount
+	database.DBConn.Where("id = ?", s.ID).Take(&row)
+	if !row.MustChangePassword || row.TempPasswordExpiresAt != nil {
+		t.Fatalf("sub ใหม่ต้อง must_change_password = true ไม่มีวันหมดอายุ %+v", row)
 	}
+	r := login(t, app, "share01@newstaff", mgPassword)
+	expect(t, r, 200, 200)
+	var ld struct {
+		Token              string `json:"token"`
+		MustChangePassword bool   `json:"must_change_password"`
+	}
+	_ = json.Unmarshal(r.Data, &ld)
+	if !ld.MustChangePassword {
+		t.Fatalf("login ต้องบอก must_change_password %s", r.Data)
+	}
+	expect(t, call(t, app, "POST", downlinesPath, map[string]any{}, ld.Token), 403, 401306)
+
+	// ADMIN สร้าง sub ไม่ได้ (AUTH-43)
+	admin := createAccount(t, "admin01", models.AgentRoleAdmin, nil)
+	adminTok := loginReady(t, app, models.AccountTypeAgent, admin.ID, "admin01")
+	expect(t, call(t, app, "POST", subCreatePath, subBody("staff", nil), adminTok), 200, 402301)
 }

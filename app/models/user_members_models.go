@@ -17,6 +17,9 @@ type UserMember struct {
 	Credit           float64     `gorm:"column:credit"` // ยอดเงิน หน่วยสกุล (เช่น 25.5) — float ตามที่ทีมตกลง 2026-10-09
 	Status           AgentStatus `gorm:"column:status"`
 	Cnf              string      `gorm:"column:cnf;default:'{\"parent\": []}'"` // JSONB สายชั้นบน {"parent":[{"id","position"}]} = สายของผู้สร้าง + ผู้สร้าง
+	PaymentType      PaymentType `gorm:"column:payment_type;default:'CASH'"`    // วิธีจ่ายเงิน แสดงผลอย่างเดียว (MGMT-63) · ไม่ตั้ง = ค่า default ของ DB
+	PaymentAccount   *string     `gorm:"column:payment_account"`                // JSONB ของ MemberPaymentAccount · NULL = ไม่มีบัญชี (MGMT-64)
+	WinLimitPerDay   float64     `gorm:"column:win_limit_per_day"`              // ลิมิตชนะต่อวัน หน่วยสกุล · 0 = ไม่จำกัด (MGMT-65)
 	LastLoginAt      *time.Time  `gorm:"column:last_login_at"`
 	LastLoginIP      *string     `gorm:"column:last_login_ip"`
 	CreatedAt        time.Time   `gorm:"column:created_at"`
@@ -24,6 +27,26 @@ type UserMember struct {
 }
 
 func (UserMember) TableName() string { return "user_members" }
+
+// PaymentType — วิธีจ่ายเงินของ Member (MGMT-63) · ข้อมูลแสดงผลอย่างเดียว
+type PaymentType string
+
+const (
+	PaymentTypeCredit PaymentType = "CREDIT"
+	PaymentTypeCash   PaymentType = "CASH"
+)
+
+// MemberPaymentAccount — ค่าใน user_members.payment_account (MGMT-64) · ชื่อไม่กรอก = ""
+type MemberPaymentAccount struct {
+	BankCode      string `json:"bank_code"`
+	AccountNumber string `json:"account_number"`
+	NameTH        string `json:"name_th"`
+	MidnameTH     string `json:"midname_th"`
+	SurnameTH     string `json:"surname_th"`
+	NameEN        string `json:"name_en"`
+	MidnameEN     string `json:"midname_en"`
+	SurnameEN     string `json:"surname_en"`
+}
 
 // UserMemberGameSetting — PT ที่ผู้สร้างถือสู้กับ UserMember คนนี้ + Commission ต่อเกม (MGMT-21 แก้ 2026-10-09)
 type UserMemberGameSetting struct {

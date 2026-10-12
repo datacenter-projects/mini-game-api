@@ -105,8 +105,13 @@ func (r *CreateNoteRequest) Validate() error {
 	if r.Amount < 0 {
 		return apperr.ErrValidation.WithMessage("จำนวนเงินต้องไม่ติดลบ", "Amount must not be negative")
 	}
+	if !utils.IsDecimal4(r.Amount) { // ทศนิยมไม่เกิน 4 ตำแหน่ง + ส่วนจำนวนเต็มไม่เกิน 11 หลัก
+		return apperr.ErrValidation.WithMessage("amount ทศนิยมไม่เกิน 4 ตำแหน่ง", "amount must have at most 4 decimals")
+	}
 	return nil
 }
+// เงิน / % ใน request เป็น float64 ทั้งหมด (ทีมตกลง 2026-10-12 · เลิกใช้ utils.Decimal) · ต้องแยก "ไม่ส่ง" กับ 0 ให้ใช้ *float64
+// ส่งตัวเลขเป็นข้อความ (เช่น "100") body parse ไม่ผ่าน = code 400 ไม่บอก field
 
 type NoteResponse struct {
 	ID     uint    `json:"id"`

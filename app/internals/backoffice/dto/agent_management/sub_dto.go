@@ -4,7 +4,6 @@ import (
 	agentAuthCore "app/app/core/agent_auth"
 	agentManagementCore "app/app/core/agent_management"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
-	"app/pkg/utils"
 )
 
 // request / response ของ sub (phase 5) — spec: docs/modules/agent_management.md MGMT-40 – MGMT-46
@@ -61,31 +60,25 @@ func (r *SubCreateRequest) Validate() error {
 	return validateNamePhone(r.Name, &r.PhoneCountryCode, &r.Phone)
 }
 
-// SubUpdateRequest — POST /manage/subaccounts/detail/update (MGMT-42) · แทนทั้งชุด: ต้องส่งครบทุก field
+// SubUpdateRequest — POST /manage/subaccounts/detail/update (MGMT-42 · lead SN4)
+// 2 section ไม่บังคับ ส่งเฉพาะที่แก้ (nil = ไม่ส่ง) · ไม่ส่งเลยสัก section = 422 · ตรวจตามลำดับ field: id → info → permissions
+// info: name · phone_country_code + phone ส่งบาง field ได้ (กฎเดียวกับ section info ของ agents/detail/update)
+// permissions: ส่งมา = แทนทั้งชุด · เมนูที่ไม่ส่ง = off · {} = ปิดทุกเมนู · ค่าที่ใช้ได้ตรวจใน service (ขึ้นกับประเภทเจ้าของ — MGMT-52)
 type SubUpdateRequest struct {
-	ID               uint               `json:"id"`
-	Name             string             `json:"name"`
-	PhoneCountryCode utils.JSONString   `json:"phone_country_code"`
-	Phone            utils.JSONString   `json:"phone"`
-	Permissions      *map[string]string `json:"permissions"`
+	ID          uint               `json:"id"`
+	Info        *AgentInfoSection  `json:"info"`
+	Permissions *map[string]string `json:"permissions"`
 }
 
 func (r *SubUpdateRequest) Validate() error {
-	// ไล่ตามลำดับ field ใน body: id → name → phone_country_code → phone → permissions (7.1)
 	if err := CheckID(r.ID); err != nil {
 		return err
 	}
-	if !r.PhoneCountryCode.Present || !r.PhoneCountryCode.IsString {
-		return Invalid("phone_country_code", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
+	if r.Info == nil && r.Permissions == nil {
+		return Invalid("info / permissions", "ต้องส่งอย่างน้อย 1 section", "at least 1 section is required")
 	}
-	if !r.Phone.Present || !r.Phone.IsString {
-		return Invalid("phone", `ต้องส่งเป็นข้อความ (ไม่ตั้งให้ส่ง "")`, `must be a string (send "" to leave it empty)`)
-	}
-	if err := validateNamePhone(r.Name, &r.PhoneCountryCode.Value, &r.Phone.Value); err != nil {
-		return err
-	}
-	if r.Permissions == nil {
-		return Invalid("permissions", "ต้องส่ง (แทนทั้งชุด — ไม่ให้สิทธิ์ใดให้ส่ง {})", "is required (replaces the whole set — send {} for none)")
+	if r.Info != nil {
+		return r.Info.Check()
 	}
 	return nil
 }

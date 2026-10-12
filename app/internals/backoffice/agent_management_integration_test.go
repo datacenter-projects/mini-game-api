@@ -65,9 +65,11 @@ func seedSuperadmin(t *testing.T, app *fiber.App) (models.UserAgent, string) {
 	return sa, readyToken(t, app, models.AccountTypeAgent, sa.ID, "superadmin")
 }
 
+// readyToken — token ที่ผ่านด่านหลัง login ครบ: ตั้ง passcode และข้ามการบังคับเปลี่ยนรหัสผ่าน (sub ที่สร้างผ่าน API ถูกบังคับ — lead SQ3)
 func readyToken(t *testing.T, app *fiber.App, at models.AccountType, id uint, username string) string {
 	t.Helper()
 	setPasscode(t, at, id, passcode)
+	setCols(t, at, id, map[string]any{"must_change_password": false})
 	return loginToken2(t, app, username, mgPassword)
 }
 
@@ -92,7 +94,8 @@ func agentBody(userType, username string, currencies []string, pt map[string]any
 
 func memberBody(username string, commission float64) map[string]any {
 	return map[string]any{"request_id": newRequestID(), "username": username, "password": mgPassword, "name": "Name" + username,
-		"phone_country_code": "", "phone": "", "pt": map[string]any{"minigame": map[string]any{"pt": 0, "commission_percent": commission}}}
+		"phone_country_code": "", "phone": "", "pt": map[string]any{"minigame": map[string]any{"pt": 0, "commission_percent": commission}},
+		"payment_type": "CASH"} // บังคับ (member_management MGMT-63)
 }
 
 type created struct {

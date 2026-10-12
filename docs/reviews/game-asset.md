@@ -59,3 +59,28 @@
 
 ---
 
+
+## ตรวจ spec รอบที่ 1 (2026-10-12 · `carl/asset` f19a511) — lead ตัดสิน
+ผลตรวจ: GS1 · GR1–GR3 · GR5 · GR6 · GN · GQ3–GQ13 · error 05/06 · ส่วนกลาง GQ12 · test S11 · timestamp migration ✅ · **เริ่มโค้ดได้** หลังแก้ข้อด้านล่าง (ส่วนที่ไม่ติด เช่น `platform/storage`, `S3_*`, MinIO, helper multipart, middleware เป้าหมาย, core ไล่สาย/shades, theme, reset เริ่มได้ทันที) · infra lead สั่งแล้ว 2026-10-12
+
+| # | เรื่อง | lead ตัดสิน |
+|---|---|---|
+| AV1 | Share Master ตั้งหน้าตาเองได้ไหม (spec ตอบ `405301` — ต่างจาก GR4) | **Share Master ตั้งเองไม่ได้ ใช้ของ Company Seamless Master** (asset · theme · branding ทั้งหมด) — ทุกเว็บใต้ CSM เดียวกันหน้าตาเหมือนกัน · คง `405301` ของ spec · เป็นข้อยกเว้นของ GR4 เฉพาะ Share Master (สอดคล้อง H2/H3) · บัญชีประเภทอื่นตั้งเองได้ตาม GR4 |
+| AV2 | ตาราง GE ที่ S10 อ้าง (schneider ไม่มีไฟล์) | ใช้ตารางด้านล่าง |
+| AV3 | สิ่งที่ schneider ตัดสินเอง | **รับทั้งหมด:** ไล่สายด้วย `cnf` (MGMT-61) แทน recursive CTE · `detail/get` ตอบค่าที่ไล่สายแล้ว + `source` + **`inherited_from`** (username ของชั้นบนเมื่อ `source = upline`) · Member ใช้สายของผู้สร้าง · ลบไฟล์ที่สายล่างสืบทอดอยู่ได้ `405403` |
+| AV4 | รูปค่ากลาง (GLOBAL) ทุกช่อง | ต้องอัปให้ครบก่อน UAT (ไม่มี fallback แล้ว) · **schneider ทำ seed / script อัปรูป GLOBAL** จากไฟล์ที่ทีมเกม/ออกแบบส่งมา เป็นส่วนหนึ่งของงาน |
+
+### ตาราง GE (รายละเอียดทีละเส้น — ตัดสินตามแนะนำ)
+| GE | สิ่งที่ต้องเป็น |
+|---|---|
+| GE1-1 | ปกเกมใน `games/list` ใช้ค่าที่**ไล่สายจากผู้เรียก** (เห็นแบบเดียวกับผู้เล่นของตัวเอง) ไม่ใช่ GLOBAL อย่างเดียว |
+| GE1-2 | `games/list` ไม่กรองเกมที่ `status_game` ปิด (หน้าจัดการหน้าตายังต้องเห็นทุกเกม) |
+| GE2-1 | ตัด `description` ออกจากช่อง (response + คอลัมน์ `asset_types`) — หน้าบ้านแปลชื่อช่องจาก `asset_type` เอง |
+| GE6-1 | `used/list` ส่ง**ทุกช่อง**ของเกม ช่องที่ไม่มีไฟล์ได้ `url: ""` (ACC-32) |
+| GE6 / GE9 / GE12 | เพิ่ม `inherited_from` เมื่อ `source = upline` (AV3) |
+| GE10-1 | theme ส่งค่าเดิมทั้งชุด → 200 ไม่แตะ `updated_*` ไม่สร้างแถวใหม่ (แนว MQ5) |
+| GE13 | `site_name` 1–50 ตัว ตัดช่องว่างหน้าหลัง ห้ามอักขระควบคุม |
+| GE13-1 | `site_theme` ไม่อยู่ใน MVP (ตรงกับ spec แล้ว) |
+| GE22-2 | เส้นฝั่งผู้เล่น (bundle + รายชื่อเกมของ lobby) ใครทำ → ตัดสินพร้อม review Player Auth |
+
+เก็บเล็กน้อย: AST-41 ขัดกับ AST-47 · `docs/lead/carl-asset.md` ยังเขียน "รอ commit" · ตัวอย่าง shades ย่อ · ตาราง field ของ request (ใส่ใน frontend doc ได้) — รายละเอียดใน verify report

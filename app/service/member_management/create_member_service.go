@@ -10,6 +10,7 @@ import (
 	"time"
 
 	agentManagementCore "app/app/core/agent_management"
+	memberManagementCore "app/app/core/member_management"
 	memberManagementDto "app/app/internals/backoffice/dto/member_management"
 	"app/app/models"
 	agentManagementPostgres "app/app/repository/postgres/agent_management"
@@ -62,7 +63,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			return err
 		}
 		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO — หัวข้อ 2.1 · lead U3 / MQ2):
-		// ประเภทผู้สร้าง → username → เบอร์ → balance (Seamless → ยอดไม่พอ) → pt → commission_percent
+		// ประเภทผู้สร้าง → username → เบอร์ → balance (Seamless → ยอดไม่พอ) → pt → commission_percent → บัญชีธนาคาร
 		if !agentManagementCore.CanCreateMember(c.UserType) {
 			return apperr.ErrCannotCreateType
 		}
@@ -87,16 +88,25 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 				return err
 			}
 		}
+		if err := lockMemberPaymentAccountFree(tx, c.Agent.ID, req.Account, 0); err != nil { // บัญชีซ้ำ (MGMT-64) ต่อจาก commission_percent
+			return err
+		}
 
 		now := time.Now()
 		cnf, err := json.Marshal(agentManagementCore.ChildChain(c.Chain, c.Agent.ID, c.Agent.Role)) // สายชั้นบน = สายของผู้สร้าง + ผู้สร้าง
 		if err != nil {
 			return err
 		}
+		paymentType := memberManagementCore.StoredPaymentType(req.Payment, agentManagementCore.IsSeamless(c.CompanyType)) // Seamless = CASH (MGMT-63)
+		account, err := encodePaymentAccount(req.Account)
+		if err != nil {
+			return err
+		}
 		m := models.UserMember{AgentID: c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: req.Name,
 			PhoneCountryCode: agentManagementService.OptionalString(req.PhoneCountryCode), Phone: agentManagementService.OptionalString(req.Phone),
-			Currency: currencies[0], Status: models.AgentStatusActive, Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
-		if err := createMemberRow(tx, &m); err != nil {
+			Currency: currencies[0], Status: models.AgentStatusActive, Cnf: string(cnf),
+			PaymentType: paymentType, PaymentAccount: account, WinLimitPerDay: req.WinLimitPerDay, CreatedAt: now, UpdatedAt: now}
+		if err := createMemberRow(tx, &m, req.Account); err != nil {
 			return err
 		}
 
@@ -104,11 +114,11 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		ptLog := map[string]memberPTValue{}
 		for _, g := range agentManagementCore.Groups() {
 			v := req.PT[string(g)]
-			remain := agentManagementCore.MemberRemain(c.Received[g], v.PT)
-			ptLog[string(g)] = memberPTValue{PT: v.PT, Remain: remain, Commission: v.Commission}
+			remain := agentManagementCore.MemberRemain(c.Received[g], *v.OwnPT)
+			ptLog[string(g)] = memberPTValue{PT: *v.OwnPT, Remain: remain, Commission: *v.CommissionPercent}
 			for _, game := range agentManagementCore.GamesOf(g) {
 				settings = append(settings, models.UserMemberGameSetting{UserMemberID: m.ID, GameCode: game.GameCode, ParentID: c.Agent.ID, Category: game.Category,
-					PT: v.PT, Remain: remain, Commission: v.Commission,
+					PT: *v.OwnPT, Remain: remain, Commission: *v.CommissionPercent,
 					CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
 			}
 		}
@@ -126,7 +136,8 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 
 		created, err := agentManagementService.ChangeLog(actor, meta, req.RequestID, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeCreate, nil,
 			map[string]any{"username": m.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone, "agent_id": c.Agent.ID,
-				"currency": m.Currency, "pt": ptLog}, now)
+				"currency": m.Currency, "pt": ptLog, "payment_type": paymentType, "payment_account": maskedPaymentAccount(req.Account), // เลขบัญชีปิดบางส่วน (P8)
+				"win_limit_per_day": req.WinLimitPerDay}, now)
 		if err != nil {
 			return err
 		}
@@ -149,10 +160,10 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 	return res, err
 }
 
-// createMemberRow — INSERT แถว Member (MGMT-05, MGMT-08)
-// username / เบอร์ถูกเช็คใต้ advisory lock แล้ว แต่ถ้ายังชน unique (เช่น แถวที่ยังไม่ commit ตอนเช็ค) ให้ตอบ error ของ field แทน 409:
-// ย้อนไป savepoint แล้วดูว่าเบอร์ถูกใช้ไหม — ใช่ = 402403 · ไม่ใช่ = username (unique อีกตัวเดียวของตาราง) 402401
-func createMemberRow(tx *gorm.DB, m *models.UserMember) error {
+// createMemberRow — INSERT แถว Member (MGMT-05, MGMT-08, MGMT-64)
+// username / เบอร์ / บัญชีถูกเช็คใต้ advisory lock แล้ว แต่ถ้ายังชน unique (เช่น แถวที่ยังไม่ commit ตอนเช็ค) ให้ตอบ error ของ field แทน 409:
+// ย้อนไป savepoint แล้วดูตามลำดับ field — เบอร์ถูกใช้ = 402403 · บัญชีถูกใช้ = 402405 · ไม่ใช่ทั้งคู่ = username (unique ที่เหลือของตาราง) 402401
+func createMemberRow(tx *gorm.DB, m *models.UserMember, account models.MemberPaymentAccount) error {
 	const sp = "create_member_row"
 	if err := tx.SavePoint(sp).Error; err != nil {
 		return err
@@ -171,6 +182,15 @@ func createMemberRow(tx *gorm.DB, m *models.UserMember) error {
 		}
 		if taken {
 			return apperr.ErrPhoneTaken
+		}
+	}
+	if memberManagementCore.HasPaymentAccount(account) {
+		taken, err := memberManagementPostgres.UserMemberPaymentAccountTakenByOtherRepository(tx, m.AgentID, account.BankCode, account.AccountNumber, 0)
+		if err != nil {
+			return err
+		}
+		if taken {
+			return apperr.ErrPaymentAccountTaken
 		}
 	}
 	return apperr.ErrUsernameTaken

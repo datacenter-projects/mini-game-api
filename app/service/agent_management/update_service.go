@@ -199,7 +199,7 @@ func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor
 		if !ok {
 			continue // บัญชีไม่มีแถวของกลุ่มนี้ (ข้อมูลก่อน module ②) — ไม่มีอะไรให้แก้
 		}
-		v := req[g].Parsed
+		v := req[g].Values()
 		var status bool
 		if childIsShareMaster { // CSM แก้ได้แค่ Commission (MGMT-19)
 			v = agentManagementCore.ChildPT{PTFromParent: cur.PTFromParent, Force: cur.Force, Remain: cur.Remain, Commission: v.Commission}

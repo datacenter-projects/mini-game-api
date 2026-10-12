@@ -79,6 +79,10 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		if err := CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {
 			return err
 		}
+		pts := make(map[string]agentManagementCore.ChildPT, len(req.PT)) // ค่าที่ตั้งให้ลูกต่อกลุ่ม (MGMT-16)
+		for g, v := range req.PT {
+			pts[g] = v.Values()
+		}
 		if creatorIsMaster { // ค่าอื่นและ status_game ตาม CSM (MGMT-19)
 			if req.StatusGame != nil {
 				return shareMasterFieldError("status_game")
@@ -86,14 +90,14 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			for _, g := range SortedGroups(req.PT) {
 				v := req.PT[g]
 				var status bool
-				v.Parsed, status = followCSM(c.Settings, agentManagementCore.PTGroup(g), v.Parsed.Commission)
+				pts[g], status = followCSM(c.Settings, agentManagementCore.PTGroup(g), pts[g].Commission)
 				v.Status = &status
 				req.PT[g] = v
 			}
 			req.StatusGame = statusGameOf(c.Settings)
 		}
 		for _, g := range SortedGroups(req.PT) {
-			is := agentManagementCore.CheckChildPT(req.PT[g].Parsed, c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster)
+			is := agentManagementCore.CheckChildPT(pts[g], c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster)
 			if err := ChildPTError(g, is); err != nil {
 				return err
 			}
@@ -123,7 +127,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		statusGame := map[string]bool{}
 		var settings []models.AgentGameSetting
 		for _, g := range agentManagementCore.Groups() {
-			v := req.PT[string(g)].Parsed
+			v := pts[string(g)]
 			groupOn := *req.PT[string(g)].Status
 			for _, game := range agentManagementCore.GamesOf(g) {
 				on, sent := req.StatusGame[game.GameCode]
@@ -155,13 +159,9 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			return err
 		}
 
-		ptLog := map[string]agentManagementCore.ChildPT{}
-		for g, v := range req.PT {
-			ptLog[g] = v.Parsed
-		}
 		created, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeCreate, nil,
 			map[string]any{"user_type": newAcc.UserType, "username": a.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone,
-				"parent_id": c.Agent.ID, "currencies": currencies, "pt": ptLog, "status_game": statusGame}, now)
+				"parent_id": c.Agent.ID, "currencies": currencies, "pt": pts, "status_game": statusGame}, now)
 		if err != nil {
 			return err
 		}

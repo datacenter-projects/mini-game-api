@@ -7,6 +7,9 @@
   lead อนุมัติงานก่อนหน้า: ลบค่าถือ `pt` ค่าเดียวของ agent + `update-hold` (U1) · MGMT-24 R1–R3 (U2) · ลำดับเช็ค 7.1 + ข้อความ error (U3) · เปลี่ยนชื่อตาราง Member (U4)
 - การแก้ก่อนหน้า (สรุป): 2026-10-08 ชื่อเป็นภาษาไทยได้ · เบอร์ของ sub ซ้ำได้ · ยอดเงินตั้งต้นอยู่ใน module นี้ · `pt` ชุดเดียวต่อระบบ (`minigame`) · `pt.status` = รับ PT ไหม ·
   2026-10-09 เงินและ % เป็น float ปัด 4 ตำแหน่ง (CLAUDE.md กฎข้อ 9 — lead อนุมัติ) · `user_agents.cnf` + `agent_game_settings.parent_id` (MGMT-61 / 62 — lead อนุมัติ) · แถวรายชื่อมี `last_login_*` + `created_at`
+- **sub แก้ตาม lead review 2026-10-11** ([docs/reviews/subaccount.md](../reviews/subaccount.md) — SA1–SA2 · SN · SN4 · SQ1–SQ8): อนุมัติสถานะเดิม = 200 ไม่เขียน log (SA1) และ `keyword` 4–32 (SA2) ·
+  `subaccounts/detail/update` แบบ section `info` / `permissions` (SN4) · ค่าเดิมไม่เขียน log (SQ5) · log สิทธิ์แยก `SUB_PERMISSIONS` (SQ6) · `INACTIVE` = login ไม่ได้ + ตัด session ทันที (`401312` — SQ1) ·
+  สร้าง sub = ต้องเปลี่ยนรหัสผ่านตอน login ครั้งแรก (SQ3) · รีเซ็ตรหัส sub ผ่าน ADMIN เท่านั้น (SQ2 — AUTH-52) · sub ของ Superadmin คงไว้ (SQ4) · ไม่จำกัดจำนวน sub (SQ7) · `keyword` ค้นรวมส่วนชื่อเจ้าของ (SQ8)
 - **โค้ด:** ทำครบตาม review แล้ว — PR 2 (เส้น E1–E6 · สิทธิ์ · Share Reseller / Master) · PR 3 (CSM → Share Master · เบอร์ 2 field + migration) · ส่วน Member (เบอร์ · path `members/*` · `amounts`) อยู่ใน member_management
 - ชื่อ module ในโค้ด: `agent_management` (`controllers/` `dto/` `service/` `core/agent_management`) · เส้น `/manage/members/*` อยู่ module `member_management` ([member_management.md](member_management.md) · ผู้ดูแล maofoy) · กฎ business ร่วมอยู่ที่ `core/agent_management` และ spec ฉบับนี้
 - เมนู: 2 การจัดการสมาชิก — เพิ่มบัญชี · รายชื่อดาวน์ไลน์ (ไล่ลงได้ถึง Member · ค้นทั้งสาย) · แก้ไข · บัญชีย่อย
@@ -179,9 +182,11 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 | ID | Rule |
 |---|---|
 | MGMT-40 | สร้างได้: บัญชีหลักฝั่ง agent (ADMIN ไม่ได้ — AUTH-43) · sub สร้าง / แก้ / เปลี่ยนสถานะ / ดูรายชื่อ sub ไม่ได้ (`402311`) |
-| MGMT-41 | username = `{username เจ้าของ}@{ชื่อ}` · ส่วนหลัง `@` 3–20 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่ เก็บตัวเล็ก) · รหัสผ่านตาม AUTH-36 · ชื่อเล่นตาม MGMT-07 · เบอร์ตาม MGMT-08 แต่**ซ้ำได้** |
-| MGMT-42 | แก้ได้: ชื่อเล่น · เบอร์โทร · สิทธิ์ (`subaccounts/detail/update`) · สถานะ (`subaccounts/status/update`) · username แก้ไม่ได้ · รหัสผ่านใช้ระบบ reset ของ admin (AUTH-52) |
-| MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · เจ้าของเป็นคนเปลี่ยน · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ (เก็บเป็น `SUSPENDED` · API แสดง `INACTIVE`) · ไม่ต้อง passcode · **ส่งสถานะเดิม = `200` ไม่เขียน log** (กฎเดียวกับ MGMT-30 · ตัดสิน 2026-10-10) · เจ้าของหรือหัวสายถูกระงับ / ล็อก → sub ได้ผลตาม `status` ที่ใช้งานจริง |
+| MGMT-41 | username = `{username เจ้าของ}@{ชื่อ}` · ส่วนหลัง `@` 3–20 ตัว `a-z` `0-9` (รับตัวพิมพ์ใหญ่ เก็บตัวเล็ก) · รหัสผ่านตาม AUTH-36 · ชื่อเล่นตาม MGMT-07 · เบอร์ตาม MGMT-08 แต่**ซ้ำได้** · sub ใหม่ `must_change_password = true` ไม่มีวันหมดอายุ — login ครั้งแรกต้องเปลี่ยนรหัสผ่านก่อนใช้เส้นอื่น (`401306` · lead SQ3) · ไม่จำกัดจำนวน sub ต่อเจ้าของ (SQ7) |
+| MGMT-42 | แก้ได้: ชื่อเล่น · เบอร์โทร · สิทธิ์ (`subaccounts/detail/update` แบบ section — lead SN4) · สถานะ (`subaccounts/status/update`) · username แก้ไม่ได้ · รหัสผ่านใช้ระบบ reset ของ ADMIN เท่านั้น (AUTH-52 · lead SQ2) |
+| | • `detail/update`: section `info` (ชื่อ · เบอร์คู่ — ส่งบาง field ได้) และ `permissions` (ส่งมา = แทนทั้งชุด · เมนูที่ไม่ส่ง = `off` · `{}` = ปิดทุกเมนู) ไม่บังคับทั้งคู่ แต่**ต้องมีอย่างน้อย 1 section** (`422` — แบบเดียวกับ MN2) · tx เดียว (section ไหนผิดไม่บันทึกเลย) · ลำดับเช็คตาม field `id` → `info` → `permissions` (U3) · เจ้าของเท่านั้น (`402404`) |
+| | • log แยกแถว `UPDATE_INFO` / `SUB_PERMISSIONS` เฉพาะ section ที่เปลี่ยนจริง · ค่าเดิม = `200` ไม่เขียน log (lead SQ5 / SQ6) · สิทธิ์เทียบแบบครบทุกเมนู (ไม่มี key = `off`) · request ถัดไปของ sub ใช้สิทธิ์ใหม่ทันที |
+| MGMT-43 | สถานะของ sub: `ACTIVE` / `INACTIVE` · เจ้าของเป็นคนเปลี่ยน · ไม่ต้อง passcode · **`INACTIVE` = login ไม่ได้ (`401312`) และ session ที่ใช้อยู่ถูกลบทันทีหลัง commit** (request ถัดไป `401203`) — ใช้แทนการลบ / เลิกจ้าง · ไม่เข้าข่าย "SUSPENDED ดูได้" (AUTH-54 / ACC-31 · lead SQ1) · เก็บเป็น `SUSPENDED` ที่แถว sub · API แสดง `INACTIVE` · **ส่งสถานะเดิม = `200` ไม่เขียน log** (lead MQ5 / V1 · SA1) · lock แถว sub ด้วย `FOR NO KEY UPDATE` · เจ้าของหรือหัวสายถูกระงับ / ล็อก → sub ได้ผลตาม `status` ที่ใช้งานจริง (ระงับ = ดูได้ตาม AUTH-54) |
 | MGMT-44 | ไม่มีการลบ sub — เลิกใช้ให้เปลี่ยนเป็น `INACTIVE` |
 | MGMT-45 | แก้ / เปลี่ยนสถานะได้เฉพาะเจ้าของ · ชั้นบนดูรายชื่อและรายละเอียด sub ของบัญชีในสายล่างได้อย่างเดียว (`402404`) |
 | MGMT-46 | รายชื่อ sub: `owner_id` (ไม่ส่ง = ตัวเอง · ต้องเป็นตัวเองหรือสายล่าง) · `keyword` ค้น username บางส่วน ไม่สนตัวพิมพ์ 4–32 ตัว (ไม่ส่ง / `""` = ทั้งหมด · แบบเดียวกับ MGMT-27 — แก้ 2026-10-10 แทน `q`) · A→Z · `page` / `limit` · แต่ละแถว `id` · `username` · `name` · `phone_country_code` · `phone` · `status` · `permissions` · `created_at` · `last_login_at` · `last_login_ip` · `subaccounts/detail/get` ส่ง field ชุดเดียวกัน |
@@ -209,7 +214,7 @@ MGMT-24: comA ลดค่าที่ให้ share1 ได้ต่ำสุ�
 
 ใช้แค่ method `POST` · ระบุบัญชีด้วย `id` ใน body (ผู้เรียกมาจาก token) · ใต้ `/bo/pr` ผ่าน `Authenticated` + `PassedGates()` (รวม AUTH-54) ·
 รูปแบบชื่อเส้น `…/detail/get` · `…/detail/update` · `…/status/update` (lead N1 — ใช้กับ sub ด้วย · Member ตาม member_management) ·
-error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, `401307`, `401311`, `402303`
+error ร่วม: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, `401307`, `401311`, `401312`, `402303`
 
 | Method | Path | สิทธิ์ (sub) | หน้าที่ |
 |---|---|---|---|
@@ -476,24 +481,38 @@ Request:
 }
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ", "data": { "id": 30, "username": "comp01@staff" } }`
+- sub ใหม่ต้องเปลี่ยนรหัสผ่านตอน login ครั้งแรก (`must_change_password = true` — MGMT-41 · lead SQ3) · ADMIN สร้างไม่ได้ (`402301`)
 - username = `{username เจ้าของ}@{name_suffix}` · เมนูที่ไม่ส่ง = `off` · `dashboard` / `report` สูงสุด `view` · เมนูที่ประเภทเจ้าของไม่มี (รวม `pt`) = `422` · เบอร์ซ้ำได้
 
 Error codes: `422`, `402301`, `402311`, `402401`
 
 ### POST /api/v1/bo/pr/manage/subaccounts/detail/update
 
-Request (แทนทั้งชุด — ต้องส่งครบ · ไม่ให้สิทธิ์ใดส่ง `"permissions": {}`):
+Request (ส่งเฉพาะ section ที่แก้ · อย่างน้อย 1 section — lead SN4):
 ```json
-{ "id": 30, "name": "staff01", "phone_country_code": "66", "phone": "811111111", "permissions": { "member": "view", "report": "view" } }
+{
+  "id": 30,
+  "info": { "name": "staff01", "phone_country_code": "66", "phone": "811111111" },
+  "permissions": { "member": "view", "report": "view" }
+}
 ```
-Response: `{ "code": 200, "msg": "สำเร็จ" }` · แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`)
+Response: `{ "code": 200, "msg": "สำเร็จ" }`
+
+| section | กติกา |
+|---|---|
+| `info` | `name` · `phone_country_code` + `phone` — ส่งบาง field ได้ (ไม่ส่ง = คงเดิม) · เบอร์ต้องส่ง 2 field คู่กัน · ล้างเบอร์ส่ง `""` ทั้งคู่ · `{}` = `422` · เบอร์ซ้ำได้ (MGMT-41) |
+| `permissions` | ส่งมา = แทนทั้งชุด · เมนูที่ไม่ส่ง = `off` · `{}` = ปิดทุกเมนู · `dashboard` / `report` สูงสุด `view` · เมนูที่ประเภทเจ้าของไม่มี = `422` · `null` = `422` |
+
+- ไม่ส่งเลยสัก section (`{ "id": 30 }`) = `422` "ต้องส่งอย่างน้อย 1 section" · tx เดียว · แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`)
+- log `UPDATE_INFO` / `SUB_PERMISSIONS` แยกแถวเฉพาะที่เปลี่ยน · ค่าเดิม = `200` ไม่เขียน log (MGMT-42)
 
 Error codes: `422`, `402311`, `402404`
 
 ### POST /api/v1/bo/pr/manage/subaccounts/status/update
 
 Request: `{ "id": 30, "status": "INACTIVE" }` · Response: `{ "code": 200, "msg": "สำเร็จ" }`
-- `ACTIVE` / `INACTIVE` (เก็บเป็น `SUSPENDED`) · แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`) · ไม่มีการลบ sub
+- `ACTIVE` / `INACTIVE` (เก็บเป็น `SUSPENDED`) · แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`) · ไม่มีการลบ sub · ส่งสถานะเดิม = `200` ไม่เขียน log
+- ตั้ง `INACTIVE`: session ของ sub ถูกลบทันที (request ถัดไป `401203`) · login ใหม่ได้ `401312` จนกว่าตั้งกลับ `ACTIVE` (MGMT-43 · lead SQ1)
 
 Error codes: `422`, `402311`, `402404`
 
@@ -527,7 +546,7 @@ CREATE TABLE agent_game_settings (                -- ค่าหุ้นส่
 );
 CREATE INDEX idx_agent_game_settings_parent ON agent_game_settings(parent_id, game_code);
 
--- subaccounts: name VARCHAR(32) · phone VARCHAR(15) · permissions JSONB NOT NULL DEFAULT '{}' (ไม่มี key = off) · INACTIVE เก็บเป็น 'SUSPENDED'
+-- subaccounts: name VARCHAR(32) · phone VARCHAR(15) · permissions JSONB NOT NULL DEFAULT '{}' (ไม่มี key = off) · INACTIVE เก็บเป็น 'SUSPENDED' · สร้างใหม่ must_change_password = true (MGMT-41)
 
 CREATE TABLE agent_balances (agent_id BIGINT, currency VARCHAR(4), amount DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (amount >= 0), updated_at TIMESTAMPTZ, PRIMARY KEY (agent_id, currency));
 CREATE TABLE balance_ledger (                     -- ทุกการเปลี่ยนยอด (กฎข้อ 11) · amount / balance_after เป็น DOUBLE PRECISION
@@ -537,7 +556,7 @@ CREATE TABLE balance_ledger (                     -- ทุกการเปล
     CONSTRAINT uq_balance_ledger_request UNIQUE (request_id, owner_type, owner_id, currency)
 );
 CREATE TABLE create_requests (request_id VARCHAR(64) PRIMARY KEY, creator_type VARCHAR(10), creator_id BIGINT, target_type VARCHAR(10), target_id BIGINT, created_at TIMESTAMPTZ);
-CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE / UPDATE_INFO / UPDATE_STATUS / UPDATE_PT / ADJUST_PT / UPDATE_GAMES / SYNC_FROM_CSM / SUB_STATUS / INITIAL_BALANCE
+CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE / UPDATE_INFO / UPDATE_STATUS / UPDATE_PT / ADJUST_PT / UPDATE_GAMES / SYNC_FROM_CSM / SUB_STATUS / SUB_PERMISSIONS / INITIAL_BALANCE
     id BIGSERIAL PRIMARY KEY, actor_type VARCHAR(10), actor_id BIGINT, actor_username VARCHAR(71), target_type VARCHAR(10), target_id BIGINT,
     target_username VARCHAR(71), action VARCHAR(30), old_value JSONB, new_value JSONB, ip VARCHAR(45), request_id VARCHAR(64), created_at TIMESTAMPTZ
 );
@@ -602,7 +621,11 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 | MGMT-35 | `agents/list` · `keyword` 3 ตัว · ไม่มีลูก | ลูกตรงฝั่ง agent A→Z (ไม่มี Member) · `422` · `[]` |
 | MGMT-30 | แก้สถานะตัวเอง · หลาน · LOCKED → ACTIVE · ส่ง ACTIVE ซ้ำ | `402304` · `402304` · สำเร็จ · `200` ไม่มี log เพิ่ม |
 | MGMT-31 | Company ระงับ Share · Share ล็อก Agent | Share และสายล่าง `SUSPENDED` Company ปกติ · Agent request ถัดไป `401301` |
-| MGMT-43 / 45 | sub `INACTIVE` · ชั้นบนแก้ sub ของสายล่าง | login ได้ เรียกเส้นอื่น `401311` · `402404` |
+| MGMT-43 / 45 | sub `INACTIVE` (มี session อยู่) · login ใหม่ · ตั้งกลับ `ACTIVE` · ชั้นบนแก้ sub ของสายล่าง | request ถัดไป `401203` (รวม Profile / `api-credential`) · `401312` · login ได้ · `402404` |
+| MGMT-43 | ตั้ง `INACTIVE` ตรงใน DB (session ไม่ถูกลบ) | request ถัดไป `401312` |
+| MGMT-41 | sub ใหม่ login · เรียกเส้นอื่นก่อนเปลี่ยนรหัสผ่าน · ADMIN สร้าง sub | `must_change_password = true` · `401306` · `402301` |
+| MGMT-42 | `detail/update` `{ "id" }` · `info: {}` · `permissions: null` · `info` อย่างเดียว · `permissions` อย่างเดียว · ทั้ง 2 section · ค่าเดิมทั้งหมด · `info` ถูก + `permissions` ผิด | `422` · `422` · `422` · log `UPDATE_INFO` · log `SUB_PERMISSIONS` (เมนูที่ไม่ส่ง = off) · log 2 แถว · `200` ไม่มี log · `422` ชื่อไม่เปลี่ยน |
+| MGMT-42 | แก้สิทธิ์ของ sub เป็น `{}` แล้ว sub เรียก `downlines/list` | `402303` ทันที |
 | MGMT-40 | sub เรียก `subaccounts/create` / `list` | `402311` |
 | MGMT-51 | sub มี `member` view เรียก `downlines/list` · `detail/get` · `agents/list` · `detail/update` | สำเร็จ · สำเร็จ · สำเร็จ · `402303` |
 | MGMT-51 | sub มี `member` edit สร้าง Agent (ไม่ส่ง `balance`) | สำเร็จ (ไม่ต้องมี `pt` แล้ว) |

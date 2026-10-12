@@ -86,6 +86,8 @@ database/migrations/      goose .sql
 
 20. schema มาจาก goose migration เท่านั้น (`make migration name=...`) ห้าม AutoMigrate
     - migration ที่ merge แล้วห้ามแก้ ต้องสร้างไฟล์ใหม่
+    - หลัง prod มีข้อมูลจริง: migration ที่แปลง / ล้างข้อมูลในตารางเกิน 100,000 แถว (หรือ lock เกิน 5 วินาที) ต้องแยก 3 ขั้น
+      schema → script batch 10,000 แถว → constraint `NOT VALID` / index `CONCURRENTLY` (`docs/DEPLOYMENT.md` · lead 2026-10-11)
 21. query ต้องเป็น parameterized เสมอ ห้ามต่อ string ด้วยค่าจาก user
 22. query ของหลังบ้านต้อง scope ด้วยเจ้าของข้อมูล (agent/สายงาน) ทุกครั้ง
 23. Select เฉพาะคอลัมน์ที่ใช้ ห้าม N+1 และการเขียนหลายแถวใช้ batch
