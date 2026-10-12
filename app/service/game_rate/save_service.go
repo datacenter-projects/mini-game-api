@@ -45,6 +45,9 @@ func saveRates(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, m
 	if baseVersion != latest.Version {
 		return 0, false, staleError(latest)
 	}
+	if err := checkFormat(next); err != nil { // รูปแบบตามกฎปัจจุบัน (เพดาน 50 · ตัวคูณ · จำนวนขั้น / แถว) — rollback ต้องผ่านด้วย (RATE-05A)
+		return 0, false, err
+	}
 	if issues := ruleIssues(next); len(issues) > 0 { // กฎปัจจุบัน — rollback ไปเวอร์ชันที่ไม่ผ่านกฎใหม่ก็ไม่ได้ (RATE-05A)
 		return 0, false, issueError(issues[0], next)
 	}
@@ -64,11 +67,22 @@ func saveRates(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, m
 		w := next.Scratch.WinPercent
 		v.WinPercent = &w
 	}
-	if err := gameRatePostgres.CreateVersionRepository(tx, &v); err != nil {
-		if errors.Is(err, apperr.ErrConflict) { // เลขชน (หลุด lock) = มีคนบันทึกตัดหน้า
-			return 0, false, apperr.ErrRateStale
-		}
+	if err := tx.SavePoint("rate_version").Error; err != nil {
 		return 0, false, err
+	}
+	if err := gameRatePostgres.CreateVersionRepository(tx, &v); err != nil {
+		if !errors.Is(err, apperr.ErrConflict) {
+			return 0, false, err
+		}
+		// เลขชน (หลุด lock) = มีคนบันทึกตัดหน้า · ย้อน savepoint แล้วอ่านเวอร์ชันล่าสุดให้ msg บอกเวอร์ชัน + คนแก้ (Q5)
+		if err := tx.RollbackTo("rate_version").Error; err != nil {
+			return 0, false, err
+		}
+		latest, err := gameRatePostgres.GetLatestVersionRepository(tx, next.GameCode)
+		if err != nil {
+			return 0, false, err
+		}
+		return 0, false, staleError(latest)
 	}
 	switch next.Kind {
 	case gameRateCore.KindSteps:
@@ -124,4 +138,17 @@ func RollbackRateService(ctx context.Context, actor agentAuthService.Actor, req 
 		return err
 	})
 	return res, err
+}
+
+// checkFormat — รูปแบบของค่าชุดนี้ตามกฎปัจจุบัน (core CheckStepsFormat / CheckScratchFormat) · ข้อความเดียวกับ DTO
+// RE4 ผ่าน DTO มาแล้ว (ตรวจซ้ำได้ไม่ผิด) · RE7 ค่ามาจาก DB จึงต้องตรวจที่นี่
+func checkFormat(r Rates) error {
+	spec, ok := gameRateCore.SpecOf(r.GameCode)
+	if !ok {
+		return apperr.ErrRateGameNotFound
+	}
+	if spec.Kind == gameRateCore.KindSteps {
+		return gameRateDto.FormatError(gameRateCore.CheckStepsFormat(r.Steps, spec.StepCount), "steps", spec.StepCount)
+	}
+	return gameRateDto.FormatError(gameRateCore.CheckScratchFormat(r.Scratch), "prizes", 0)
 }

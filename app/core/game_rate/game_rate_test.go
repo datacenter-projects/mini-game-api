@@ -238,6 +238,22 @@ func TestDiffSteps(t *testing.T) { // RE5 changes (Q4)
 	}
 }
 
+func TestDiffStepsCountChanged(t *testing.T) { // เกมเปลี่ยนจำนวนขั้น: ขั้นที่หายไป To nil · ขั้นที่เพิ่ม From nil
+	prev := []Step{{1.9, 50}, {3.61, 48}, {6.859, 46}}
+	cur := []Step{{1.9, 50}, {3.61, 48}}
+	want := []Change{
+		{Type: ChangeStep, Step: 3, Field: "multiplier", From: ptr(6.859)},
+		{Type: ChangeStep, Step: 3, Field: "win_percent", From: ptr(46)},
+	}
+	if got := DiffSteps(prev, cur); !reflect.DeepEqual(got, want) {
+		t.Fatalf("ลดขั้น %+v", got)
+	}
+	got := DiffSteps(cur, prev)
+	if len(got) != 2 || got[0].From != nil || *got[0].To != 6.859 || got[1].From != nil {
+		t.Fatalf("เพิ่มขั้น %+v", got)
+	}
+}
+
 func TestDiffScratch(t *testing.T) { // RE5 changes (Q4) · จับคู่รางวัลด้วย multiplier
 	if got := DiffScratch(nil, diagramScratch()); len(got) != 0 {
 		t.Fatalf("เวอร์ชันแรกต้องไม่มีรายการ %+v", got)

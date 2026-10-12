@@ -52,22 +52,28 @@ type Change struct {
 
 func ptr(v float64) *float64 { return &v }
 
-// DiffSteps — Coin / RPS ไล่ทีละขั้น multiplier ก่อน win_percent · prev nil (เวอร์ชันแรก) = ไม่มีรายการ
+// DiffSteps — ไล่ทีละขั้น multiplier ก่อน win_percent · prev nil (เวอร์ชันแรก) = ไม่มีรายการ
+// จำนวนขั้นต่างกัน (เกมเปลี่ยน StepCount): ขั้นที่เพิ่ม From = nil · ขั้นที่หายไป To = nil
 func DiffSteps(prev, cur []Step) []Change {
 	out := []Change{}
 	if prev == nil {
 		return out
 	}
-	for i := range cur {
-		var p Step
-		if i < len(prev) {
-			p = prev[i]
+	stepValue := func(steps []Step, i int, field string) *float64 {
+		if i >= len(steps) {
+			return nil
 		}
-		if p.Multiplier != cur[i].Multiplier {
-			out = append(out, Change{Type: ChangeStep, Step: i + 1, Field: "multiplier", From: ptr(p.Multiplier), To: ptr(cur[i].Multiplier)})
+		if field == "multiplier" {
+			return ptr(steps[i].Multiplier)
 		}
-		if p.WinPercent != cur[i].WinPercent {
-			out = append(out, Change{Type: ChangeStep, Step: i + 1, Field: "win_percent", From: ptr(p.WinPercent), To: ptr(cur[i].WinPercent)})
+		return ptr(steps[i].WinPercent)
+	}
+	for i := 0; i < max(len(prev), len(cur)); i++ {
+		for _, field := range []string{"multiplier", "win_percent"} {
+			from, to := stepValue(prev, i, field), stepValue(cur, i, field)
+			if from == nil || to == nil || *from != *to {
+				out = append(out, Change{Type: ChangeStep, Step: i + 1, Field: field, From: from, To: to})
+			}
 		}
 	}
 	return out

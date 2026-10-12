@@ -355,6 +355,25 @@ func TestRateRollbackChecksCurrentRules(t *testing.T) { // RATE-05A: เวอ�
 	if rateVersionCount(t, "coin_toss") != 2 {
 		t.Fatal("ย้อนไม่ผ่านต้องไม่สร้างเวอร์ชัน")
 	}
+
+	// เวอร์ชันที่ผิดรูปแบบตามกฎปัจจุบัน (win_percent 60 เกินเพดาน 50) = 422 บอก field · ไม่สร้างเวอร์ชัน
+	capped := models.GameRateVersion{GameCode: "coin_toss", Version: 3, ActorType: models.AccountTypeAgent, ActorID: 1, CreatedBy: "legacy"}
+	if err := database.DBConn.Create(&capped).Error; err != nil {
+		t.Fatal(err)
+	}
+	var capRows []models.GameRateStep
+	for i, s := range rateSteps(func(s [][2]float64) { s[5][1] = 60 }) {
+		capRows = append(capRows, models.GameRateStep{VersionID: capped.ID, Step: i + 1, Multiplier: s["multiplier"].(float64), WinPercent: s["win_percent"].(float64)})
+	}
+	if err := database.DBConn.Create(&capRows).Error; err != nil {
+		t.Fatal(err)
+	}
+	r = call(t, app, "POST", rateRollbackPath, map[string]any{"game_code": "coin_toss", "version": 3, "base_version": 3, "passcode": passcode}, c.saTok)
+	expect(t, r, 200, 422)
+	expectMsgHas(t, r.Msg, "steps[5].win_percent", "50")
+	if rateVersionCount(t, "coin_toss") != 3 {
+		t.Fatal("ย้อนผิดรูปแบบต้องไม่สร้างเวอร์ชัน")
+	}
 }
 
 func TestRateConcurrent(t *testing.T) { // RATE-05B: base_version เดียวกันยิงพร้อมกัน = สำเร็จ 1 อีกอัน 406301
@@ -408,6 +427,11 @@ func TestRateEngineFunctions(t *testing.T) { // หัวข้อ 5.8 · RATE-0
 	old, err := gameRateService.ByVersionIDService(ctx, cur.VersionID) // เดิมพันเก่ายังได้ค่าเดิม (RATE-06)
 	if err != nil || old.Version != 1 || old.Steps[0].WinPercent != 50 {
 		t.Fatalf("by id %+v %v", old, err)
+	}
+	old.Steps[0].WinPercent = 1 // ผู้เรียกแก้ค่าที่ได้ต้องไม่กระทบ cache
+	again, _ := gameRateService.ByVersionIDService(ctx, cur.VersionID)
+	if again.Steps[0].WinPercent != 50 {
+		t.Fatalf("cache ถูกแก้จากผู้เรียก %+v", again.Steps[0])
 	}
 	if _, err := gameRateService.ByVersionIDService(ctx, 999999); !errors.Is(err, gameRateService.ErrRateVersionMissing) {
 		t.Fatalf("id ไม่มี %v", err)

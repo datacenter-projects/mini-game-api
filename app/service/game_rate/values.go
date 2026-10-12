@@ -34,8 +34,7 @@ func loadRates(db *gorm.DB, versions []models.GameRateVersion) (map[uint]Rates, 
 		if v.ID == 0 {
 			continue
 		}
-		spec, _ := gameRateCore.SpecOf(v.GameCode)
-		r := Rates{VersionID: v.ID, GameCode: v.GameCode, Version: v.Version, Kind: spec.Kind}
+		r := Rates{VersionID: v.ID, GameCode: v.GameCode, Version: v.Version, Kind: kindOf(v)}
 		if v.WinPercent != nil {
 			r.Scratch.WinPercent = *v.WinPercent
 		}
@@ -121,12 +120,17 @@ func minHouseEdge(r Rates) float64 {
 	return res.HouseEdgePercent
 }
 
+// issueField — path ของ field ใน request (steps[i].win_percent · win_percent · prizes)
+func issueField(is gameRateCore.RuleIssue) string {
+	if is.Index >= 0 {
+		return fmt.Sprintf("steps[%d].%s", is.Index, is.Field)
+	}
+	return is.Field
+}
+
 // issueError — RuleIssue → error ที่ client เห็น (406101 / 406102) พร้อม field และค่าที่ตั้งได้
 func issueError(is gameRateCore.RuleIssue, r Rates) *apperr.Error {
-	field := is.Field
-	if is.Index >= 0 {
-		field = fmt.Sprintf("steps[%d].%s", is.Index, is.Field)
-	}
+	field := issueField(is)
 	if is.Code == gameRateCore.RuleShareSum {
 		var sum float64
 		for _, p := range r.Scratch.Prizes {
@@ -146,11 +150,7 @@ func issueViews(issues []gameRateCore.RuleIssue, r Rates) []gameRateDto.Issue {
 	out := make([]gameRateDto.Issue, 0, len(issues))
 	for _, is := range issues {
 		e := issueError(is, r)
-		field := is.Field
-		if is.Index >= 0 {
-			field = fmt.Sprintf("steps[%d].%s", is.Index, is.Field)
-		}
-		out = append(out, gameRateDto.Issue{Field: field, Code: e.Code, Message: e.MsgTH})
+		out = append(out, gameRateDto.Issue{Field: issueField(is), Code: e.Code, Message: e.MsgTH})
 	}
 	return out
 }
@@ -170,4 +170,23 @@ func detailView(spec gameRateCore.GameSpec, gameCode string, v models.GameRateVe
 	}
 	calc, _ := prizesCalc(r.Scratch)
 	return gameRateDto.PrizesDetail{GameCode: gameCode, Version: v.Version, PrizesCalc: calc, CreatedAt: formatTime(v.CreatedAt), CreatedBy: v.CreatedBy}
+}
+
+// kindOf — รูปแบบอัตราของเวอร์ชัน: ตาม gameSpecs · เกมที่ไม่มีใน gameSpecs แล้ว (ถูกเอาออกจากโค้ด แต่เดิมพันเก่ายังอ้าง)
+// ตัดสินจากข้อมูลที่เก็บ: มี win_percent ในแถวเวอร์ชัน = prizes · ไม่มี = steps
+func kindOf(v models.GameRateVersion) gameRateCore.Kind {
+	if spec, ok := gameRateCore.SpecOf(v.GameCode); ok {
+		return spec.Kind
+	}
+	if v.WinPercent != nil {
+		return gameRateCore.KindPrizes
+	}
+	return gameRateCore.KindSteps
+}
+
+// clone — สำเนาที่ไม่แชร์ slice กับต้นฉบับ (ค่าใน cache ห้ามถูกแก้จากผู้เรียก)
+func (r Rates) clone() Rates {
+	r.Steps = append([]gameRateCore.Step(nil), r.Steps...)
+	r.Scratch.Prizes = append([]gameRateCore.Prize(nil), r.Scratch.Prizes...)
+	return r
 }

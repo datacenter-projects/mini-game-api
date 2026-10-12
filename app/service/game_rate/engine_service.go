@@ -39,13 +39,35 @@ func CurrentVersionService(ctx context.Context, tx *gorm.DB, gameCode string) (R
 	return rates[v.ID], nil
 }
 
-// rateCache — ค่าตาม version_id · เวอร์ชันแก้ / ลบไม่ได้ (RATE-05) จึงไม่ต้องลบ cache · ไม่ใช่ source of truth ของเงิน (กฎข้อ 14)
-var rateCache sync.Map // map[uint]Rates
+// rateCache — ค่าตาม version_id · เวอร์ชันแก้ / ลบไม่ได้ (RATE-05) จึงไม่ต้องลบรายตัว · ไม่ใช่ source of truth ของเงิน (กฎข้อ 14)
+// จำกัดจำนวน: เกิน rateCacheMax ล้างทั้งก้อนแล้วเริ่มใหม่ (เวอร์ชันที่ใช้จริงมีไม่กี่ตัว — กัน memory โตไม่จำกัด)
+const rateCacheMax = 256
+
+var rateCache = struct {
+	sync.RWMutex
+	byID map[uint]Rates
+}{byID: map[uint]Rates{}}
+
+func cachedRates(id uint) (Rates, bool) {
+	rateCache.RLock()
+	defer rateCache.RUnlock()
+	r, ok := rateCache.byID[id]
+	return r, ok
+}
+
+func storeRates(r Rates) {
+	rateCache.Lock()
+	defer rateCache.Unlock()
+	if len(rateCache.byID) >= rateCacheMax {
+		rateCache.byID = map[uint]Rates{}
+	}
+	rateCache.byID[r.VersionID] = r.clone()
+}
 
 // ByVersionIDService — ค่าของเวอร์ชันที่เดิมพันอ้าง (Streak ทุกขั้นอ่านจาก id เดิม — RATE-06 / RH1) · cache ใน memory
 func ByVersionIDService(ctx context.Context, versionID uint) (Rates, error) {
-	if r, ok := rateCache.Load(versionID); ok {
-		return r.(Rates), nil
+	if r, ok := cachedRates(versionID); ok {
+		return r.clone(), nil // สำเนา — ผู้เรียกแก้ slice แล้วไม่กระทบ cache
 	}
 	db := database.DBConn.WithContext(ctx)
 	v, err := gameRatePostgres.GetVersionByIDRepository(db, versionID)
@@ -59,6 +81,6 @@ func ByVersionIDService(ctx context.Context, versionID uint) (Rates, error) {
 	if err != nil {
 		return Rates{}, err
 	}
-	rateCache.Store(versionID, rates[v.ID])
+	storeRates(rates[v.ID])
 	return rates[v.ID], nil
 }

@@ -73,14 +73,16 @@ type RatesInput struct {
 	Scratch gameRateCore.Scratch  `json:"-"` // รูปแบบ prizes
 }
 
-// validateRates — ไล่ตามลำดับ field: game_code → field ของรูปแบบนั้น → ค่าแต่ละตัว → กฎรูปแบบใน core
-func (r *RatesInput) validateRates() error {
+// resolveGame — game_code ต้องส่ง · ไม่มี = 406401 · เก็บรูปแบบอัตราไว้ใน r.Spec (หาครั้งเดียว)
+func (r *RatesInput) resolveGame() error {
 	spec, err := checkGame(r.GameCode)
-	if err != nil {
-		return err
-	}
 	r.Spec = spec
-	switch spec.Kind {
+	return err
+}
+
+// validateFields — หลัง resolveGame: field ของรูปแบบนั้น → ค่าแต่ละตัว → กฎรูปแบบใน core
+func (r *RatesInput) validateFields() error {
+	switch r.Spec.Kind {
 	case gameRateCore.KindSteps:
 		return r.validateSteps()
 	case gameRateCore.KindPrizes:
@@ -113,7 +115,7 @@ func (r *RatesInput) validateSteps() error {
 			return err
 		}
 	}
-	return formatError(gameRateCore.CheckStepsFormat(r.Values, r.Spec.StepCount), "steps", r.Spec.StepCount)
+	return FormatError(gameRateCore.CheckStepsFormat(r.Values, r.Spec.StepCount), "steps", r.Spec.StepCount)
 }
 
 func (r *RatesInput) validatePrizes() error {
@@ -137,11 +139,11 @@ func (r *RatesInput) validatePrizes() error {
 			return err
 		}
 	}
-	return formatError(gameRateCore.CheckScratchFormat(r.Scratch), "prizes", 0)
+	return FormatError(gameRateCore.CheckScratchFormat(r.Scratch), "prizes", 0)
 }
 
-// formatError — FormatIssue จาก core → 422 พร้อม field และช่วงที่ตั้งได้
-func formatError(is *gameRateCore.FormatIssue, array string, stepCount int) error {
+// FormatError — FormatIssue จาก core → 422 พร้อม field และช่วงที่ตั้งได้ · service ใช้ตรวจค่าตอน rollback ด้วย (RATE-05A)
+func FormatError(is *gameRateCore.FormatIssue, array string, stepCount int) error {
 	if is == nil {
 		return nil
 	}
@@ -178,7 +180,13 @@ type CheckRequest struct {
 	RatesInput
 }
 
-func (r *CheckRequest) Validate() error { return r.validateRates() }
+// Validate — game_code → ค่าอัตรา
+func (r *CheckRequest) Validate() error {
+	if err := r.resolveGame(); err != nil {
+		return err
+	}
+	return r.validateFields()
+}
 
 // checkBaseVersion — base_version ต้องส่ง จำนวนเต็ม ≥ 0 (RATE-05B · ยังไม่เคยตั้ง = 0)
 func checkBaseVersion(v *int) error {
@@ -200,13 +208,13 @@ type UpdateRequest struct {
 
 // Validate — game_code → base_version → ค่าอัตรา
 func (r *UpdateRequest) Validate() error {
-	if _, err := checkGame(r.GameCode); err != nil {
+	if err := r.resolveGame(); err != nil {
 		return err
 	}
 	if err := checkBaseVersion(r.BaseVersion); err != nil {
 		return err
 	}
-	return r.validateRates()
+	return r.validateFields()
 }
 
 // VersionsListRequest — RE5 versions/list · page / limit ใช้ utils.NewPage
