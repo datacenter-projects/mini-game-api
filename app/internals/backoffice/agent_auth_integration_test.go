@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	agentManagementCore "app/app/core/agent_management"
 	mw "app/app/internals/backoffice/middleware"
 	"app/app/models"
 	agentAuthPostgres "app/app/repository/postgres/agent_auth"
@@ -46,6 +47,18 @@ func createAgent(t *testing.T, username string, status models.AgentStatus, paren
 		t.Fatal(err)
 	}
 	a := models.UserAgent{Username: username, PasswordHash: hash, Role: models.AgentRoleAgent, Status: status, ParentID: parentID}
+	if parentID != nil { // cnf = สายของผู้สร้าง + ผู้สร้าง เหมือนสร้างผ่าน API (MGMT-61) — การเช็คสายใช้ cnf
+		var p models.UserAgent
+		if err := database.DBConn.Select("id", "role", "cnf").Take(&p, *parentID).Error; err != nil {
+			t.Fatal(err)
+		}
+		var chain agentManagementCore.Chain
+		if err := json.Unmarshal([]byte(p.Cnf), &chain); err != nil {
+			t.Fatal(err)
+		}
+		cnf, _ := json.Marshal(agentManagementCore.ChildChain(chain, p.ID, p.Role))
+		a.Cnf = string(cnf)
+	}
 	if err := agentAuthPostgres.CreateUserAgentRepository(database.DBConn, &a); err != nil {
 		t.Fatal(err)
 	}
