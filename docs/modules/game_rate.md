@@ -1,10 +1,13 @@
 # game_rate (อัตราแพ้ชนะ) — Spec
 
-- สถานะ: **APPROVED** — boiledegg รีวิว 2026-10-08
-- อนุมัติโดย: lead (zerph) · วันที่: 2026-10-08
-- ที่มาของ rule: diagram ของ lead (`Coin Flip Flow.html`, `Rock Paper Scissors Flow.html`, `Scratch Card Flow.html`) +
-  คำตอบของ boiledegg 2026-10-08 · ไม่ได้อ้างโค้ดหรือเอกสารของโปรเจกต์เก่า
-- ชื่อ module ในโค้ด: `game_rate` · path `/api/v1/bo/pr/rate/...` · error module id `06` (ตรงกับเมนู ⑥)
+- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ร่างแก้ รอ lead อนุมัติ**
+  - RS1 ค่ากลางชุดเดียว Superadmin (+ sub ที่มีเมนู `rate`) ตั้ง · ไม่ไล่สาย ไม่มีค่าต่อบัญชี
+  - RR1 ตัวคูณ / % เป็น float ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9 · แทน INT ×100 / bp) · RNG `0–999,999` · ตรวจสูตรด้วยเลขแม่นยำ (`big.Rat`)
+  - RR2 house edge ≥ 1% ทุกจุดที่หยุดได้ · RR3 ตัวคูณ ≤ 1,000 · `win_percent > 0`
+  - RR4 `base_version` กันแก้ทับ (`406301`) · RR5 ค่าเท่าปัจจุบัน = 200 `created: false` · RR6 หยุดเกมด่วนด้วย `status_game`
+  - RN1 path ใหม่ RE1–RE7 ทุกเส้น `POST` · RN2 เส้นตรวจค่า `detail/check` · RP1 boiledegg ทำ spec + โค้ด · ต้องเสร็จก่อน engine / module เดิมพัน
+- ที่มาของ rule: diagram ของ lead (`Coin Flip Flow.html`, `Rock Paper Scissors Flow.html`, `Scratch Card Flow.html`) + คำตอบของ boiledegg 2026-10-08 + lead review 2026-10-12 · ไม่ได้อ้างโค้ดหรือเอกสารของโปรเจกต์เก่า
+- ชื่อ module ในโค้ด: `game_rate` (`controllers/` `dto/` `service/` `core/game_rate`) · รายชื่อเกม `core/game` · path `/api/v1/bo/pr/rate/...` · error module id `06` (ตรงกับเมนู ⑥)
 
 > เอกสารนี้คือ source of truth ของ module — โค้ดและ test ต้องตรงกับเอกสารนี้ ถ้าไม่ตรงให้แก้โค้ด
 > หรือแก้เอกสารผ่านการอนุมัติใหม่ ห้ามอ้างเอกสารของโปรเจกต์เก่า
@@ -13,8 +16,8 @@
 
 เก็บและแก้ "อัตราแพ้ชนะ" ของแต่ละเกม (ตัวคูณ + โอกาสชนะ) ที่เอนจิ้นเกมใช้ตัดสินผล · เมนู ⑥ ของหลังบ้าน
 
-- ผู้ตั้งค่า: **Superadmin เท่านั้น** (และ sub ของ Superadmin ที่ได้สิทธิ์ `rate`) — Company / Share / Agent / Member ตั้งหรือดูไม่ได้
-- module นี้**ไม่ได้**สุ่มผลหรือจ่ายเงิน — แค่เก็บค่า · เอนจิ้นเกมและ module เดิมพันอ่านค่าไปใช้
+- **ค่ากลางชุดเดียวทั้งระบบ** (lead RS1): Superadmin และ sub ของ Superadmin ที่มีเมนู `rate` เป็นผู้ตั้ง · ไม่ไล่สาย ไม่มีค่าต่อบัญชี / ต่อ Company · กติกา PT / Share Master (H2 / H3 ของ agent_management) ไม่เกี่ยว
+- module นี้**ไม่ได้**สุ่มผลหรือจ่ายเงิน — แค่เก็บค่า · เอนจิ้นเกมและ module เดิมพันอ่านค่าผ่านฟังก์ชันใน service (หัวข้อ 5.8)
 
 ## 2. คำศัพท์
 
@@ -26,8 +29,10 @@
 | `win_percent` | โอกาสชนะของขั้นนั้น (Coin Flip / RPS) หรือของบัตร 1 ใบ (Scratch Card) |
 | `draw_percent` | โอกาสเสมอของขั้นนั้น (RPS เท่านั้น) · เสมอ = เล่นขั้นเดิมใหม่ ไม่หักเงินเพิ่ม |
 | `reach_percent` (R) | โอกาสที่ Member ไปถึงและชนะขั้นนั้น = ผลคูณของโอกาสชนะจริงตั้งแต่ขั้น 1 ถึงขั้นนั้น |
-| `house_edge_percent` | ร้านได้เฉลี่ย (% ของยอดแทง) = 100% − จ่ายคืนคาดหวัง |
-| เวอร์ชัน (`version`) | ทุกการบันทึกสร้างชุดค่าใหม่ 1 เวอร์ชัน ห้ามแก้เวอร์ชันเดิม |
+| `house_edge_percent` | ร้านได้เฉลี่ย (% ของยอดแทง) = 100% − จ่ายคืนคาดหวัง (RTP) |
+| `max_win_percent` | `win_percent` สูงสุดของขั้น / บัตรที่ยังได้ house edge ≥ ขั้นต่ำ (RATE-07) |
+| เวอร์ชัน (`version`) | ทุกการบันทึกที่ค่าเปลี่ยนสร้างชุดค่าใหม่ 1 เวอร์ชัน ห้ามแก้เวอร์ชันเดิม · ยังไม่เคยตั้ง = `0` |
+| `base_version` | เวอร์ชันที่หน้าจอโหลดมาก่อนแก้ — ใช้กันคนสองคนแก้ทับกัน (RATE-05B) |
 | ตารางรางวัล (Scratch Card) | รายการรางวัลของบัตรที่ชนะ: ตัวคูณ + สัดส่วนในบัตรที่ชนะ |
 
 ## 3. Business rules
@@ -36,113 +41,126 @@
 
 | ID | Rule |
 |---|---|
-| RATE-01 | ตั้งค่าแยกต่อเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · ชุดเดียวใช้กับ**ทุกยอดแทง** (ค่าเป็น "เท่า" ของยอดแทง ไม่แยกตามยอด) · **ชุดเดียวใช้กับทุกสกุลเงิน** (ตัวคูณ / % ไม่ขึ้นกับสกุล — รีวิว 2026-10-08) |
-| RATE-01A | **รายชื่อเกมอยู่ในโค้ด** (`app/core` — รายการเดียวกับ module ② `pt` / `status_game`) · ตอนนี้ 3 เกม · เพิ่มเกมใหม่ = แก้โค้ดพร้อมเอนจิ้นของเกมนั้น · ไม่มีเส้นสร้าง / เปิด-ปิดเกมทั้งระบบ (รีวิว 2026-10-08 — ระบบเก่าแยกเกมตามระดับราคาแทงจึงต้องมีเส้นสร้างเกม · ระบบใหม่ไม่แยก RATE-01) · ปิดเกมรายบัญชีใช้ module ② `update-games` |
-| RATE-02 | ผู้ดู / ผู้แก้: Superadmin · sub ของ Superadmin ที่มีสิทธิ์ `rate` (ดู = `view` · แก้ = `edit`) · บัญชีอื่น `402303` / `402311` ตามระบบสิทธิ์ของ module ② |
-| RATE-03 | ตัวคูณ: JSON number **ทศนิยมไม่เกิน 2 ตำแหน่ง** (คำตอบ 2026-10-08) · เก็บเป็นจำนวนเต็มหน่วย 0.01 (`x1.90` = `190`) |
-| RATE-04 | %: JSON number **ทศนิยมไม่เกิน 2 ตำแหน่ง** · เก็บเป็นจำนวนเต็ม bp (`50%` = `5000`) — ตรงกับการสุ่ม 0–9,999 ของเอนจิ้น (1 ค่า = 0.01%) |
-| RATE-05 | บันทึก = **แทนทั้งชุดของเกมนั้น** และสร้างเวอร์ชันใหม่ (เลขเวอร์ชันต่อเกมเพิ่มทีละ 1) · เวอร์ชันเดิมห้ามแก้ / ลบ |
-| RATE-05A | **ย้อนเวอร์ชัน** (`/rate/rollback` — รีวิว 2026-10-08): ส่ง `game_code` + `version` ที่จะย้อนไป · ระบบคัดลอกค่าของเวอร์ชันนั้นเป็น**เวอร์ชันใหม่** (เช่นมี v1–v3 ย้อนไป v2 = สร้าง v4 ค่าเท่า v2) · เวอร์ชันเดิมไม่ถูกแก้ · ตรวจ RATE-07 ซ้ำ · ต้อง passcode และสิทธิ์ `rate` แก้ไขเหมือน `/rate/update` · log เก็บ `rollback_from` · ย้อนไปเวอร์ชันที่ใช้อยู่ = `422` |
-| RATE-06 | ค่าใหม่มีผลกับ**เดิมพันใหม่เท่านั้น** · เดิมพันที่เริ่มแล้ว (รวม Streak ที่ค้างอยู่) ใช้เวอร์ชันเดิมจนจบ · module เดิมพันต้องเก็บ `rate_version_id` คู่กับเดิมพันทุกครั้ง |
-| RATE-07 | **ร้านต้องได้กำไรทุกจุดที่ Member หยุดได้** — ถ้าคำนวณแล้ว `house_edge_percent ≤ 0` ที่จุดไหน บันทึกไม่ได้ทั้งชุด (`406101`) และ msg บอกขั้น / แถวที่ผิด |
-| RATE-08 | **บันทึกต้องยืนยัน passcode** (`RequirePasscode` — คำตอบ 2026-10-08) · ทุกการบันทึกเก็บ log คนแก้ในแถวเวอร์ชัน: `created_by` (username ณ เวลานั้น · sub = `owner@name`), `actor_type` / `actor_id`, `ip`, `request_id`, `created_at` · ตารางเวอร์ชันคือ log (ห้ามแก้ / ลบ) ดูได้ที่ `/rate/history` |
-| RATE-09A | **ไม่มีค่าเริ่มต้น** (คำตอบ 2026-10-08): เกมที่ยังไม่เคยตั้งค่า = `version = 0` · เอนจิ้นต้อง**ไม่รับเดิมพัน**ของเกมนั้นจนกว่า Superadmin จะบันทึกครั้งแรก (บังคับใน module เกม / เดิมพัน) |
-| RATE-09B | ยอดแทง: **บาทเต็ม ขั้นต่ำ 1 บาท** (คำตอบ 2026-10-08 — หน้าบ้านมีจำนวนให้เลือก ไม่ได้พิมพ์เอง) · ส่งเศษสตางค์ = `422` — ตรวจใน module เดิมพัน ไม่มีค่าให้ตั้งใน module นี้ · เงินรางวัล = ยอดแทง × ตัวคูณของขั้นนั้น คิดครั้งเดียว · บาทเต็ม × ตัวคูณ 2 ตำแหน่ง = **ลงตัวที่สตางค์เสมอ ไม่ต้องปัด** · Scratch Card ตรง 2 ช่อง แบ่งครึ่งตาม RATE-35 |
-| RATE-09C | เวลารอ Member **1 วัน** (คำตอบ 2026-10-08): Streak ที่ค้างอยู่เกิน 1 วัน = CASH OUT อัตโนมัติด้วยเงินของขั้นที่ชนะล่าสุด · Scratch Card ที่ยังไม่ขูดเกิน 1 วัน = เปิดบัตรอัตโนมัติ (ผลไม่เปลี่ยน) — กฎของเอนจิ้นเกม ไม่มีค่าให้ตั้งใน module นี้ |
-| RATE-09 | response แสดงค่าที่คำนวณให้ด้วย (`reach_percent`, `house_edge_percent`, `max_win_percent`) — หลังบ้านคำนวณจากสูตรเดียวกับที่ใช้ตรวจตอนบันทึก |
+| RATE-01 | ตั้งค่าแยกต่อเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · ชุดเดียวใช้กับ**ทุกยอดแทง** (ค่าเป็น "เท่า" ของยอดแทง) · **ชุดเดียวใช้กับทุกสกุลเงิน** (รีวิว 2026-10-08) · **ค่ากลางชุดเดียวทั้งระบบ** ไม่มีค่าต่อบัญชี (lead RS1) |
+| RATE-01A | **รายชื่อเกมอยู่ในโค้ด** `app/core/game` (รายการเดียวกับที่ `pt` / `status_game` ของ agent_management ใช้ — ย้ายจาก `core/agent_management`) · ตอนนี้ 3 เกม · เพิ่มเกมใหม่ = แก้โค้ดพร้อมเอนจิ้นของเกมนั้น · ไม่มีเส้นสร้างเกม · ปิดเกมรายบัญชีใช้ `status_game` ของ agent_management (`agents/detail/update`) |
+| RATE-01B | **หยุดเกมด่วน** (lead RR6): ปิด `status_game` ของเกมนั้นที่ Superadmin → ทุกสายปิดตาม (MGMT-20 · เช็คทั้งสาย) · ใช้เป็นสวิตช์ฉุกเฉินแทนการแก้อัตรา · เขียนใน runbook (`docs/DEPLOYMENT.md`) · **ดูหัวข้อ 9 ข้อ Q1** |
+| RATE-02 | **สิทธิ์ `rate` ทุกเส้น** (lead A5 · RS1): ดู = `rate` view · แก้ / ย้อน = `rate` edit · บัญชีหลักที่ได้เมนู `rate` มีแค่ Superadmin · Company / Share / Agent / ADMIN / sub ที่ไม่มีสิทธิ์ = `402303` · sub เรียกได้ตามสิทธิ์ (ไม่มี `402311`) · ลำดับ middleware: สิทธิ์ (`RequirePermission`) **ก่อน** passcode (`RequirePasscode`) |
+| RATE-03 | ตัวคูณ: JSON number **ทศนิยมไม่เกิน 4 ตำแหน่ง** (lead RR1 · กฎข้อ 9) · เก็บ `DOUBLE PRECISION` ค่าที่ปัด 4 ตำแหน่งแล้ว · **≥ 1 และ ≤ 1,000** (Coin / RPS) · **> 0 และ ≤ 1,000** (รางวัล Scratch) (lead RR3) |
+| RATE-04 | %: JSON number **ทศนิยมไม่เกิน 4 ตำแหน่ง** · เก็บ `DOUBLE PRECISION` · `win_percent` **> 0** และ ≤ 100 (lead RR3) · RNG ของเอนจิ้นสุ่ม `0–999,999` (1 ค่า = 0.0001%) · การตรวจสูตร (RATE-07, RATE-32) ใช้**เลขแม่นยำ** (`big.Rat` จากค่าทศนิยม 4 ตำแหน่ง) ไม่ใช่ float (lead RR1) |
+| RATE-05 | บันทึก = **แทนทั้งชุดของเกมนั้น** และสร้างเวอร์ชันใหม่ (เลขเวอร์ชันต่อเกมเพิ่มทีละ 1) · เวอร์ชันเดิมห้ามแก้ / ลบ · ไม่ใช่แบบ section (ไม่ใช้กฎ "อย่างน้อย 1 section" — MN2) |
+| RATE-05A | **ย้อนเวอร์ชัน** (`versions/rollback`): ส่ง `game_code` + `version` ที่จะย้อนไป + `base_version` · ระบบคัดลอกค่าของเวอร์ชันนั้นเป็น**เวอร์ชันใหม่** (มี v1–v3 ย้อนไป v2 = สร้าง v4 ค่าเท่า v2) · ตรวจ RATE-07 / RATE-32 **ด้วยกฎปัจจุบัน** — เวอร์ชันเก่าที่ไม่ผ่านกฎใหม่ = `406101` / `406102` · ต้อง passcode และ `rate` edit · log เก็บ `rollback_from` |
+| RATE-05B | **กันแก้ทับ** (lead RR4): `detail/update` และ `versions/rollback` ต้องส่ง `base_version` = เวอร์ชันปัจจุบันที่หน้าจอโหลดมา (ยังไม่เคยตั้ง = `0`) · ไม่ตรงเวอร์ชันปัจจุบันตอนบันทึก = `406301` "มีคนแก้ไปแล้ว กรุณาโหลดใหม่" · ยิงพร้อมกัน 2 request ด้วย `base_version` เดียวกัน = สำเร็จ 1 อีกอัน `406301` |
+| RATE-05C | **ค่าเท่าปัจจุบัน** (lead RR5): บันทึกค่าเดิมทั้งชุด หรือย้อนไปเวอร์ชันที่ค่าเท่าเวอร์ชันปัจจุบัน = `200` **ไม่สร้างเวอร์ชันใหม่** · response `created: false` + `version` ปัจจุบัน · เทียบค่าหลังปัด 4 ตำแหน่ง · Scratch เทียบตารางรางวัลตามลำดับแถว |
+| RATE-06 | ค่าใหม่มีผลกับ**เดิมพันใหม่เท่านั้น** · เดิมพันที่เริ่มแล้ว (รวม Streak ที่ค้างอยู่) ใช้เวอร์ชันเดิมจนจบ · module เดิมพันเก็บ `rate_version_id` คู่กับเดิมพันทุกครั้ง (หัวข้อ 9 RH1) |
+| RATE-07 | **ร้านต้องได้ house edge ≥ 1% ทุกจุดที่ Member หยุดได้** (lead RR2 · แทน "> 0" เดิม) — Coin / RPS ทุกขั้น · Scratch ทั้งใบ · ไม่ผ่านที่จุดไหน บันทึกไม่ได้ทั้งชุด (`406101`) และ msg บอกขั้น / field และ `win_percent` สูงสุดที่ตั้งได้ · ค่าคงที่ขั้นต่ำ / เพดานอยู่ใน `core/game_rate` |
+| RATE-08 | **บันทึก / ย้อนต้องยืนยัน passcode** (`RequirePasscode`) · ทุกเวอร์ชันเก็บ log คนแก้: `created_by` (username ณ เวลานั้น · sub = `owner@name`), `actor_type` / `actor_id`, `ip`, `request_id`, `created_at` · ตารางเวอร์ชันคือ log (ห้ามแก้ / ลบ) ดูได้ที่ `versions/list` |
+| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `house_edge_percent`, `max_win_percent`, `payout_percent`, `avg_multiplier`, `per_ticket_percent`) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · หน้าบ้านปัดแสดงเอง |
+| RATE-09A | **ไม่มีค่าเริ่มต้น**: เกมที่ยังไม่เคยตั้งค่า = `version = 0` · เอนจิ้นต้อง**ไม่รับเดิมพัน**ของเกมนั้นจนกว่าจะบันทึกครั้งแรก (หัวข้อ 5.8 · RH1) · ค่าตัวอย่างสำหรับ tester อยู่ใน `docs/frontend/game_rate.md` |
 
 ### Coin Flip (`coin_toss`)
 
 | ID | Rule |
 |---|---|
 | RATE-10 | 10 ขั้นตายตัว ต้องส่งครบ 10 ขั้น · แต่ละขั้น `multiplier` + `win_percent` |
-| RATE-11 | `multiplier` ≥ 1.00 และ**มากกว่าขั้นก่อนหน้าเสมอ** (ยืนยัน 2026-10-08) · `win_percent` 0–100 |
+| RATE-11 | `multiplier` 1–1,000 และ**มากกว่าขั้นก่อนหน้าเสมอ** · `win_percent` > 0 และ ≤ 100 |
 | RATE-12 | RANDOM (ระบบเลือกฝั่งให้) ใช้ `win_percent` เดียวกับเลือกฝั่งเอง |
-| RATE-13 | `reach_n = win_1 × … × win_n` · `house_edge_n = 100% − reach_n × multiplier_n` ต้อง > 0 **ทุกขั้น** (Member CASH OUT ขั้นไหนก็ได้) · `max_win_n = 100% ÷ (reach_{n−1} × multiplier_n)` |
+| RATE-13 | `reach_n = win_1 × … × win_n` · `house_edge_n = 100% − reach_n × multiplier_n` ต้อง **≥ 1% ทุกขั้น** (Member CASH OUT ขั้นไหนก็ได้) · `max_win_n` = `win_n` สูงสุดที่ `house_edge_n` ยัง ≥ 1% = `(100% − 1%) ÷ (reach_{n−1} × multiplier_n)` (ขั้น 1: `reach_0 = 100%`) |
 
-ตัวอย่าง (ค่าใน diagram): ขั้น 2 `reach = 50% × 48% = 24%` · `house_edge = 100% − 24% × 3.61 = 13.36%`
+ตัวอย่าง (ค่าใน diagram): ขั้น 1 `1.90 / 50` → `house_edge = 5%` · ขั้น 2 `3.61 / 48` → `reach = 24%` · `house_edge = 100% − 24% × 3.61 = 13.36%`
 
 ### Rock Paper Scissors (`rock_paper_scissors`)
 
 | ID | Rule |
 |---|---|
-| RATE-20 | 10 ขั้นตายตัว · แต่ละขั้น `multiplier` + `win_percent` + `draw_percent` · % แพ้ = 100 − ชนะ − เสมอ (ระบบคำนวณ ไม่ต้องส่ง) |
-| RATE-21 | `multiplier` ≥ 1.00 และมากกว่าขั้นก่อนหน้า · `win_percent` 0–100 · `draw_percent` 0–99 · `win_percent + draw_percent < 100` |
-| RATE-22 | เสมอไม่นับเป็นชนะหรือแพ้ → โอกาสชนะจริงของขั้น `q_n = win_n ÷ (100 − draw_n)` · `reach_n = q_1 × … × q_n` · `house_edge_n = 100% − reach_n × multiplier_n` > 0 ทุกขั้น · `max_win_n = (100 − draw_n) ÷ (reach_{n−1} × multiplier_n)` |
+| RATE-20 | 10 ขั้นตายตัว · แต่ละขั้น `multiplier` + `win_percent` + `draw_percent` · % แพ้ = 100 − ชนะ − เสมอ (ระบบคำนวณ) |
+| RATE-21 | `multiplier` 1–1,000 และมากกว่าขั้นก่อนหน้า · `win_percent` > 0 · `draw_percent` ≥ 0 · `win_percent + draw_percent < 100` |
+| RATE-22 | เสมอไม่นับเป็นชนะหรือแพ้ → โอกาสชนะจริงของขั้น `q_n = win_n ÷ (100 − draw_n)` · `reach_n = q_1 × … × q_n` · `house_edge_n = 100% − reach_n × multiplier_n` ≥ 1% ทุกขั้น · `max_win_n = (100 − draw_n) × 99% ÷ (reach_{n−1} × multiplier_n)` |
 
-ตัวอย่าง (ค่าใน diagram): ขั้น 1 ชนะ 34 · เสมอ 30 → `q_1 = 34 ÷ 70 = 48.57%`
+ตัวอย่าง (ค่าใน diagram): ขั้น 1 ชนะ 34 · เสมอ 30 → `q_1 = 34 ÷ 70 = 48.5714%`
 
 ### Scratch Card (`scratch_card`)
 
 | ID | Rule |
 |---|---|
-| RATE-30 | `win_percent` (W) = โอกาสที่บัตร 1 ใบชนะ · 0–100 |
-| RATE-31 | `prizes` = ตารางรางวัลของบัตรที่ชนะ · แต่ละแถว `multiplier` (> 0 — ยืนยัน 2026-10-08) + `share_percent` (สัดส่วนในบัตรที่ชนะ 0–100) · **1–10 แถว** (คำตอบ 2026-10-08) · `multiplier` ห้ามซ้ำกัน |
-| RATE-32 | `share_percent` ทุกแถวรวมกันต้อง **= 100 พอดี** (`406102`) |
-| RATE-33 | `avg_multiplier (A) = Σ(multiplier × share_percent)` · จ่ายคืนคาดหวัง `P = W × A` · `house_edge = 100% − P` > 0 · `max_win_percent = 100% ÷ A` |
-| RATE-34 | % ต่อใบของแต่ละแถว = `W × share_percent` (ระบบคำนวณให้ใน response) |
-| RATE-35 | ตรง 1 หรือ 2 ช่อง เอนจิ้นสุ่มเองด้วยโอกาสเท่ากัน — **ไม่มีค่าให้ตั้ง** · ตรง 2 ช่อง = แบ่งรางวัลครึ่ง (ช่องแรกปัดลง ช่องที่สองได้ส่วนที่เหลือ รวมเท่ารางวัลพอดี) — เป็นกฎของเอนจิ้น ไม่ใช่ของ module นี้ |
+| RATE-30 | `win_percent` (W) = โอกาสที่บัตร 1 ใบชนะ · > 0 และ ≤ 100 |
+| RATE-31 | `prizes` = ตารางรางวัลของบัตรที่ชนะ · แต่ละแถว `multiplier` (> 0 · ≤ 1,000) + `share_percent` (> 0 · ≤ 100) · **1–10 แถว** · `multiplier` ห้ามซ้ำกัน · ลำดับแถวตามที่ส่ง (`row_no` 1–10) |
+| RATE-32 | `share_percent` ทุกแถวรวมกันต้อง **= 100 พอดี** (ตรวจด้วยเลขแม่นยำ · `406102`) |
+| RATE-33 | `avg_multiplier (A) = Σ(multiplier × share_percent ÷ 100)` · จ่ายคืนคาดหวัง `P = W × A` · `house_edge = 100% − P` ≥ 1% · `max_win_percent = 99% ÷ A` |
+| RATE-34 | % ต่อใบของแต่ละแถว `per_ticket_percent = W × share_percent ÷ 100` (ระบบคำนวณให้ใน response) |
+| RATE-35 | ตรง 1 หรือ 2 ช่อง เอนจิ้นสุ่มเอง — **ไม่มีค่าให้ตั้ง** · การแบ่งรางวัลตรง 2 ช่องเป็นกฎของเอนจิ้น (หัวข้อ 9 RH4) |
 
-ตัวอย่าง (ค่าใน diagram): W 50% · ตาราง 0.5×/35, 1×/35, 2×/18, 5×/10, 8×/2 → `A = 1.545` · `P = 77.25%` · `house_edge = 22.75%` · `max_win ≈ 64.72%`
+ตัวอย่าง (ค่าใน diagram): W 50% · ตาราง 0.5×/35, 1×/35, 2×/18, 5×/10, 8×/2 → `A = 1.545` · `P = 77.25%` · `house_edge = 22.75%` · `max_win = 99% ÷ 1.545 = 64.0777%`
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
-ไม่ได้อ่านโค้ดเก่า — ใช้ diagram ของ lead และคำตอบของ boiledegg
+ไม่ได้อ่านโค้ดเก่า — ใช้ diagram ของ lead และคำตอบของ boiledegg / lead
 
 | # | ที่มา | การตัดสินใจ |
 |---|---|---|
-| 1 | diagram เก็บตัวคูณทศนิยม 4 ตำแหน่ง (`1.90^n`) แต่ comment ใน struct บอกหน่วย 0.01 | ใช้ **2 ตำแหน่ง** ตามคำตอบ 2026-10-08 |
-| 2 | diagram ตารางรางวัล Scratch Card ตัวคูณ `step 0.1, min 0` | ทศนิยม 2 ตำแหน่งตาม RATE-03 · ต้อง > 0 (รางวัล 0 เท่าไม่ใช่การชนะ) |
-| 3 | diagram มี dropdown ยอดแทง 10 / 20 / 50 / 100 / 200 / 500 | ใช้แค่แสดงตัวอย่างเงิน ไม่ใช่ค่าที่ตั้ง — ตั้งชุดเดียวใช้ทุกยอด (RATE-01) |
-| 4 | diagram "เปลี่ยนค่าแล้วมีผลกับ Bet ใหม่ · บันทึกค่าคู่กับ Bet" | เก็บเป็นเวอร์ชัน (RATE-05) ให้เดิมพันอ้าง `rate_version_id` แทนการคัดลอกค่าทั้งชุด |
-| 5 | diagram มีค่าเริ่มต้นของทุกเกม | **ไม่ใส่ค่าเริ่มต้น** — Superadmin ตั้งเองก่อนเปิดเกม (RATE-09A) |
+| 1 | diagram เก็บตัวคูณทศนิยม 4 ตำแหน่ง (`1.90^n`) | **float ทศนิยมไม่เกิน 4 ตำแหน่ง** (lead RR1 · แทน "2 ตำแหน่ง / INT ×100" ของ 2026-10-08) |
+| 2 | diagram ตารางรางวัล Scratch Card ตัวคูณ `step 0.1, min 0` | ทศนิยม 4 ตำแหน่งตาม RATE-03 · ต้อง > 0 (รางวัล 0 เท่าไม่ใช่การชนะ) |
+| 3 | diagram มี dropdown ยอดแทง 10 / 20 / 50 / 100 / 200 / 500 | ใช้แสดงตัวอย่างเงินเท่านั้น — ตั้งชุดเดียวใช้ทุกยอด (RATE-01) · ช่วงยอดแทงเป็นเรื่องของ module เดิมพัน (RH2) |
+| 4 | diagram "เปลี่ยนค่าแล้วมีผลกับ Bet ใหม่ · บันทึกค่าคู่กับ Bet" | เก็บเป็นเวอร์ชัน (RATE-05) ให้เดิมพันอ้าง `rate_version_id` (RH1) |
+| 5 | diagram มีค่าเริ่มต้นของทุกเกม | **ไม่ใส่ค่าเริ่มต้นในระบบ** (RATE-09A) · ใช้เป็นค่าตัวอย่างให้ tester ตั้งเองใน `docs/frontend/game_rate.md` |
 
-## 5. Endpoints
+## 5. Endpoints (lead RN1)
 
-ใต้ `/api/v1/bo/pr` · `Authenticated` + `PassedGates()` ทุกเส้น · ตามแบบ module ②: อ่านที่ต้องระบุ = `POST` · ส่ง `game_code` ใน body
+ใต้ `/api/v1/bo/pr/rate` · ทุกเส้น `POST` · `Authenticated` + `PassedGates()` + `RequirePermission(rate, …)` · เส้นที่บันทึกเพิ่ม `RequirePasscode()` หลังสิทธิ์ (RATE-02) ·
+request ผ่าน `utils.ParseBodyNoNull` (ห้าม `null` · `422`) · ไม่รับ field ที่ไม่ใช่ของเกมนั้น (`422` — ยกเว้น `passcode`) · error ร่วมทุกเส้น: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, `401307`, `401311`, `402303`
 
-| Method | Path | สิทธิ์ | ใช้เมื่อ |
+| # | Path | สิทธิ์ | ใช้เมื่อ |
 |---|---|---|---|
-| GET | `/rate/list` | `rate` view | รายชื่อเกม + เวอร์ชันปัจจุบัน + `house_edge` สรุป |
-| POST | `/rate/detail` | `rate` view | ค่าปัจจุบันของ 1 เกม พร้อมค่าที่คำนวณ |
-| POST | `/rate/update` | `rate` edit | บันทึกค่าใหม่ของ 1 เกม (= เวอร์ชันใหม่) |
-| POST | `/rate/history` | `rate` view | รายการเวอร์ชันของ 1 เกม (page / limit ใน body) |
-| POST | `/rate/version` | `rate` view | ค่าของเวอร์ชันที่ระบุ (ใช้ "โหลดค่าเดิมกลับเข้าฟอร์ม" — หน้าบ้านกดบันทึกเองเป็นเวอร์ชันใหม่) |
-| POST | `/rate/rollback` | `rate` edit + passcode | ย้อนไปใช้ค่าของเวอร์ชันที่ระบุ (= เวอร์ชันใหม่ — RATE-05A) |
+| RE1 | `/rate/list` | `rate` view | รายชื่อเกม + เวอร์ชันปัจจุบัน + house edge ต่ำสุด |
+| RE2 | `/rate/detail/get` | `rate` view | ค่าปัจจุบันของ 1 เกม พร้อมค่าที่คำนวณ |
+| RE3 | `/rate/detail/check` | `rate` view | ตรวจ + คำนวณค่าที่กำลังกรอก **โดยไม่บันทึก** (lead RN2) |
+| RE4 | `/rate/detail/update` | `rate` edit + passcode | บันทึกค่าใหม่ของ 1 เกม (= เวอร์ชันใหม่) |
+| RE5 | `/rate/versions/list` | `rate` view | รายการเวอร์ชันของ 1 เกม (log คนแก้) |
+| RE6 | `/rate/versions/detail/get` | `rate` view | ค่าของเวอร์ชันที่ระบุ |
+| RE7 | `/rate/versions/rollback` | `rate` edit + passcode | ย้อนไปใช้ค่าของเวอร์ชันที่ระบุ (= เวอร์ชันใหม่) |
 
-### GET /api/v1/bo/pr/rate/list
+### 5.1 RE1 · POST /api/v1/bo/pr/rate/list
 
-Response `data`:
+Request: `{}` · Response `data`:
 ```json
 [
-  { "game_code": "coin_toss", "version": 3, "min_house_edge_percent": 5, "updated_at": "2026-10-08T10:00:00+07:00", "updated_by": "superadmin1" },
-  { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "updated_at": "", "updated_by": "" },
-  { "game_code": "scratch_card", "version": 1, "min_house_edge_percent": 22.75, "updated_at": "2026-10-05T09:00:00+07:00", "updated_by": "superadmin1@staff" }
+  { "game_code": "coin_toss", "version": 3, "min_house_edge_percent": 5, "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1" },
+  { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "" },
+  { "game_code": "scratch_card", "version": 1, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T09:00:00+07:00", "created_by": "superadmin1@staff" }
 ]
 ```
-- `min_house_edge_percent` = ค่าที่ต่ำสุดในทุกขั้น (Scratch Card มีค่าเดียว)
-- เกมที่ยังไม่เคยตั้งค่า (RATE-09A): `version = 0` · ตัวเลข `0` · ข้อความ `""` — เกมนั้นยังเปิดให้เล่นไม่ได้
+- เรียงตามรายชื่อเกมใน `core/game` · `min_house_edge_percent` = ค่าต่ำสุดในทุกขั้น (Scratch มีค่าเดียว) · `created_*` = ของเวอร์ชันปัจจุบัน
+- ยังไม่เคยตั้ง (RATE-09A): `version = 0` · ตัวเลข `0` · ข้อความ `""` — เกมนั้นยังเปิดให้เล่นไม่ได้
 
-### POST /api/v1/bo/pr/rate/detail
+Error: ร่วม
 
-Request:
-```json
-{ "game_code": "coin_toss" }
-```
-Response `data` (Coin Flip):
+### 5.2 RE2 · POST /api/v1/bo/pr/rate/detail/get
+
+Request: `{ "game_code": "coin_toss" }`
+
+Response `data` (Coin Flip — ค่าตัวอย่างจาก diagram ครบ 10 ขั้น):
 ```json
 {
   "game_code": "coin_toss",
   "version": 3,
   "steps": [
-    { "step": 1, "multiplier": 1.90, "win_percent": 50, "reach_percent": 50, "house_edge_percent": 5, "max_win_percent": 52.63 },
-    { "step": 2, "multiplier": 3.61, "win_percent": 48, "reach_percent": 24, "house_edge_percent": 13.36, "max_win_percent": 55.4 }
+    { "step": 1,  "multiplier": 1.9,      "win_percent": 50, "reach_percent": 50,     "house_edge_percent": 5,       "max_win_percent": 52.1053 },
+    { "step": 2,  "multiplier": 3.61,     "win_percent": 48, "reach_percent": 24,     "house_edge_percent": 13.36,   "max_win_percent": 54.8476 },
+    { "step": 3,  "multiplier": 6.859,    "win_percent": 46, "reach_percent": 11.04,  "house_edge_percent": 24.2766, "max_win_percent": 60.14 },
+    { "step": 4,  "multiplier": 13.0321,  "win_percent": 44, "reach_percent": 4.8576, "house_edge_percent": 36.6953, "max_win_percent": 68.81 },
+    { "step": 5,  "multiplier": 24.761,   "win_percent": 42, "reach_percent": 2.0402, "house_edge_percent": 49.4828, "max_win_percent": 82.3086 },
+    { "step": 6,  "multiplier": 47.0459,  "win_percent": 40, "reach_percent": 0.8161, "house_edge_percent": 61.6069, "max_win_percent": 100 },
+    { "step": 7,  "multiplier": 89.3872,  "win_percent": 38, "reach_percent": 0.3101, "house_edge_percent": 72.2802, "max_win_percent": 100 },
+    { "step": 8,  "multiplier": 169.8356, "win_percent": 36, "reach_percent": 0.1116, "house_edge_percent": 81.0397, "max_win_percent": 100 },
+    { "step": 9,  "multiplier": 322.6877, "win_percent": 34, "reach_percent": 0.038,  "house_edge_percent": 87.7516, "max_win_percent": 100 },
+    { "step": 10, "multiplier": 613.1066, "win_percent": 32, "reach_percent": 0.0121, "house_edge_percent": 92.553,  "max_win_percent": 100 }
   ],
-  "created_at": "2026-10-08T10:00:00+07:00",
+  "created_at": "2026-10-12T10:00:00+07:00",
   "created_by": "superadmin1"
 }
 ```
-- `steps` มีครบ 10 ขั้น (ตัวอย่างตัดเหลือ 2)
+> ตัวอย่างขั้น 1–2 ตรงกับ diagram · ขั้น 3–10 เป็นชุดประกอบเอกสาร (ตัวคูณ `1.9^n` ปัด 4 ตำแหน่ง · ชนะลดขั้นละ 2%) คำนวณด้วย `big.Rat` แล้ว Round4 · ค่าที่ test ยึดคือตัวอย่าง diagram (5% · 13.36% · 48.5714% · 22.75% · 64.0777%)
+> `max_win_percent` ไม่เกิน 100
+
 - RPS: แต่ละขั้นเพิ่ม `draw_percent` และ `lose_percent` (คำนวณ)
 - Scratch Card:
 ```json
@@ -151,159 +169,212 @@ Response `data` (Coin Flip):
   "version": 1,
   "win_percent": 50,
   "prizes": [
-    { "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5 },
-    { "multiplier": 1, "share_percent": 35, "per_ticket_percent": 17.5 },
-    { "multiplier": 2, "share_percent": 18, "per_ticket_percent": 9 },
-    { "multiplier": 5, "share_percent": 10, "per_ticket_percent": 5 },
-    { "multiplier": 8, "share_percent": 2, "per_ticket_percent": 1 }
+    { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5 },
+    { "row_no": 2, "multiplier": 1,   "share_percent": 35, "per_ticket_percent": 17.5 },
+    { "row_no": 3, "multiplier": 2,   "share_percent": 18, "per_ticket_percent": 9 },
+    { "row_no": 4, "multiplier": 5,   "share_percent": 10, "per_ticket_percent": 5 },
+    { "row_no": 5, "multiplier": 8,   "share_percent": 2,  "per_ticket_percent": 1 }
   ],
   "avg_multiplier": 1.545,
   "payout_percent": 77.25,
   "house_edge_percent": 22.75,
-  "max_win_percent": 64.72,
-  "created_at": "2026-10-05T09:00:00+07:00",
+  "max_win_percent": 64.0777,
+  "created_at": "2026-10-12T09:00:00+07:00",
   "created_by": "superadmin1@staff"
 }
 ```
-- ค่าที่คำนวณ (`reach_percent`, `house_edge_percent`, `max_win_percent`, `payout_percent`) ปัดแสดง 2 ตำแหน่ง · `avg_multiplier` แสดงสูงสุด 4 ตำแหน่ง (เช่น `1.545`) · การตรวจ RATE-07 ใช้ค่าเต็มก่อนปัด
-- เกมที่ยังไม่เคยตั้งค่า: `version = 0` · `steps` / `prizes` = `[]` · ตัวเลข `0` · ข้อความ `""`
+- ค่าที่คำนวณปัด 4 ตำแหน่ง (RATE-09) · ยังไม่เคยตั้ง: `version = 0` · `steps` / `prizes` = `[]` · ตัวเลข `0` · ข้อความ `""`
 
 Error: `422`, `406401`
 
-### POST /api/v1/bo/pr/rate/update
+### 5.3 RE3 · POST /api/v1/bo/pr/rate/detail/check (lead RN2)
 
-Request (Coin Flip — ส่งครบ 10 ขั้น):
+Request = body ของ RE4 **ไม่มี** `passcode` / `base_version` · ตรวจรูปแบบเหมือน RE4 (ผิด = `422`) แล้วคำนวณ **ไม่บันทึก ไม่เขียน log**
+
+Response `data` = รูปแบบเดียวกับ RE2 (ไม่มี `version` / `created_*`) + ผลตรวจกฎ:
 ```json
 {
   "game_code": "coin_toss",
+  "valid": false,
+  "issues": [ { "field": "steps[2].win_percent", "code": 406101, "message": "steps[2].win_percent ตั้งได้ไม่เกิน 60.14 (house edge ต่ำกว่า 1%)" } ],
+  "steps": [ { "step": 1, "multiplier": 1.9, "win_percent": 50, "reach_percent": 50, "house_edge_percent": 5, "max_win_percent": 52.1053 } ]
+}
+```
+- กฎ RATE-07 / RATE-32 ไม่ผ่าน = ยังตอบ `200` พร้อมค่าคำนวณ · `valid: false` · `issues` บอกทุกจุดที่ผิด (หน้าบ้านแสดงข้างช่องได้ ไม่ต้องเขียนสูตรเอง) · ผ่านทั้งหมด = `valid: true` · `issues: []`
+- **ร่าง — ขอ lead ยืนยันรูปแบบ (หัวข้อ 9 Q2)**
+
+Error: `422`, `406401`
+
+### 5.4 RE4 · POST /api/v1/bo/pr/rate/detail/update
+
+Request (Coin Flip — ส่งครบ 10 ขั้น ตามลำดับขั้น):
+```json
+{
+  "game_code": "coin_toss",
+  "base_version": 3,
   "steps": [
-    { "multiplier": 1.90, "win_percent": 50 },
-    { "multiplier": 3.61, "win_percent": 48 }
+    { "multiplier": 1.9, "win_percent": 50 }, { "multiplier": 3.61, "win_percent": 48 },
+    { "multiplier": 6.859, "win_percent": 46 }, { "multiplier": 13.0321, "win_percent": 44 },
+    { "multiplier": 24.761, "win_percent": 42 }, { "multiplier": 47.0459, "win_percent": 40 },
+    { "multiplier": 89.3872, "win_percent": 38 }, { "multiplier": 169.8356, "win_percent": 36 },
+    { "multiplier": 322.6877, "win_percent": 34 }, { "multiplier": 613.1066, "win_percent": 32 }
   ],
   "passcode": "123456"
 }
 ```
-Request (RPS): แต่ละขั้น `{ "multiplier", "win_percent", "draw_percent" }` + `passcode`
+Request (RPS): แต่ละขั้น `{ "multiplier", "win_percent", "draw_percent" }`
 
 Request (Scratch Card):
 ```json
 {
   "game_code": "scratch_card",
+  "base_version": 1,
   "win_percent": 50,
-  "prizes": [ { "multiplier": 0.5, "share_percent": 35 }, { "multiplier": 8, "share_percent": 65 } ],
+  "prizes": [ { "multiplier": 0.5, "share_percent": 35 }, { "multiplier": 1, "share_percent": 35 }, { "multiplier": 2, "share_percent": 18 },
+              { "multiplier": 5, "share_percent": 10 }, { "multiplier": 8, "share_percent": 2 } ],
   "passcode": "123456"
 }
 ```
-Response `data`: `{ "game_code": "scratch_card", "version": 2 }`
+Response `data`: `{ "game_code": "scratch_card", "version": 2, "created": true }` · ค่าเท่าปัจจุบัน = `{ "game_code": "scratch_card", "version": 1, "created": false }` (RATE-05C)
 
-- ลำดับขั้นตามลำดับใน array (ตัวแรก = ขั้น 1) · ไม่รับ field ที่ไม่ใช่ของเกมนั้น (`422`)
-- ต้องส่ง `passcode` ของคนที่กดบันทึก (RATE-08 · `RequirePasscode` — ผิด / ครบ 5 ครั้งตามกติกา auth)
+| field | กติกา |
+|---|---|
+| `game_code` | ต้องมีใน `core/game` (`406401`) |
+| `base_version` | จำนวนเต็ม ≥ 0 · ไม่ตรงเวอร์ชันปัจจุบัน = `406301` (RATE-05B) |
+| `steps` (Coin / RPS) | ครบ 10 ขั้น · RATE-11 / RATE-21 |
+| `win_percent` + `prizes` (Scratch) | RATE-30 – RATE-32 |
+| `passcode` | `RequirePasscode` (ผิด `401204` · ครบ 5 ครั้ง `401205`) |
 
-Error: `422`, `401204`, `401205`, `406101`, `406102`, `406401`
+- ลำดับเช็ค: รูปแบบ (DTO · บนลงล่างตาม field) → `game_code` (`406401`) → `base_version` (`406301`) → กฎ RATE-07 / 32 (`406101` / `406102`) → ค่าเท่าปัจจุบัน (`created: false`) → บันทึก
 
-### POST /api/v1/bo/pr/rate/history
+Error: `422`, `401204`, `401205`, `406101`, `406102`, `406301`, `406401`
 
-Request: `{ "game_code": "coin_toss", "page": 1, "limit": 20 }`
+### 5.5 RE5 · POST /api/v1/bo/pr/rate/versions/list
 
-Response `data` (`response.Page`):
+Request: `{ "game_code": "coin_toss", "page": 1, "limit": 20 }` (`utils.NewPage`) · Response `data` (`response.Page`):
 ```json
 {
-  "data": [ { "version": 3, "min_house_edge_percent": 5, "created_at": "2026-10-08T10:00:00+07:00", "created_by": "superadmin1", "ip": "203.0.113.10", "rollback_from": 0 } ],
-  "total_count": 3
+  "current_page": 1, "total_page": 1, "total_count": 3, "limit": 20, "has_next": false, "has_prev": false,
+  "data": [ { "version": 3, "min_house_edge_percent": 5, "rollback_from": 0, "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1", "ip": "203.0.113.10" } ]
 }
 ```
-- เรียงเวอร์ชันใหม่ → เก่า · ใช้เป็น log คนแก้ (RATE-08) · ไม่ส่ง `actor_id` / `request_id` ออกไป
+- เรียงเวอร์ชันใหม่ → เก่า · log คนแก้ (RATE-08) · ไม่ส่ง `actor_id` / `request_id` ออกไป · `rollback_from` = `0` เมื่อไม่ได้ย้อน
 
-### POST /api/v1/bo/pr/rate/version
+Error: `422`, `406401`
 
-Request: `{ "game_code": "coin_toss", "version": 2 }` · Response `data` = รูปแบบเดียวกับ `/rate/detail` · ไม่พบ `406402`
+### 5.6 RE6 · POST /api/v1/bo/pr/rate/versions/detail/get
 
-### POST /api/v1/bo/pr/rate/rollback
+Request: `{ "game_code": "coin_toss", "version": 2 }` · Response `data` = รูปแบบเดียวกับ RE2 · ไม่พบ `406402`
 
-Request:
-```json
-{ "game_code": "coin_toss", "version": 2, "passcode": "123456" }
-```
-Response `data`: `{ "game_code": "coin_toss", "version": 4, "rollback_from": 2 }`
+Error: `422`, `406401`, `406402`
 
-- สร้างเวอร์ชันใหม่ที่ค่าเท่าเวอร์ชันที่ระบุ · `/rate/history` แสดง `rollback_from` (ไม่ได้ย้อน = `0`)
-- ระบุเวอร์ชันที่ใช้อยู่ = `422` · ไม่พบเวอร์ชัน `406402`
+### 5.7 RE7 · POST /api/v1/bo/pr/rate/versions/rollback
 
-Error: `422`, `401204`, `401205`, `406101`, `406401`, `406402`
+Request: `{ "game_code": "coin_toss", "version": 2, "base_version": 3, "passcode": "123456" }`
+Response `data`: `{ "game_code": "coin_toss", "version": 4, "rollback_from": 2, "created": true }` · ค่าเท่าปัจจุบัน = `created: false` · `version` ปัจจุบัน · `rollback_from: 0`
 
-## 6. Schema (migration ใหม่)
+- ลำดับเช็ค: รูปแบบ → `game_code` → `version` มีจริง (`406402`) → `base_version` (`406301`) → กฎปัจจุบัน (`406101` / `406102` — RATE-05A) → ค่าเท่าปัจจุบัน → บันทึก
+
+Error: `422`, `401204`, `401205`, `406101`, `406102`, `406301`, `406401`, `406402`
+
+### 5.8 ฟังก์ชันสำหรับ engine / module เดิมพัน (ไม่ใช่ endpoint — lead C6)
+
+- `CurrentVersionService(ctx, tx, gameCode)` → ค่าของเวอร์ชันปัจจุบัน + `version_id` · ยังไม่เคยตั้ง (`version = 0`) = error ให้ engine ปฏิเสธ Bet ("เกมนี้ไม่เปิดให้บริการ")
+- `ByVersionIDService(ctx, versionID)` → ค่าของเวอร์ชันนั้น · cache ใน memory ตาม `version_id` (เวอร์ชันแก้ไม่ได้ จึงไม่ต้องลบ cache — ไม่ใช่ source of truth ของเงิน · กฎข้อ 14)
+
+## 6. Schema (migration ใหม่ — timestamp หลังไฟล์ล่าสุดบน dev · lead MA6)
 
 ```sql
-CREATE TABLE game_rate_versions (            -- 1 แถวต่อการบันทึก 1 ครั้ง (RATE-05) · ห้าม UPDATE / DELETE
-    id                 BIGSERIAL    PRIMARY KEY,
-    game_code          VARCHAR(50)  NOT NULL,
-    version            INT          NOT NULL,
-    win_bp             INT          CHECK (win_bp BETWEEN 0 AND 10000),   -- Scratch Card เท่านั้น
-    actor_type         VARCHAR(10)  NOT NULL CHECK (actor_type IN ('AGENT','SUB')),   -- log คนแก้ (RATE-08)
-    actor_id           BIGINT       NOT NULL,
-    created_by         VARCHAR(71)  NOT NULL,   -- username ณ เวลานั้น
-    ip                 VARCHAR(45),
-    request_id         VARCHAR(64),
-    rollback_from      INT          NOT NULL DEFAULT 0,   -- ย้อนมาจากเวอร์ชันไหน (RATE-05A) · 0 = บันทึกปกติ
-    created_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_game_rate_versions UNIQUE (game_code, version)          -- กันบันทึกพร้อมกันได้เลขซ้ำ + index หาเวอร์ชันล่าสุด
+CREATE TABLE game_rate_versions (            -- 1 แถวต่อการบันทึกที่ค่าเปลี่ยน (RATE-05) · ห้าม UPDATE / DELETE
+    id             BIGSERIAL        PRIMARY KEY,
+    game_code      VARCHAR(50)      NOT NULL,
+    version        INT              NOT NULL CHECK (version >= 1),
+    win_percent    DOUBLE PRECISION CHECK (win_percent > 0 AND win_percent <= 100),   -- Scratch Card เท่านั้น · Coin / RPS = NULL
+    actor_type     VARCHAR(10)      NOT NULL CHECK (actor_type IN ('AGENT','SUB')),     -- log คนแก้ (RATE-08)
+    actor_id       BIGINT           NOT NULL,
+    created_by     VARCHAR(71)      NOT NULL,                                          -- username ณ เวลานั้น
+    ip             VARCHAR(45)      NOT NULL DEFAULT '',
+    request_id     VARCHAR(64)      NOT NULL DEFAULT '',
+    rollback_from  INT              NOT NULL DEFAULT 0,                                -- RATE-05A · 0 = บันทึกปกติ
+    created_at     TIMESTAMPTZ      NOT NULL DEFAULT now(),
+    CONSTRAINT uq_game_rate_versions UNIQUE (game_code, version)   -- เลขไม่ซ้ำ + index หาเวอร์ชันล่าสุด (ORDER BY version DESC LIMIT 1)
 );
 
 CREATE TABLE game_rate_steps (               -- Coin Flip / RPS
-    version_id     BIGINT  NOT NULL REFERENCES game_rate_versions(id),
-    step           SMALLINT NOT NULL CHECK (step BETWEEN 1 AND 10),
-    multiplier_x100 INT    NOT NULL CHECK (multiplier_x100 >= 100),
-    win_bp         INT     NOT NULL CHECK (win_bp BETWEEN 0 AND 10000),
-    draw_bp        INT     NOT NULL DEFAULT 0 CHECK (draw_bp BETWEEN 0 AND 9900),
+    version_id     BIGINT           NOT NULL REFERENCES game_rate_versions(id),
+    step           SMALLINT         NOT NULL CHECK (step BETWEEN 1 AND 10),
+    multiplier     DOUBLE PRECISION NOT NULL CHECK (multiplier >= 1 AND multiplier <= 1000),
+    win_percent    DOUBLE PRECISION NOT NULL CHECK (win_percent > 0 AND win_percent <= 100),
+    draw_percent   DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (draw_percent >= 0 AND draw_percent < 100),
     PRIMARY KEY (version_id, step)
 );
 
 CREATE TABLE game_rate_prizes (              -- Scratch Card
-    version_id      BIGINT NOT NULL REFERENCES game_rate_versions(id),
-    multiplier_x100 INT    NOT NULL CHECK (multiplier_x100 > 0),
-    share_bp        INT    NOT NULL CHECK (share_bp BETWEEN 0 AND 10000),
-    PRIMARY KEY (version_id, multiplier_x100)
+    version_id     BIGINT           NOT NULL REFERENCES game_rate_versions(id),
+    row_no         SMALLINT         NOT NULL CHECK (row_no BETWEEN 1 AND 10),
+    multiplier     DOUBLE PRECISION NOT NULL CHECK (multiplier > 0 AND multiplier <= 1000),
+    share_percent  DOUBLE PRECISION NOT NULL CHECK (share_percent > 0 AND share_percent <= 100),
+    PRIMARY KEY (version_id, row_no)
 );
 ```
-- บันทึก: tx เดียว · หาเลขเวอร์ชันล่าสุด + 1 · ชนกัน (`uq_game_rate_versions`) = ลองใหม่ 1 ครั้งแล้วค่อยตอบ error
-- เวอร์ชันปัจจุบัน = `MAX(version)` ของเกม (ใช้ index ของ unique)
+- บันทึก: tx เดียวที่ service เปิด · advisory lock ต่อ `game_code` → อ่านเวอร์ชันล่าสุด → เทียบ `base_version` (`406301`) → เทียบค่าเท่าปัจจุบัน → insert เวอร์ชัน + แถวลูกแบบ batch · ชน `uq_game_rate_versions` (หลุด lock) = `406301`
+- ค่าที่เก็บปัด 4 ตำแหน่งแล้ว (`utils.Round4`) · CHECK ในตารางกันค่าหลุดช่วง · กฎ RATE-07 / 32 ตรวจใน `core/game_rate` ไม่อยู่ใน DB
 
 ## 7. Test cases
 
 | Rule ID | Input | Expected |
 |---|---|---|
-| RATE-02 | Company / Share / Agent เรียกทุกเส้น | `402303` |
-| RATE-02 | sub ของ Superadmin ไม่มีสิทธิ์ `rate` · มี `view` แล้ว update | `402303` ทั้งคู่ |
-| RATE-03 | ตัวคูณ `1.905` | `422` |
-| RATE-04 | `win_percent` `50.125` | `422` |
-| RATE-05 | บันทึก 2 ครั้ง | เวอร์ชัน 2 และ 3 · เวอร์ชัน 2 ยังอ่านได้ค่าเดิม |
-| RATE-05 | บันทึกพร้อมกัน 2 request | ได้เวอร์ชันไม่ซ้ำ ทั้งคู่สำเร็จ |
-| RATE-05A | มี v1–v3 ย้อนไป v2 | ได้ v4 ค่าเท่า v2 · `rollback_from = 2` · v3 ไม่เปลี่ยน |
-| RATE-05A | ย้อนไปเวอร์ชันที่ใช้อยู่ · เวอร์ชันไม่มี · ไม่ส่ง passcode | `422` · `406402` · `422` |
-| RATE-07 / RATE-13 | Coin Flip ขั้น 3 ตั้ง % ชนะเกิน `max_win` | `406101` · msg บอก `steps[2]` · ไม่มีเวอร์ชันใหม่ |
+| RATE-02 | Company / Share / Agent / ADMIN เรียกทุกเส้น | `402303` |
+| RATE-02 | sub ของ Superadmin ไม่มีสิทธิ์ `rate` · มี `view` แล้ว `detail/update` · มี `edit` | `402303` · `402303` · สำเร็จ (`actor_type = SUB` · `created_by = superadmin1@staff`) |
+| RATE-02 | ไม่มีสิทธิ์ + ไม่ส่ง passcode | `402303` (สิทธิ์ก่อน passcode) |
+| RATE-03 / 04 | ตัวคูณ `1.90005` · `win_percent` `50.12345` (5 ตำแหน่ง) | `422` |
+| RATE-03 | ตัวคูณขั้น 10 `1000.0001` · รางวัล Scratch `0` | `422` |
+| RATE-04 | `win_percent` `0` | `422` |
+| RATE-05 | บันทึก 2 ครั้งค่าต่างกัน | เวอร์ชัน 1 และ 2 · เวอร์ชัน 1 ยังอ่านได้ค่าเดิม |
+| RATE-05B | `base_version` เก่า · ยิงพร้อมกัน 2 request ด้วย `base_version` เดียวกัน | `406301` · สำเร็จ 1 อีกอัน `406301` |
+| RATE-05C | บันทึกค่าเดิมทั้งชุด · ย้อนไปเวอร์ชันที่ค่าเท่าปัจจุบัน | `200` `created: false` ไม่มีเวอร์ชันใหม่ |
+| RATE-05A | มี v1–v3 ย้อนไป v2 · ย้อนไปเวอร์ชันที่ไม่ผ่านกฎใหม่ · เวอร์ชันไม่มี · ไม่ส่ง passcode | v4 ค่าเท่า v2 `rollback_from = 2` · `406101` · `406402` · `422` |
+| RATE-07 / 13 | Coin Flip ขั้น 3 `win_percent` เกิน `max_win` · house edge 0.9999% | `406101` msg บอก `steps[2].win_percent` + ค่าสูงสุด · ไม่มีเวอร์ชันใหม่ |
+| RATE-07 | house edge = 1% พอดี | สำเร็จ |
 | RATE-10 | ส่ง 9 ขั้น | `422` |
-| RATE-11 | ตัวคูณขั้น 4 ≤ ขั้น 3 | `422` (msg บอก `steps[3].multiplier`) |
+| RATE-11 | ตัวคูณขั้น 4 ≤ ขั้น 3 | `422` (`steps[3].multiplier`) |
 | RATE-21 | RPS `win 60 · draw 40` | `422` |
-| RATE-22 | RPS ขั้น 1 ชนะ 34 · เสมอ 30 | `reach_1 = 48.57` |
-| RATE-32 | Scratch Card share รวม 99.5 | `406102` |
-| RATE-33 | Scratch Card W 50 กับตารางตัวอย่างหัวข้อ 3 | `house_edge = 22.75` · `max_win = 64.72` |
-| RATE-33 | W 65 กับตารางตัวอย่าง | `406101` |
+| RATE-22 | RPS ขั้น 1 ชนะ 34 · เสมอ 30 | `reach_1 = 48.5714` |
 | RATE-31 | ตัวคูณซ้ำ 2 แถว · 0 แถว · 11 แถว | `422` |
-| RATE-08 | บันทึกโดยไม่ส่ง `passcode` · passcode ผิด | `422` · `401204` |
-| RATE-08 | sub `superadmin1@staff` บันทึก | แถวเวอร์ชันมี `actor_type = SUB` · `created_by = superadmin1@staff` · `ip` · `request_id` |
-| RATE-09A | ระบบใหม่ ยังไม่เคยตั้ง | `/rate/list` ทุกเกม `version = 0` · `/rate/detail` `steps = []` |
+| RATE-32 | share รวม 99.5 · รวม 100.0001 | `406102` |
+| RATE-33 | W 50 กับตารางตัวอย่าง · W 65 | `house_edge = 22.75` `max_win = 64.0777` · `406101` |
+| RATE-08 | ไม่ส่ง passcode · passcode ผิด | `422` · `401204` |
+| RATE-09A | ระบบใหม่ ยังไม่เคยตั้ง | RE1 ทุกเกม `version = 0` · RE2 `steps = []` · `CurrentVersionService` = error |
+| RN2 | RE3 ค่าผ่าน · ขั้น 3 เกิน · share รวม 99 | `valid: true` · `valid: false` + issue `406101` · issue `406102` · ไม่มีเวอร์ชันใหม่ทุกกรณี |
 | — | `game_code` ไม่มีในระบบ | `406401` |
-| RATE-01 | ส่ง `prizes` ให้ `coin_toss` | `422` |
+| RATE-01 | ส่ง `prizes` ให้ `coin_toss` · ส่ง `draw_percent` ให้ `coin_toss` | `422` |
+| core | `core/game_rate` table test: ตัวอย่าง diagram 5% · 13.36% · 48.5714% · 22.75% · 64.0777% | ตรงทุกค่า (`big.Rat` แล้ว Round4) |
 
 ## 8. Error codes (`06`)
 
 | Code | HTTP | ความหมาย |
 |---|---|---|
-| 406101 | 200 | ตั้งค่านี้แล้วร้านขาดทุน (msg บอกขั้น / แถว และค่าสูงสุดที่ตั้งได้) |
+| 406101 | 200 | ตั้งค่านี้แล้ว house edge ต่ำกว่าขั้นต่ำ (msg บอกขั้น / แถว และ `win_percent` สูงสุดที่ตั้งได้) |
 | 406102 | 200 | สัดส่วนรางวัลรวมต้องเท่ากับ 100% |
+| 406301 | 200 | มีคนแก้ไปแล้ว กรุณาโหลดใหม่ (`base_version` ไม่ตรง — RATE-05B) |
 | 406401 | 200 | ไม่พบเกมนี้ |
 | 406402 | 200 | ไม่พบเวอร์ชันนี้ |
 
-## 9. ส่งต่อให้ module อื่น
+## 9. Open items
 
-- ยอดแทงสูงสุด และขั้นต่ำ 1 บาท / บาทเต็ม ใช้กับทุกสกุลไหม — ถามตอนทำ module เดิมพัน
+### ขอ lead ยืนยัน (ก่อน implement)
+
+| # | เรื่อง | ข้อเสนอ |
+|---|---|---|
+| Q1 | RR6 หยุดเกมด่วน: ตอนนี้**ไม่มีเส้นให้ Superadmin ปิด `status_game` ของตัวเอง** (`agents/detail/update` แก้ได้แค่ลูกตรง) | ก. Superadmin ปิดที่ Company ทุกตัว (หลายครั้ง) · ข. เพิ่มเส้นแก้ `status_game` ของ Superadmin เอง (agent_management) · ค. ใช้ `version = 0` ไม่ได้ (ย้อนเป็นไม่เคยตั้งไม่ได้) — **เสนอ ข.** |
+| Q2 | RE3 `detail/check` รูปแบบผลตรวจ | `200` + `valid` + `issues[]` (ทุกจุดที่ผิด) แทนการตอบ error ตัวแรก — หน้าบ้านแสดงทุกช่องที่ผิดได้ในครั้งเดียว |
+| Q3 | `max_win_percent` นิยามใหม่ตาม RR2 = ค่าสูงสุดที่ยังได้ house edge ≥ 1% (เดิม = จุดคุ้มทุน 0%) | ใช้นิยามใหม่ · ตัวอย่าง Scratch เปลี่ยนจาก 64.72 เป็น 64.0777 |
+
+### ส่งต่อ module เดิมพัน / engine (lead 7.3 — ไม่ต้องตัดสินตอนนี้)
+
+| # | เรื่อง |
+|---|---|
+| RH1 | Bet เก็บ `rate_version_id` · Streak ทุกขั้นอ่านค่าจาก id นั้น · version 0 → ปฏิเสธ Bet ("เกมนี้ไม่เปิดให้บริการ") |
+| RH2 | ยอดแทง: เดิม RATE-09B (8 ต.ค.) "บาทเต็ม ขั้นต่ำ 1 บาท" vs กฎข้อ 9 float · ช่วงยอดแทง 10–500 ใน diagram · เพดานยอดจ่ายต่อบิล (เกี่ยวกับ RR3) · ใช้กับทุกสกุลไหม |
+| RH3 | หน้าเกมของ Member ต้องได้ตารางตัวคูณ (Coin / RPS 10 ขั้น · รางวัล Scratch) — ส่งแค่ตัวคูณ ไม่ส่ง `win_percent` / `share_percent` · เป็นเส้นฝั่งผู้เล่นของ module เดิมพัน |
+| RH4 | Scratch ตรง 2 ช่อง แบ่งครึ่ง "ช่องแรกปัดลง" → ปัดที่ 4 ตำแหน่ง (`Round4`) · Streak ค้างเกิน 1 วัน CASH OUT อัตโนมัติ / Scratch ไม่ขูดเกิน 1 วันเปิดอัตโนมัติ (เดิม RATE-09C) — job ของ engine |
