@@ -4,7 +4,8 @@
 spec เต็ม: `docs/modules/member_management.md` · ผู้ดูแล module: maofoy
 
 > **เปลี่ยนจากเดิม (12 ต.ค.)** — `members/create` **ต้องส่ง `payment_type`** (`CREDIT` / `CASH`) · เพิ่ม `payment_account` (บัญชีธนาคาร) และ `win_limit_per_day` (ลิมิตชนะต่อวัน) ·
-> `members/detail/get` มี 3 field นี้ · `members/detail/update` เพิ่ม section `payment` / `limit` · error ใหม่ `402405`
+> `members/detail/get` มี 3 field นี้ · `members/detail/update` เพิ่ม section `payment` / `limit` · error ใหม่ `402405` ·
+> **ตัวเลขทุก field (`balance` · `pt` · `commission_percent` · `win_limit_per_day`) ต้องเป็น JSON number** — ส่งเป็นข้อความ (เช่น `"50"`) ได้ `400` ไม่บอก field (เดิม `422`)
 >
 > **เปลี่ยนจากเดิม (11 ต.ค.)** — path ใหม่ เส้นเดิมได้ `404` (หัวข้อ 4) · `update-info` + `update-pt` รวมเป็น `members/detail/update` ·
 > เส้นใหม่ `members/list` (dropdown) · **เบอร์ 2 field** `phone_country_code` + `phone` · สิทธิ์ sub ใช้แค่ `member` · `pt` แสดงเสมอ · ส่งสถานะเดิม = 200 ไม่มีประวัติเพิ่ม
@@ -34,7 +35,8 @@ spec เต็ม: `docs/modules/member_management.md` · ผู้ดูแล 
   (`BBL` `KBANK` `KTB` `SCB` `BAY` `TTB` `KKP` `CIMBT` `TISCO` `UOBT` `LHBANK` `ICBCT` `TCRB` `GSB` `BAAC` `GHB` `ISBT` — ชื่อเต็มดู spec หัวข้อ 2.2) ·
   เลขบัญชีตัวเลขล้วน 10–15 หลัก · ชื่อเจ้าของบัญชี 6 field ไม่บังคับ (`_th` อักษรไทย · `_en` A–Z · มีช่องว่าง / `-` ได้ · ≤ 50 ตัว · ส่งชื่อต้องมีเลขบัญชี) ·
   **ห้ามซ้ำ (ธนาคาร + เลข) เฉพาะ Member ของผู้สร้างเดียวกัน** (`402405`) · ไม่มีบัญชี = ไม่ส่ง / `{}` / `""` ทั้งคู่
-- **ลิมิตชนะต่อวัน `win_limit_per_day`:** ค่าเดียวใช้ทุกเกม · หน่วยสกุลของ Member · ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง · ส่งเป็น number (ส่งเป็นข้อความ `"5000"` = `400`) · **`0` = ไม่จำกัด** · ไม่ส่ง = `0`
+- **ลิมิตชนะต่อวัน `win_limit_per_day`:** ค่าเดียวใช้ทุกเกม · หน่วยสกุลของ Member · ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง · **`0` = ไม่จำกัด** · ไม่ส่ง = `0`
+- **ตัวเลข (เงิน / %):** ส่งเป็น JSON number เท่านั้น · ทศนิยมไม่เกิน 4 ตำแหน่ง (เกิน = `422` บอก field) · ส่งเป็นข้อความ เช่น `"100"` = `400` "คำขอไม่ถูกต้อง" **ไม่บอก field**
 
 **error ที่เกิดได้กับทุกเส้น:** `401202`, `401203`, `401301`, `401302`, `401312` (sub ถูกปิด) → หน้า login · `401304`, `401306`, `401307` → ด่านหลัง login · `401311` บัญชีถูกระงับ · `402303` sub ไม่มีสิทธิ์
 
@@ -49,12 +51,43 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/members/create" \
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ", "data": { "id": 501, "username": "mem01" } }`
 
+Request แบบครบ:
+```json
+{
+  "request_id": "0b9c5a77-2d1e-4f3a-8c61-5e4d3c2b1a09",
+  "username": "mem01",
+  "password": "aA4b4c4d4e4f",
+  "name": "ใจดี",
+  "phone_country_code": "66",
+  "phone": "812345678",
+  "balance": { "THB": 100 },
+  "pt": { "minigame": { "pt": 50, "commission_percent": 0.3 } },
+  "payment_type": "CREDIT",
+  "payment_account": {
+    "bank_code": "KBANK", "account_number": "7876766654",
+    "name_th": "ใจดี", "midname_th": "", "surname_th": "มีสุข",
+    "name_en": "Jaidee", "midname_en": "", "surname_en": "Meesuk"
+  },
+  "win_limit_per_day": 5000
+}
+```
+Request แบบน้อยที่สุด (ไม่มีเบอร์ / ยอด / บัญชี / ลิมิต):
+```json
+{
+  "request_id": "0b9c5a77-2d1e-4f3a-8c61-5e4d3c2b1a09",
+  "username": "mem02", "password": "aA4b4c4d4e4f", "name": "ใจดี",
+  "phone_country_code": "", "phone": "",
+  "pt": { "minigame": { "pt": 0, "commission_percent": 0 } },
+  "payment_type": "CASH"
+}
+```
+
 - กติกา `request_id` / `username` / `password` / `name` / `balance` เหมือนเส้นสร้างฝั่ง agent ([agent_management.md](agent_management.md) หัวข้อ 3.1) · `request_id` สร้าง UUID ใหม่ต่อการกดบันทึก 1 ครั้ง ใช้ค่าเดิมตอน retry
 - เบอร์ไม่กรอกส่ง `"phone_country_code": "", "phone": ""`
 - ไม่มี `user_type` · `currencies` · `status_game` · `pt` ต้องส่งทั้ง `pt` และ `commission_percent` · ส่ง `remain_quota` / `pt_from_parent` / `force` / `status` = `422`
 - **`payment_type` บังคับ** · `payment_account` / `win_limit_per_day` ไม่บังคับ (กติกาหัวข้อ 1)
 
-Error: `422`, `402301`, `402303`, `402305`, `402309`, `402312`, `402401`, `402403`, `402405`
+Error: `400`, `422`, `402301`, `402303`, `402305`, `402309`, `402312`, `402401`, `402403`, `402405`
 
 ### 2.2 รายละเอียด — `members/detail/get`
 
@@ -105,9 +138,35 @@ Response: `{ "code": 200, "msg": "สำเร็จ" }`
 
 - **ส่งเฉพาะ section ที่แก้** · ไม่ส่งเลยสัก section = `422`
 - แก้ได้เฉพาะ**ผู้สร้างโดยตรง** (ชั้นบนอื่น = `402304` · นอกสาย = `402402`) · ไม่ต้อง passcode
-- **ทั้งคำขอสำเร็จหรือไม่บันทึกเลย** · ค่าเหมือนเดิมทั้งหมด = 200 (ไม่มีประวัติเพิ่ม)
+- **ทั้งคำขอสำเร็จหรือไม่บันทึกเลย** · ค่าเหมือนเดิมทั้งหมด = 200 (ไม่มีประวัติเพิ่ม) · ทำตามลำดับ `info` → `pt` → `payment` → `limit`
+- **แก้แค่ชื่อเจ้าของบัญชี:** ต้องส่ง `bank_code` + `account_number` เดิมมาด้วย (`payment_account` แทนทั้งก้อน · ส่งชื่ออย่างเดียว = `422`)
+- ผู้สร้างฝั่ง Seamless: `payment_type` เป็น `CASH` เสมอ (ส่ง `CREDIT` = ไม่เปลี่ยน · ไม่มี error)
 
-Error: `422`, `402303`, `402304`, `402305`, `402309`, `402402`, `402403`, `402405`
+ตัวอย่างส่งทีละ section:
+```json
+{ "id": 501, "info": { "name": "ใจดีมาก" } }
+```
+```json
+{ "id": 501, "pt": { "minigame": { "pt": 45, "commission_percent": 0.5 } } }
+```
+```json
+{ "id": 501, "payment": { "payment_type": "CREDIT" } }
+```
+```json
+{ "id": 501, "payment": { "payment_account": { "bank_code": "KBANK", "account_number": "7876766654", "name_th": "ใจดี", "surname_th": "มีสุข" } } }
+```
+```json
+{ "id": 501, "limit": { "win_limit_per_day": 0 } }
+```
+ล้างค่า:
+```json
+{ "id": 501, "info": { "phone_country_code": "", "phone": "" } }
+```
+```json
+{ "id": 501, "payment": { "payment_account": {} } }
+```
+
+Error: `400`, `422`, `402303`, `402304`, `402305`, `402309`, `402402`, `402403`, `402405`
 
 ### 2.4 สถานะ — `members/status/update`
 
@@ -140,10 +199,11 @@ Error: `422`, `402303`
 
 ## 3. Error codes
 
-ตอบ HTTP 200 ทั้งหมด · ดูที่ `code` · `msg` บอกชื่อ field
+ตอบ HTTP 200 ทั้งหมด · ดูที่ `code` · `msg` บอกชื่อ field (ยกเว้น `400`)
 
 | Code | ความหมาย |
 |---|---|
+| `400` | คำขอไม่ถูกต้อง — JSON ผิดรูป หรือส่งชนิดข้อมูลผิด เช่นตัวเลขเป็นข้อความ (`"pt": "50"`) · **ไม่บอก field** |
 | `422` | ข้อมูลไม่ผ่าน (`msg` บอก field) |
 | `402301` | สร้างบัญชีประเภทนี้ไม่ได้ |
 | `402303` | ไม่มีสิทธิ์ใช้งานเมนูนี้ (sub) |
