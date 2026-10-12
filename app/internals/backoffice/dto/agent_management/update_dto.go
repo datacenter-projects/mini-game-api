@@ -122,7 +122,7 @@ func (s *AgentInfoSection) Check() error {
 	}
 	if s.Phone.Present || s.PhoneCountryCode.Present {
 		if !s.Phone.Present || !s.PhoneCountryCode.Present {
-			return Invalid("info.phone_country_code / info.phone", `ต้องส่งคู่กัน (ล้างเบอร์ให้ส่ง "" ทั้งคู่)`, `must be sent together (send "" for both to clear)`)
+			return Invalid("info.phone_country_code / info.phone", "ต้องกรอกคู่กัน (ลบเบอร์ให้เว้นว่างทั้งคู่)", "must be filled in together (leave both empty to remove the phone)")
 		}
 		if !s.PhoneCountryCode.IsString {
 			return Invalid("info.phone_country_code", "ต้องส่งเป็นข้อความ", "must be a string")
