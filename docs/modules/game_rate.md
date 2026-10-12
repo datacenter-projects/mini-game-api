@@ -401,7 +401,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 
 | # | เรื่อง | ข้อเสนอ |
 |---|---|---|
-| Q1 | RR6 หยุดเกมด่วน: ตอนนี้**ไม่มีเส้นให้ Superadmin ปิด `status_game` ของตัวเอง** (`agents/detail/update` แก้ได้แค่ลูกตรง) | ⏸ **ทำทีหลัง** (2026-10-12) — ยังไม่มีเส้น · ระหว่างนี้ปิดที่ Company ทีละตัว |
+| Q1 | RR6 หยุดเกมด่วน: ตอนนี้**ไม่มีเส้นให้ Superadmin ปิด `status_game` ของตัวเอง** (`agents/detail/update` แก้ได้แค่ลูกตรง) | ✅ **ไม่เพิ่ม** (2026-10-12) — ไม่มีเส้นให้ Superadmin ปิด `status_game` ของตัวเอง · หยุดเกมด่วนให้ปิดที่ Company ทีละตัว |
 | Q2 | RE3 `detail/check` รูปแบบผลตรวจ | ✅ ตัดสิน 2026-10-12: รับตามที่เสนอ |
 | Q3 | `max_win_percent` นิยามใหม่ตาม RR2 = ค่าสูงสุดที่ยังได้ house edge ≥ 1% (เดิม = จุดคุ้มทุน 0%) | ✅ ตัดสิน 2026-10-12: รับตามที่เสนอ |
 | Q4 | หน้าบ้านขอ (12 ต.ค.): RE5 `versions/list` เพิ่มต่อแถว `same_as_current` (ปิดปุ่มย้อน — RATE-05C) · `win_percent` (Scratch เท่านั้น) · `changes` = สิ่งที่เปลี่ยนเทียบกับเวอร์ชันก่อนหน้า (เวอร์ชันแรก `[]`) — Coin / RPS `{ "type": "step", "step", "field", "from", "to" }` · Scratch `win_percent` / `prize_added` / `prize_removed` / `prize_share` จับคู่รางวัลด้วย `multiplier` | ✅ ตัดสิน 2026-10-12: รับตามที่เสนอ |
