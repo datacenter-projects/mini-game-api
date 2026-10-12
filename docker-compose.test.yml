@@ -29,3 +29,31 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 2s
       retries: 30
+
+  # object storage จำลองของไฟล์ asset (เก็บข้อมูลใน RAM) — ตั้ง S3_ENDPOINT=http://localhost:59000 · S3_BUCKET=minigame-asset-test
+  # AWS_ACCESS_KEY_ID=minigame · AWS_SECRET_ACCESS_KEY=minigame-secret · integration test ของ asset ใช้ S3 จำลองในตัว (pkg/testutil.NewFakeS3)
+  # จึงไม่บังคับต้องเปิดตัวนี้ — ใช้ลองอัปจริงกับ platform/storage หรือ scripts/seed_asset_global
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minigame
+      MINIO_ROOT_PASSWORD: minigame-secret
+    ports:
+      - "127.0.0.1:59000:9000"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      retries: 30
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minigame minigame-secret &&
+      mc mb --ignore-existing local/minigame-asset-test"

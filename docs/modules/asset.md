@@ -1,11 +1,11 @@
 # Asset · ธีมเกม · Branding (`asset`) — Spec
 
-- สถานะ: **DRAFT** — lead review แล้ว 2026-10-12 ([docs/reviews/game-asset.md](../reviews/game-asset.md)) · แก้ตามรีวิวแล้ว รอ lead รับทราบฉบับแก้ (หัวข้อ 9) ก่อน implement
-- อนุมัติโดย: — (รอ lead) · ร่าง 2026-10-08 · แก้ตามรีวิว 2026-10-12
+- สถานะ: **DRAFT** — lead review แล้ว 2026-10-12 ([docs/reviews/game-asset.md](../reviews/game-asset.md)) · **lead ตรวจรอบ 1 แล้ว: เริ่มโค้ดได้** หลังแก้ตาม AV1–AV4 + ตาราง GE (แก้แล้วในฉบับนี้) · เหลือคำถามเล็กในหัวข้อ 9
+- อนุมัติโดย: — (รอ lead รับทราบฉบับแก้) · ร่าง 2026-10-08 · แก้ตามรีวิว 2026-10-12 (รอบ 1 + รอบตรวจ spec)
 - ผู้ดูแล: schneider
 - ชื่อ module ในโค้ด: `asset` (`controllers/asset`, `dto/asset`, `service/asset`, `core/asset`)
 - เมนูสิทธิ์: `asset` ใช้ทุกเส้นของ module (off / view / edit — `agent_management.md` MGMT-50–52 · lead GQ3)
-- การตัดสินของ lead (รีวิว 2026-10-12): scope MVP **GS1** · อัปแล้วขึ้นจริงไหม **GR1** · ลบ **GR2** · ขนาดไฟล์ **GR3 + GQ11** · เจ้าของ + การสืบทอด **GR4 + GQ1 + GQ2** · reset **GR5** · lobby ผู้เล่น **GR6** · **GQ3–GQ13** · ชื่อเส้น **GN1–GN23** — สรุปว่าตัดสินอะไรไว้ที่ไหนในหัวข้อ 9 · **rule ในเอกสารนี้มาจากข้อเสนอที่ lead อนุมัติแล้ว** (`ASSET_SYSTEM_SPEC.md` เป็นข้อเสนอ · ตรวจกับโค้ดเก่าแล้วในหัวข้อ 4)
+- การตัดสินของ lead (รีวิว 2026-10-12): scope MVP **GS1** · อัปแล้วขึ้นจริงไหม **GR1** · ลบ **GR2** · ขนาดไฟล์ **GR3 + GQ11** · เจ้าของ + การสืบทอด **GR4 + GQ1 + GQ2** · reset **GR5** · lobby ผู้เล่น **GR6** · **GQ3–GQ13** · ชื่อเส้น **GN1–GN23** · ตรวจ spec รอบ 1 **AV1–AV4** + ตาราง **GE** — สรุปว่าตัดสินอะไรไว้ที่ไหนในหัวข้อ 9 · **rule ในเอกสารนี้มาจากข้อเสนอที่ lead อนุมัติแล้ว** (`ASSET_SYSTEM_SPEC.md` เป็นข้อเสนอ · ตรวจกับโค้ดเก่าแล้วในหัวข้อ 4)
 - โค้ดเก่าที่อ้างอิง (extract พฤติกรรมเท่านั้น): `askmelotto_minigame-api/app/services/asset/*.go`,
   `app/internals/backoffice/middleware/asset_target_middleware.go`, `app/internals/backoffice/routes/module_routes.go`,
   `app/repository/postgres/minigame_asset_*_repository.go`, `app/services/agent/*site*_service.go`,
@@ -27,7 +27,8 @@
 - **Game Theme** — ฟอนต์ + สีหลัก 2 สี + สี / ฟอนต์ของแถบสถิติ ต่อเกม + ชุดเฉดสี + reset
 - **Branding** — ชื่อเว็บ + โลโก้ + reset
 - **Bundle** — รวม asset + theme + branding ในคำขอเดียว: หลังบ้าน preview · **ผู้เล่น: กำหนด contract ไว้ implement หลัง Player Auth**
-  (มี lobby ของเราเอง — lead GR6 · เส้นรายชื่อเกมของ lobby ตัดสินพร้อม Player Auth — GQ9)
+  (มี lobby ของเราเอง — lead GR6 · เส้นรายชื่อเกมของ lobby และใครทำเส้นฝั่งผู้เล่น ตัดสินพร้อม review Player Auth — GQ9, GE22-2)
+- **สคริปต์อัปรูปค่ากลาง (GLOBAL)** — อัปรูปของทุกช่องจากไฟล์ที่ทีมเกม / ออกแบบส่งมา ต้องเสร็จก่อน UAT (lead AV4 · AST-61)
 
 **เลื่อนไปทำภายหลัง (ดูหัวข้อ "ภายหลัง" ท้ายหัวข้อ 3):** banner · favicon · site-themes (+ `site_theme` ของ branding) ·
 change log (ระหว่างนี้ใช้ `created_by` / `updated_by` + คลังรูป)
@@ -68,7 +69,7 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 | ID | Rule |
 |---|---|
 | AST-01 | asset และ theme มี **2 scope**: `GLOBAL` · `AGENT` · เจ้าของค่าคือ**บัญชีเดี่ยว** (ไม่มีระดับ "กลุ่มเว็บ") · บัญชีที่ไม่ได้ตั้งเองได้ค่าจากชั้นบนตาม AST-57 · branding มีแค่ `AGENT` (ไม่มี GLOBAL) |
-| AST-02 | **เจ้าของหน้าตา** (ตั้ง scope `AGENT` ได้) = บัญชีหลักฝั่ง agent: Company ทุกประเภท (รวม CSM) · Share B2B / B2C / Reseller · Agent · **Share Master ตั้งเองไม่ได้** — ได้ตามที่ CSM ตั้งผ่านสาย (lead H2) → เขียน = `405301` · Superadmin ตั้งได้เฉพาะ GLOBAL (AST-03) · ADMIN ไม่มีเมนู `asset` (AST-06) · **ไม่มีข้อจำกัดว่า "เป็นเว็บหรือไม่"** (ตัด `405302` — lead GR4) |
+| AST-02 | **เจ้าของหน้าตา** (ตั้ง scope `AGENT` ได้) = บัญชีหลักฝั่ง agent: Company ทุกประเภท (รวม CSM) · Share B2B / B2C / Reseller · Agent · **Share Master ตั้งเองไม่ได้ ใช้ของ CSM** (asset · theme · branding ทั้งหมด — lead AV1 / H2 / H3) → เขียน = `405301` · ทุกเว็บใต้ CSM เดียวกันหน้าตาเหมือนกัน · เป็นข้อยกเว้นของ GR4 เฉพาะ Share Master (ประเภทอื่นตั้งเองได้) · Superadmin ตั้งได้เฉพาะ GLOBAL (AST-03) · ADMIN ไม่มีเมนู `asset` (AST-06) · **ไม่มีข้อจำกัดว่า "เป็นเว็บหรือไม่"** (ตัด `405302` — lead GR4) |
 | AST-03 | **เขียน GLOBAL**: SUPERADMIN (บัญชีหลัก) · sub ของ SUPERADMIN ต้องมี `asset` = `edit` · บัญชีอื่น → `405301` |
 | AST-04 | **เขียน AGENT**: เฉพาะบัญชีตัวเอง (บัญชีหลักที่เป็นเจ้าของหน้าตา AST-02) หรือ sub ของบัญชีนั้นที่มี `asset` = `edit` (ทำในนามเจ้าของ) · เป้าหมายเป็นบัญชีในสายล่าง = **ดูได้ แก้ไม่ได้** → `405301` · เป้าหมายนอกสาย → `402402` · CSM ตั้งของ CSM ครั้งเดียว Share Master ทุกคนใต้ได้ตามเอง (ไม่ต้องตั้งแทนทีละคน) |
 | AST-05 | **อ่าน**: ต้องมี `asset` ≥ `view` ทุกเส้น · อ่าน GLOBAL ได้ทุกบัญชีที่มีสิทธิ์ · อ่าน AGENT ได้: ตัวเอง และบัญชีในสายล่าง (ชั้นบนดูของสายล่างได้ — ตรวจจาก `cnf` ของเป้าหมาย) · นอกสาย → `402402` · Share Master อ่านค่าที่ได้จาก CSM ของตัวเองได้ (อ่านอย่างเดียว) |
@@ -110,8 +111,8 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 |---|---|
 | AST-22 | `asset_used` มี 1 แถวต่อ (เป้าหมาย, ช่อง) · เลือกไฟล์ใหม่ = **แก้แถวเดิม** (upsert `ON CONFLICT`) ไม่ใช่เพิ่มแถว · unique ต้องเป็น (เป้าหมาย, ช่อง) **ห้ามรวม `asset_config_id`** · GLOBAL ใช้ partial unique index แยก (Postgres มอง `NULL` ไม่เท่ากัน) |
 | AST-23 | `used/update`: config ต้อง (ก) มีอยู่และไม่ถูกลบ (ข) เป็นช่องและเกมเดียวกับ `game_code` ที่ส่ง (ค) เป้าหมาย `GLOBAL` เลือกได้เฉพาะ config `GLOBAL` · เป้าหมาย `AGENT` เลือกได้ config `GLOBAL` หรือของบัญชีนั้นเอง (ไม่เลือก config ของชั้นบน — ใช้การสืบทอดแทน) · ช่องเลิกใช้ → `405304` · ผิด (ก)–(ค) ข้อใดก็ตอบ **`405402` ข้อความเดียวกันหมด** (กันไล่เดา id) |
-| AST-24 | **ใช้งานจริง = `used` เท่านั้น** (lead GR1): ช่องไหนไม่มีแถว used ในสายเลยและ GLOBAL ก็ไม่มี → ไม่มีรูปในช่องนั้น · **ไม่มีกฎ "ไม่เคยเลือก = ใช้ไฟล์ล่าสุด"** (ตัดแล้ว) · ก่อน go-live ต้องมี GLOBAL used ของทุกช่องที่เกมใช้ |
-| AST-25 | **ไล่ทีละช่อง** ตาม AST-57: ช่องที่ตัวเองมี used → `self` · ไม่มี → used ของชั้นบนที่ใกล้ที่สุด → `upline` · ไม่มีเลย → GLOBAL → `global` · ทั้งชุด: ทุกช่องมาจากที่เดียว = ค่านั้น · ต่างกัน = `mixed` · ไม่มีรูปสักช่อง = `""` · ห้าม fallback ทั้งชุดจาก "ตัวเองมีสักช่องไหม" |
+| AST-24 | **ใช้งานจริง = `used` เท่านั้น** (lead GR1): ช่องไหนไม่มีแถว used ในสายเลยและ GLOBAL ก็ไม่มี → ไม่มีรูปในช่องนั้น · **ไม่มีกฎ "ไม่เคยเลือก = ใช้ไฟล์ล่าสุด"** (ตัดแล้ว) · **ก่อน UAT ต้องมี GLOBAL used ของทุกช่องที่เกมใช้** (seed ไม่มีรูป — อัปด้วยสคริปต์ AST-61 · lead AV4) |
+| AST-25 | **ไล่ทีละช่อง** ตาม AST-57: ช่องที่ตัวเองมี used → `self` · ไม่มี → used ของชั้นบนที่ใกล้ที่สุด → `upline` · ไม่มีเลย → GLOBAL → `global` · ทั้งชุด: ทุกช่องมาจากที่เดียว = ค่านั้น · ต่างกัน = `mixed` · ไม่มีรูปสักช่อง = `""` · ห้าม fallback ทั้งชุดจาก "ตัวเองมีสักช่องไหม" · **`used/list` ส่งทุกช่องของเกม** (lead GE6-1): ช่องที่ไม่มีไฟล์ในสายและ GLOBAL ได้ `url = ""` · `config_id = 0` · `source = ""` (ACC-32) · ช่องที่เลิกใช้แสดงเฉพาะที่ยังมีไฟล์ (AST-13) · `bundle.assets` มีเฉพาะช่องที่มีไฟล์ · เมื่อ `source = upline` ใส่ `inherited_from` = username ของชั้นบนที่ให้ค่ามา (lead AV3 · GE6) — ค่าอื่น `""` |
 | AST-26 | repository ที่ตอบ "ของบัญชีนี้มีอะไร" กรองเข้ม `scope = AGENT` + `agent_id` ตรง ไม่ปน GLOBAL · การไล่สาย / รวมค่าทำใน service ด้วย pure function ใน `app/core/asset` (AST-57) |
 | AST-27 | `files/list` (คลังรูปของช่อง): config ที่ยังไม่ถูกลบของเป้าหมาย + ของ GLOBAL (เมื่อเป้าหมายเป็น `AGENT`) เรียงใหม่ → เก่า · ทุกแถวมี `source` (`self` / `global`), `is_used`, `created_by`, `created_at` · แบ่งหน้า: `page` / `limit` ใน body (`utils.NewPage` — ค่าเริ่มต้น 20 สูงสุด 100) ตอบด้วย `response.Page` (กฎข้อ 19) |
 | AST-54 | `used/reset`: ลบแถว used ของ (บัญชีตัวเอง, ช่อง) → กลับไปใช้ของชั้นบน / GLOBAL ตาม AST-25 (lead GR5) · ใช้ได้เฉพาะ scope `AGENT` ของบัญชีที่เขียนได้ตาม AST-04 · `scope = GLOBAL` → `422` · ไม่มีแถวอยู่แล้ว = สำเร็จ (idempotent) · ไม่ลบ config (ยังอยู่ในคลัง) |
@@ -131,7 +132,7 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 
 | ID | Rule |
 |---|---|
-| AST-33 | theme มี 5 ค่าเสมอ: `font_family` · `main_color_1` · `main_color_2` · `stats_bar_color` · `stats_bar_font_family` · `theme/detail/update` ต้องส่ง**ครบ 5 ค่า** = **แทนทั้งชุด** (ไม่ใช่แบบ section / partial ของ MN2) · ขาดค่าใด → `422` |
+| AST-33 | theme มี 5 ค่าเสมอ: `font_family` · `main_color_1` · `main_color_2` · `stats_bar_color` · `stats_bar_font_family` · `theme/detail/update` ต้องส่ง**ครบ 5 ค่า** = **แทนทั้งชุด** (ไม่ใช่แบบ section / partial ของ MN2) · ขาดค่าใด → `422` · **ส่งค่าเดิมทั้งชุด** (เท่ากับค่าที่ใช้อยู่จริงของบัญชีนั้นตอนนี้ — ไล่สายแล้ว) → `200` · ไม่แตะ `updated_by` / `updated_at` · **ไม่สร้างแถวใหม่** (แนว MQ5 · lead GE10-1 — ตีความ ❓ หัวข้อ 9) |
 | AST-34 | ฟอนต์ (ทั้ง 2 field) เป็น whitelist ตัวพิมพ์ตรงตัว: `noto` · `prompt` · `kanit` · `mitr` · `sarabun` · ไม่รับข้อความอิสระ (กัน CSS injection และฟอนต์ที่หน้าบ้านไม่ได้ preload) · ค่าอื่น → `422` |
 | AST-35 | สีหลักตรง `^#[0-9A-Fa-f]{6}$` เท่านั้น (ไม่รับ `#RGB`) · เก็บและตอบเป็นตัวพิมพ์เล็ก · ไม่ตรง → `422` |
 | AST-36 | `stats_bar_color` เก็บเป็น**ชื่อ** `"main_color_1"` / `"main_color_2"` ไม่ใช่ hex (เปลี่ยนสีหลักแล้วแถบสถิติตามไปเอง) · response เพิ่ม `stats_bar_color_hex` ที่ resolve แล้ว |
@@ -149,8 +150,8 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 
 | ID | Rule |
 |---|---|
-| AST-41 | branding **ไม่มี GLOBAL และไม่มี scope** — เก็บ 1 แถวต่อบัญชี (`site_brandings` — lead GQ8) · "ยังไม่ตั้ง" = ไม่มีแถว · สิทธิ์เขียน / อ่านตาม AST-02–AST-05 · **ห้ามใช้ query / fallback ชุดเดียวกับ asset / theme** (ไม่มี GLOBAL ให้ query) · เมนูสิทธิ์ `asset` (GQ3) |
-| AST-42 | `branding/detail/update` = **แทนทั้งชุด** (ไม่ใช่ section) · MVP รับ `site_name` อย่างเดียว: บังคับ 1–50 ตัวอักษร (นับเป็นตัวอักษร) · ผิด → `422` msg บอก field · **`site_theme` เลื่อน** (หัวข้อ 9 ข้อ 2) · สร้างแถวให้ถ้ายังไม่มี (โลโก้เป็น `""`) |
+| AST-41 | branding **ไม่มี GLOBAL และไม่มี scope** — เก็บ 1 แถวต่อบัญชี (`site_brandings` — lead GQ8) · "ยังไม่ตั้ง" = ไม่มีแถว · สิทธิ์เขียน / อ่านตาม AST-02–AST-05 · **ไล่สายด้วยกลไกเดียวกับ asset / theme (AST-57)** แต่**ปลายทางไม่มี GLOBAL** — ไม่เจอใครตั้ง = ทุก field `""` (AST-47) · อ่านจากตาราง `site_brandings` ด้วย repository ของตัวเอง (ไม่ใช่ `asset_used` / `game_themes`) · เมนูสิทธิ์ `asset` (GQ3) |
+| AST-42 | `branding/detail/update` = **แทนทั้งชุด** (ไม่ใช่ section) · MVP รับ `site_name` อย่างเดียว: **ตัดช่องว่างหน้า-หลังก่อน** แล้วต้องยาว 1–50 ตัวอักษร (นับเป็นตัวอักษร ไม่ใช่ byte) · **ห้ามอักขระควบคุม** (lead GE13) · ผิด → `422` msg บอก field · **`site_theme` ไม่อยู่ใน MVP** (lead GE13-1 — ส่งมา = `422`) · สร้างแถวให้ถ้ายังไม่มี (โลโก้เป็น `""`) |
 | AST-43 | โลโก้ (`branding/logo/upload`): ชนิด / ขนาดไฟล์ตาม AST-16 · ไม่ตรวจขนาดภาพ · **เขียนทับ** key เดิมของบัญชี (ไม่เก็บประวัติ) · **ไม่ลบไฟล์เดิม** (lead GQ5) · สร้างแถวให้ถ้ายังไม่มี (`site_name` เป็น `""`) |
 | AST-56 | `branding/reset`: ลบแถว branding ของบัญชีตัวเอง → กลับไปใช้ของชั้นบน (lead GR5) · ไม่มีแถวอยู่แล้ว = สำเร็จ · ไม่ลบไฟล์โลโก้ใน storage (AST-29) |
 
@@ -161,10 +162,10 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 | AST-45 | bundle ของ (บัญชี, เกม) = `source` + `assets` (map `asset_type` → URL ตาม AST-25) + `theme` (AST-37 + shades) + `site` (branding) · **`assets` กับ `site` แยก key** — ชื่อช่องอะไรก็ไม่ชนกับ branding |
 | AST-46 | ไม่มี asset เลย → `assets = {}` ตอบสำเร็จ (ไม่ใช่ error) · อ่าน branding ไม่สำเร็จ → `site` เป็นค่าว่างตาม ACC-32 + log warn — **asset คือส่วนที่จำเป็น branding ล้มต้องไม่ทำให้ทั้ง bundle ล้ม** |
 | AST-47 | branding **ไล่ทั้งชุด** ตาม AST-57: บัญชีใกล้สุดในสายที่ "มี branding" = แถวที่มี `site_name` หรือโลโก้ไม่ว่าง → ใช้**ทั้งแถว**ของบัญชีนั้น ห้ามผสม field จากคนละชั้น (ชื่อของลูก + โลโก้ของแม่ = ไม่ใช่ branding ของใคร) · ไม่เจอเลย → ทุก field `""` (ไม่ใช่ error · ไม่ใช่ `null`) |
-| AST-48 | bundle ผู้เล่น (`/player/asset/bundle` — GN23): implement ใน module หน้าบ้านหลัง Player Auth · ต้องเรียก **service เดียวกับ preview หลังบ้าน** (ห้ามเขียน logic รวมซ้ำ) · เว็บเป้าหมายมาจากผู้สร้างตรงของ Member ตาม AST-57 |
-| AST-51 | `game_cover` เป็น**ชื่อช่องสงวน** ต้องมีใน catalog ของทุกเกม (seed) · `games/list` อ่านปกจากช่อง `game_cover` ของ **GLOBAL เท่านั้น** ผ่าน service ตัวเดียวกับ `used/list` (ห้ามเขียน query คู่ขนาน) · เกมที่ยังไม่มีปก / อ่านปกไม่สำเร็จ → `game_cover = ""` (ACC-32) + log warn · **ห้ามทำให้ทั้งเส้นล้มเพราะเกมเดียว** · เส้นรายชื่อเกมของ lobby ผู้เล่นใช้ service เดียวกัน (ตัดสินพร้อม Player Auth — GQ9) |
+| AST-48 | bundle ผู้เล่น (`/player/asset/bundle` — GN23): implement ใน module หน้าบ้านหลัง Player Auth · ต้องเรียก **service เดียวกับ preview หลังบ้าน** (ห้ามเขียน logic รวมซ้ำ) · เว็บเป้าหมายมาจากผู้สร้างตรงของ Member ตาม AST-57 · **ใครทำเส้นฝั่งผู้เล่น (bundle + รายชื่อเกมของ lobby) ตัดสินพร้อม review Player Auth** (lead GE22-2) · `theme` ใน bundle ไม่มี `inherited_from` (ไม่ส่ง username ชั้นบนให้ผู้เล่น — ❓ หัวข้อ 9) |
+| AST-51 | `game_cover` เป็น**ชื่อช่องสงวน** ต้องมีใน catalog ของทุกเกม (seed) · `games/list` อ่านปกจากช่อง `game_cover` ที่ **ไล่สายจากผู้เรียก** (AST-57 — เห็นแบบเดียวกับผู้เล่นของตัวเอง ไม่ใช่ GLOBAL อย่างเดียว · lead GE1-1) ผ่าน service ตัวเดียวกับ `used/list` (ห้ามเขียน query คู่ขนาน) · **ไม่กรองเกมที่ `status_game` ปิด** — หน้าจัดการหน้าตาต้องเห็นทุกเกม (lead GE1-2) · เกมที่ยังไม่มีปก / อ่านปกไม่สำเร็จ → `game_cover = ""` (ACC-32) + log warn · **ห้ามทำให้ทั้งเส้นล้มเพราะเกมเดียว** · เส้นรายชื่อเกมของ lobby ผู้เล่นใช้ service เดียวกัน (ตัดสินพร้อม Player Auth — GQ9) |
 | AST-52 | ฝั่งผู้เล่น (Member) **อ่านอย่างเดียว** ไม่มีเส้นเขียนใดๆ · บัญชีเป้าหมายมาจาก token ของผู้เล่นเท่านั้น · **ไม่รับ `agent_id` จาก path / query / body** — ขอดูของบัญชีอื่นไม่ได้ทุกกรณี |
-| AST-53 | `*/detail/get` ของ theme และ branding ตอบ**ค่าที่ไล่สายแล้ว** + `source` (`self` / `upline` / `global`) กฎเดียวกับ bundle (lead GR4: "ใช้กฎเดียวกันทั้ง BO preview และผู้เล่น") · หน้าตั้งค่ารู้ว่าเป็นของตัวเองหรือไม่จาก `source` · ปุ่ม reset แสดงเมื่อ `source = self` |
+| AST-53 | `*/detail/get` ของ theme และ branding ตอบ**ค่าที่ไล่สายแล้ว** + `source` (`self` / `upline` / `global`) กฎเดียวกับ bundle (lead GR4: "ใช้กฎเดียวกันทั้ง BO preview และผู้เล่น") · หน้าตั้งค่ารู้ว่าเป็นของตัวเองหรือไม่จาก `source` · ปุ่ม reset แสดงเมื่อ `source = self` · เมื่อ `source = upline` เพิ่ม **`inherited_from`** = username ของชั้นบนที่ให้ค่ามา (lead AV3 · GE9 / GE12 — `used/list` ดู AST-25) · `source` อื่นส่ง `inherited_from = ""` |
 
 ### Storage และประวัติ
 
@@ -172,6 +173,12 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 |---|---|
 | AST-49 | DB เก็บ **storage key** เท่านั้น · URL = `S3_CDN_BASE_URL` (ตัด `/` ท้าย) + `/` + key (ตัด `/` หน้า) · key ใหม่ทุกครั้งที่อัป (ไม่เขียนทับ object เดิม) ตามรูปแบบในหัวข้อ 6 · credential ใช้ IRSA / default chain ห้ามเก็บ key ใน env |
 | AST-50 | ทุกตารางเก็บ `created_by` / `updated_by` เป็น username จริงของผู้กด (ไม่ใช่ `"system"` — ยกเว้นแถว seed) + เวลา · **change log เลื่อน** (lead GQ5 — ระหว่างนี้ใช้ `created_by` / `updated_by` + คลังรูป) |
+
+### สคริปต์อัปรูปค่ากลาง (lead AV4)
+
+| ID | Rule |
+|---|---|
+| AST-61 | `scripts/seed_asset_global -dir <โฟลเดอร์>`: อ่านไฟล์ที่ทีมเกม / ออกแบบส่งมา โครง `{game_code}/{asset_type}.{png/jpg/jpeg/gif/webp}` (ชื่อไฟล์ = ชื่อช่องตรงตัว — AST-14) แล้วอัปเป็น config **GLOBAL** + `use_now = true` ผ่าน **service เดียวกับ `files/upload`** (ตรวจ AST-14–17 ครบทุกข้อ ไม่เขียนทางลัดคู่ขนาน) · `created_by` = `script:{user ของเครื่องที่รัน}` (แบบ `reset_credentials` — AUTH-51) · **idempotent**: ช่องที่ GLOBAL มี used แล้วข้ามไป (รายงานว่าข้าม) เว้นแต่ใส่ `-force` (อัปเวอร์ชันใหม่ + ตั้ง used ทับ) · ไฟล์ที่ชื่อไม่ตรง catalog / ไม่ผ่านตรวจ → รายงานรายไฟล์ ไม่หยุดทั้งชุด · จบด้วยรายงานช่องของทุกเกมที่ GLOBAL **ยังไม่มีรูป** · storage ไม่พร้อม → หยุดตั้งแต่ต้น (`505801`) · ต้องรันให้ครบก่อน UAT (AST-24) |
 
 ### ภายหลัง (เลื่อนตาม lead GS1 — ยังไม่ implement รอบนี้ · เก็บ rule ไว้ไม่ให้หาย)
 
@@ -234,12 +241,12 @@ error ร่วมทุกเส้น: `401202`, `401203`, `401301`, `401302`,
 
 | GN | Path (ต่อท้าย `/api/v1/bo/pr/asset/`) | สิทธิ์ `asset` | ทำอะไร | เทียบของเก่า |
 |---|---|---|---|---|
-| GN1 | `games/list` | view | รายชื่อเกมที่ตั้งหน้าตาได้ + รูปปก | เปลี่ยน (เดิม `GET /pb/games` public) |
+| GN1 | `games/list` | view | รายชื่อเกมที่ตั้งหน้าตาได้ + รูปปก (ไล่สายจากผู้เรียก · ไม่กรองตาม `status_game`) | เปลี่ยน (เดิม `GET /pb/games` public) |
 | GN2 | `slots/list` | view | ช่องของเกมหนึ่ง + ขนาดภาพที่รับ | เปลี่ยน (เดิม `GET /pb/games/:game_type/asset-types`) |
 | GN3 | `files/upload` | edit | อัปรูปเข้าช่อง (multipart · `use_now`) | เปลี่ยน (เดิม `POST /pr/assets/upload`) |
 | GN4 | `files/list` | view | คลังรูปของช่อง (แบ่งหน้า) | เปลี่ยน (เดิม `GET /pr/assets/library`) |
 | GN5 | `files/delete` | edit | ลบรูปจากคลัง (soft delete) | เปลี่ยน (เดิม `DELETE /pr/assets/:config_id`) |
-| GN6 | `used/list` | view | แต่ละช่องใช้รูปไหนอยู่ + ที่มา | เปลี่ยน (เดิม `GET /pr/assets`) |
+| GN6 | `used/list` | view | ทุกช่องของเกม: ใช้รูปไหนอยู่ + ที่มา (`source` · `inherited_from`) · ช่องว่าง `url = ""` | เปลี่ยน (เดิม `GET /pr/assets`) |
 | GN7 | `used/update` | edit | เลือกรูปจากคลังมาใช้กับช่อง | เปลี่ยน (เดิม `POST /pr/assets/used`) |
 | GN8 | `used/reset` | edit | ยกเลิกรูปที่ตั้งเอง กลับไปใช้ของชั้นบน | **ใหม่** |
 | GN9 | `theme/detail/get` | view | ธีมที่ใช้อยู่ + shades + ที่มา | เปลี่ยน (เดิม `GET /pr/games/:game_type/theme`) |
@@ -262,27 +269,28 @@ sub ของ share01 = `share01@design` · `S3_CDN_BASE_URL = https://cdn.examp
 
 ### GN1 · POST games/list
 
-Request: `{}` · Response `data`:
+Request: `{}` · Response `data` (ตัวอย่างเมื่อ `agent01` เรียก — share01 ตั้งปกของ `scratch_card` ไว้):
 ```json
 [
-  { "game_code": "scratch_card", "game_cover": "https://cdn.example.com/games/scratch_card/global/game_cover/1759900000000000000-a1b2c3d4.png" },
-  { "game_code": "coin_toss", "game_cover": "" },
+  { "game_code": "scratch_card", "game_cover": "https://cdn.example.com/games/scratch_card/agents/12/game_cover/1759900000000000000-a1b2c3d4.png" },
+  { "game_code": "coin_toss", "game_cover": "https://cdn.example.com/games/coin_toss/global/game_cover/1759800000000000000-e5f6a7b8.png" },
   { "game_code": "rock_paper_scissors", "game_cover": "" }
 ]
 ```
-`game_cover` = ช่อง `game_cover` ของ GLOBAL ผ่าน service เดียวกับ `used/list` (AST-51) · ไม่มี / อ่านไม่ได้ = `""` โดยเกมอื่นยังได้ปกตามปกติ ·
-ชื่อเกมที่แสดงบนจอเป็นของหน้าบ้าน
+`game_cover` = ช่อง `game_cover` ที่**ไล่สายจากผู้เรียก** ผ่าน service เดียวกับ `used/list` (AST-51 · lead GE1-1) · ไม่มี / อ่านไม่ได้ = `""`
+โดยเกมอื่นยังได้ปกตามปกติ · ไม่กรองเกมที่ `status_game` ปิด (GE1-2) · ชื่อเกมที่แสดงบนจอเป็นของหน้าบ้าน
 
 ### GN2 · POST slots/list
 
 Request: `{ "game_code": "scratch_card" }` · Response `data`:
 ```json
 [
-  { "asset_type": "icon_button", "description": "ปุ่มไอคอน", "allowed_sizes": [ { "width": 32, "height": 32 }, { "width": 40, "height": 40 } ] },
-  { "asset_type": "win_highlight", "description": "แสงไฮไลต์ตอนชนะ", "allowed_sizes": [ { "width": 425, "height": 425 } ] }
+  { "asset_type": "icon_button", "allowed_sizes": [ { "width": 32, "height": 32 }, { "width": 40, "height": 40 } ] },
+  { "asset_type": "win_highlight", "allowed_sizes": [ { "width": 425, "height": 425 } ] }
 ]
 ```
-`allowed_sizes = []` = ไม่ตรวจขนาด · ไม่รวมช่องเลิกใช้ · Error codes: `422` (ไม่ส่ง `game_code`), `405401`
+`allowed_sizes = []` = ไม่ตรวจขนาด · ไม่รวมช่องเลิกใช้ · **ไม่มี `description`** — หน้าบ้านแปลชื่อช่องจาก `asset_type` เอง (lead GE2-1) ·
+ตัวอย่างย่อรายการ (ของจริงมีทุกช่องของเกม) · Error codes: `422` (ไม่ส่ง `game_code`), `405401`
 
 ### GN3 · POST files/upload (multipart/form-data)
 
@@ -346,13 +354,16 @@ Request: `{ "scope": "AGENT", "agent_id": 15, "game_code": "scratch_card" }` · 
 {
   "source": "mixed",
   "items": [
-    { "asset_type": "icon_button", "config_id": 9001, "url": "https://cdn.example.com/games/scratch_card/agents/12/icon_button/1759900000000000000-a1b2c3d4.png", "source": "upline", "is_retired": false },
-    { "asset_type": "win_highlight", "config_id": 120, "url": "https://cdn.example.com/games/scratch_card/global/win_highlight/1759800000000000000-e5f6a7b8.png", "source": "global", "is_retired": false }
+    { "asset_type": "icon_button", "config_id": 9001, "url": "https://cdn.example.com/games/scratch_card/agents/12/icon_button/1759900000000000000-a1b2c3d4.png", "source": "upline", "inherited_from": "share01", "is_retired": false },
+    { "asset_type": "win_highlight", "config_id": 120, "url": "https://cdn.example.com/games/scratch_card/global/win_highlight/1759800000000000000-e5f6a7b8.png", "source": "global", "inherited_from": "", "is_retired": false },
+    { "asset_type": "winner", "config_id": 0, "url": "", "source": "", "inherited_from": "", "is_retired": false }
   ]
 }
 ```
-1 รายการต่อช่องที่มีไฟล์ตาม AST-25 · ช่องที่ไม่มีไฟล์ในสายและ GLOBAL ไม่อยู่ใน `items` · `source` ระดับบนสุด = ถ้าทุกช่องมาจากที่เดียวคือค่านั้น ไม่เช่นนั้น `mixed`
-(ไม่มีรูปเลย = `""`) · เป้าหมาย `GLOBAL` ทุกรายการเป็น `global` · Error codes: `422`, `405401`
+**ส่งทุกช่องของเกม** (lead GE6-1) — ช่องที่ไม่มีไฟล์ในสายและ GLOBAL ได้ `config_id = 0` · `url = ""` · `source = ""` (ACC-32) · ช่องที่เลิกใช้แสดงเฉพาะที่ยังมีไฟล์ ·
+`inherited_from` = username ของชั้นบนที่ให้ค่ามา เมื่อ `source = upline` (AV3 · GE6) ไม่เช่นนั้น `""` ·
+`source` ระดับบนสุด = ถ้าทุกช่องที่มีไฟล์มาจากที่เดียวคือค่านั้น ไม่เช่นนั้น `mixed` (ไม่มีรูปเลย = `""`) · เป้าหมาย `GLOBAL` ทุกรายการที่มีไฟล์เป็น `global` ·
+ตัวอย่างย่อรายการ (ของจริงมีทุกช่องของเกม) · Error codes: `422`, `405401`
 
 ### GN7 · POST used/update
 
@@ -370,17 +381,29 @@ Request: `{ "scope": "AGENT", "agent_id": 15, "game_code": "scratch_card" }` · 
 ```json
 {
   "source": "upline",
+  "inherited_from": "share01",
   "font_family": "kanit",
   "main_color_1": "#1e90ff",
   "main_color_2": "#ffffff",
   "stats_bar_color": "main_color_2",
   "stats_bar_color_hex": "#ffffff",
   "stats_bar_font_family": "prompt",
-  "main_color_1_shades": { "50": "#e9f4ff", "900": "#1e90ff", "1800": "#030e1a" },
-  "main_color_2_shades": { "50": "#ffffff", "900": "#ffffff", "1800": "#1a1a1a" }
+  "main_color_1_shades": {
+    "50": "#e9f4ff", "100": "#d2e9ff", "200": "#bcdeff", "300": "#a5d3ff", "400": "#8fc8ff",
+    "500": "#78bcff", "600": "#62b1ff", "700": "#4ba6ff", "800": "#359bff", "900": "#1e90ff",
+    "1000": "#1b82e6", "1100": "#1873cc", "1200": "#1565b3", "1300": "#125699", "1400": "#0f4880",
+    "1500": "#0c3a66", "1600": "#092b4d", "1700": "#061d33", "1800": "#030e1a"
+  },
+  "main_color_2_shades": {
+    "50": "#ffffff", "100": "#ffffff", "200": "#ffffff", "300": "#ffffff", "400": "#ffffff",
+    "500": "#ffffff", "600": "#ffffff", "700": "#ffffff", "800": "#ffffff", "900": "#ffffff",
+    "1000": "#e6e6e6", "1100": "#cccccc", "1200": "#b3b3b3", "1300": "#999999", "1400": "#808080",
+    "1500": "#666666", "1600": "#4d4d4d", "1700": "#333333", "1800": "#1a1a1a"
+  }
 }
 ```
-`source` = `self` / `upline` / `global` · shades ในตัวอย่างย่อไว้ — ของจริงมีครบ 19 key · Error codes: `422`, `405401`
+`source` = `self` / `upline` / `global` · `inherited_from` = username ของชั้นบนที่ให้ค่ามา เมื่อ `source = upline` ไม่เช่นนั้น `""` (AV3 · GE9) ·
+shades ครบ 19 ระดับ (ค่าตัวอย่างคำนวณตาม AST-39) · Error codes: `422`, `405401`
 
 ### GN10 · POST theme/detail/update
 
@@ -397,7 +420,8 @@ Request:
   "stats_bar_font_family": "prompt"
 }
 ```
-Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) · Error codes: `422` (ขาดค่า / ฟอนต์ไม่อยู่ในรายการ / สีผิดรูปแบบ — msg บอก field), `405401`
+Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) · ส่งค่าเดิมทั้งชุด = `200` ไม่แตะ `updated_*` ไม่สร้างแถวใหม่ (AST-33 · GE10-1) ·
+Error codes: `422` (ขาดค่า / ฟอนต์ไม่อยู่ในรายการ / สีผิดรูปแบบ — msg บอก field), `405401`
 
 ### GN11 · POST theme/reset
 
@@ -408,9 +432,10 @@ Error codes: `422` (รวม `scope = GLOBAL`), `405401`
 
 Request: `{ "agent_id": 15 }` · Response `data`:
 ```json
-{ "source": "upline", "site_name": "Share One", "logo": "https://cdn.example.com/sites/12/logo/1759900000000000000-0a1b2c3d.png" }
+{ "source": "upline", "inherited_from": "share01", "site_name": "Share One", "logo": "https://cdn.example.com/sites/12/logo/1759900000000000000-0a1b2c3d.png" }
 ```
-`source` = `self` / `upline` / `""` (ไม่มีใครตั้ง — ทุก field `""`) · ไล่สายแล้ว (AST-47, AST-53) · Error codes: `422`
+`source` = `self` / `upline` / `""` (ไม่มีใครตั้ง — ทุก field `""`) · `inherited_from` = username ของชั้นบน เมื่อ `source = upline` ไม่เช่นนั้น `""` (AV3 · GE12) ·
+ไล่สายแล้ว (AST-47, AST-53) · Error codes: `422`
 
 ### GN13 · POST branding/detail/update
 
@@ -446,8 +471,18 @@ Request: `{ "agent_id": 15, "game_code": "scratch_card" }` · Response `data`:
     "stats_bar_color": "main_color_2",
     "stats_bar_color_hex": "#ffffff",
     "stats_bar_font_family": "prompt",
-    "main_color_1_shades": { "50": "#e9f4ff", "900": "#1e90ff", "1800": "#030e1a" },
-    "main_color_2_shades": { "50": "#ffffff", "900": "#ffffff", "1800": "#1a1a1a" }
+    "main_color_1_shades": {
+      "50": "#e9f4ff", "100": "#d2e9ff", "200": "#bcdeff", "300": "#a5d3ff", "400": "#8fc8ff",
+      "500": "#78bcff", "600": "#62b1ff", "700": "#4ba6ff", "800": "#359bff", "900": "#1e90ff",
+      "1000": "#1b82e6", "1100": "#1873cc", "1200": "#1565b3", "1300": "#125699", "1400": "#0f4880",
+      "1500": "#0c3a66", "1600": "#092b4d", "1700": "#061d33", "1800": "#030e1a"
+    },
+    "main_color_2_shades": {
+      "50": "#ffffff", "100": "#ffffff", "200": "#ffffff", "300": "#ffffff", "400": "#ffffff",
+      "500": "#ffffff", "600": "#ffffff", "700": "#ffffff", "800": "#ffffff", "900": "#ffffff",
+      "1000": "#e6e6e6", "1100": "#cccccc", "1200": "#b3b3b3", "1300": "#999999", "1400": "#808080",
+      "1500": "#666666", "1600": "#4d4d4d", "1700": "#333333", "1800": "#1a1a1a"
+    }
   },
   "site": { "site_name": "Share One", "logo": "https://cdn.example.com/sites/12/logo/1759900000000000000-0a1b2c3d.png" }
 }
@@ -456,7 +491,7 @@ Error codes: `422`, `405401`
 
 ### GN23 · POST /api/v1/player/asset/bundle (contract — implement หลัง Player Auth)
 
-Request: `{ "game_code": "scratch_card" }` (เกมเดียวต่อคำขอ — รอ review Player Auth ยืนยัน P1) · `data` รูปแบบเดียวกับ GN22 ·
+Request: `{ "game_code": "scratch_card" }` (เกมเดียวต่อคำขอ — รอ review Player Auth ยืนยัน P1) · `data` รูปแบบเดียวกับ GN22 แต่ `theme` ไม่มี `inherited_from` ·
 ใช้ token ของ Member · อ่านอย่างเดียว · บัญชีเป้าหมายมาจากผู้สร้างตรงของ Member เท่านั้น ไม่รับ `agent_id` ใดๆ (AST-52) ·
 การเช็คเกมเปิด / ปิด (`status_game` — MGMT-20) เป็นของ module หน้าบ้าน
 
@@ -469,8 +504,7 @@ migration ใหม่ (ไม่แก้ migration เดิม · ไม่ A
 CREATE TABLE asset_types (                          -- catalog (AST-11)
     id            BIGSERIAL    PRIMARY KEY,
     game_code     VARCHAR(50)  NOT NULL,
-    asset_type    VARCHAR(50)  NOT NULL,
-    description   VARCHAR(255) NOT NULL DEFAULT '',
+    asset_type    VARCHAR(50)  NOT NULL,                 -- ไม่มี description — หน้าบ้านแปลชื่อช่องเอง (lead GE2-1)
     allowed_sizes JSONB        NOT NULL DEFAULT '[]', -- [{"width":544,"height":851}] · [] = ไม่ตรวจ (AST-12)
     is_retired    BOOLEAN      NOT NULL DEFAULT false,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -580,7 +614,9 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-01 | share01 และ comp01 ตั้ง theme ช่อง / เกมเดียวกันต่างกัน | แต่ละบัญชีเป็นเจ้าของค่าของตัวเอง ไม่กระทบกัน |
 | AST-01 | `scope=GLOBAL` เรียก branding | `422` (branding ไม่มี GLOBAL) |
 | AST-02 | share01 · agent01 · comp01 · csm01 ตั้ง `scope=AGENT` ของตัวเอง | สำเร็จ |
-| AST-02 | sm01 (Share Master) `theme/detail/update` ของตัวเอง | `405301` |
+| AST-02 | sm01 (Share Master) `theme/detail/update` / `files/upload` / `branding/detail/update` ของตัวเอง | `405301` ทั้งหมด (ใช้ของ CSM — lead AV1) |
+| AST-02 | sm01 และ sm02 (Share Master ใต้ csm01 เดียวกัน) เรียก `bundle/detail/get` | ได้ค่าชุดเดียวกัน (ของ csm01) |
+| AST-02 | agent ที่ sm01 สร้าง (Agent ใต้ Share Master) ตั้งของตัวเอง | สำเร็จ (ข้อยกเว้นเฉพาะ Share Master) |
 | AST-02 | superadmin `scope=AGENT, agent_id=<id ตัวเอง>` | `405301` |
 | AST-03 | superadmin อัป `scope=GLOBAL` | สำเร็จ · `created_by = superadmin` |
 | AST-03 | `sa@ops` ที่ `asset = view` อัป `scope=GLOBAL` | `402303` |
@@ -637,7 +673,10 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-24 | share01 เลือก config GLOBAL ตัวเก่า (ไม่ใช่ตัวล่าสุด) ให้ช่อง `winner` | `used/list` ได้ตัวที่เลือก · `source = self` |
 | AST-25 | share01 ตั้ง used ช่อง A · agent01 ตั้ง used ช่อง B | agent01: A = `upline` · B = `self` · ที่เหลือ `global` · `source = mixed` |
 | AST-25 | ทุกช่องมาจาก GLOBAL | `source = global` |
-| AST-25 | ไม่มีรูปสักช่อง | `source = ""` · `assets = {}` |
+| AST-25 | ไม่มีรูปสักช่อง | `source = ""` · `assets = {}` · `used/list` ยังส่งทุกช่อง `url = ""` |
+| AST-25 | `used/list` ของ `scratch_card` (19 ช่อง) ที่มีไฟล์ 2 ช่อง | `items` 19 รายการ · 2 ช่องมี `url` · 17 ช่อง `url = ""` · `config_id = 0` · `source = ""` (GE6-1) |
+| AST-25 | ช่องที่เลิกใช้และไม่มีไฟล์ · ช่องที่เลิกใช้แต่ยังมีไฟล์ | ไม่อยู่ใน `items` · อยู่ใน `items` (AST-13) |
+| AST-25 | ช่องที่ได้มาจาก share01 (`upline`) · ตัวเอง · GLOBAL | `inherited_from = "share01"` · `""` · `""` |
 | AST-26 | repository "config ของ share01" ขณะ GLOBAL มีช่องเดียวกัน | คืนเฉพาะแถว `AGENT` ของ share01 (integration test ของ repository) |
 | AST-27 | `files/list` ของ share01 ช่อง `icon_button` | ของ share01 + ของ GLOBAL ใหม่ → เก่า · ไม่มีของบัญชีอื่น · ไม่มีแถวที่ลบแล้ว |
 | AST-27 | ช่องมี 30 เวอร์ชัน · ไม่ส่ง `page` / `limit` · `limit = 500` | หน้า 1 ได้ 20 แถว `total_count = 30` · `limit` ถูกปรับเป็น 100 |
@@ -653,6 +692,9 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-32 | share01 ตั้ง used ช่อง A แล้ว agent01 สืบทอด · share01 ลบ config ช่อง A | `405403` · agent01 ยังเห็นรูปเดิม |
 | AST-32 | share01 `used/reset` ช่อง A แล้วลบ config | สำเร็จ · agent01 ได้ค่าของชั้นถัดไป (comp01 → GLOBAL) |
 | AST-33 | `theme/detail/update` ไม่ส่ง `stats_bar_font_family` | `422` · ค่าเดิมไม่เปลี่ยน |
+| AST-33 | share01 ส่งค่าเดิมทั้ง 5 ค่า (เท่ากับที่ใช้อยู่) | `200` · `updated_by` / `updated_at` ไม่เปลี่ยน · ไม่มีแถวใหม่ (GE10-1) |
+| AST-33 | agent01 ไม่เคยตั้ง ส่งค่าเท่ากับที่ได้จาก share01 ทั้งชุด | `200` · agent01 ยังไม่มีแถว theme (`source = upline`) |
+| AST-33 | agent01 ส่งค่าต่างจากที่ใช้อยู่ 1 ค่า | สร้างแถวของ agent01 · `source = self` |
 | AST-34 | `font_family = "Kanit"` / `"Comic Sans"` / `"noto; color:red"` | `422` |
 | AST-35 | `#FFF` / `FF0000` / `#GG0000` / `#ff00001` | `422` |
 | AST-35 | `#1E90FF` | สำเร็จ · `theme/detail/get` ได้ `#1e90ff` |
@@ -666,8 +708,11 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-39 | shades ของ `#000000` / `#ffffff` | `50 = #e6e6e6` · `1800 = #000000` / `50 = #ffffff` · `1800 = #1a1a1a` |
 | AST-40 | share01 ตั้ง `main_color_1 = #1e90ff` | shades ใน `theme/detail/get` / `bundle` คำนวณจาก `#1e90ff` |
 | AST-41 | ไม่มีใครในสายตั้ง branding | `branding/detail/get` ได้ `source = ""` · ทุก field `""` |
-| AST-42 | `site_name = ""` / 51 ตัวอักษร | `422` |
-| AST-42 | `site_name = "ร้านหนึ่ง"` ส่ง `site_theme` ด้วย | `422` (MVP ไม่รับ field นอกสเปก — หัวข้อ 9 ข้อ 2) |
+| AST-42 | `site_name = ""` / `"   "` / 51 ตัวอักษร | `422` |
+| AST-42 | `site_name = "  Share One  "` | สำเร็จ · เก็บ `"Share One"` (ตัดช่องว่างหน้า-หลัง) |
+| AST-42 | `site_name` 50 ตัวอักษรไทย (เกิน 50 byte) | สำเร็จ (นับเป็นตัวอักษร) |
+| AST-42 | `site_name` มีอักขระควบคุม (`\n` · `\t` · `\u0000`) | `422` |
+| AST-42 | `site_name = "ร้านหนึ่ง"` ส่ง `site_theme` ด้วย | `422` (MVP ไม่รับ — lead GE13-1) |
 | AST-43 | อัปโลโก้ 2 ครั้ง | แถวเดียว · key ใหม่ · ไฟล์เดิมยังอยู่ใน bucket |
 | AST-43 | ยังไม่มีแถว · อัปโลโก้ก่อนตั้งชื่อ | สร้างแถว `site_name = ""` · `logo_key` ตามไฟล์ |
 | AST-45 | ช่อง asset ชื่อ `site` (สมมุติ) | อยู่ใน `assets.site` ไม่ชนกับ `site` ของ branding |
@@ -681,10 +726,17 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-50 | `share01@design` อัป แล้ว share01 แก้ theme | config `created_by = share01@design` · theme `updated_by = share01` |
 | AST-51 | `scratch_card` มีปก · `coin_toss` ยังไม่มีปก | `games/list` สำเร็จ · `scratch_card` ได้ URL · `coin_toss` ได้ `""` |
 | AST-51 | GLOBAL มีปก 2 ไฟล์ เลือกใช้ตัวเก่าไว้ | `games/list` ได้ตัวที่เลือก (ตรงกับ `used/list scope=GLOBAL`) |
+| AST-51 | share01 ตั้งปก `scratch_card` ไว้ · agent01 (ลูก) เรียก `games/list` | agent01 ได้ปกของ share01 (ไล่สายจากผู้เรียก — GE1-1) · เกมอื่นได้ GLOBAL |
+| AST-51 | share01 เรียก `games/list` | ได้ปกของ share01 เอง · ตรงกับที่ผู้เล่นของ share01 เห็น |
+| AST-51 | เกมที่ `status_game` ปิดของบัญชีผู้เรียก | ยังอยู่ใน `games/list` (GE1-2) |
+| AST-51 | `slots/list` · `used/list` · `files/list` | ไม่มี field `description` (GE2-1) |
 | AST-51 | catalog ของทุกเกม | มีช่อง `game_cover` |
 | AST-52 | ผู้เล่นใต้ share01 ส่ง `agent_id=15` ใน body / query | ถูกเมิน · ได้ของบัญชีตัวเองเสมอ |
 | AST-53 | agent01 ไม่ตั้ง branding · share01 ตั้งไว้ · agent01 เรียก `branding/detail/get` | ได้ของ share01 · `source = upline` (ค่าเดียวกับ `bundle`) |
-| AST-53 | agent01 ตั้งเองแล้วเรียก `theme/detail/get` | `source = self` |
+| AST-53 | agent01 ตั้งเองแล้วเรียก `theme/detail/get` | `source = self` · `inherited_from = ""` |
+| AST-53 | agent01 ไม่ตั้ง theme · share01 ตั้งไว้ · agent01 เรียก `theme/detail/get` | `source = upline` · `inherited_from = "share01"` |
+| AST-53 | sm01 เรียก `branding/detail/get` | `source = upline` · `inherited_from = "csm01"` |
+| AST-53 | ผู้เล่นเรียก bundle (contract) | `theme` ไม่มี `inherited_from` |
 | AST-54 | agent01 `used/reset` ช่อง `icon_button` ที่ตั้งเองไว้ | แถว used ของ agent01 หาย · `used/list` ได้ของ share01 (`upline`) · config ยังอยู่ในคลัง |
 | AST-54 | `used/reset` ช่องที่ไม่มีแถว | สำเร็จ |
 | AST-54 | `used/reset scope=GLOBAL` · sm01 `used/reset` · share01 `used/reset` ให้ agent01 | `422` · `405301` · `405301` |
@@ -694,6 +746,12 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-57 | สายลึก 6 ชั้น | อ่านค่าของทั้งสายด้วย query เดียว · pure function เลือกใกล้สุด (table test: ว่าง · ชั้นเดียว · หลายชั้น · GLOBAL เท่านั้น) |
 | AST-57 | Member `mem02` (ผู้สร้าง sm01) | chain = sm01 → csm01 → (superadmin) → GLOBAL · ได้ค่าของ csm01 |
 | AST-57 | สาย Superadmin ไม่มีแถว `AGENT` | ข้ามไป GLOBAL ไม่ error |
+| AST-61 | รันสคริปต์กับโฟลเดอร์ที่มีไฟล์ครบทุกช่องของ 3 เกม | config GLOBAL + used ครบ · `created_by = script:<user>` · รายงานไม่มีช่องค้าง |
+| AST-61 | รันซ้ำโดยไม่ใส่ `-force` | ข้ามช่องที่มี used แล้ว (รายงาน) · ไม่มี config ใหม่ |
+| AST-61 | รันซ้ำพร้อม `-force` | สร้าง config ใหม่ + ตั้ง used ทับ · ไฟล์เดิมยังอยู่ในคลัง |
+| AST-61 | ไฟล์ชื่อไม่ตรง catalog · ขนาดภาพผิด · SVG | รายงานรายไฟล์ · ไฟล์อื่นในชุดยังอัปต่อ |
+| AST-61 | storage ไม่พร้อม | หยุดตั้งแต่ต้น · ไม่มี config |
+| AST-61 | ผ่านสคริปต์แล้วเรียก `used/list scope=GLOBAL` | ช่องที่อัปมี `url` ตรงกับไฟล์ (สคริปต์ใช้ service เดียวกับ `files/upload`) |
 | AST-44 | (เลื่อน) banner | ยังไม่ทดสอบรอบนี้ |
 | AST-58 | (เลื่อน) favicon | ยังไม่ทดสอบรอบนี้ |
 | AST-59 | (เลื่อน) site-themes / `site_theme` | ยังไม่ทดสอบรอบนี้ |
@@ -710,7 +768,7 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | 3 | อ่าน body / form + `Validate()` (`scope` · `agent_id` · ค่า field · ไม่มี `null`) | `400` · `422` |
 | 4 | `ResolveAssetTarget` + `RequireAssetTarget` (AST-03 / AST-04 / AST-05) | `402402` → `405301` |
 | 5 | service — `files/upload`: catalog → เลิกใช้ → ขนาดไฟล์ → ชนิดไฟล์ → ขนาดภาพ → storage (AST-15) | `405401` → `405304` → `405103` → `405102` → `405101` → `505801` / `505802` |
-| 5 | service — `used/update`: ช่อง → เลิกใช้ → config (AST-23) | `405401` → `405304` → `405402` |
+| 5 | service — `used/update`: เกม → config (ไม่พบ / ลบแล้ว / ไม่ใช่ของที่เลือกได้ / คนละเกม) → ช่องเลิกใช้ (AST-23) | `405401` → `405402` → `405304` — ตรวจความเป็นเจ้าของก่อนบอกว่าช่องเลิกใช้ เพื่อไม่เปิดเผยสถานะของ config ที่ไม่ใช่ของตัวเอง |
 | 5 | service — `files/delete`: config → ยังถูกใช้ (AST-28) | `405402` → `405403` |
 | 5 | service — `used/reset` · `theme/reset` · `branding/reset` | `422` (scope GLOBAL) |
 
@@ -723,7 +781,11 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 - **ลบ = soft delete ทั้งค่ากลางและของบัญชี** · ลบรูปที่ยังถูกเลือกใช้ไม่ได้ (`405403`) ต้อง `used/update` หรือ `used/reset` ก่อน · ลบได้ไม่ผูกกับคนอัป
 - **ไล่สาย:** บัญชีที่ไม่ได้ตั้งได้ค่าของชั้นบนที่ใกล้ที่สุด แล้วค่ากลาง (asset ทีละช่อง · theme / branding ทั้งชุด) · `source` เป็น `self` / `upline` / `global` / `mixed` (เดิม `agent` / `global` / `mixed`)
 - ชั้นบนดูของสายล่างได้ แก้ไม่ได้ (`405301`) · Share Master ตั้งเองไม่ได้ ได้ตาม CSM
-- `theme/detail/get` · `branding/detail/get` ตอบค่าที่ไล่สายแล้ว + `source` (เดิม branding ไม่ไล่สายในหน้าตั้งค่า)
+- `theme/detail/get` · `branding/detail/get` · `used/list` ตอบค่าที่ไล่สายแล้ว + `source` + **`inherited_from`** (username ของชั้นบนเมื่อ `source = upline` ไม่เช่นนั้น `""`) (เดิม branding ไม่ไล่สายในหน้าตั้งค่า)
+- **`used/list` ส่งทุกช่องของเกม** — ช่องที่ไม่มีไฟล์ได้ `url = ""` · `config_id = 0` · `source = ""`
+- **`games/list`** ปกเกมไล่สายจากผู้เรียก (เห็นแบบเดียวกับผู้เล่นของตัวเอง ไม่ใช่ค่ากลางอย่างเดียว) · ไม่กรองเกมที่ `status_game` ปิด
+- **`slots/list` ไม่มี `description`** — หน้าบ้านแปลชื่อช่องจาก `asset_type` เอง
+- **`theme/detail/update`** ส่งค่าเดิมทั้งชุด = `200` ไม่เปลี่ยนอะไร · **`branding/detail/update`**: `site_name` ตัดช่องว่างหน้า-หลัง 1–50 ตัวอักษร ห้ามอักขระควบคุม · ไม่รับ `site_theme` (เลื่อน)
 - ไฟล์ ≤ **5 MB** (เดิม 10 MB) · ห้าม SVG · ชนิดไฟล์ตรวจจากเนื้อไฟล์ · ชื่อช่องต้องตรง catalog ทุกตัวอักษร
 - `games/list` · `slots/list` ต้อง login และมีสิทธิ์ `asset` (เดิม public) · `game_type` → `game_code`
 - อ่านค่ากลาง (GLOBAL) ต้องมีสิทธิ์ `asset` ≥ `view` (เดิมใครที่ login ก็อ่านได้)
@@ -756,6 +818,23 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | GQ12 | ส่วนกลาง | อนุมัติ (ตารางด้านล่าง) · credential ใช้ IRSA / default chain · boot ได้แม้ storage ไม่พร้อม · MinIO ใน test env → AST-30, 49 |
 | GQ13 | บั๊กเก่าที่ spec ปิด | รับทราบ → หัวข้อ 4 |
 
+**lead ตรวจ spec รอบ 1 (2026-10-12 · ฉบับ `f19a511`) — เริ่มโค้ดได้หลังแก้ข้อด้านล่าง ✅ แก้แล้วในฉบับนี้:**
+
+| lead | เรื่อง | ตัดสิน → rule |
+|---|---|---|
+| AV1 | Share Master ตั้งหน้าตาเอง | **ตั้งเองไม่ได้ ใช้ของ CSM** (asset · theme · branding ทั้งหมด) · ทุกเว็บใต้ CSM เดียวกันหน้าตาเหมือนกัน · คง `405301` · ข้อยกเว้นของ GR4 เฉพาะ Share Master → AST-02, AST-04 |
+| AV2 | ตาราง GE | ใช้ตาราง GE ในรีวิว (ด้านล่าง) |
+| AV3 | สิ่งที่ schneider ตัดสินเอง | **รับทั้งหมด:** ไล่สายด้วย `cnf` · `detail/get` ตอบค่าที่ไล่สายแล้ว + `source` + `inherited_from` · Member ใช้สายของผู้สร้าง · ลบไฟล์ที่สายล่างสืบทอดอยู่ได้ `405403` → AST-25, 32, 53, 57 |
+| AV4 | รูป GLOBAL ทุกช่อง | อัปให้ครบก่อน UAT · **schneider ทำ seed / script อัปรูป** จากไฟล์ที่ทีมเกม / ออกแบบส่งมา → AST-24, AST-61 |
+| GE1-1 | `games/list` ปก | ไล่สายจากผู้เรียก ไม่ใช่ GLOBAL อย่างเดียว → AST-51 |
+| GE1-2 | `games/list` กรองเกม | ไม่กรองตาม `status_game` → AST-51 |
+| GE2-1 | `description` ของช่อง | ตัดออก (response + คอลัมน์ `asset_types`) → GN2 · หัวข้อ 6 |
+| GE6-1 | `used/list` | ส่งทุกช่องของเกม ช่องว่าง `url = ""` → AST-25 |
+| GE6 · GE9 · GE12 | `inherited_from` | เมื่อ `source = upline` → AST-25, AST-53 |
+| GE10-1 | theme ส่งค่าเดิมทั้งชุด | `200` ไม่แตะ `updated_*` ไม่สร้างแถวใหม่ (แนว MQ5) → AST-33 |
+| GE13 · GE13-1 | `site_name` · `site_theme` | 1–50 ตัว ตัดช่องว่าง ห้ามอักขระควบคุม · `site_theme` ไม่อยู่ใน MVP → AST-42 |
+| GE22-2 | เส้นฝั่งผู้เล่น (bundle + lobby) | ใครทำ → ตัดสินพร้อม review Player Auth → AST-48 |
+
 **error code** (module `bb=05` · business error ตอบ HTTP 200 · ตัด `405302`, `405303` และ `405404` (banner เลื่อน) — เลขที่ตัดไม่ใช้ซ้ำ):
 
 | Code | HTTP | ความหมาย |
@@ -773,23 +852,15 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 
 validation ทั่วไปใช้ `422` + msg บอก field · สิทธิ์ใช้ code ของ module ② (`402303`, `402402`)
 
-### ✅ ตีความ / ตัดสินเองในเอกสารนี้ (ขอให้ lead รับทราบ)
+### ❓ คำถามเล็กที่เหลือ (ไม่ขวางการเริ่มโค้ด)
 
-1. **Share Master ตั้งเองไม่ได้** (schneider 2026-10-12 — ตาม lead H2): เขียน = `405301` · CSM ตั้งของ CSM แล้ว Share Master ทุกคนได้ตามผ่านสาย (ไม่มีการ "ตั้งแทน" ทีละคน — แทน capability `SUBTREE_LOCKED` ของระบบเก่า)
-2. **ใช้ `user_agents.cnf` (MGMT-61) ไล่สาย** แทน recursive CTE ที่ lead เขียนไว้ (GR4) — ผลลัพธ์เหมือนกัน (query เดียว ไม่ N+1) แต่มี index (GIN) และทีมใช้อยู่แล้ว
-3. **`*/detail/get` ตอบค่าที่ไล่สายแล้ว + `source`** (AST-53) แทนที่จะแยก "อ่านของตัวเอง" กับ "ประกอบ bundle" ตามเอกสารสรุป — ตาม GR4 "ใช้กฎเดียวกัน" และ GN6 ("มาจากตัวเอง ชั้นบน หรือค่ากลาง")
-4. **ลบไฟล์ที่มีคนใช้อยู่ = `405403`** รวมกรณีลูกสืบทอด (AST-32) · ต้อง `used/reset` / `used/update` ก่อนลบ
-5. **Member ใช้สายของผู้สร้างตรง** (AST-57) — เท่ากับ `user_members.cnf` + ผู้สร้าง
-
-### ❓ รอ lead
-
-1. **รายการ GE1-1, GE2-1, GE6-1, GE12-1, GE13-1 (S10) ไม่พบ** — รีวิวอ้างถึงที่ S10 แต่ไม่มีตารางนิยามใน `game-asset.md` (ตารางมีแค่ GN ที่ส่งมาเป็นภาพ) · ขอ lead ส่งตาราง GE เพื่อเขียน spec ตามที่ตัดสินไว้ · ระหว่างนี้ path / response ตาม GN
-2. **`site_theme` ใน MVP** — GN13 เขียนว่า "แก้ชื่อเว็บและธีมหน้าเว็บ" แต่ GN17 (`site-themes/list`) เลื่อน และ GS1 บอก branding MVP = ชื่อ / โลโก้ · เสนอ: MVP ตัด `site_theme` ออกจาก GN13 (AST-42 / AST-59) เพื่อไม่ต้องมี catalog ธีมไว้ตรวจค่า
-3. **`/player/asset/bundle`** (GN23) — `game_code` ใน body ตามที่ร่างไว้ใช่ไหม (เส้นผู้เล่นรอ review Player Auth — P1) · เส้นรายชื่อเกมของ lobby (GQ9) ตัดสินพร้อม Player Auth
-4. **ก่อน go-live** ต้องอัป GLOBAL ให้ครบทุกช่องที่เกมใช้ (seed ไม่มีรูป และไม่มี fallback ไฟล์ล่าสุดแล้ว — AST-24) — ใครเป็นคนอัป / เมื่อไร
+1. **GE10-1 "ส่งค่าเดิมทั้งชุด" เทียบกับอะไร** — spec ตีความว่า**ค่าที่ใช้อยู่จริงของบัญชีนั้น (ไล่สายแล้ว)**: บัญชีที่ยังไม่เคยตั้ง กดบันทึกโดยไม่แก้อะไร = `200` และไม่สร้างแถว override (ยังได้ค่าของชั้นบนต่อไป) · ผลข้างเคียง: บัญชีที่อยาก "ปักค่า" ตามที่เห็นอยู่ตอนนี้ไม่ให้ค่าเปลี่ยนตามชั้นบนทำไม่ได้ (ต้องแก้อย่างน้อย 1 ค่า) · อีกทางคือเทียบกับแถวของตัวเองเท่านั้น (ไม่มีแถว = สร้างเสมอ) — ขอ lead ยืนยัน
+2. **`theme` ใน bundle ไม่มี `inherited_from`** (AST-48) — เพราะ bundle ใช้ส่งผู้เล่นและไม่ควรเปิด username ชั้นบน · `detail/get` ฝั่ง BO มีตาม GE9 — ขอ lead ยืนยัน
+3. **สคริปต์ AST-61** — รูปแบบโฟลเดอร์ `{game_code}/{asset_type}.{ext}` · `-force` · `created_by = script:<user>` เป็นร่างของผม ขอ lead / ทีมเกมยืนยันว่าไฟล์ที่ส่งมาตั้งชื่อแบบนี้ได้ไหม
+4. **`/player/asset/bundle`** (GN23) — `game_code` ใน body ตามที่ร่างไว้ · เส้นผู้เล่น + lobby ตัดสินพร้อม review Player Auth (GE22-2)
 5. **รายชื่อช่อง / ขนาด / palette** (GQ7) — รอทีมเกม / หน้าบ้านยืนยัน (ไม่ตอบใน ~3 วัน seed ตามร่าง)
 
-### ส่วนกลางที่ lead อนุมัติแล้ว (GQ12) — ทำตอน implement ใน branch ใหม่หลัง merge `dev` ล่าสุด (S13)
+### ส่วนกลางที่ lead อนุมัติแล้ว (GQ12) — ทำแล้วพร้อมโค้ด (2026-10-12) ยกเว้นที่ระบุว่ายังไม่ได้ทำ
 
 | เรื่อง | ที่ต้องแก้ |
 |---|---|
@@ -799,7 +870,7 @@ validation ทั่วไปใช้ `422` + msg บอก field · สิท�
 | ขนาด body | **ไม่แตะ** `BodyLimit` (10 MB ทั้ง request ครอบไฟล์ 5 MB ได้) |
 | multipart | helper อ่าน multipart + `Validate()` ใน `pkg/utils` |
 | middleware | `ResolveAssetTarget` / `RequireAssetTarget` ใน `app/internals/backoffice/middleware` · ใช้ `RequirePermission` ของ module ② |
-| test env | MinIO ใน `docker-compose` / `scripts/testenv.ps1` |
+| test env | MinIO ใน `docker-compose.yml` / `docker-compose.test.yml` (ทำแล้ว · ยังไม่ได้ลองรัน — เครื่องที่ทำไม่มี Docker) · `scripts/testenv.ps1` ไม่เปิด MinIO · integration test ใช้ S3 จำลองในตัว `testutil.NewFakeS3` |
 | เอกสารกลาง | จอง module id `05` ใน `docs/ERROR_CODES.md` (game_rate = `06`) · เพิ่มแถว `asset` ใน `docs/MIGRATION_STATUS.md` · หลัง spec อนุมัติ: `docs/frontend/asset.md` + แถวใน `docs/frontend/README.md` |
 | migration | ไฟล์ใหม่ต้องมี timestamp หลัง `20261011120000_member_management_phone_country_code.sql` (ล่าสุดบน `dev` ตอนตรวจ 2026-10-12) |
 

@@ -49,6 +49,15 @@ go test -count=1 -tags=integration ./...
 - `pkg/testutil` โหลด `.env.test` ที่ root ของ repo เอง — ไม่ต้อง export env · ถ้า environment มี `DB_HOST` อยู่แล้ว (เช่น CI) ไม่โหลดไฟล์เลย · ค่าที่ตั้งไว้แล้วไม่ถูกทับ
 - ถ้าต่อ DB / Redis ไม่ได้ ทุก test ได้ error เดียวกัน `testutil: postgres localhost:55432/minigame_test: ...`
 
+### Integration test ของ asset (อัปโหลดไฟล์)
+
+test ของ asset อัปไฟล์ผ่าน `pkg/testutil.NewFakeS3(t)` — S3 จำลองในตัว (httptest) ที่ต่อผ่าน `S3_ENDPOINT` เหมือน MinIO
+จึงเรียก `platform/storage` จริงโดยไม่ต้องเปิด MinIO และใช้ได้บนเครื่องที่ไม่มี Docker · test ที่ไม่เรียก `NewFakeS3`
+ไม่มี storage (ไม่ตั้ง `S3_BUCKET`) = เส้นอัปโหลดตอบ `505801` (ตรงตาม AST-30)
+
+MinIO ใน `docker-compose.yml` / `docker-compose.test.yml` ไว้ลองอัปจริงด้วยมือหรือรัน `scripts/seed_asset_global`
+(ค่า env ที่ต้องตั้งอยู่ในคอมเมนต์ของไฟล์ compose) — `scripts/testenv.ps1` ไม่เปิด MinIO
+
 ## 3. Load test (k6)
 
 สคริปต์อยู่ใน `tests/load/` · ค่าร่วมใน `tests/load/lib/config.js` (override ด้วย `-e KEY=value`)

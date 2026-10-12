@@ -1,0 +1,789 @@
+{
+  "info": {
+    "name": "mini-game-api — Asset (BO)",
+    "description": "ทุกเส้นของ module asset ฝั่งหลังบ้าน (GN1–GN14, GN16, GN22) · spec: docs/modules/asset.md หัวข้อ 5\nวิธีใช้: ตั้ง username/password → รัน Login (เก็บ token อัตโนมัติ) → ตั้ง agent_id / game_code / asset_type / config_id ที่ Collection variables\nทุกเส้นเป็น POST · ไม่ส่งค่า null · ไม่รวม GN23 (เส้นผู้เล่น — รอ Player Auth)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8181"
+    },
+    {
+      "key": "username",
+      "value": "superadmin1"
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "scope",
+      "value": "AGENT"
+    },
+    {
+      "key": "agent_id",
+      "value": "1"
+    },
+    {
+      "key": "game_code",
+      "value": "scratch_card"
+    },
+    {
+      "key": "asset_type",
+      "value": "game_cover"
+    },
+    {
+      "key": "config_id",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pb/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pb",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "เข้าสู่ระบบ — script จะเก็บ data.token ลงตัวแปร token ให้อัตโนมัติ (ใช้ Bearer ทุกเส้นใน /pr) · login ครั้งแรกอาจต้องตั้ง passcode/เปลี่ยน password ก่อน",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) {",
+                  "  pm.collectionVariables.set('token', j.data.token);",
+                  "  console.log('token saved');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "GN1 games/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/games/list",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "games",
+                "list"
+              ]
+            },
+            "description": "รายชื่อเกมที่ตั้งหน้าตาได้ + รูปปก (ไล่สายจากผู้เรียก) · สิทธิ์ asset view · ไม่ต้องส่ง scope/agent_id"
+          },
+          "response": []
+        },
+        {
+          "name": "GN2 slots/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"game_code\": \"{{game_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/slots/list",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "slots",
+                "list"
+              ]
+            },
+            "description": "ช่องรูปของเกมหนึ่ง + ขนาดภาพที่รับ · สิทธิ์ asset view · error: 422, 405401"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "item": [
+        {
+          "name": "GN3 files/upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "scope",
+                  "value": "{{scope}}",
+                  "type": "text",
+                  "description": "GLOBAL / AGENT"
+                },
+                {
+                  "key": "agent_id",
+                  "value": "{{agent_id}}",
+                  "type": "text",
+                  "description": "เฉพาะ scope = AGENT (ถ้า GLOBAL ให้ติ๊กออก)"
+                },
+                {
+                  "key": "game_code",
+                  "value": "{{game_code}}",
+                  "type": "text"
+                },
+                {
+                  "key": "asset_type",
+                  "value": "{{asset_type}}",
+                  "type": "text",
+                  "description": "ต้องตรงกับ slots/list ทุกตัวอักษร"
+                },
+                {
+                  "key": "use_now",
+                  "value": "true",
+                  "type": "text",
+                  "description": "\"true\" (ค่าเริ่มต้น) / \"false\" = เก็บเข้าคลังเฉยๆ"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "png / jpeg / gif / webp ≤ 5 MB · ขนาดต้องตรง allowed_sizes ของช่อง"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/files/upload",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "files",
+                "upload"
+              ]
+            },
+            "description": "อัปรูปเข้าช่อง (multipart/form-data) · สิทธิ์ asset edit · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        },
+        {
+          "name": "GN4 files/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"{{scope}}\",\n  \"agent_id\": {{agent_id}},\n  \"game_code\": \"{{game_code}}\",\n  \"asset_type\": \"{{asset_type}}\",\n  \"page\": 1,\n  \"limit\": 20\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/files/list",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "files",
+                "list"
+              ]
+            },
+            "description": "คลังรูปของช่อง (แบ่งหน้า response.Page) · สิทธิ์ asset view · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        },
+        {
+          "name": "GN5 files/delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"{{scope}}\",\n  \"agent_id\": {{agent_id}},\n  \"config_id\": {{config_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/files/delete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "files",
+                "delete"
+              ]
+            },
+            "description": "ลบรูปจากคลัง (soft delete) · สิทธิ์ asset edit · config_id ได้จาก files/list · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Used",
+      "item": [
+        {
+          "name": "GN6 used/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"{{scope}}\",\n  \"agent_id\": {{agent_id}},\n  \"game_code\": \"{{game_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/used/list",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "used",
+                "list"
+              ]
+            },
+            "description": "ทุกช่องของเกม: ใช้รูปไหนอยู่ + ที่มา (source / inherited_from) · สิทธิ์ asset view · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        },
+        {
+          "name": "GN7 used/update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"{{scope}}\",\n  \"agent_id\": {{agent_id}},\n  \"game_code\": \"{{game_code}}\",\n  \"config_id\": {{config_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/used/update",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "used",
+                "update"
+              ]
+            },
+            "description": "เลือกรูปจากคลังมาใช้กับช่อง · สิทธิ์ asset edit · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        },
+        {
+          "name": "GN8 used/reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"{{scope}}\",\n  \"agent_id\": {{agent_id}},\n  \"game_code\": \"{{game_code}}\",\n  \"asset_type\": \"{{asset_type}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/used/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "used",
+                "reset"
+              ]
+            },
+            "description": "ยกเลิกรูปที่ตั้งเอง กลับไปใช้ของชั้นบน · สิทธิ์ asset edit · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Theme",
+      "item": [
+        {
+          "name": "GN9 theme/detail/get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"{{scope}}\",\n  \"agent_id\": {{agent_id}},\n  \"game_code\": \"{{game_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/theme/detail/get",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "theme",
+                "detail",
+                "get"
+              ]
+            },
+            "description": "ธีมที่ใช้อยู่ + shades + ที่มา · สิทธิ์ asset view · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        },
+        {
+          "name": "GN10 theme/detail/update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"{{scope}}\",\n  \"agent_id\": {{agent_id}},\n  \"game_code\": \"{{game_code}}\",\n  \"font_family\": \"noto\",\n  \"main_color_1\": \"#f7447e\",\n  \"main_color_2\": \"#ffffff\",\n  \"stats_bar_color\": \"main_color_1\",\n  \"stats_bar_font_family\": \"prompt\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/theme/detail/update",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "theme",
+                "detail",
+                "update"
+              ]
+            },
+            "description": "ตั้งฟอนต์ / สี แทนทั้งชุด — ต้องส่งครบ 5 ค่า · font: noto|prompt|kanit|mitr|sarabun · สี #rrggbb · stats_bar_color: main_color_1|main_color_2 · สิทธิ์ asset edit · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        },
+        {
+          "name": "GN11 theme/reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scope\": \"{{scope}}\",\n  \"agent_id\": {{agent_id}},\n  \"game_code\": \"{{game_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/theme/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "theme",
+                "reset"
+              ]
+            },
+            "description": "กลับไปใช้ธีมของชั้นบน · สิทธิ์ asset edit · scope = \"AGENT\" + agent_id (บัญชีเป้าหมาย) หรือ scope = \"GLOBAL\" (ห้ามส่ง agent_id — superadmin/ADMIN เท่านั้น) · ไม่ส่ง null · เปลี่ยน scope/agent_id ที่ Collection variables"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Branding",
+      "item": [
+        {
+          "name": "GN12 branding/detail/get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agent_id\": {{agent_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/branding/detail/get",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "branding",
+                "detail",
+                "get"
+              ]
+            },
+            "description": "ชื่อเว็บ + โลโก้ที่ใช้อยู่ + ที่มา · สิทธิ์ asset view · เส้น branding / bundle ไม่ส่ง scope — ส่งแค่ agent_id (> 0) · สิทธิ์ตามหมายเหตุของแต่ละเส้น"
+          },
+          "response": []
+        },
+        {
+          "name": "GN13 branding/detail/update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agent_id\": {{agent_id}},\n  \"site_name\": \"My Site\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/branding/detail/update",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "branding",
+                "detail",
+                "update"
+              ]
+            },
+            "description": "แก้ชื่อเว็บ (แทนทั้งชุด · trim · ห้ามอักขระควบคุม) · ห้ามส่ง site_theme (422) · สิทธิ์ asset edit · เส้น branding / bundle ไม่ส่ง scope — ส่งแค่ agent_id (> 0) · สิทธิ์ตามหมายเหตุของแต่ละเส้น"
+          },
+          "response": []
+        },
+        {
+          "name": "GN14 branding/logo/upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "agent_id",
+                  "value": "{{agent_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "png / jpeg / gif / webp ≤ 5 MB · เขียนทับโลโก้เดิม"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/branding/logo/upload",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "branding",
+                "logo",
+                "upload"
+              ]
+            },
+            "description": "อัปโลโก้ (multipart/form-data) · สิทธิ์ asset edit · เส้น branding / bundle ไม่ส่ง scope — ส่งแค่ agent_id (> 0) · สิทธิ์ตามหมายเหตุของแต่ละเส้น"
+          },
+          "response": []
+        },
+        {
+          "name": "GN16 branding/reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agent_id\": {{agent_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/branding/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "branding",
+                "reset"
+              ]
+            },
+            "description": "กลับไปใช้ branding ของชั้นบน · สิทธิ์ asset edit · เส้น branding / bundle ไม่ส่ง scope — ส่งแค่ agent_id (> 0) · สิทธิ์ตามหมายเหตุของแต่ละเส้น"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bundle",
+      "item": [
+        {
+          "name": "GN22 bundle/detail/get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agent_id\": {{agent_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bo/pr/asset/bundle/detail/get",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bo",
+                "pr",
+                "asset",
+                "bundle",
+                "detail",
+                "get"
+              ]
+            },
+            "description": "preview: asset + theme + branding ของบัญชีหนึ่ง · สิทธิ์ asset view · เส้น branding / bundle ไม่ส่ง scope — ส่งแค่ agent_id (> 0) · สิทธิ์ตามหมายเหตุของแต่ละเส้น"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

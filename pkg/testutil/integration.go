@@ -41,8 +41,10 @@ var (
 )
 
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
+// asset: TRUNCATE user_agents CASCADE ล้างตาราง asset ทั้งก้อน (รวมแถว GLOBAL ที่ seed) · asset_types ไม่ถูกล้าง (catalog จาก migration)
 var tables = []string{"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests",
 	"user_member_game_settings", "user_members", "agent_balances", "agent_game_settings", "agent_currencies",
+	"asset_used", "asset_configs", "game_themes", "site_brandings",
 	"subaccounts", "user_agents"}
 
 // env ที่ห้ามรัน integration test เด็ดขาด — test ล้างทุกตารางและ FLUSHDB Redis
@@ -133,8 +135,22 @@ func reset(t *testing.T) {
 			t.Fatalf("truncate %s: %v", tbl, err)
 		}
 	}
+	seedGlobalThemes(t)
 	if err := database.DBRedis.FlushDB(context.Background()).Err(); err != nil {
 		t.Fatalf("flush redis: %v", err)
+	}
+}
+
+// seedGlobalThemes — คืนแถวธีมค่ากลาง (GLOBAL) ที่ migration seed ไว้ แต่ถูกล้างไปพร้อมตารางด้านบน (asset AST-37)
+func seedGlobalThemes(t *testing.T) {
+	t.Helper()
+	err := database.DBConn.Exec(`
+		INSERT INTO game_themes (scope, agent_id, game_code, font_family, main_color_1, main_color_2,
+		                         stats_bar_color, stats_bar_font_family, created_by, updated_by)
+		SELECT 'GLOBAL', NULL, game_code, 'noto', '#f7447e', '#ffffff', 'main_color_1', 'prompt', 'migration', 'migration'
+		FROM (VALUES ('coin_toss'), ('rock_paper_scissors'), ('scratch_card')) AS g(game_code)`).Error
+	if err != nil {
+		t.Fatalf("seed global themes: %v", err)
 	}
 }
 
