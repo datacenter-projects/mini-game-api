@@ -199,7 +199,7 @@ func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor
 		if !ok {
 			continue // บัญชีไม่มีแถวของกลุ่มนี้ (ข้อมูลก่อน module ②) — ไม่มีอะไรให้แก้
 		}
-		v := req[g].Parsed
+		v := req[g].Values()
 		var status bool
 		if childIsShareMaster { // CSM แก้ได้แค่ Commission (MGMT-19)
 			v = agentManagementCore.ChildPT{PTFromParent: cur.PTFromParent, Force: cur.Force, Remain: cur.Remain, Commission: v.Commission}
@@ -228,9 +228,10 @@ func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor
 		}
 		if min := agentManagementCore.MinPTFromParent(grand, memberPTs); v.PTFromParent < min { // MGMT-24 · R1 · MGMT-19
 			p := utils.FormatNum(min)
+			th, en := utils.FieldLabel("pt." + g + ".pt_from_parent")
 			return apperr.ErrPTBelowChildUsage.WithMessage(
-				"pt."+g+".pt_from_parent ต่ำกว่าที่ลูกใช้อยู่ ตั้งได้ต่ำสุด "+p,
-				"pt."+g+".pt_from_parent is lower than what the child uses, minimum is "+p)
+				th+" ตั้งได้ต่ำสุด "+p+" เพราะลูกให้ต่อหรือถือสู้กับ Member อยู่ "+p,
+				en+" must be at least "+p+" because the child gives or holds "+p+" against Members")
 		}
 		if err := ChildPTError(g, is); err != nil {
 			return err

@@ -71,7 +71,7 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, meta Reque
 	}
 
 	// เช็คสถานะหลังรหัสผ่านถูกแล้วเท่านั้น
-	// ลำดับ 401301 → 401302 → 401309 → 401310 (เสนอใน review รอบ 2 ยังรอ lead ยืนยัน)
+	// ลำดับ 401301 → 401302 → 401312 (sub INACTIVE) → 401309 → 401310
 	if acc.Status == models.AgentStatusLocked { // AUTH-04, AUTH-20
 		return res, apperr.ErrAccountLocked
 	}
@@ -80,6 +80,9 @@ func LoginService(ctx context.Context, req agentAuthDto.LoginRequest, meta Reque
 	}
 	if acc.UplineLocked() {
 		return res, apperr.ErrUplineLocked
+	}
+	if acc.SubInactive() { // MGMT-43 · lead SQ1
+		return res, apperr.ErrSubaccountInactive
 	}
 	passcodeBlocked, err := agentAuthRedis.IsBOPasscodeBlockedRepository(ctx, acc.Type, acc.ID) // AUTH-28
 	if err != nil {

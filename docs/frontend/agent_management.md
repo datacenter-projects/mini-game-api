@@ -1,12 +1,14 @@
-# API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 9 ต.ค. 2026 (โครงเส้นใหม่)
+# API หลังบ้าน — การจัดการสมาชิก (สำหรับหน้าบ้าน) — 11 ต.ค. 2026 (โครงเส้นใหม่ · sub แบบ section)
 
-เอกสารนี้ตรงกับโค้ดใน branch `boiledegg/bo/agent_management` (PR 2 + PR 3 — **ตาม lead review 9 ต.ค.** ใช้บน server หลัง merge + deploy) ·
+เอกสารนี้ตรงกับโค้ดบน `dev` (agent_management PR 2 + PR 3 — **ตาม lead review 9 ต.ค.**) และ branch `boiledegg/bo/subaccount` (หัวข้อ 3.10 / 3.11 / sub เปลี่ยนรหัสผ่าน — **ตาม lead review 11 ต.ค.** ใช้บน server หลัง merge + deploy) ·
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
 
 > **เปลี่ยนจากเดิม (9 ต.ค.)** — path ใหม่ทั้งหมด เส้นเดิมได้ `404` (หัวข้อ 5) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` ·
 > แก้บัญชีเหลือเส้นเดียว `agents/detail/update` · `copy-sources` → `agents/list` · `subaccounts/list` ใช้ `keyword` แทน `q` · ไม่มีเมนูสิทธิ์ `pt` แล้ว (`pt` แสดงเสมอ) ·
 > Share Reseller / Share Master สร้าง Agent ไม่ได้ · **เบอร์โทร 2 field** `phone_country_code` + `phone` (หัวข้อ 1.5) ·
 > **Share Master ใช้ค่าตาม Company Seamless Master** — ฟอร์มสร้าง / แก้ Share Master ส่งแค่ `commission_percent` (หัวข้อ 1.6)
+>
+> **sub (11 ต.ค.)** — `subaccounts/detail/update` เป็นแบบ section `info` / `permissions` (3.10) · `INACTIVE` = ใช้งานไม่ได้ + ตัด session (`401312` — 3.11) · sub ใหม่ต้องเปลี่ยนรหัสผ่านตอน login ครั้งแรก
 
 เส้นของ Member อยู่ที่ [member_management.md](member_management.md) · เส้นค้นหาบัญชีของ ADMIN อยู่ที่ [admin_management.md](admin_management.md)
 
@@ -39,6 +41,7 @@ spec เต็ม: `docs/modules/agent_management.md` · พื้นฐาน�
 | `null` | ห้ามส่ง (`422`) · ไม่มีค่า: ข้อความ `""` · ตัวเลข `0` · รายการ `[]` · object `{}` |
 | % | JSON number ทศนิยมไม่เกิน 4 ตำแหน่ง · PT / Force / Remain ทีละ `0.5` · Commission ทีละ `0.1` ไม่เกิน `1` |
 | เงิน | JSON number ทศนิยมไม่เกิน 4 ตำแหน่ง · response ส่งตามที่เก็บ (ตัด 0 ท้าย) **หน้าบ้านปัด 3 ตำแหน่งตอนแสดงเอง** |
+| ตัวเลข % / เงิน ใน request | ต้องเป็น JSON number · ส่งเป็นข้อความ (เช่น `"100"`) = code `400` "คำขอไม่ถูกต้อง" ไม่บอก field (แก้ 12 ต.ค. — เดิม `422`) |
 | `status` ใน response | สถานะที่ใช้งานจริง — หัวสายถูกระงับ ลูกทุกชั้นแสดง `SUSPENDED` |
 | sub | ทุกเส้นใช้เมนู `member`: ดู = `view` · สร้าง / แก้ / สถานะ = `edit` · ส่ง `balance` ต้องมี `payment` = `edit` เพิ่ม · ไม่มี = `402303` |
 
@@ -127,10 +130,10 @@ Member สร้างที่ `/manage/members/create` ([member_management.md]
 | 3.7 | `/api/v1/bo/pr/manage/subaccounts/list` | รายชื่อ sub | บัญชีหลักเท่านั้น |
 | 3.8 | `/api/v1/bo/pr/manage/subaccounts/detail/get` | รายละเอียด sub | บัญชีหลักเท่านั้น |
 | 3.9 | `/api/v1/bo/pr/manage/subaccounts/create` | สร้าง sub | บัญชีหลักเท่านั้น |
-| 3.10 | `/api/v1/bo/pr/manage/subaccounts/detail/update` | แก้ชื่อเล่น · เบอร์ · สิทธิ์ของ sub | เจ้าของ sub |
+| 3.10 | `/api/v1/bo/pr/manage/subaccounts/detail/update` | แก้ชื่อเล่น · เบอร์ (`info`) · สิทธิ์ (`permissions`)ของ sub | เจ้าของ sub |
 | 3.11 | `/api/v1/bo/pr/manage/subaccounts/status/update` | `ACTIVE` / `INACTIVE` ของ sub | เจ้าของ sub |
 
-**error ที่เกิดได้กับทุกเส้น:** `401202`, `401203`, `401301`, `401302` → หน้า login · `401304`, `401306`, `401307` → ด่านหลัง login · `401311` → บัญชีถูกระงับ
+**error ที่เกิดได้กับทุกเส้น:** `401202`, `401203`, `401301`, `401302`, `401312` (sub ถูกปิด) → หน้า login · `401304`, `401306`, `401307` → ด่านหลัง login · `401311` → บัญชีถูกระงับ
 
 ### ตั้งค่า Postman
 
@@ -305,18 +308,27 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/create" \
   -d '{"name_suffix":"Staff","password":"aA4b4c4d4e4f","name":"staff01","phone_country_code":"","phone":"","permissions":{"dashboard":"view","member":"edit","report":"view"}}'
 ```
 Response: `{ "code": 200, "msg": "สำเร็จ", "data": { "id": 30, "username": "comp01@staff" } }`
+- sub ใหม่ต้องเปลี่ยนรหัสผ่านตอน login ครั้งแรก (ดูหัวข้อถัดจาก 3.11)
 - เมนูที่ไม่ส่ง = `off` · `dashboard` / `report` สูงสุด `view` · เมนูที่ประเภทเจ้าของไม่มี (รวม `pt`) = `422` · เบอร์ของ sub ซ้ำได้
 
 Error: `422`, `402301`, `402311`, `402401`
 
-### 3.10 แก้ sub — `subaccounts/detail/update`
+### 3.10 แก้ sub — `subaccounts/detail/update` (แบบ section — 11 ต.ค.)
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/detail/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"id":30,"name":"staff01","phone_country_code":"66","phone":"811111111","permissions":{"member":"view","report":"view"}}'
+  -d '{"id":30,"info":{"name":"staff01","phone_country_code":"66","phone":"811111111"},"permissions":{"member":"view","report":"view"}}'
 ```
-Response: `{ "code": 200, "msg": "สำเร็จ" }` · แทนทั้งชุด (ต้องส่งครบ) · แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`)
+Response: `{ "code": 200, "msg": "สำเร็จ" }`
+
+| section | กติกา |
+|---|---|
+| `info` | `name` · `phone_country_code` + `phone` — ส่งบาง field ได้ (ไม่ส่ง = คงเดิม) · เบอร์ต้องส่ง 2 field คู่กัน · ล้างเบอร์ส่ง `""` ทั้งคู่ |
+| `permissions` | ส่งมา = **แทนทั้งชุด** · เมนูที่ไม่ส่ง = `off` · `{}` = ปิดทุกเมนู · มีผลกับ request ถัดไปของ sub ทันที |
+
+- **ส่งเฉพาะ section ที่แก้** · ไม่ส่งเลยสัก section = `422` · แก้ได้เฉพาะเจ้าของ (ชั้นบน = `402404`)
+- ทั้งคำขอสำเร็จหรือไม่บันทึกเลย · ค่าเหมือนเดิมทั้งหมด = 200 (ไม่มีประวัติเพิ่ม)
 
 Error: `422`, `402311`, `402404`
 
@@ -326,13 +338,21 @@ Error: `422`, `402311`, `402404`
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/manage/subaccounts/status/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"id":30,"status":"INACTIVE"}'
 ```
-Response: `{ "code": 200, "msg": "สำเร็จ" }` · `ACTIVE` / `INACTIVE` · `INACTIVE` = login ได้แต่ทำรายการไม่ได้ · ส่งสถานะเดิม = 200 (ไม่มีประวัติเพิ่ม) · ไม่มีการลบ sub
+Response: `{ "code": 200, "msg": "สำเร็จ" }` · `ACTIVE` / `INACTIVE` · ส่งสถานะเดิม = 200 (ไม่มีประวัติเพิ่ม) · ไม่มีการลบ sub (เลิกใช้ = `INACTIVE`)
+- **`INACTIVE` = sub ใช้งานไม่ได้เลย** (11 ต.ค.): session ที่เปิดอยู่ถูกตัดทันที (request ถัดไป `401203` → หน้า login) · login ใหม่ได้ `401312` จนกว่าเจ้าของตั้งกลับ `ACTIVE` — ต่างจากบัญชีที่ถูกระงับ (`401311`) ที่ยังดู Profile / รายงานได้
 
 Error: `422`, `402311`, `402404`
+
+### sub ใหม่ต้องเปลี่ยนรหัสผ่านตอน login ครั้งแรก (11 ต.ค.)
+
+sub ที่สร้างผ่าน `subaccounts/create` ได้ `must_change_password: true` ใน response ของ login (ไม่มีวันหมดอายุ) → พาไปหน้าเปลี่ยนรหัสผ่าน ·
+เรียกเส้นอื่นก่อนเปลี่ยนได้ `401306` (ด่านหลัง login — `docs/frontend/auth.md`) · ลืมรหัส: ให้ ADMIN รีเซ็ต (เจ้าของรีเซ็ตเองไม่ได้)
 
 ## 4. Error codes ของ module นี้
 
 ตอบ HTTP 200 ทั้งหมด · ดูที่ `code` · ได้ error ของ field แรกที่ผิด (ไล่บนลงล่างตามลำดับ field ใน body) · `msg` บอกชื่อ field และค่าที่ตั้งได้ — แสดงข้างช่องนั้นได้เลย
+
+`msg` ใช้ชื่อที่ผู้ใช้อ่านได้แทน path ของ field ที่ซ้อน (แก้ 12 ต.ค.) เช่น `pt.minigame.pt_from_parent` → "PT ที่ให้ (Minigame)" · `info.phone` → "เบอร์โทร" · `balance.THB` → "ยอดเงินตั้งต้น (THB)" — แสดง `msg` ได้ตรงๆ ไม่ต้องแปลงเอง
 
 | Code | ความหมาย | หน้าบ้านควรทำ |
 |---|---|---|

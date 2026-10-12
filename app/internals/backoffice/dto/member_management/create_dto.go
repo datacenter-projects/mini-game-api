@@ -5,38 +5,36 @@ package membermanagement
 
 import (
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
+	"app/app/models"
 	"app/pkg/utils"
 )
 
 // MemberPTRequest — ผู้สร้างตั้งให้ Member ต่อกลุ่ม: pt (ถือสู้กับ Member คนนี้) · commission_percent (MGMT-21 · lead MA1 / MA3)
 // remain_quota ระบบคิดเอง · field อื่นของฝั่ง agent = 422 · ใช้ทั้ง members/create และ members/detail/update
+// % รับเป็น float64 (ทีมตกลง 2026-10-12) · pointer เพื่อแยก "ไม่ส่ง" (pt_from_parent / force / remain_quota / status มีไว้ตอบ 422)
+// ผ่าน Validate แล้ว OwnPT / CommissionPercent ไม่เป็น nil เสมอ — service อ่าน *v.OwnPT / *v.CommissionPercent ได้ตรงๆ
 type MemberPTRequest struct {
-	OwnPT             utils.Decimal `json:"pt"`
-	CommissionPercent utils.Decimal `json:"commission_percent"`
-	PTFromParent      utils.Decimal `json:"pt_from_parent"`
-	Force             utils.Decimal `json:"force"`
-	RemainQuota       utils.Decimal `json:"remain_quota"`
-	Status            *bool         `json:"status"`
-
-	PT         float64 `json:"-"` // % หลัง Validate
-	Commission float64 `json:"-"`
+	OwnPT             *float64 `json:"pt"`
+	CommissionPercent *float64 `json:"commission_percent"`
+	PTFromParent      *float64 `json:"pt_from_parent"`
+	Force             *float64 `json:"force"`
+	RemainQuota       *float64 `json:"remain_quota"`
+	Status            *bool    `json:"status"`
 }
 
-// parseMemberPT — ตรวจ 1 กลุ่ม: field ที่ Member ไม่มี → pt → commission_percent
+// parseMemberPT — ตรวจ 1 กลุ่ม: field ที่ Member ไม่มี → pt → commission_percent (ไม่ส่ง = 422 "ต้องส่ง" จาก Percent)
 func parseMemberPT(group string, v *MemberPTRequest) error {
 	p := "pt." + group
-	if v.PTFromParent.Present || v.Force.Present || v.RemainQuota.Present || v.Status != nil {
-		return agentManagementDto.Invalid(p, "Member มีแค่ pt และ commission_percent (remain_quota ระบบคิดให้)",
-			"a Member only has pt and commission_percent (remain_quota is computed)")
+	if v.PTFromParent != nil || v.Force != nil || v.RemainQuota != nil || v.Status != nil {
+		th, en := utils.SubFieldLabels("pt", "pt", "commission_percent", "remain_quota")
+		return agentManagementDto.Invalid(p, "Member ตั้งได้แค่ "+th[0]+" และ "+th[1]+" ("+th[2]+" ระบบคิดให้)",
+			"a Member only has "+en[0]+" and "+en[1]+" ("+en[2]+" is computed)")
 	}
-	var err error
-	if v.PT, err = agentManagementDto.Percent(p+".pt", v.OwnPT); err != nil {
+	if _, err := agentManagementDto.Percent(p+".pt", v.OwnPT); err != nil {
 		return err
 	}
-	if v.Commission, err = agentManagementDto.Percent(p+".commission_percent", v.CommissionPercent); err != nil {
-		return err
-	}
-	return nil
+	_, err := agentManagementDto.Percent(p+".commission_percent", v.CommissionPercent)
+	return err
 }
 
 // parseMemberPTGroups — ตรวจทุกกลุ่มเรียงตามชื่อกลุ่ม (error ออกตัวเดียวกันทุกครั้ง — หัวข้อ 2.1)
@@ -46,7 +44,6 @@ func parseMemberPTGroups(pt map[string]MemberPTRequest) error {
 		if err := parseMemberPT(g, &v); err != nil {
 			return err
 		}
-		pt[g] = v
 	}
 	return nil
 }
@@ -59,10 +56,15 @@ type CreateMemberRequest struct {
 	Name             string                     `json:"name"`
 	PhoneCountryCode string                     `json:"phone_country_code"` // MGMT-08 · ไม่กรอก = "" คู่กับ phone
 	Phone            string                     `json:"phone"`
-	Balance          map[string]utils.Decimal   `json:"balance"`
+	Balance          map[string]float64         `json:"balance"`
 	PT               map[string]MemberPTRequest `json:"pt"`
+	PaymentType      string                     `json:"payment_type"`      // MGMT-63 บังคับ
+	PaymentAccount   *PaymentAccount            `json:"payment_account"`   // MGMT-64 ไม่บังคับ
+	WinLimitPerDay   float64                    `json:"win_limit_per_day"` // MGMT-65 ไม่บังคับ (ไม่ส่ง = 0 ไม่จำกัด)
 
-	BalanceAmounts map[string]float64 `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
+	BalanceAmounts map[string]float64          `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
+	Payment        models.PaymentType          `json:"-"` // หลัง Validate (ก่อนปรับตาม Seamless)
+	Account        models.MemberPaymentAccount `json:"-"` // หลัง Validate · ว่างทั้งหมด = ไม่มีบัญชี
 }
 
 type CreateMemberResponse struct {
@@ -70,7 +72,8 @@ type CreateMemberResponse struct {
 	Username string `json:"username"`
 }
 
-// Validate — ไล่ตามลำดับ field ใน body: request_id → username → password → name → phone_country_code → phone → balance → pt (หัวข้อ 2.1)
+// Validate — ไล่ตามลำดับ field ใน body: request_id → username → password → name → phone_country_code → phone → balance → pt
+// → payment_type → payment_account → win_limit_per_day (หัวข้อ 2.1)
 func (r *CreateMemberRequest) Validate() error {
 	if err := agentManagementDto.ValidateIdentityFields(r.RequestID, &r.Username, r.Password, r.Name); err != nil {
 		return err
@@ -85,5 +88,14 @@ func (r *CreateMemberRequest) Validate() error {
 	if err := agentManagementDto.CheckGroups(r.PT); err != nil {
 		return err
 	}
-	return parseMemberPTGroups(r.PT)
+	if err := parseMemberPTGroups(r.PT); err != nil {
+		return err
+	}
+	if r.Payment, err = parsePaymentType("payment_type", r.PaymentType); err != nil {
+		return err
+	}
+	if r.Account, err = parsePaymentAccount("payment_account.", r.PaymentAccount); err != nil {
+		return err
+	}
+	return checkWinLimit("win_limit_per_day", r.WinLimitPerDay)
 }

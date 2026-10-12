@@ -29,7 +29,7 @@ func (r *UpdateStatusRequest) Validate() error {
 // UpdateChildPTGroup — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม ครบ 5 ค่า · ส่ง pt = 422 (ไม่มีในเส้นนี้)
 type UpdateChildPTGroup struct {
 	ChildPTRequest
-	OwnPT utils.Decimal `json:"pt"`
+	OwnPT *float64 `json:"pt"` // มีไว้ตอบ 422 เมื่อส่งมา
 }
 
 // CheckSomeGroups — ต้องส่งอย่างน้อย 1 กลุ่ม และทุกกลุ่มต้องมีอยู่จริง (MGMT-23)
@@ -88,7 +88,7 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 		for _, g := range SortedKeys(r.PT) {
 			v := r.PT[g]
 			p := "pt." + g + "."
-			if v.OwnPT.Present {
+			if v.OwnPT != nil {
 				return Invalid(p+"pt", "ไม่มีในเส้นนี้ (ถือสู้กับ Member ตั้งต่อ Member)", "is not part of this request (hold against Members is set per Member)")
 			}
 			if err := parseChildPT(p, &v.ChildPTRequest); err != nil {
@@ -113,14 +113,16 @@ func (r *AgentDetailUpdateRequest) Validate() error {
 // Check — ตรวจ section info (ใช้ร่วมกับ members/detail/update — member_management MGMT-32M)
 func (s *AgentInfoSection) Check() error {
 	if s.Name == nil && !s.Phone.Present && !s.PhoneCountryCode.Present {
-		return Invalid("info", "ต้องมีอย่างน้อย 1 field (name / phone_country_code + phone)", "must contain at least 1 field (name / phone_country_code + phone)")
+		th, en := utils.SubFieldLabels("info", "name", "phone_country_code", "phone")
+		return Invalid("info", "ต้องมีอย่างน้อย 1 อย่าง ("+th[0]+" / "+th[1]+" + "+th[2]+")",
+			"must contain at least 1 of ("+en[0]+" / "+en[1]+" + "+en[2]+")")
 	}
 	if s.Name != nil && !agentManagementCore.IsValidName(*s.Name) {
 		return Invalid("info.name", "ต้องยาว 3–32 ตัวอักษร ใช้ได้เฉพาะภาษาไทย อังกฤษ และตัวเลข ไม่มีช่องว่าง", "must be 3–32 characters of Thai, English letters or digits, without spaces")
 	}
 	if s.Phone.Present || s.PhoneCountryCode.Present {
 		if !s.Phone.Present || !s.PhoneCountryCode.Present {
-			return Invalid("info.phone_country_code / info.phone", `ต้องส่งคู่กัน (ล้างเบอร์ให้ส่ง "" ทั้งคู่)`, `must be sent together (send "" for both to clear)`)
+			return Invalid("info.phone_country_code / info.phone", "ต้องกรอกคู่กัน (ลบเบอร์ให้เว้นว่างทั้งคู่)", "must be filled in together (leave both empty to remove the phone)")
 		}
 		if !s.PhoneCountryCode.IsString {
 			return Invalid("info.phone_country_code", "ต้องส่งเป็นข้อความ", "must be a string")

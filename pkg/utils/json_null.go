@@ -62,7 +62,8 @@ func CheckNoNull(body []byte) error {
 	if path == "" {
 		path = "body"
 	}
-	return apperr.ErrValidation.WithMessage(path+" ห้ามเป็น null", path+" must not be null")
+	th, en := FieldLabel(path)
+	return apperr.ErrValidation.WithMessage(th+" ห้ามเป็น null", en+" must not be null")
 }
 
 // ParseBodyNoNull — เหมือน ParseBody แต่ตอบ 422 เมื่อมี null ที่ใดใน body (account ACC-32: ไม่มี null ใน API)

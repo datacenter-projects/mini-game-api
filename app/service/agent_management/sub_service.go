@@ -1,11 +1,11 @@
 package agentmanagement
 
 import (
-	"strings"
-
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
+	"strings"
 	"time"
 
 	agentAuthCore "app/app/core/agent_auth"
@@ -14,10 +14,12 @@ import (
 	"app/app/models"
 	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	agentManagementPostgres "app/app/repository/postgres/agent_management"
+	agentAuthRedis "app/app/repository/redis/agent_auth"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/utils"
 	"app/platform/database"
+	"app/platform/logger"
 
 	"gorm.io/gorm"
 )
@@ -157,9 +159,11 @@ func CreateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 		}
 		now := time.Now()
 		name := req.Name
+		// MustChangePassword: เจ้าของตั้งรหัสให้ sub ต้องเปลี่ยนเองตอน login ครั้งแรก · ไม่ตั้งวันหมดอายุ (MGMT-41 · lead SQ3)
 		s := models.Subaccount{AgentID: actor.AgentID, Username: username, PasswordHash: hash, Name: &name,
 			PhoneCountryCode: OptionalString(req.PhoneCountryCode), Phone: OptionalString(req.Phone), Permissions: string(permsJSON), Status: models.AgentStatusActive,
-			CreatedAt: now, UpdatedAt: now}
+			MustChangePassword: true,
+			CreatedAt:          now, UpdatedAt: now}
 		if err := agentAuthPostgres.CreateSubaccountRepository(tx, &s); err != nil {
 			return err
 		}
@@ -182,16 +186,18 @@ func lockOwnSub(tx *gorm.DB, actor agentAuthService.Actor, id uint) (models.Suba
 	return s, nil
 }
 
-// UpdateSubaccountService — POST /manage/subaccounts/detail/update (MGMT-42) · แทนทั้งชุด
+// UpdateSubaccountService — POST /manage/subaccounts/detail/update (MGMT-42 · lead SN4 / SQ5 / SQ6)
+// เจ้าของเท่านั้น · tx เดียว: section ไหนผิดไม่บันทึกเลย · ทำตามลำดับ info → permissions
+// log แยกแถว UPDATE_INFO / SUB_PERMISSIONS เฉพาะ section ที่เปลี่ยนจริง · ค่าเดิม = ไม่เขียน log
 func UpdateSubaccountService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.SubUpdateRequest,
 	meta agentAuthService.RequestMeta) error {
-	perms, v, ok := agentManagementCore.NormalizeSubPermissions(actor.Role, *req.Permissions)
-	if !ok {
-		return permissionError(v, actor.Role)
-	}
-	permsJSON, err := json.Marshal(perms)
-	if err != nil {
-		return err
+	var perms map[agentManagementCore.Menu]agentManagementCore.Level
+	if req.Permissions != nil { // ตรวจก่อนเปิด tx — ค่าที่ใช้ได้ขึ้นกับประเภทเจ้าของ (MGMT-52)
+		var v agentManagementCore.PermissionViolation
+		var ok bool
+		if perms, v, ok = agentManagementCore.NormalizeSubPermissions(actor.Role, *req.Permissions); !ok {
+			return permissionError(v, actor.Role)
+		}
 	}
 	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		s, err := lockOwnSub(tx, actor, req.ID)
@@ -199,44 +205,101 @@ func UpdateSubaccountService(ctx context.Context, actor agentAuthService.Actor, 
 			return err
 		}
 		now := time.Now()
-		if err := agentManagementPostgres.UpdateSubaccountInfoRepository(tx, s.ID, req.Name, OptionalString(req.PhoneCountryCode.Value), OptionalString(req.Phone.Value), string(permsJSON), now); err != nil {
-			return err
+		if req.Info != nil {
+			if err := applySubInfo(ctx, tx, actor, meta, s, *req.Info, now); err != nil {
+				return err
+			}
 		}
-		var oldPerms map[string]string
-		_ = json.Unmarshal([]byte(s.Permissions), &oldPerms)
-		return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeUpdateInfo,
-			map[string]any{"name": StringOrEmpty(s.Name), "phone_country_code": StringOrEmpty(s.PhoneCountryCode), "phone": StringOrEmpty(s.Phone), "permissions": oldPerms},
-			map[string]any{"name": req.Name, "phone_country_code": req.PhoneCountryCode.Value, "phone": req.Phone.Value, "permissions": perms}, now)
+		if req.Permissions != nil {
+			return applySubPermissions(ctx, tx, actor, meta, s, perms, now)
+		}
+		return nil
 	})
 }
 
-// UpdateSubaccountStatusService — POST /manage/subaccounts/status/update (MGMT-43)
+// applySubInfo — section info (MGMT-41 · MGMT-08 — เบอร์ของ sub ซ้ำได้) · field ที่ไม่ส่งคงค่าเดิม · ไม่เปลี่ยน = ไม่เขียน log
+func applySubInfo(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta,
+	s models.Subaccount, in agentManagementDto.AgentInfoSection, now time.Time) error {
+	old := AgentInfoValue{StringOrEmpty(s.Name), StringOrEmpty(s.PhoneCountryCode), StringOrEmpty(s.Phone)}
+	next := old
+	if in.Name != nil {
+		next.Name = *in.Name
+	}
+	if in.Phone.Present { // DTO บังคับส่งคู่กับ phone_country_code
+		next.PhoneCountryCode, next.Phone = in.PhoneCountryCode.Value, in.Phone.Value
+	}
+	if next == old {
+		return nil
+	}
+	if err := agentManagementPostgres.UpdateSubaccountInfoRepository(tx, s.ID, next.Name, OptionalString(next.PhoneCountryCode), OptionalString(next.Phone), now); err != nil {
+		return err
+	}
+	return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeUpdateInfo, old, next, now)
+}
+
+// applySubPermissions — section permissions แทนทั้งชุด (MGMT-50) · เทียบกับสิทธิ์เดิมแบบครบทุกเมนู (ไม่มี key = off) · ไม่เปลี่ยน = ไม่เขียน log
+// request ถัดไปของ sub ใช้สิทธิ์ใหม่ทันที (RequirePermission อ่านจาก DB ทุก request)
+func applySubPermissions(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, meta agentAuthService.RequestMeta,
+	s models.Subaccount, perms map[agentManagementCore.Menu]agentManagementCore.Level, now time.Time) error {
+	stored := map[string]string{}
+	if s.Permissions != "" {
+		if err := json.Unmarshal([]byte(s.Permissions), &stored); err != nil {
+			return apperr.ErrInternal.Wrap(err)
+		}
+	}
+	old := agentManagementCore.SubPermissionsView(actor.Role, stored)
+	if maps.Equal(old, perms) {
+		return nil
+	}
+	permsJSON, err := json.Marshal(perms)
+	if err != nil {
+		return err
+	}
+	if err := agentManagementPostgres.UpdateSubaccountPermissionsRepository(tx, s.ID, string(permsJSON), now); err != nil {
+		return err
+	}
+	return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeSubPermissions,
+		map[string]any{"permissions": old}, map[string]any{"permissions": perms}, now)
+}
+
+// UpdateSubaccountStatusService — POST /manage/subaccounts/status/update (MGMT-43 · lead SA1 / SQ1)
+// ตั้ง INACTIVE: ลบ session ทุกอันของ sub นั้นหลัง commit (request ถัดไป 401203) · login ใหม่ไม่ได้ (401312)
 func UpdateSubaccountStatusService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.SubStatusRequest,
 	meta agentAuthService.RequestMeta) error {
 	next := models.AgentStatusActive
 	if req.Status == agentManagementDto.SubStatusInactive {
 		next = models.AgentStatusSuspended
 	}
-	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	var changedID uint
+	err := database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		s, err := lockOwnSub(tx, actor, req.ID)
 		if err != nil {
 			return err
 		}
 		if s.Status == next {
-			return nil // ค่าเดิม = 200 ไม่เขียน log (กฎเดียวกับ agents/status/update — lead MQ5 / V1)
+			return nil // ค่าเดิม = 200 ไม่เขียน log (กฎเดียวกับ agents/status/update — lead MQ5 / V1 · SA1)
 		}
 		now := time.Now()
 		if err := agentManagementPostgres.UpdateSubaccountStatusRepository(tx, s.ID, next, now); err != nil {
 			return err
 		}
+		changedID = s.ID
 		return WriteLog(ctx, tx, actor, meta, targetSub, s.ID, s.Username, models.ChangeSubStatus,
 			map[string]string{"status": SubStatus(s.Status, models.AgentStatusActive)}, map[string]string{"status": req.Status}, now)
 	})
+	if err != nil || changedID == 0 || next != models.AgentStatusSuspended {
+		return err
+	}
+	// ลบไม่สำเร็จไม่ทำให้คำขอล้ม — middleware Authenticated ปฏิเสธ sub INACTIVE อยู่แล้ว (401312)
+	if err := agentAuthRedis.DeleteBOSessionsOfAccountRepository(ctx, models.AccountTypeSub, changedID); err != nil {
+		logger.Ctx(ctx).Warnw("delete sessions of inactive sub failed", "sub_id", changedID, "error", err)
+	}
+	return nil
 }
 
 // permissionError — สิทธิ์ที่ส่งมาผิด (MGMT-50, MGMT-52) → 422 บอกเมนู
 func permissionError(v agentManagementCore.PermissionViolation, ownerRole models.AgentRole) error {
-	field := "permissions." + v.Menu
+	th, en := utils.FieldLabel("permissions." + v.Menu)
 	if v.Reason == "menu" {
 		menus := agentManagementCore.MenusForRole(ownerRole)
 		names := make([]string, len(menus))
@@ -244,10 +307,10 @@ func permissionError(v agentManagementCore.PermissionViolation, ownerRole models
 			names[i] = string(m)
 		}
 		list := strings.Join(names, ", ")
-		return apperr.ErrValidation.WithMessage(field+" ไม่มีเมนูนี้ · เมนูที่ให้ได้: "+list, field+" is not a menu · allowed menus: "+list)
+		return apperr.ErrValidation.WithMessage(th+" ไม่มีเมนูนี้ · เมนูที่ให้ได้: "+list, en+" is not a menu · allowed menus: "+list)
 	}
-	return apperr.ErrValidation.WithMessage(field+" ต้องเป็น off / view / edit (dashboard และ report สูงสุด view)",
-		field+" must be off, view or edit (dashboard and report up to view)")
+	return apperr.ErrValidation.WithMessage(th+" ต้องเป็น off / view / edit (dashboard และ report สูงสุด view)",
+		en+" must be off, view or edit (dashboard and report up to view)")
 }
 
 func notFoundAs(err, as error) error {

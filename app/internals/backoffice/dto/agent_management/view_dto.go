@@ -1,10 +1,6 @@
 package agentmanagement
 
-import (
-	"strings"
-
-	"app/pkg/apperr"
-)
+import "strings"
 
 // รูปแบบที่ใช้แสดงบัญชี — รายชื่อดาวน์ไลน์ · รายละเอียด · agents/list · account Profile (ACC-16, ACC-19)
 
@@ -97,7 +93,7 @@ func (q *DownlinesRequest) Validate() error {
 func NormalizeKeyword(k *string) error {
 	*k = strings.ToLower(strings.TrimSpace(*k))
 	if n := len([]rune(*k)); *k != "" && (n < 4 || n > 32) {
-		return apperr.ErrValidation.WithMessage("keyword ต้องยาว 4–32 ตัว (ไม่ค้นให้ส่ง \"\")", "keyword must be 4–32 characters (send \"\" for none)")
+		return Invalid("keyword", "ต้องยาว 4–32 ตัว", "must be 4–32 characters")
 	}
 	return nil
 }

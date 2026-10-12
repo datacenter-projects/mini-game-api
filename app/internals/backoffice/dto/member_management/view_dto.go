@@ -21,6 +21,9 @@ type MemberDetailResponse struct {
 	Currencies       []string                         `json:"currencies"`
 	Balances         []agentManagementDto.BalanceView `json:"balances"` // ฝั่ง Seamless amount = 0 (MGMT-15B)
 	PT               any                              `json:"pt"`
+	PaymentType      string                           `json:"payment_type"`      // MGMT-63
+	PaymentAccount   PaymentAccount                   `json:"payment_account"`   // MGMT-64 เลขบัญชีเต็ม · ไม่มี = ทุก field ""
+	WinLimitPerDay   float64                          `json:"win_limit_per_day"` // MGMT-65 · 0 = ไม่จำกัด
 	LastLoginAt      string                           `json:"last_login_at"`
 	LastLoginIP      string                           `json:"last_login_ip"`
 	CreatedAt        string                           `json:"created_at"`

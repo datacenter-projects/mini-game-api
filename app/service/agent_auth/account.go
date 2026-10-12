@@ -158,6 +158,10 @@ func withUplineStatus(db *gorm.DB, a account) (account, error) {
 
 func (a account) UplineLocked() bool { return a.UplineStatus == models.AgentStatusLocked }
 
+// SubInactive — sub ที่เจ้าของตั้ง INACTIVE (เก็บเป็น SUSPENDED ที่แถว sub เอง): login ไม่ได้ · session ถูกตัด (MGMT-43 · lead SQ1)
+// ต่างจาก SUSPENDED ของบัญชีหลัก / สายบน ที่ยังดูหน้าที่อนุญาตได้ (AUTH-54)
+func (a account) SubInactive() bool { return a.IsSub() && a.Status == models.AgentStatusSuspended }
+
 func setPasscodeIfEmpty(tx *gorm.DB, a account, hash string, at time.Time) (bool, error) {
 	if a.IsSub() {
 		return agentAuthPostgres.SetSubaccountPasscodeIfEmptyRepository(tx, a.ID, hash, at)

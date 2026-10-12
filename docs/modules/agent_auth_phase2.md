@@ -116,8 +116,8 @@
 
 | ID | Rule |
 |---|---|
-| AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) |
-| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** · **เพิ่ม 2026-10-08 (lead อนุมัติ): ดูข้อมูลรับรอง API (`GET /account/api-credential`) ได้ด้วย** (review account 2026-10-05 — อนุมัติ 2026-10-06): ตัดสินจาก `EffectiveStatus` (ตัวเอง, ผู้สร้างกรณี sub หรือ upline ถูกระงับ) · ทุก route ใต้ `/pr` ใช้ `mw.PassedGates(...)` ซึ่ง**ปฏิเสธ SUSPENDED** (`401311`) · route ดูข้อมูลของ Profile / Report ใช้ `mw.PassedGatesAllowSuspended(...)` บรรทัดเดียวกับ route · ด่านหลัง login (AUTH-29) ยังใช้กับทุก route · **เปลี่ยน passcode / รหัสผ่านของตัวเองก็ไม่ได้** (setup, change — ตัดสิน 2026-10-06) · logout ได้เสมอ · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 |
+| AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) · **ยกเว้น sub ที่สถานะของตัวเองเป็น SUSPENDED (= `INACTIVE` ที่เจ้าของตั้ง): login ไม่ได้ และ middleware ปฏิเสธพร้อมลบ session (`401312` — agent_management MGMT-43 · lead SQ1 2026-10-11)** — ลำดับเช็ค login 401301 → 401302 → 401312 → 401309 → 401310 |
+| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** · **เพิ่ม 2026-10-08 (lead อนุมัติ): ดูข้อมูลรับรอง API (`GET /account/api-credential`) ได้ด้วย** (review account 2026-10-05 — อนุมัติ 2026-10-06): ตัดสินจาก `EffectiveStatus` (ตัวเอง, ผู้สร้างกรณี sub หรือ upline ถูกระงับ — **ไม่รวม sub `INACTIVE` ซึ่งใช้งานไม่ได้เลยตาม AUTH-53**) · ทุก route ใต้ `/pr` ใช้ `mw.PassedGates(...)` ซึ่ง**ปฏิเสธ SUSPENDED** (`401311`) · route ดูข้อมูลของ Profile / Report ใช้ `mw.PassedGatesAllowSuspended(...)` บรรทัดเดียวกับ route · ด่านหลัง login (AUTH-29) ยังใช้กับทุก route · **เปลี่ยน passcode / รหัสผ่านของตัวเองก็ไม่ได้** (setup, change — ตัดสิน 2026-10-06) · logout ได้เสมอ · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
@@ -139,7 +139,7 @@
 — เขียนไว้บรรทัดเดียวกับ route ทุกเส้น
 
 **error ของทุก route ใต้ `/bo/pr` ที่ผ่าน `Authenticated`** (ไม่เขียนซ้ำในแต่ละเส้นด้านล่าง):
-`401202`, `401203`, `401301`, `401302` · route ที่ใช้ `PassedGates` เพิ่ม `401311` (AUTH-54) · logout ไม่ผ่าน `Authenticated` (AUTH-09) จึงตอบแค่ `401202`
+`401202`, `401203`, `401301`, `401302`, `401312` (sub `INACTIVE`) · route ที่ใช้ `PassedGates` เพิ่ม `401311` (AUTH-54) · logout ไม่ผ่าน `Authenticated` (AUTH-09) จึงตอบแค่ `401202`
 
 ### POST /api/v1/bo/pb/auth/login (เส้นเดิม — รับ sub + field ใหม่)
 
@@ -164,7 +164,7 @@ Response `data`:
 - `passcode_set` เป็นค่าจริงแล้ว (เดิมส่ง `false` เสมอ)
 - `must_change_password` / `must_change_passcode` — **ใหม่** frontend ใช้เลือกหน้าถัดไปตาม AUTH-29
 
-Error codes: `422`, `401201`, `401301`, `401302`, `401303`, `401309`, `401310`, `429`, `500`
+Error codes: `422`, `401201`, `401301`, `401302`, `401303`, `401309`, `401310`, `401312`, `429`, `500`
 
 ### POST /api/v1/bo/pr/auth/logout (path/body เดิม — ข้างในเปลี่ยน)
 
@@ -348,10 +348,10 @@ Redis:
 | AUTH-27 | ผู้สร้างถูก LOCK ระหว่างที่ sub ใช้งาน | request ถัดไปของ sub `401302` และ session ถูกลบ |
 | AUTH-27 | upline ของ agent (เช่น Company) ถูก LOCK ระหว่างใช้งาน | request ถัดไปของ agent `401302` และ session ถูกลบ |
 | AUTH-53 | upline ของผู้สร้าง SUSPENDED | `EffectiveStatus` ของ agent และ sub = `SUSPENDED` |
-| AUTH-53 | sub SUSPENDED · ผู้สร้าง ACTIVE | sub = `SUSPENDED` · ผู้สร้าง = `ACTIVE` |
+| AUTH-53 | sub ตัวเอง SUSPENDED (`INACTIVE`) · ผู้สร้าง ACTIVE | sub ถูกปฏิเสธ `401312` (ไม่ได้ effective status แบบดูได้) · ผู้สร้าง = `ACTIVE` |
 | AUTH-54 | บัญชีที่ `EffectiveStatus = SUSPENDED` (upline ถูกระงับ หรือตัวเอง) เรียก route ที่ใช้ `PassedGatesAllowSuspended` | สำเร็จ |
 | AUTH-54 | บัญชีที่ `EffectiveStatus = SUSPENDED` เรียก route อื่น · `RequirePasscode` · passcode setup / change · password change | `401311` (HTTP 403) |
-| AUTH-54 | sub SUSPENDED · ผู้สร้าง ACTIVE | sub `401311` · ผู้สร้างใช้งานได้ปกติ |
+| AUTH-53 / 54 | sub ตัวเอง SUSPENDED (`INACTIVE`) · ผู้สร้าง ACTIVE | sub `401312` (session ถูกลบ · request ถัดไป `401203`) · login ได้ `401312` · ผู้สร้างใช้งานได้ปกติ |
 | AUTH-54 | ยังไม่ตั้ง passcode และถูกระงับ | passcode setup `401311` · route ดูข้อมูลติดด่าน `401304` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสถูก | `401309` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสผิด | `401201` |
@@ -441,6 +441,7 @@ Redis:
 | 401309 | 403 | ระงับ login เพราะ passcode ผิดหลายครั้ง |
 | 401310 | 403 | ค่าชั่วคราวหมดอายุ กรุณาติดต่อ admin |
 | 401311 | 403 | บัญชีถูกระงับ ใช้งานได้เฉพาะหน้าประวัติของฉันและรายงาน (AUTH-54) |
+| 401312 | 403 | บัญชีย่อยถูกปิดใช้งาน (`INACTIVE`) — login ไม่ได้ · session ถูกตัด (AUTH-53 · agent_management MGMT-43) |
 | 401401 | 200 | ตั้ง passcode ไว้แล้ว |
 | 401402 | 200 | รหัสผ่านใหม่ซ้ำกับรหัสที่เคยใช้ |
 | 401403 | 200 | passcode ใหม่ซ้ำกับตัวเดิม |
