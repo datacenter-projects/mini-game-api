@@ -9,6 +9,7 @@
 - ชื่อ module ในโค้ด: `member_management` (`controllers/member_management`, `dto/member_management`, `service/member_management`) · กฎ business ร่วมอยู่ที่ `core/agent_management`
 - rule ID ใช้ `MGMT-xx` ชุดเดียวกับ [agent_management.md](agent_management.md) (ไม่ตั้งเลขใหม่ — โค้ดและ test อ้างเลขเดิม) · error ใช้ `402xxx` ของ module `agent_management`
 - เมนู: 2 การจัดการสมาชิก — ส่วนของ Member (สร้าง · รายละเอียด · แก้ข้อมูล / PT · แก้สถานะ · dropdown Member ลูกตรง)
+- **หัวข้อ 9 (วิธีจ่ายเงิน · บัญชีธนาคาร · ลิมิตชนะต่อวัน) เป็น DRAFT รอ lead อนุมัติ — ห้าม implement** (2026-10-12 · maofoy)
 
 > เอกสารนี้คือ source of truth ของเส้น Member — กฎที่ใช้ร่วมกับฝั่ง agent อยู่ใน agent_management.md และอ้างด้วย ID
 
@@ -287,3 +288,76 @@ test ของเส้น Member อยู่ในชุด integration test �
 - เบอร์ 2 field `phone_country_code` + `phone` ทุก request / response · เบอร์เดิมแปลงให้แล้ว บางเบอร์ถูกล้างเป็น `""`
 - สิทธิ์ sub ใช้แค่ `member` (+ `payment` เมื่อส่ง `balance`) · `pt` ในรายละเอียดแสดงเสมอ
 - ส่งสถานะเดิม = `200` ไม่มีประวัติเพิ่ม
+
+## 9. DRAFT — วิธีจ่ายเงิน · บัญชีธนาคาร · ลิมิตชนะต่อวัน (รอ lead · 2026-10-12)
+
+ที่มา: หน้าบ้าน (tummy) หน้า "เพิ่มสมาชิก" มีช่อง ธนาคาร · หมายเลขบัญชี (ไม่บังคับ) · วิธีจ่ายเงิน Credit / Cash · แท็บเกมมี "ลิมิต ชนะ/วัน" ·
+ตกลงแล้วว่าอยู่ใน member_management · **ยังไม่อนุมัติ — ห้าม implement** · ✅ = maofoy ตัดสินแล้ว · ❓ = เสนอ / รอ lead
+
+### 9.1 Rules
+
+| ID | กฎ | สถานะ |
+|---|---|---|
+| MGMT-63 | `payment_type` = `CREDIT` / `CASH` · **บังคับ**ตอนสร้าง (หน้าบ้านส่งทุกครั้ง) | ✅ |
+| | • ผู้สร้างฝั่ง Seamless: ระบบเก็บ `CASH` เสมอ ไม่ว่าส่งค่าอะไรมา | ✅ |
+| | • ความหมายทาง business ของ `CREDIT` / `CASH` ฝั่ง Transfer (กระทบยอด / การเติม-ถอนไหม) | ❓ |
+| MGMT-64 | `payment_account` = บัญชีธนาคารของ Member · **ไม่บังคับ** · `bank_code` + `account_number` | ✅ |
+| | • ส่งคู่กัน (ไม่กรอก = ไม่ส่ง object หรือ `""` ทั้งคู่ · ส่งค่าเดียว = `422`) — แบบเดียวกับเบอร์ MGMT-08 | ❓ |
+| | • **ห้ามซ้ำเฉพาะภายใต้ผู้สร้างเดียวกัน** · คนละผู้สร้างซ้ำได้ (`402405`) | ✅ |
+| | • นับซ้ำที่คู่ (`bank_code` + `account_number`) หรือเลขบัญชีอย่างเดียว | ❓ เสนอคู่ |
+| | • `bank_code` = รหัสจากรายการคงที่ (เช่น `KBANK`, `SCB`) · รายการธนาคาร · รองรับต่างประเทศไหม | ❓ |
+| | • รูปแบบ `account_number` (เสนอ ตัวเลขล้วน 10–15 หลัก) | ❓ |
+| | • ชื่อเจ้าของบัญชี 6 field **ไม่บังคับ**: `name_th` · `midname_th` · `surname_th` · `name_en` · `midname_en` · `surname_en` · ไม่ส่ง / `""` = ไม่กรอก · response ส่ง `""` เมื่อไม่มี (ACC-32) | ✅ |
+| | • รูปแบบชื่อ: เสนอ `_th` เฉพาะอักษรไทย · `_en` เฉพาะ A–Z a–z · มีช่องว่าง / `-` ได้ · ยาวไม่เกิน 50 ตัว · ตัดช่องว่างหัวท้าย | ❓ |
+| | • ส่งชื่อโดยไม่มี `bank_code` + `account_number` | ❓ เสนอ `422` |
+| | • แสดงเลขบัญชีเต็ม / ปิดบางส่วน ใน `detail/get` · `downlines/list` · `account_change_logs` | ❓ เสนอ เต็มใน `detail/get` · ไม่อยู่ใน `downlines/list` · log เต็ม |
+| MGMT-65 | `win_limit_per_day` = ลิมิตชนะต่อวัน **ค่าเดียวใช้ทุกเกม** · หน่วยสกุลของ Member · ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9) · **`0` = ไม่ได้ตั้ง (ไม่จำกัด)** | ✅ |
+| | • ไม่บังคับ · ไม่ส่ง = `0` | ❓ |
+| | • รอบนี้แค่เก็บค่า · วิธีนับ "ชนะ" (สุทธิ / รวม) · เวลาตัดรอบวัน · ผลเมื่อถึงลิมิต → กำหนดใน module เดิมพัน | ❓ |
+| | • มีเพดานจากชั้นบนไหม | ❓ เสนอ ไม่มี |
+
+### 9.2 Endpoints ที่เปลี่ยน
+
+`members/create` เพิ่ม 3 field ต่อท้าย body (ลำดับเช็คหัวข้อ 2.1 ต่อจาก `pt`: `payment_type` → `payment_account` → `win_limit_per_day` · กฎที่ดู DB: เลขบัญชีซ้ำ `402405` ต่อจาก `commission_percent`):
+```json
+{
+  "request_id": "0b9c5a77-2d1e-4f3a-8c61-5e4d3c2b1a09",
+  "username": "mem01", "password": "aA4b4c4d4e4f", "name": "ใจดี",
+  "phone_country_code": "66", "phone": "812345678",
+  "balance": { "THB": 100 },
+  "pt": { "minigame": { "pt": 50, "commission_percent": 0.3 } },
+  "payment_type": "CREDIT",
+  "payment_account": {
+    "bank_code": "KBANK", "account_number": "7876766654",
+    "name_th": "", "midname_th": "", "surname_th": "",
+    "name_en": "", "midname_en": "", "surname_en": ""
+  },
+  "win_limit_per_day": 0
+}
+```
+
+| เส้น | เปลี่ยน | สถานะ |
+|---|---|---|
+| `members/detail/get` | เพิ่ม `payment_type` · `payment_account` (ไม่มี = `""` ทั้งคู่ — ACC-32) · `win_limit_per_day` | ❓ |
+| `members/detail/update` | เสนอ section ใหม่ `payment` (`payment_type` + `payment_account`) และ `limit` (`win_limit_per_day`) · ผู้สร้างโดยตรงเท่านั้น (MGMT-32M) · log `UPDATE_PAYMENT` / `UPDATE_LIMIT` | ❓ |
+| สิทธิ์ sub | เสนอ `payment` section ต้องมี `payment` edit เพิ่ม (แบบเดียวกับ `balance` — MGMT-51) · `limit` ใช้ `member` edit | ❓ |
+| `downlines/list` | ไม่เพิ่ม | ❓ |
+| "คัดลอกการตั้งค่าจาก" (MGMT-35M) | หน้าบ้านคัดลอก `pt` + `win_limit_per_day` · **ไม่คัดลอก** `payment_account` (ข้อมูลส่วนตัว) | ❓ |
+
+### 9.3 Schema (เสนอ — migration ใหม่)
+
+```sql
+ALTER TABLE user_members
+    ADD COLUMN payment_type      VARCHAR(10)      NOT NULL DEFAULT 'CASH' CHECK (payment_type IN ('CREDIT','CASH')),
+    ADD COLUMN payment_account   JSONB,                                          -- {"bank_code","account_number","name_th",…,"surname_en"} · NULL = ไม่มี
+    ADD COLUMN win_limit_per_day DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (win_limit_per_day >= 0);  -- 0 = ไม่จำกัด
+CREATE UNIQUE INDEX uq_user_members_payment_account ON user_members
+    (agent_id, (payment_account ->> 'bank_code'), (payment_account ->> 'account_number')) WHERE payment_account IS NOT NULL;
+```
+- Member เดิม: `payment_type` = `CASH` · ไม่มีบัญชี · ลิมิต 0 — ❓ ค่าเริ่มต้นของ Member เดิมฝั่ง Transfer
+
+### 9.4 Error code (เสนอ — จองใน ERROR_CODES.md เมื่ออนุมัติ)
+
+| Code | ความหมาย |
+|---|---|
+| 402405 | เลขบัญชีนี้ถูกใช้แล้ว (ภายใต้ผู้สร้างเดียวกัน) |
