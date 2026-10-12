@@ -43,7 +43,7 @@
 | ID | Rule |
 |---|---|
 | RATE-01 | ตั้งค่าแยกต่อเกม (`coin_toss`, `rock_paper_scissors`, `scratch_card`) · ชุดเดียวใช้กับ**ทุกยอดแทง** (ค่าเป็น "เท่า" ของยอดแทง) · **ชุดเดียวใช้กับทุกสกุลเงิน** (รีวิว 2026-10-08) · **ค่ากลางชุดเดียวทั้งระบบ** ไม่มีค่าต่อบัญชี (lead RS1) |
-| RATE-01A | **รายชื่อเกมอยู่ในโค้ด** `app/core/game` (รายการเดียวกับที่ `pt` / `status_game` ของ agent_management ใช้ — ย้ายจาก `core/agent_management`) · ตอนนี้ 3 เกม · เพิ่มเกมใหม่ = แก้โค้ดพร้อมเอนจิ้นของเกมนั้น · ไม่มีเส้นสร้างเกม · ปิดเกมรายบัญชีใช้ `status_game` ของ agent_management (`agents/detail/update`) |
+| RATE-01A | **รายชื่อเกมอยู่ในโค้ด** `app/core/game` (รายการเดียวกับที่ `pt` / `status_game` ของ agent_management ใช้ — ย้ายจาก `core/agent_management`) · ตอนนี้ 3 เกม · เพิ่มเกมใหม่ = แก้โค้ดพร้อมเอนจิ้นของเกมนั้น · ไม่มีเส้นสร้างเกม · ปิดเกมรายบัญชีใช้ `status_game` ของ agent_management (`agents/detail/update`) · **รองรับเกมใหม่:** แต่ละเกมผูกกับ**รูปแบบอัตรา** (`core/game_rate` `gameSpecs`) — `steps` (ทายต่อเป็นขั้น · มีจำนวนขั้นของเกม · Coin / RPS) หรือ `prizes` (โอกาสชนะของใบ + ตารางรางวัล · Scratch) · เกมใหม่ที่ใช้รูปแบบเดิม = เพิ่มรหัสใน `core/game` + 1 บรรทัดใน `gameSpecs` ไม่ต้องแก้ API / ตาราง / service · รูปแบบใหม่ = เพิ่ม Kind + กฎ / สูตร (และตารางลูกถ้าโครงต่างกัน) · test บังคับว่าทุกเกมใน `core/game` มีรูปแบบอัตรา |
 | RATE-01B | **หยุดเกมด่วน** (lead RR6): ปิด `status_game` ของเกมนั้นที่ Superadmin → ทุกสายปิดตาม (MGMT-20 · เช็คทั้งสาย) · ใช้เป็นสวิตช์ฉุกเฉินแทนการแก้อัตรา · เขียนใน runbook (`docs/DEPLOYMENT.md`) · **ตอนนี้ยังไม่มีเส้นให้ Superadmin ปิด `status_game` ของตัวเอง — ทำทีหลัง (Q1) · ระหว่างนี้ปิดที่ Company ทีละตัว (`agents/detail/update`)** |
 | RATE-02 | **สิทธิ์ `rate` ทุกเส้น** (lead A5 · RS1): ดู = `rate` view · แก้ / ย้อน = `rate` edit · บัญชีหลักที่ได้เมนู `rate` มีแค่ Superadmin · Company / Share / Agent / ADMIN / sub ที่ไม่มีสิทธิ์ = `402303` · sub เรียกได้ตามสิทธิ์ (ไม่มี `402311`) · ลำดับ middleware: สิทธิ์ (`RequirePermission`) **ก่อน** passcode (`RequirePasscode`) |
 | RATE-03 | ตัวคูณ: JSON number **ทศนิยมไม่เกิน 4 ตำแหน่ง** (lead RR1 · กฎข้อ 9) · เก็บ `DOUBLE PRECISION` ค่าที่ปัด 4 ตำแหน่งแล้ว · **≥ 1 และ ≤ 1,000** (Coin / RPS) · **> 0 และ ≤ 1,000** (รางวัล Scratch) (lead RR3) |
@@ -55,14 +55,14 @@
 | RATE-06 | ค่าใหม่มีผลกับ**เดิมพันใหม่เท่านั้น** · เดิมพันที่เริ่มแล้ว (รวม Streak ที่ค้างอยู่) ใช้เวอร์ชันเดิมจนจบ · module เดิมพันเก็บ `rate_version_id` คู่กับเดิมพันทุกครั้ง (หัวข้อ 9 RH1) |
 | RATE-07 | **ร้านต้องได้ house edge ≥ 1% ทุกจุดที่ Member หยุดได้** (lead RR2 · แทน "> 0" เดิม) — Coin / RPS ทุกขั้น · Scratch ทั้งใบ · ไม่ผ่านที่จุดไหน บันทึกไม่ได้ทั้งชุด (`406101`) และ msg บอกขั้น / field และ `win_percent` สูงสุดที่ตั้งได้ · ค่าคงที่ขั้นต่ำ / เพดานอยู่ใน `core/game_rate` |
 | RATE-08 | **บันทึก / ย้อนต้องยืนยัน passcode** (`RequirePasscode`) · ทุกเวอร์ชันเก็บ log คนแก้: `created_by` (username ณ เวลานั้น · sub = `owner@name`), `actor_type` / `actor_id`, `ip`, `request_id`, `created_at` · ตารางเวอร์ชันคือ log (ห้ามแก้ / ลบ) ดูได้ที่ `versions/list` |
-| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · หน้าบ้านปัดแสดงเอง |
+| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · **ยกเว้น `max_win_percent` ปัดลง** (ค่าที่แสดงต้องตั้งได้จริง — ปัดขึ้นแล้วกรอกค่านั้น house edge จะต่ำกว่า 1%) · หน้าบ้านปัดแสดงเอง |
 | RATE-09A | **ไม่มีค่าเริ่มต้น**: เกมที่ยังไม่เคยตั้งค่า = `version = 0` · เอนจิ้นต้อง**ไม่รับเดิมพัน**ของเกมนั้นจนกว่าจะบันทึกครั้งแรก (หัวข้อ 5.8 · RH1) · ค่าตัวอย่างสำหรับ tester อยู่ใน `docs/frontend/game_rate.md` |
 
 ### Coin Flip (`coin_toss`)
 
 | ID | Rule |
 |---|---|
-| RATE-10 | 10 ขั้นตายตัว ต้องส่งครบ 10 ขั้น · แต่ละขั้น `multiplier` + `win_percent` |
+| RATE-10 | 10 ขั้นตายตัว (จำนวนขั้นของเกมใน `gameSpecs`) ต้องส่งครบ 10 ขั้น · แต่ละขั้น `multiplier` + `win_percent` |
 | RATE-11 | `multiplier` 1–1,000 และ**มากกว่าขั้นก่อนหน้าเสมอ** · `win_percent` > 0 และ ≤ 100 |
 | RATE-12 | RANDOM (ระบบเลือกฝั่งให้) ใช้ `win_percent` เดียวกับเลือกฝั่งเอง |
 | RATE-13 | `reach_n = win_1 × … × win_n` · `house_edge_n = 100% − reach_n × multiplier_n` ต้อง **≥ 1% ทุกขั้น** (Member CASH OUT ขั้นไหนก็ได้) · `max_win_n` = `win_n` สูงสุดที่ `house_edge_n` ยัง ≥ 1% = `(100% − 1%) ÷ (reach_{n−1} × multiplier_n)` (ขั้น 1: `reach_0 = 100%`) |
@@ -91,7 +91,7 @@
 | RATE-34 | % ต่อใบของแต่ละแถว `per_ticket_percent = W × share_percent ÷ 100` (ระบบคำนวณให้ใน response) |
 | RATE-35 | ตรง 1 หรือ 2 ช่อง เอนจิ้นสุ่มเอง — **ไม่มีค่าให้ตั้ง** · การแบ่งรางวัลตรง 2 ช่องเป็นกฎของเอนจิ้น (หัวข้อ 9 RH4) |
 
-ตัวอย่าง (ค่าใน diagram): W 50% · ตาราง 0.5×/35, 1×/35, 2×/18, 5×/10, 8×/2 → `A = 1.545` · `P = 77.25%` · `house_edge = 22.75%` · `max_win = 99% ÷ 1.545 = 64.0777%`
+ตัวอย่าง (ค่าใน diagram): W 50% · ตาราง 0.5×/35, 1×/35, 2×/18, 5×/10, 8×/2 → `A = 1.545` · `P = 77.25%` · `house_edge = 22.75%` · `max_win = 99% ÷ 1.545 = 64.0776%`
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
@@ -145,9 +145,9 @@ Response `data` (Coin Flip — ค่าตัวอย่างจาก diagra
   "game_code": "coin_toss",
   "version": 3,
   "steps": [
-    { "step": 1,  "multiplier": 1.9,      "win_percent": 50, "reach_percent": 50,     "payout_percent": 95,      "house_edge_percent": 5,       "max_win_percent": 52.1053 },
+    { "step": 1,  "multiplier": 1.9,      "win_percent": 50, "reach_percent": 50,     "payout_percent": 95,      "house_edge_percent": 5,       "max_win_percent": 52.1052 },
     { "step": 2,  "multiplier": 3.61,     "win_percent": 48, "reach_percent": 24,     "payout_percent": 86.64,   "house_edge_percent": 13.36,   "max_win_percent": 54.8476 },
-    { "step": 3,  "multiplier": 6.859,    "win_percent": 46, "reach_percent": 11.04,  "payout_percent": 75.7234, "house_edge_percent": 24.2766, "max_win_percent": 60.14 },
+    { "step": 3,  "multiplier": 6.859,    "win_percent": 46, "reach_percent": 11.04,  "payout_percent": 75.7234, "house_edge_percent": 24.2766, "max_win_percent": 60.1399 },
     { "step": 4,  "multiplier": 13.0321,  "win_percent": 44, "reach_percent": 4.8576, "payout_percent": 63.3047, "house_edge_percent": 36.6953, "max_win_percent": 68.81 },
     { "step": 5,  "multiplier": 24.761,   "win_percent": 42, "reach_percent": 2.0402, "payout_percent": 50.5172, "house_edge_percent": 49.4828, "max_win_percent": 82.3086 },
     { "step": 6,  "multiplier": 47.0459,  "win_percent": 40, "reach_percent": 0.8161, "payout_percent": 38.3931, "house_edge_percent": 61.6069, "max_win_percent": 100 },
@@ -163,7 +163,7 @@ Response `data` (Coin Flip — ค่าตัวอย่างจาก diagra
   "created_by": "superadmin1"
 }
 ```
-> ตัวอย่างขั้น 1–2 ตรงกับ diagram · ขั้น 3–10 เป็นชุดประกอบเอกสาร (ตัวคูณ `1.9^n` ปัด 4 ตำแหน่ง · ชนะลดขั้นละ 2%) คำนวณด้วย `big.Rat` แล้ว Round4 · ค่าที่ test ยึดคือตัวอย่าง diagram (5% · 13.36% · 22.75% · 64.0777%)
+> ตัวอย่างขั้น 1–2 ตรงกับ diagram · ขั้น 3–10 เป็นชุดประกอบเอกสาร (ตัวคูณ `1.9^n` ปัด 4 ตำแหน่ง · ชนะลดขั้นละ 2%) คำนวณด้วย `big.Rat` แล้ว Round4 · ค่าที่ test ยึดคือตัวอย่าง diagram (5% · 13.36% · 22.75% · 64.0776%)
 > `max_win_percent` ไม่เกิน 100 · **ค่าที่คำนวณทุกตัว (`reach_*` · `payout_*` · `house_edge_*` · `max_win_*` · `min_house_edge_*` · `max_payout_*` · Scratch `avg_multiplier` / `per_ticket_percent`) ไม่ได้เก็บใน DB** — คำนวณจากค่าที่ตั้งทุกครั้งที่ตอบ (RE1 / RE2 / RE3 / RE5 / RE6) · ตัวเลขในตัวอย่างและในดีไซน์หน้าบ้านเป็นแค่ตัวอย่าง
 
 - Coin / RPS: `payout_percent` ต่อขั้น = `reach × multiplier` (ผลตอบแทนผู้เล่นถ้าหยุดที่ขั้นนั้น · = 100 − `house_edge_percent`) · สรุปทั้งเกม `min_house_edge_percent` / `min_house_edge_step` (ขั้นที่ร้านได้น้อยสุด — ค่าเท่ากันเอาขั้นแรก) · `max_payout_percent` = 100 − ค่านั้น (กล่องสรุปของหน้าบ้าน — Q8)
@@ -184,7 +184,7 @@ Response `data` (Coin Flip — ค่าตัวอย่างจาก diagra
   "avg_multiplier": 1.545,
   "payout_percent": 77.25,
   "house_edge_percent": 22.75,
-  "max_win_percent": 64.0777,
+  "max_win_percent": 64.0776,
   "created_at": "2026-10-12T09:00:00+07:00",
   "created_by": "superadmin1@staff"
 }
@@ -202,8 +202,8 @@ Response `data` = รูปแบบเดียวกับ RE2 (ไม่ม�
 {
   "game_code": "coin_toss",
   "valid": false,
-  "issues": [ { "field": "steps[2].win_percent", "code": 406101, "message": "steps[2].win_percent ตั้งได้ไม่เกิน 60.14 (house edge ต่ำกว่า 1%)" } ],
-  "steps": [ { "step": 1, "multiplier": 1.9, "win_percent": 50, "reach_percent": 50, "payout_percent": 95, "house_edge_percent": 5, "max_win_percent": 52.1053 } ],
+  "issues": [ { "field": "steps[2].win_percent", "code": 406101, "message": "steps[2].win_percent ตั้งได้ไม่เกิน 60.1399 (house edge ต่ำกว่า 1%)" } ],
+  "steps": [ { "step": 1, "multiplier": 1.9, "win_percent": 50, "reach_percent": 50, "payout_percent": 95, "house_edge_percent": 5, "max_win_percent": 52.1052 } ],
   "min_house_edge_percent": 5, "min_house_edge_step": 1, "max_payout_percent": 95
 }
 ```
@@ -376,13 +376,13 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RATE-22 | RPS ใช้ชุดเดียวกับตัวอย่าง Coin · ขั้น 3 `win_percent` เกิน `max_win` | ค่าคำนวณเท่า Coin (5% · 13.36% ฯลฯ) · `406101` |
 | RATE-31 | ตัวคูณซ้ำ 2 แถว · 0 แถว · 11 แถว | `422` |
 | RATE-32 | share รวม 99.5 · รวม 100.0001 | `406102` |
-| RATE-33 | W 50 กับตารางตัวอย่าง · W 65 | `house_edge = 22.75` `max_win = 64.0777` · `406101` |
+| RATE-33 | W 50 กับตารางตัวอย่าง · W 65 | `house_edge = 22.75` `max_win = 64.0776` · `406101` |
 | RATE-08 | ไม่ส่ง passcode · passcode ผิด | `422` · `401204` |
 | RATE-09A | ระบบใหม่ ยังไม่เคยตั้ง | RE1 ทุกเกม `version = 0` · RE2 `steps = []` · `CurrentVersionService` = error |
 | RN2 | RE3 ค่าผ่าน · ขั้น 3 เกิน · share รวม 99 | `valid: true` · `valid: false` + issue `406101` · issue `406102` · ไม่มีเวอร์ชันใหม่ทุกกรณี |
 | — | `game_code` ไม่มีในระบบ | `406401` |
 | RATE-01 | ส่ง `prizes` ให้ `coin_toss` · ส่ง `draw_percent` ให้ `coin_toss` / `rock_paper_scissors` | `422` |
-| core | `core/game_rate` table test: ตัวอย่าง diagram 5% · 13.36% · 22.75% · 64.0777% · RPS ใช้สูตร Coin | ตรงทุกค่า (`big.Rat` แล้ว Round4) |
+| core | `core/game_rate` table test: ตัวอย่าง diagram 5% · 13.36% · 22.75% · 64.0776% · RPS ใช้สูตร Coin | ตรงทุกค่า (`big.Rat` แล้ว Round4) |
 
 ## 8. Error codes (`06`)
 
@@ -424,7 +424,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | ขั้น | งาน | ไฟล์ |
 |---|---|---|
 | C1 | รายชื่อเกมย้ายไป `app/core/game` (รหัส · หมวด · กลุ่ม `minigame`) · agent_management (`pt` / `status_game`) เรียกจาก `core/game` แทน `pt_rule.go` · commit แรก ไม่เปลี่ยนพฤติกรรม | `app/core/game/game.go` + test · `app/core/agent_management/pt_rule.go` |
-| C2 | กฎและสูตรเป็น pure function ด้วย `big.Rat`: ตรวจ Coin / RPS (RATE-10 – 13, 20 – 22) · Scratch (RATE-30 – 33) · คำนวณ reach / payout / house edge / max win / สรุปทั้งเกม / avg / per ticket · ค่าคงที่ (ขั้นต่ำ house edge 1% · ตัวคูณ ≤ 1,000 · 10 ขั้น · 1–10 รางวัล) · เทียบค่าเท่ากัน (RATE-05C) · `changes` ของ RE5 · table test ตัวอย่าง diagram (5% · 13.36% · 22.75% · 64.0777%) | `app/core/game_rate/*.go` + `*_test.go` |
+| C2 | กฎและสูตรเป็น pure function ด้วย `big.Rat`: ตรวจ Coin / RPS (RATE-10 – 13, 20 – 22) · Scratch (RATE-30 – 33) · คำนวณ reach / payout / house edge / max win / สรุปทั้งเกม / avg / per ticket · ค่าคงที่ (ขั้นต่ำ house edge 1% · ตัวคูณ ≤ 1,000 · 10 ขั้น · 1–10 รางวัล) · เทียบค่าเท่ากัน (RATE-05C) · `changes` ของ RE5 · table test ตัวอย่าง diagram (5% · 13.36% · 22.75% · 64.0776%) | `app/core/game_rate/*.go` + `*_test.go` |
 | C3 | migration 3 ตาราง (หัวข้อ 6 · timestamp หลัง `20261011120000`) · models · repository (`db` param แรก · ไม่มี tx · insert batch · โหลดหลายเวอร์ชันแบบ batch) | `database/migrations/*_game_rate.sql` · `app/models/game_rate_models.go` · `app/repository/postgres/game_rate/` |
 | C4 | service: tx เดียว · advisory lock ต่อเกม → `base_version` (`406301` · msg บอกเวอร์ชัน + คนแก้) → กฎ → ค่าเท่าปัจจุบัน (`created: false`) → insert · rollback (RATE-05A) · list / detail / check / versions | `app/service/game_rate/` |
 | C5 | DTO `Validate()` แบบ `if` (≤ 4 ตำแหน่ง · ไม่รับ field ของเกมอื่น ยกเว้น `passcode`) · controller · routes RE1 – RE7 (`RequirePermission(rate, …)` ก่อน `RequirePasscode()`) · `pkg/apperr/game_rate_errors.go` | `app/internals/backoffice/{dto,controllers}/game_rate/` · `routes.go` · `pkg/apperr/` |
