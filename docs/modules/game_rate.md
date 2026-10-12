@@ -6,6 +6,8 @@
   - RR2 house edge ≥ 1% ทุกจุดที่หยุดได้ · RR3 ตัวคูณ ≤ 1,000 · `win_percent > 0`
   - RR4 `base_version` กันแก้ทับ (`406301`) · RR5 ค่าเท่าปัจจุบัน = 200 `created: false` · RR6 หยุดเกมด่วนด้วย `status_game`
   - RN1 path ใหม่ RE1–RE7 ทุกเส้น `POST` · RN2 เส้นตรวจค่า `detail/check` · RP1 boiledegg ทำ spec + โค้ด · ต้องเสร็จก่อน engine / module เดิมพัน
+  - **Q7 (lead ตัดสิน 2026-10-12): RPS ไม่มีเสมอ** — ต่อขั้นมีแค่ `multiplier` + `win_percent` · แพ้ = 100 − ชนะ · สูตรเดียวกับ Coin (แทนตัวอย่าง "ชนะ 34 · เสมอ 30" ใน diagram)
+  - คำขอหน้าบ้าน 12 ต.ค. ที่ยังรอ lead (หัวข้อ 9 Q4–Q6, Q8): RE5 `changes` / `same_as_current` / `win_percent` (ใส่ใน 5.5 แล้ว) · error มี `data` · เพดาน 50% · อัตราชนะรวมของ Coin
 - ที่มาของ rule: diagram ของ lead (`Coin Flip Flow.html`, `Rock Paper Scissors Flow.html`, `Scratch Card Flow.html`) + คำตอบของ boiledegg 2026-10-08 + lead review 2026-10-12 · ไม่ได้อ้างโค้ดหรือเอกสารของโปรเจกต์เก่า
 - ชื่อ module ในโค้ด: `game_rate` (`controllers/` `dto/` `service/` `core/game_rate`) · รายชื่อเกม `core/game` · path `/api/v1/bo/pr/rate/...` · error module id `06` (ตรงกับเมนู ⑥)
 
@@ -27,7 +29,6 @@
 | Streak | Member ทายต่อเพื่อสะสมเงิน · ปิด Streak = เล่นครั้งเดียว ใช้ค่าของขั้น 1 |
 | ตัวคูณ (`multiplier`) | เงินที่ได้ = ยอดแทง × ตัวคูณ (ไม่รวมทบจากขั้นก่อน) |
 | `win_percent` | โอกาสชนะของขั้นนั้น (Coin Flip / RPS) หรือของบัตร 1 ใบ (Scratch Card) |
-| `draw_percent` | โอกาสเสมอของขั้นนั้น (RPS เท่านั้น) · เสมอ = เล่นขั้นเดิมใหม่ ไม่หักเงินเพิ่ม |
 | `reach_percent` (R) | โอกาสที่ Member ไปถึงและชนะขั้นนั้น = ผลคูณของโอกาสชนะจริงตั้งแต่ขั้น 1 ถึงขั้นนั้น |
 | `house_edge_percent` | ร้านได้เฉลี่ย (% ของยอดแทง) = 100% − จ่ายคืนคาดหวัง (RTP) |
 | `max_win_percent` | `win_percent` สูงสุดของขั้น / บัตรที่ยังได้ house edge ≥ ขั้นต่ำ (RATE-07) |
@@ -72,11 +73,12 @@
 
 | ID | Rule |
 |---|---|
-| RATE-20 | 10 ขั้นตายตัว · แต่ละขั้น `multiplier` + `win_percent` + `draw_percent` · % แพ้ = 100 − ชนะ − เสมอ (ระบบคำนวณ) |
-| RATE-21 | `multiplier` 1–1,000 และมากกว่าขั้นก่อนหน้า · `win_percent` > 0 · `draw_percent` ≥ 0 · `win_percent + draw_percent < 100` |
-| RATE-22 | เสมอไม่นับเป็นชนะหรือแพ้ → โอกาสชนะจริงของขั้น `q_n = win_n ÷ (100 − draw_n)` · `reach_n = q_1 × … × q_n` · `house_edge_n = 100% − reach_n × multiplier_n` ≥ 1% ทุกขั้น · `max_win_n = (100 − draw_n) × 99% ÷ (reach_{n−1} × multiplier_n)` |
+| RATE-20 | 10 ขั้นตายตัว · แต่ละขั้น `multiplier` + `win_percent` · **ไม่มีเสมอ** (lead Q7 2026-10-12) · % แพ้ = 100 − ชนะ (ระบบไม่ส่งค่านี้) · ส่ง `draw_percent` = `422` |
+| RATE-21 | `multiplier` 1–1,000 และมากกว่าขั้นก่อนหน้า · `win_percent` > 0 และ ≤ 100 (เหมือน RATE-11) |
+| RATE-22 | สูตรเดียวกับ Coin (RATE-13): `reach_n = win_1 × … × win_n` · `house_edge_n = 100% − reach_n × multiplier_n` ≥ 1% ทุกขั้น · `max_win_n = 99% ÷ (reach_{n−1} × multiplier_n)` ไม่เกิน 100 |
+| RATE-23 | เอนจิ้น RPS ต้อง**ไม่มีผลเสมอ** — ผลมีแค่ชนะ / แพ้ตาม `win_percent` (หัวข้อ 9 RH5) |
 
-ตัวอย่าง (ค่าใน diagram): ขั้น 1 ชนะ 34 · เสมอ 30 → `q_1 = 34 ÷ 70 = 48.5714%`
+ตัวอย่าง: ใช้ชุดเดียวกับ Coin (หัวข้อ 5.2) · ขั้น 1 `1.9 / 50` → `house_edge = 5%`
 
 ### Scratch Card (`scratch_card`)
 
@@ -158,10 +160,10 @@ Response `data` (Coin Flip — ค่าตัวอย่างจาก diagra
   "created_by": "superadmin1"
 }
 ```
-> ตัวอย่างขั้น 1–2 ตรงกับ diagram · ขั้น 3–10 เป็นชุดประกอบเอกสาร (ตัวคูณ `1.9^n` ปัด 4 ตำแหน่ง · ชนะลดขั้นละ 2%) คำนวณด้วย `big.Rat` แล้ว Round4 · ค่าที่ test ยึดคือตัวอย่าง diagram (5% · 13.36% · 48.5714% · 22.75% · 64.0777%)
+> ตัวอย่างขั้น 1–2 ตรงกับ diagram · ขั้น 3–10 เป็นชุดประกอบเอกสาร (ตัวคูณ `1.9^n` ปัด 4 ตำแหน่ง · ชนะลดขั้นละ 2%) คำนวณด้วย `big.Rat` แล้ว Round4 · ค่าที่ test ยึดคือตัวอย่าง diagram (5% · 13.36% · 22.75% · 64.0777%)
 > `max_win_percent` ไม่เกิน 100
 
-- RPS: แต่ละขั้นเพิ่ม `draw_percent` และ `lose_percent` (คำนวณ)
+- RPS: รูปแบบเดียวกับ Coin (`multiplier` · `win_percent` · ค่าคำนวณ) · ไม่มี `draw_percent` / `lose_percent` (RATE-20)
 - Scratch Card:
 ```json
 {
@@ -222,7 +224,7 @@ Request (Coin Flip — ส่งครบ 10 ขั้น ตามลำดั�
   "passcode": "123456"
 }
 ```
-Request (RPS): แต่ละขั้น `{ "multiplier", "win_percent", "draw_percent" }`
+Request (RPS): รูปแบบเดียวกับ Coin — แต่ละขั้น `{ "multiplier", "win_percent" }` · ส่ง `draw_percent` = `422`
 
 Request (Scratch Card):
 ```json
@@ -251,14 +253,42 @@ Error: `422`, `401204`, `401205`, `406101`, `406102`, `406301`, `406401`
 
 ### 5.5 RE5 · POST /api/v1/bo/pr/rate/versions/list
 
-Request: `{ "game_code": "coin_toss", "page": 1, "limit": 20 }` (`utils.NewPage`) · Response `data` (`response.Page`):
+Request: `{ "game_code": "scratch_card", "page": 1, "limit": 20 }` (`utils.NewPage`) · Response `data` (`response.Page`):
 ```json
 {
   "current_page": 1, "total_page": 1, "total_count": 3, "limit": 20, "has_next": false, "has_prev": false,
-  "data": [ { "version": 3, "min_house_edge_percent": 5, "rollback_from": 0, "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1", "ip": "203.0.113.10" } ]
+  "data": [
+    {
+      "version": 3, "min_house_edge_percent": 22.75, "win_percent": 50, "rollback_from": 0, "same_as_current": true,
+      "changes": [
+        { "type": "win_percent", "from": 35, "to": 50 },
+        { "type": "prize_added", "multiplier": 5, "from": null, "to": 10 },
+        { "type": "prize_removed", "multiplier": 0.5, "from": 20, "to": null },
+        { "type": "prize_share", "multiplier": 1, "from": 50, "to": 60 }
+      ],
+      "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1", "ip": "203.0.113.10"
+    }
+  ]
 }
 ```
-- เรียงเวอร์ชันใหม่ → เก่า · log คนแก้ (RATE-08) · ไม่ส่ง `actor_id` / `request_id` ออกไป · `rollback_from` = `0` เมื่อไม่ได้ย้อน
+Coin / RPS — `changes` แยกต่อขั้นและ field:
+```json
+[ { "type": "step", "step": 1, "field": "win_percent", "from": 55, "to": 50 },
+  { "type": "step", "step": 4, "field": "multiplier", "from": 13.0321, "to": 12 } ]
+```
+
+| field | ความหมาย |
+|---|---|
+| `min_house_edge_percent` | house edge ต่ำสุดของเวอร์ชันนั้น |
+| `win_percent` | Scratch เท่านั้น (Coin / RPS มีหลายขั้น ไม่ส่ง key นี้) |
+| `rollback_from` | ย้อนมาจากเวอร์ชันไหน · `0` = บันทึกปกติ |
+| `same_as_current` | `true` = ค่าเท่าเวอร์ชันปัจจุบัน (หน้าบ้านปิดปุ่ม "ย้อนไปใช้ค่านี้" — RATE-05C) · แถวของเวอร์ชันปัจจุบันเอง = `true` |
+| `changes` | สิ่งที่เปลี่ยนเทียบกับ**เวอร์ชันก่อนหน้า** (`version − 1`) · เวอร์ชันแรก = `[]` · `from` / `to` = ค่าที่เก็บ (ปัด 4 ตำแหน่ง) · ไม่มีค่า = `null` |
+| `changes[].type` | `step` (Coin / RPS · มี `step` 1–10 + `field` = `multiplier` / `win_percent`) · `win_percent` (Scratch) · `prize_added` / `prize_removed` / `prize_share` (Scratch · จับคู่รางวัลด้วย `multiplier` ซึ่งห้ามซ้ำ — RATE-31 · `from` / `to` = `share_percent`) |
+
+- เรียงเวอร์ชันใหม่ → เก่า · log คนแก้ (RATE-08) · ไม่ส่ง `actor_id` / `request_id` ออกไป
+- โหลดค่าของทุกเวอร์ชันในหน้า + เวอร์ชันก่อนหน้าของแถวสุดท้าย และเวอร์ชันปัจจุบัน ด้วย query แบบ batch (ไม่ N+1 — กฎข้อ 23) แล้วเทียบใน `core/game_rate`
+- `changes` / `same_as_current` / `win_percent` เพิ่มตามคำขอหน้าบ้าน 12 ต.ค. — **รอ lead อนุมัติ (หัวข้อ 9 Q4)**
 
 Error: `422`, `406401`
 
@@ -305,7 +335,6 @@ CREATE TABLE game_rate_steps (               -- Coin Flip / RPS
     step           SMALLINT         NOT NULL CHECK (step BETWEEN 1 AND 10),
     multiplier     DOUBLE PRECISION NOT NULL CHECK (multiplier >= 1 AND multiplier <= 1000),
     win_percent    DOUBLE PRECISION NOT NULL CHECK (win_percent > 0 AND win_percent <= 100),
-    draw_percent   DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (draw_percent >= 0 AND draw_percent < 100),
     PRIMARY KEY (version_id, step)
 );
 
@@ -338,8 +367,8 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RATE-07 | house edge = 1% พอดี | สำเร็จ |
 | RATE-10 | ส่ง 9 ขั้น | `422` |
 | RATE-11 | ตัวคูณขั้น 4 ≤ ขั้น 3 | `422` (`steps[3].multiplier`) |
-| RATE-21 | RPS `win 60 · draw 40` | `422` |
-| RATE-22 | RPS ขั้น 1 ชนะ 34 · เสมอ 30 | `reach_1 = 48.5714` |
+| RATE-20 | RPS ส่ง `draw_percent` · ส่ง 9 ขั้น | `422` · `422` |
+| RATE-22 | RPS ใช้ชุดเดียวกับตัวอย่าง Coin · ขั้น 3 `win_percent` เกิน `max_win` | ค่าคำนวณเท่า Coin (5% · 13.36% ฯลฯ) · `406101` |
 | RATE-31 | ตัวคูณซ้ำ 2 แถว · 0 แถว · 11 แถว | `422` |
 | RATE-32 | share รวม 99.5 · รวม 100.0001 | `406102` |
 | RATE-33 | W 50 กับตารางตัวอย่าง · W 65 | `house_edge = 22.75` `max_win = 64.0777` · `406101` |
@@ -347,8 +376,8 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RATE-09A | ระบบใหม่ ยังไม่เคยตั้ง | RE1 ทุกเกม `version = 0` · RE2 `steps = []` · `CurrentVersionService` = error |
 | RN2 | RE3 ค่าผ่าน · ขั้น 3 เกิน · share รวม 99 | `valid: true` · `valid: false` + issue `406101` · issue `406102` · ไม่มีเวอร์ชันใหม่ทุกกรณี |
 | — | `game_code` ไม่มีในระบบ | `406401` |
-| RATE-01 | ส่ง `prizes` ให้ `coin_toss` · ส่ง `draw_percent` ให้ `coin_toss` | `422` |
-| core | `core/game_rate` table test: ตัวอย่าง diagram 5% · 13.36% · 48.5714% · 22.75% · 64.0777% | ตรงทุกค่า (`big.Rat` แล้ว Round4) |
+| RATE-01 | ส่ง `prizes` ให้ `coin_toss` · ส่ง `draw_percent` ให้ `coin_toss` / `rock_paper_scissors` | `422` |
+| core | `core/game_rate` table test: ตัวอย่าง diagram 5% · 13.36% · 22.75% · 64.0777% · RPS ใช้สูตร Coin | ตรงทุกค่า (`big.Rat` แล้ว Round4) |
 
 ## 8. Error codes (`06`)
 
@@ -372,7 +401,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | Q4 | หน้าบ้านขอ (12 ต.ค.): RE5 `versions/list` เพิ่มต่อแถว `same_as_current` (ปิดปุ่มย้อน — RATE-05C) · `win_percent` (Scratch เท่านั้น) · `changes` = สิ่งที่เปลี่ยนเทียบกับเวอร์ชันก่อนหน้า (เวอร์ชันแรก `[]`) — Coin / RPS `{ "type": "step", "step", "field", "from", "to" }` · Scratch `win_percent` / `prize_added` / `prize_removed` / `prize_share` จับคู่รางวัลด้วย `multiplier` | **เสนอรับ** · backend โหลดค่าทุกเวอร์ชันในหน้า + เวอร์ชันก่อนตัวแรกแบบ batch (ไม่ N+1) |
 | Q5 | หน้าบ้านขอ: error ส่ง `data` — `406301` ส่ง `{ version, created_by, created_at }` ของเวอร์ชันล่าสุด · `401204` ส่ง `remaining_attempts` | **เสนอไม่ทำ** — error ทั้งระบบยังไม่มี `data` (ต้องแก้ `pkg/apperr` / `pkg/response` กระทบทุก module) · `406301` ใส่ผู้แก้ / เวอร์ชันใน `msg` แทน หรือหน้าบ้านเรียก RE2 · `401204` msg บอก "เหลือ N ครั้ง" อยู่แล้ว |
 | Q6 | หน้าบ้านขอ (ดีไซน์ "ตั้งได้สูงสุด 50%"): เพดาน `win_percent` ≤ 50% | รอ lead — ถ้ารับ: กฎ RATE-30A + error `406103` + ค่าคงที่ใน `core/game_rate` · `max_win_percent` = ค่าที่น้อยกว่าระหว่าง 50 กับค่าจาก house edge 1% · ตกลงว่าใช้กับเกมไหน และ Coin / RPS ใช้ต่อขั้นไหม |
-| Q7 | หน้าบ้านขอ: **RPS ไม่มีเสมอ** — ต่อขั้นมีแค่ `multiplier` + `win_percent` · แพ้ = 100 − ชนะ · สูตรเดียวกับ Coin · ตัด `draw_percent` (ส่งมา = `422`) และ `lose_percent` ใน response | รอ lead — **ขัดกับ diagram ของ lead** (ขั้น 1 ชนะ 34 · เสมอ 30) · ถ้ารับ: แก้หัวข้อ 2, RATE-20 – 22, 5.2, 5.4, 6 (ตัดคอลัมน์ `draw_percent` ออกจาก `game_rate_steps`), 7 (ลบเคสเสมอ ใส่เคสแบบ Coin) · ต้องแก้เอนจิ้น RPS ให้ไม่มีผลเสมอด้วย |
+| Q7 | RPS ไม่มีเสมอ (คำขอหน้าบ้าน) | ✅ **lead ตัดสิน 2026-10-12: ตัดเสมอออก** — แก้หัวข้อ 2, RATE-20 – 23, 5.2, 5.4, 5.5, 6 (ไม่มีคอลัมน์ `draw_percent`), 7 แล้ว · เอนจิ้นต้องไม่มีผลเสมอ (RH5) |
 | Q8 | หน้าบ้านแจ้ง: ดีไซน์ Coin มีช่อง "อัตราชนะรวมของเกม" แต่ spec ตั้งแยกทีละขั้น | **เสนอไม่มี** (หน้าบ้านตัดช่องนี้ออก) · ถ้าต้องการต้องนิยามใหม่ |
 
 ### ส่งต่อ module เดิมพัน / engine (lead 7.3 — ไม่ต้องตัดสินตอนนี้)
@@ -383,3 +412,4 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RH2 | ยอดแทง: เดิม RATE-09B (8 ต.ค.) "บาทเต็ม ขั้นต่ำ 1 บาท" vs กฎข้อ 9 float · ช่วงยอดแทง 10–500 ใน diagram · เพดานยอดจ่ายต่อบิล (เกี่ยวกับ RR3) · ใช้กับทุกสกุลไหม |
 | RH3 | หน้าเกมของ Member ต้องได้ตารางตัวคูณ (Coin / RPS 10 ขั้น · รางวัล Scratch) — ส่งแค่ตัวคูณ ไม่ส่ง `win_percent` / `share_percent` · เป็นเส้นฝั่งผู้เล่นของ module เดิมพัน |
 | RH4 | Scratch ตรง 2 ช่อง แบ่งครึ่ง "ช่องแรกปัดลง" → ปัดที่ 4 ตำแหน่ง (`Round4`) · Streak ค้างเกิน 1 วัน CASH OUT อัตโนมัติ / Scratch ไม่ขูดเกิน 1 วันเปิดอัตโนมัติ (เดิม RATE-09C) — job ของ engine |
+| RH5 | RPS ไม่มีผลเสมอ (lead Q7 2026-10-12) — เอนจิ้นสุ่มแค่ชนะ / แพ้ตาม `win_percent` ของขั้น · หน้าเกมไม่ต้องแสดงผลเสมอ |
