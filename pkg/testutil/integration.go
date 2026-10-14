@@ -43,7 +43,7 @@ var (
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
 // asset: TRUNCATE user_agents CASCADE ล้างตาราง asset ทั้งก้อน (รวมแถว GLOBAL ที่ seed) · asset_types ไม่ถูกล้าง (catalog จาก migration)
 var tables = []string{"game_rate_prizes", "game_rate_steps", "game_rate_versions",
-	"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests",
+	"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests", "deposit_withdraw_logs",
 	"user_member_game_settings", "user_members", "agent_balances", "agent_game_settings", "agent_currencies",
 	"asset_used", "asset_configs", "game_themes", "site_brandings",
 	"subaccounts", "user_agents"}

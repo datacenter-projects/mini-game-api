@@ -17,10 +17,12 @@ import (
 	agentAuthController "app/app/internals/backoffice/controllers/agent_auth"
 	agentManagementController "app/app/internals/backoffice/controllers/agent_management"
 	assetController "app/app/internals/backoffice/controllers/asset"
+	depositWithdrawController "app/app/internals/backoffice/controllers/deposit_withdraw"
 	gameRateController "app/app/internals/backoffice/controllers/game_rate"
 	memberManagementController "app/app/internals/backoffice/controllers/member_management"
 	mw "app/app/internals/backoffice/middleware"
 	adminMw "app/app/internals/backoffice/middleware/admin_management"
+	dwMw "app/app/internals/backoffice/middleware/deposit_withdraw"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -75,6 +77,13 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/manage/members/detail/update", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberDetailController)
 	pr.Post("/manage/members/status/update", mw.PassedGates(), memberEdit, memberManagementController.UpdateMemberStatusController)
 	pr.Post("/manage/members/list", mw.PassedGates(), memberView, memberManagementController.ListMembersController)
+
+	// deposit_withdraw — docs/modules/deposit_withdraw.md หัวข้อ 5 · เมนู payment (DW-04) · ADMIN = 404305 ก่อนเช็คสิทธิ์ (DW-03)
+	paymentView := mw.RequirePermission(agentManagementCore.MenuPayment, agentManagementCore.LevelView)
+	paymentEdit := mw.RequirePermission(agentManagementCore.MenuPayment, agentManagementCore.LevelEdit)
+	pr.Post("/deposit-withdraw/downlines/list", mw.PassedGates(), dwMw.RejectAdmin(), paymentView, depositWithdrawController.ListDownlinesController)
+	pr.Post("/deposit-withdraw/create", mw.PassedGates(), dwMw.RejectAdmin(), paymentEdit, mw.RequirePasscode(), depositWithdrawController.CreateDepositWithdrawController)
+	pr.Post("/deposit-withdraw/logs/list", mw.PassedGates(), dwMw.RejectAdmin(), paymentView, depositWithdrawController.ListLogsController)
 
 	// sub: เฉพาะบัญชีหลัก (sub เรียก = 402311 — MGMT-40) · ไม่ใช้สิทธิ์เมนู
 	pr.Post("/manage/subaccounts/list", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.ListSubaccountsController)
