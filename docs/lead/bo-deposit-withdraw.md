@@ -4,7 +4,7 @@
 branch `maofoy/bo/deposit-withdraw` · โค้ด `c59fcdc` · merge `dev` เข้า branch `330b6c0` · **boiledegg merge เข้า `dev` แล้ว** (`3709cd3` · แก้ lint `3a80c7b`) ·
 deploy tag `dev-202610140819` · migration `20261014150000_deposit_withdraw_logs` รันบน dev แล้ว (maofoy แจ้ง 14 ต.ค.)
 
-**ขอ lead ตรวจโค้ดก่อนเขียนเอกสารหน้าบ้าน** (`docs/frontend/deposit_withdraw.md` — S15)
+**lead อนุมัติโค้ดแล้ว (แจ้งผ่าน maofoy 2026-10-14)** · เอกสารหน้าบ้าน [docs/frontend/deposit_withdraw.md](../frontend/deposit_withdraw.md) (S15) ทำแล้ว
 
 ## 1. ผลแต่ละข้อ
 
@@ -51,3 +51,4 @@ S1–S14 แก้ spec ครบ · S15 (เอกสารหน้าบ้�
 ## 5. ประวัติอัปเดต
 
 - 2026-10-14 — สร้างไฟล์ · โค้ด DW1–DW3 merge เข้า dev + deploy `dev-202610140819` · migrate แล้ว · ขอ lead ตรวจโค้ด
+- 2026-10-14 — lead อนุมัติโค้ด (แจ้งผ่าน maofoy) · เขียน `docs/frontend/deposit_withdraw.md` (S15) · คำถามข้อ 2–3 ในหัวข้อ 4 ยังไม่ได้คำตอบเป็นลายลักษณ์อักษร
