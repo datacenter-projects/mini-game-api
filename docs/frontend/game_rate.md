@@ -5,7 +5,7 @@ spec เต็ม: `docs/modules/game_rate.md` · **deploy บน dev แล้�
 
 > **ก่อนเทส:** ระบบไม่มีอัตราเริ่มต้น — Superadmin ต้องบันทึกอัตราของแต่ละเกมครั้งแรกเอง (RE4 · ค่าตัวอย่างหัวข้อ 4) · ยังไม่ตั้ง = `version: 0` เกมเปิดเล่นไม่ได้
 >
-> **เพิ่ม / เปลี่ยน (13–14 ต.ค.)** — RE8 `rate/status/update` สวิตช์เปิด / ปิดเกมทั้งระบบ · RE1 มี `status_game` · Scratch มี `prizes[].payout_percent` ต่อแถว ·
+> **เพิ่ม / เปลี่ยน (13–14 ต.ค.)** — RE8 `rate/status/update` สวิตช์เปิด / ปิดเกมทั้งระบบ · RE1 มี `status_game` + `status_updated_at` / `status_updated_by` (เปิด / ปิดล่าสุดเมื่อไหร่ โดยใคร) · Scratch มี `prizes[].payout_percent` ต่อแถว ·
 > ข้อความ error (`msg` / `issues[].message`) ใช้ชื่ออ่านได้ เช่น "ขั้นที่ 1 · โอกาสชนะ …" — ชี้ช่องที่ผิดใช้ `issues[].field` (path เดิม)
 
 > ตัวอย่าง response ทุกอันในเอกสารนี้ได้จากการยิง API จริงใน test env (ตัดเฉพาะ `created_at` ให้อ่านง่าย) · ตัวเลขเป็นค่าตัวอย่าง
@@ -59,9 +59,9 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/list" -H "Authorization: Bearer {{TOK
   "code": 200,
   "msg": "สำเร็จ",
   "data": [
-    { "game_code": "scratch_card", "version": 2, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin", "status_game": true },
-    { "game_code": "coin_toss", "version": 1, "min_house_edge_percent": 5, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin", "status_game": false },
-    { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "", "status_game": true }
+    { "game_code": "scratch_card", "version": 2, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin", "status_game": true, "status_updated_at": "", "status_updated_by": "" },
+    { "game_code": "coin_toss", "version": 1, "min_house_edge_percent": 5, "created_at": "2026-10-12T17:53:14+07:00", "created_by": "superadmin", "status_game": false, "status_updated_at": "2026-10-14T16:20:00.123+07:00", "status_updated_by": "superadmin@staff" },
+    { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "", "status_game": true, "status_updated_at": "", "status_updated_by": "" }
   ]
 }
 ```
@@ -72,6 +72,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/list" -H "Authorization: Bearer {{TOK
 | `min_house_edge_percent` | ร้านได้ต่ำสุดของเวอร์ชันปัจจุบัน (Coin / RPS = ขั้นที่น้อยสุด · Scratch = ทั้งใบ) |
 | `created_at` / `created_by` | เวลา / คนบันทึกเวอร์ชันปัจจุบัน · ยังไม่เคยตั้ง = `""` |
 | `status_game` | สวิตช์ของเกม (RE8) · `false` = ปิดปรับปรุงทั้งระบบ · เกมเล่นได้จริงเมื่อ `status_game = true` และ `version ≥ 1` |
+| `status_updated_at` / `status_updated_by` | เปิด / ปิดสวิตช์ครั้งล่าสุด (RE8): เวลา + คนทำ (sub = `owner@name` เช่น `superadmin@staff`) · ไม่เคยเปิด / ปิด = `""` (เพิ่ม 14 ต.ค.) |
 
 - ไม่แบ่งหน้า (1 แถวต่อเกม) · เรียงตามลำดับเกมด้านบน
 
@@ -426,13 +427,13 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/status/update" -H "Authorization: Bea
 
 **Response**
 ```json
-{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "coin_toss", "status_game": false, "changed": true } }
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "coin_toss", "status_game": false, "changed": true, "status_updated_at": "2026-10-14T16:20:00.123+07:00", "status_updated_by": "superadmin@staff" } }
 ```
 ส่งค่าเดิมซ้ำ (ปิดอยู่แล้ว):
 ```json
-{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "coin_toss", "status_game": false, "changed": false } }
+{ "code": 200, "msg": "สำเร็จ", "data": { "game_code": "coin_toss", "status_game": false, "changed": false, "status_updated_at": "2026-10-14T16:20:00.123+07:00", "status_updated_by": "superadmin@staff" } }
 ```
-- `changed: false` = ไม่มีอะไรเปลี่ยน (ไม่บันทึกประวัติ)
+- `changed: false` = ไม่มีอะไรเปลี่ยน (ไม่บันทึกประวัติ) · `status_updated_at` / `status_updated_by` = ครั้งล่าสุดที่เปิด / ปิด (`changed: true` = ครั้งนี้เอง) ใช้แสดง "เปลี่ยนล่าสุดเมื่อ … โดย …" ได้เลย
 - หลังสำเร็จให้โหลด RE1 ใหม่ (`status_game` ของเกมนั้นเปลี่ยน) · `agents/detail/get` ของทุกบัญชีจะเห็น `status_game_effective` ของเกมนั้นเป็น `false`
 - ประวัติการเปิด / ปิดอยู่ในประวัติการแก้ไขของบัญชี Superadmin (`UPDATE_GAMES`)
 - ตั้งให้ Superadmin ทุกบัญชี · บัญชีที่ยังไม่มีค่าของเกมนั้น ระบบสร้างให้แล้วปิด / เปิดตามที่ส่ง (ไม่ตอบ `changed: false` ทั้งที่เกมยังไม่ปิด)

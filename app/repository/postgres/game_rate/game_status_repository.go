@@ -1,6 +1,8 @@
 package gamerate
 
 import (
+	"time"
+
 	"app/app/models"
 
 	"gorm.io/gorm"
@@ -57,5 +59,31 @@ func ListClosedGamesRepository(db *gorm.DB) ([]string, error) {
 	err := db.Raw(`SELECT DISTINCT s.game_code
 		FROM agent_game_settings s JOIN user_agents a ON a.id = s.agent_id
 		WHERE a.role = ? AND s.status_game = false`, models.AgentRoleSuperAdmin).Scan(&out).Error
+	return out, err
+}
+
+// StatusChange — การเปิด / ปิดเกมครั้งล่าสุดของเกมหนึ่ง (RE1 / RE8 status_updated_*)
+type StatusChange struct {
+	GameCode      string    `gorm:"column:game_code"`
+	ActorUsername string    `gorm:"column:actor_username"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+}
+
+// ListLatestStatusChangesRepository — ครั้งล่าสุดที่สวิตช์ของแต่ละเกมเปลี่ยน · อ่านจาก log UPDATE_GAMES ที่ target เป็น Superadmin
+// (status_game ของ Superadmin เปลี่ยนได้ทางเดียวคือ RE8) · gameCodes ว่าง = ทุกเกม · เกมที่ไม่เคยเปลี่ยนไม่อยู่ในผล
+// ใช้ idx_account_change_logs_target (target_type, target_id, created_at) — Superadmin มีไม่กี่บัญชี
+func ListLatestStatusChangesRepository(db *gorm.DB, gameCodes []string) ([]StatusChange, error) {
+	q := `SELECT DISTINCT ON (g.game_code) g.game_code, l.actor_username, l.created_at
+		FROM account_change_logs l
+		JOIN user_agents a ON a.id = l.target_id AND a.role = @role
+		CROSS JOIN LATERAL jsonb_object_keys(l.new_value -> 'status_game') AS g(game_code)
+		WHERE l.target_type = 'AGENT' AND l.action = @action`
+	args := map[string]any{"role": models.AgentRoleSuperAdmin, "action": models.ChangeUpdateGames}
+	if len(gameCodes) > 0 {
+		q += ` AND g.game_code IN @games`
+		args["games"] = gameCodes
+	}
+	var out []StatusChange
+	err := db.Raw(q+` ORDER BY g.game_code, l.created_at DESC, l.id DESC`, args).Scan(&out).Error
 	return out, err
 }

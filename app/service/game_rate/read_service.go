@@ -37,6 +37,10 @@ func ListRatesService(ctx context.Context) ([]gameRateDto.ListRow, error) {
 	for _, code := range closed {
 		isClosed[code] = true
 	}
+	changes, err := latestStatusChanges(db, codes) // เปิด / ปิดครั้งล่าสุด (RE8)
+	if err != nil {
+		return nil, err
+	}
 	byCode := make(map[string]models.GameRateVersion, len(latest))
 	for _, v := range latest {
 		byCode[v.GameCode] = v
@@ -44,6 +48,9 @@ func ListRatesService(ctx context.Context) ([]gameRateDto.ListRow, error) {
 	out := make([]gameRateDto.ListRow, len(codes))
 	for i, code := range codes {
 		row := gameRateDto.ListRow{GameCode: code, StatusGame: !isClosed[code]}
+		if ch, ok := changes[code]; ok {
+			row.StatusUpdatedAt, row.StatusUpdatedBy = formatTime(ch.CreatedAt), ch.ActorUsername
+		}
 		if v, ok := byCode[code]; ok {
 			row.Version, row.MinHouseEdgePercent = v.Version, minHouseEdge(rates[v.ID])
 			row.CreatedAt, row.CreatedBy = formatTime(v.CreatedAt), v.CreatedBy

@@ -231,3 +231,79 @@ func TestRateStatusMissingRow(t *testing.T) { // lead G-S1: Superadmin ไม่
 		t.Fatalf("list %v", st)
 	}
 }
+
+// statusRow — status_* ของเกมจาก RE1
+type statusRow struct {
+	GameCode        string `json:"game_code"`
+	StatusGame      bool   `json:"status_game"`
+	StatusUpdatedAt string `json:"status_updated_at"`
+	StatusUpdatedBy string `json:"status_updated_by"`
+}
+
+func listStatusRows(t *testing.T, app *fiber.App, tok string) map[string]statusRow {
+	t.Helper()
+	r := call(t, app, "POST", rateListPath, map[string]any{}, tok)
+	expect(t, r, 200, 200)
+	var rows []statusRow
+	_ = json.Unmarshal(r.Data, &rows)
+	out := map[string]statusRow{}
+	for _, row := range rows {
+		out[row.GameCode] = row
+	}
+	return out
+}
+
+func TestRateStatusLastAction(t *testing.T) { // RE1 / RE8 status_updated_at / status_updated_by (2026-10-14)
+	app := setup2(t)
+	c := buildChain(t, app)
+
+	// ยังไม่เคยเปิด / ปิด = "" ทุกเกม
+	for code, row := range listStatusRows(t, app, c.saTok) {
+		if row.StatusUpdatedAt != "" || row.StatusUpdatedBy != "" {
+			t.Fatalf("%s ยังไม่เคยเปลี่ยน %+v", code, row)
+		}
+	}
+
+	// Superadmin ปิด coin_toss → response + RE1 บอกเวลา + คนทำ · เกมอื่นยังว่าง
+	r := call(t, app, "POST", rateStatusPath, map[string]any{"game_code": "coin_toss", "status_game": false, "passcode": passcode}, c.saTok)
+	expect(t, r, 200, 200)
+	var res struct {
+		Changed         bool   `json:"changed"`
+		StatusUpdatedAt string `json:"status_updated_at"`
+		StatusUpdatedBy string `json:"status_updated_by"`
+	}
+	_ = json.Unmarshal(r.Data, &res)
+	if !res.Changed || res.StatusUpdatedBy != "superadmin" || res.StatusUpdatedAt == "" {
+		t.Fatalf("response %+v", res)
+	}
+	rows := listStatusRows(t, app, c.saTok)
+	if rows["coin_toss"].StatusUpdatedBy != "superadmin" || rows["coin_toss"].StatusUpdatedAt != res.StatusUpdatedAt || rows["scratch_card"].StatusUpdatedBy != "" {
+		t.Fatalf("list %+v", rows)
+	}
+	first := res.StatusUpdatedAt
+
+	// ส่งซ้ำ (changed false) = คืนครั้งล่าสุดเดิม ไม่เปลี่ยน
+	r = call(t, app, "POST", rateStatusPath, map[string]any{"game_code": "coin_toss", "status_game": false, "passcode": passcode}, c.saTok)
+	_ = json.Unmarshal(r.Data, &res)
+	if res.Changed || res.StatusUpdatedAt != first || res.StatusUpdatedBy != "superadmin" {
+		t.Fatalf("ส่งซ้ำ %+v", res)
+	}
+
+	// sub ที่มี rate edit เปิดคืน → คนทำ = owner@name · เวลาใหม่
+	editTok := superadminSub(t, app, "editor", `{"rate":"edit"}`)
+	r = call(t, app, "POST", rateStatusPath, map[string]any{"game_code": "coin_toss", "status_game": true, "passcode": passcode}, editTok)
+	expect(t, r, 200, 200)
+	_ = json.Unmarshal(r.Data, &res)
+	if !res.Changed || res.StatusUpdatedBy != "superadmin@editor" || res.StatusUpdatedAt == first {
+		t.Fatalf("sub เปิดคืน %+v", res)
+	}
+	if row := listStatusRows(t, app, c.saTok)["coin_toss"]; !row.StatusGame || row.StatusUpdatedBy != "superadmin@editor" || row.StatusUpdatedAt != res.StatusUpdatedAt {
+		t.Fatalf("list หลังเปิดคืน %+v", row)
+	}
+
+	// แก้ status_game ของ Company ผ่าน agents/detail/update (UPDATE_GAMES target ไม่ใช่ Superadmin) ไม่นับ
+	expect(t, call(t, app, "POST", agentDetailUpdatePath, map[string]any{"id": c.com.ID, "status_game": map[string]bool{"scratch_card": false}}, c.saTok), 200, 200)
+	if row := listStatusRows(t, app, c.saTok)["scratch_card"]; row.StatusUpdatedBy != "" {
+		t.Fatalf("log ของ Company ต้องไม่นับ %+v", row)
+	}
+}

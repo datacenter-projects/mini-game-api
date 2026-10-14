@@ -127,15 +127,16 @@ request ผ่าน `utils.ParseBodyNoNull` (ห้าม `null` · `422`) · �
 Request: `{}` · Response `data`:
 ```json
 [
-  { "game_code": "scratch_card", "version": 1, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T09:00:00+07:00", "created_by": "superadmin1@staff", "status_game": true },
-  { "game_code": "coin_toss", "version": 3, "min_house_edge_percent": 5, "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1", "status_game": false },
-  { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "", "status_game": true }
+  { "game_code": "scratch_card", "version": 1, "min_house_edge_percent": 22.75, "created_at": "2026-10-12T09:00:00+07:00", "created_by": "superadmin1@staff", "status_game": true, "status_updated_at": "", "status_updated_by": "" },
+  { "game_code": "coin_toss", "version": 3, "min_house_edge_percent": 5, "created_at": "2026-10-12T10:00:00+07:00", "created_by": "superadmin1", "status_game": false, "status_updated_at": "2026-10-14T16:20:00+07:00", "status_updated_by": "superadmin1@staff" },
+  { "game_code": "rock_paper_scissors", "version": 0, "min_house_edge_percent": 0, "created_at": "", "created_by": "", "status_game": true, "status_updated_at": "", "status_updated_by": "" }
 ]
 ```
 - **ไม่แบ่งหน้า** — รายการคงที่ 1 แถวต่อเกม (ยกเว้น CLAUDE.md กฎข้อ 19 แบบเดียวกับ `agents/list` / `members/list` ที่ lead อนุมัติ)
 - เรียงตามรายชื่อเกมใน `core/game` · `min_house_edge_percent` = ค่าต่ำสุดในทุกขั้น (Scratch มีค่าเดียว) · `created_*` = ของเวอร์ชันปัจจุบัน
 - ยังไม่เคยตั้ง (RATE-09A): `version = 0` · ตัวเลข `0` · ข้อความ `""` — เกมนั้นยังเปิดให้เล่นไม่ได้
 - `status_game` ทุกแถว (RE8) = สถานะสวิตช์ของเกม (หัวข้อ 5.9) · เกมเล่นได้จริงเมื่อ `status_game = true` และ `version ≥ 1`
+- `status_updated_at` / `status_updated_by` = เปิด / ปิดสวิตช์ครั้งล่าสุด (RE8): เวลา + คนทำ (sub = `owner@name`) · ไม่เคยเปลี่ยน = `""` · อ่านจาก log `UPDATE_GAMES` ที่ target เป็น Superadmin (เพิ่ม 2026-10-14)
 
 Error: ร่วม
 
@@ -326,9 +327,9 @@ Request:
 ```
 Response `data`:
 ```json
-{ "game_code": "coin_toss", "status_game": false, "changed": true }
+{ "game_code": "coin_toss", "status_game": false, "changed": true, "status_updated_at": "2026-10-14T16:20:00+07:00", "status_updated_by": "superadmin1@staff" }
 ```
-ค่าเท่าเดิม = `{ "game_code": "coin_toss", "status_game": false, "changed": false }` (ไม่เขียน log — แบบเดียวกับ RATE-05C / MGMT-34)
+ค่าเท่าเดิม = `changed: false` · `status_updated_*` = ครั้งล่าสุดเดิม (ไม่เขียน log — แบบเดียวกับ RATE-05C / MGMT-34)
 
 | field | กติกา |
 |---|---|

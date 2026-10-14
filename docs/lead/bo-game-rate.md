@@ -72,3 +72,10 @@ merge dev ล่าสุด (`532ae1e`) แล้ว · unit + integration ผ�
 5. tag `dev-202610140730` → GitHub Actions build image → infra rollout
 6. ต่อจากนี้: แจ้งหน้าบ้าน (`docs/frontend/game_rate.md` หัวเอกสาร) · Superadmin บน dev ตั้งอัตรา 3 เกมให้ tester (ระบบไม่มีค่าเริ่มต้น)
    · ฝากแจ้ง carl: RDS dev มี `20261012160000` / `20261012170000` ของ `carl/asset` รันแล้ว — merge ต้องใช้เลขเดิม
+
+## 8. เพิ่มเวลา + คนเปิด / ปิดเกมล่าสุด (RE1 / RE8 · 2026-10-14 · ตามคำขอ — ขอ lead รับทราบ)
+
+- RE1 `rate/list` ทุกแถว + RE8 `status/update` response เพิ่ม `status_updated_at` / `status_updated_by` = เปิด / ปิดสวิตช์ครั้งล่าสุด (sub = `owner@name`) · ไม่เคย = `""` · ส่งค่าเดิมซ้ำ (`changed: false`) = ครั้งล่าสุดเดิม
+- อ่านจาก log `UPDATE_GAMES` ที่ target เป็น Superadmin (status_game ของ Superadmin เปลี่ยนได้ทางเดียวคือ RE8) · query เดียว `DISTINCT ON` ต่อเกม · ใช้ index `idx_account_change_logs_target` · **ไม่มี migration / field ใหม่ใน DB**
+- log ของบัญชีอื่น (เช่น `agents/detail/update` ปิดเกมของ Company) ไม่นับ
+- test `TestRateStatusLastAction` (ยังไม่เคย = "" · ปิด · ส่งซ้ำ · sub เปิดคืน · log ของ Company ไม่นับ) · spec 5.1 / 5.9 + frontend RE1 / RE8

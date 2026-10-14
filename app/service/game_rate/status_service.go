@@ -62,7 +62,18 @@ func SetGameStatusService(ctx context.Context, actor agentAuthService.Actor, req
 		res.Changed = len(logs) > 0
 		return agentManagementPostgres.CreateAccountChangeLogsRepository(tx, logs)
 	})
-	return res, err
+	if err != nil {
+		return res, err
+	}
+	// เวลา + คนที่เปิด / ปิดครั้งล่าสุด (หลัง commit — changed true = ครั้งนี้เอง)
+	changes, err := latestStatusChanges(database.DBConn.WithContext(ctx), []string{req.GameCode})
+	if err != nil {
+		return res, err
+	}
+	if ch, ok := changes[req.GameCode]; ok {
+		res.StatusUpdatedAt, res.StatusUpdatedBy = formatTime(ch.CreatedAt), ch.ActorUsername
+	}
+	return res, nil
 }
 
 // superadminGameRow — แถว agent_game_settings ที่ขาดของ Superadmin · ค่า PT เหมือนตอนสร้าง Superadmin (ได้รับ 100% · รับ PT · ผู้สร้าง = ตัวเอง — MGMT-22)
@@ -75,4 +86,17 @@ func superadminGameRow(r gameRatePostgres.SuperadminGameStatus, gameCode string,
 	}
 	return models.AgentGameSetting{AgentID: r.AgentID, GameCode: gameCode, Category: category, PTFromParent: agentManagementCore.FullPT,
 		Status: true, StatusGame: on, CreatedBy: r.Username, CreatedAt: now, UpdatedBy: r.Username, UpdatedAt: now}
+}
+
+// latestStatusChanges — เปิด / ปิดครั้งล่าสุดต่อเกม (game_code → ครั้งล่าสุด) · เกมที่ไม่เคยเปลี่ยนไม่อยู่ใน map
+func latestStatusChanges(db *gorm.DB, gameCodes []string) (map[string]gameRatePostgres.StatusChange, error) {
+	rows, err := gameRatePostgres.ListLatestStatusChangesRepository(db, gameCodes)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]gameRatePostgres.StatusChange, len(rows))
+	for _, r := range rows {
+		out[r.GameCode] = r
+	}
+	return out, nil
 }
