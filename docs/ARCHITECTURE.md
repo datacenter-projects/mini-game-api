@@ -187,6 +187,18 @@ func CreateNoteService(ctx context.Context, agentID uint, req noteDto.CreateNote
 - อ่านอย่างเดียว ไม่ต้องมี tx: `notePostgres.GetNoteRepository(database.DBConn.WithContext(ctx), id)`
 - service ของ module อื่นเรียกกันได้ ถ้าต้องอยู่ใน tx เดียวกัน ให้ทำฟังก์ชันที่รับ `tx *gorm.DB` เพิ่ม (เช่น `DebitWalletTx(tx, ...)`)
 
+#### ลำดับ lock ของยอดเงิน (ทุก module — CLAUDE.md กฎข้อ 10 · lead 2026-10-13 deposit_withdraw DQ3)
+
+tx ที่แตะยอดเงินหลายแถว / หลายตาราง ต้อง lock ตามลำดับนี้เสมอ เพื่อกัน deadlock ข้าม module (สร้างบัญชี · ฝากถอน · เดิมพัน):
+
+1. แถว `agent_balances` ที่ยังไม่มี → `INSERT … ON CONFLICT DO NOTHING` (ยอด 0) เรียง `agent_id` น้อย→มาก ก่อน lock
+2. `agent_balances` `FOR UPDATE` เรียง `agent_id` น้อย→มาก (agent เดียวหลายสกุลเรียง `currency`)
+3. `user_members` `FOR NO KEY UPDATE` เรียง `id` น้อย→มาก (ไม่บล็อก FK ของตารางอื่นที่อ้าง `user_members`)
+
+- ห้าม lock `user_members` ก่อน `agent_balances` ใน tx เดียวกัน
+- lock แถวของ Superadmin ไม่ได้ (ไม่มีแถวยอด — วงเงินไม่จำกัด)
+- ตัวอย่างและเหตุผล: `docs/modules/deposit_withdraw.md` DW-30 – DW-32
+
 ### 3.4 Repository — `app/repository/postgres/note/note_repository.go`
 
 ```go
