@@ -2,6 +2,7 @@ package depositwithdraw
 
 import (
 	"context"
+	"strings"
 
 	agentManagementCore "app/app/core/agent_management"
 	depositWithdrawCore "app/app/core/deposit_withdraw"
@@ -88,11 +89,12 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q d
 	}
 	summary.TotalSum = map[string]depositWithdrawDto.CurrencyAmounts{}
 	for _, s := range sums {
-		if summary.TotalSum[s.Role] == nil {
-			summary.TotalSum[s.Role] = newCurrencyAmounts()
+		key := strings.ToLower(s.Role) // key ของ total_sum เป็น role ตัวเล็ก (agent / member …) · field role ในแถวยังตัวใหญ่ (maofoy 2026-10-14)
+		if summary.TotalSum[key] == nil {
+			summary.TotalSum[key] = newCurrencyAmounts()
 		}
 		if s.Currency != nil {
-			addAmount(summary.TotalSum[s.Role], *s.Currency, s.Total)
+			addAmount(summary.TotalSum[key], *s.Currency, s.Total)
 		}
 	}
 	return out, total, summary, nil

@@ -97,7 +97,7 @@ Superadmin เป็นแหล่งเงินเดียวของระ
 | DW-42 | แต่ละแถว: `id` · `role` · `username` · `name` · `status` · `has_balance` · `currency` · `last_login_ip` · `last_login_at` (ยังไม่เคย login = `""`) · `role` ส่งกลับในเส้น DW2 ได้ทันที (DW-02) — **แก้ 2026-10-14 (lead อนุมัติ): `balances` (array) → `currency` (map) + last login** |
 | DW-43 | `currency` = map **ครบ 27 สกุลที่ระบบรองรับ** (`agentManagementCore.Currencies`) · key ตัวใหญ่ · สกุลที่ไม่มียอด / บัญชีไม่มี = `0` · agent = `agent_balances` · Member = `credit` ที่สกุลของตัวเอง · ยอดของแม่ + ลูกฝั่ง agent ในหน้าดึงด้วย `agent_id IN (...)` ครั้งเดียว (กฎข้อ 23 ห้าม N+1) |
 | DW-44 | `has_balance = false` = สาย Seamless (DW-06) · ยอด `0` ทุกสกุล · `status` = สถานะของลูกเอง (แม่ผ่าน `PassedGates()` แล้ว สายด้านบนจึงไม่ถูกระงับ) · หน้าบ้าน: ปุ่มฝากเปิดเมื่อ `has_balance` และ `ACTIVE` · **ปุ่มถอนเปิดเมื่อ `has_balance` (ลูกไม่ ACTIVE ก็ถอนได้ — DW-05)** |
-| DW-44A | **นอก PageData (lead อนุมัติยกเว้นกฎข้อ 19 · 2026-10-14)**: `credit_detail.currency` = ยอดของคนที่ login (แม่ · sub = เจ้าของ) map 27 สกุล (ซ้ำกับ profile `balances` — ACC-19 · แม่เป็น Superadmin / สาย Seamless = `0` ทุกสกุล) · `total_sum` = ยอดรวมของ**ลูกตรงทั้งหมด** (ทุกหน้า · ตาม `keyword` เดียวกับรายชื่อ) แยกตาม `role` ตัวใหญ่ → map 27 สกุล · ใส่เฉพาะ role ที่มีลูก · ไม่มีลูก = `{}` · รวมด้วย query SUM 1 ครั้ง (`GROUP BY role, currency`) · controller ประกอบกับ `response.PageData` (dto / service ไม่ import `pkg/response`) |
+| DW-44A | **นอก PageData (lead อนุมัติยกเว้นกฎข้อ 19 · 2026-10-14)**: `credit_detail.currency` = ยอดของคนที่ login (แม่ · sub = เจ้าของ) map 27 สกุล (ซ้ำกับ profile `balances` — ACC-19 · แม่เป็น Superadmin / สาย Seamless = `0` ทุกสกุล) · `total_sum` = ยอดรวมของ**ลูกตรงทั้งหมด** (ทุกหน้า · ตาม `keyword` เดียวกับรายชื่อ) แยกตาม `role` **key ตัวเล็ก** (`agent` · `member` · `shareholder` · `company` — แก้ 2026-10-14 จากตัวใหญ่ · field `role` ในแถวยังตัวใหญ่) → map 27 สกุล · ใส่เฉพาะ role ที่มีลูก · ไม่มีลูก = `{}` · รวมด้วย query SUM 1 ครั้ง (`GROUP BY role, currency`) · controller ประกอบกับ `response.PageData` (dto / service ไม่ import `pkg/response`) |
 | DW-45 | API ส่งยอดตามที่เก็บ ไม่ปัดเพิ่ม (กฎข้อ 9) |
 
 ### ประวัติ (DW3)
@@ -154,8 +154,8 @@ Response `data` (share01 login · map สกุลย่อเหลือบา
 {
   "credit_detail": { "currency": { "THB": 900, "USD": 0, "CNY": 0 } },
   "total_sum": {
-    "AGENT":  { "THB": 5000, "USD": 0, "CNY": 0 },
-    "MEMBER": { "THB": 100,  "USD": 0, "CNY": 0 }
+    "agent":  { "THB": 5000, "USD": 0, "CNY": 0 },
+    "member": { "THB": 100,  "USD": 0, "CNY": 0 }
   },
   "current_page": 1, "total_page": 1, "total_count": 2, "limit": 20, "has_next": false, "has_prev": false,
   "data": [
@@ -383,7 +383,7 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 | DW-40 / 41 | share01 มีลูก agent 1 + Member 1 + ADMIN ในระบบ · `keyword` `"mem0"` · `"ab"` · keyword ของหลาน | 2 แถว A→Z ไม่มี ADMIN · `mem01` · `422` · ไม่พบ |
 | DW-43 | แม่ / ลูก / Member ที่มียอดสกุลเดียว · Share B2B THB 7 + USD 3 | `currency` ครบ 27 key · สกุลอื่น = 0 · THB 7 · USD 3 |
 | DW-44 | Company Seamless ใน list ของ Superadmin | `has_balance = false` · `currency` = 0 ทุกสกุล |
-| DW-44A | share01 (THB 900) มี agent01 9,900 + Member 100.5 · `limit 1` · `keyword` เฉพาะ Member · keyword ไม่เจอ · comp01 ดู (share01 900 + shareb2b 7 / USD 3) · Superadmin ดู | `credit_detail` THB 900 · `total_sum` `{AGENT: 9900, MEMBER: 100.5}` · ยังรวม 2 role · มีแค่ `MEMBER` · `{}` + `credit_detail` ยังมี · `SHAREHOLDER` THB 907 / USD 3 · `credit_detail` 0 ทุกสกุล |
+| DW-44A | share01 (THB 900) มี agent01 9,900 + Member 100.5 · `limit 1` · `keyword` เฉพาะ Member · keyword ไม่เจอ · comp01 ดู (share01 900 + shareb2b 7 / USD 3) · Superadmin ดู | `credit_detail` THB 900 · `total_sum` `{agent: 9900, member: 100.5}` · ยังรวม 2 role · มีแค่ `member` · `{}` + `credit_detail` ยังมี · `shareholder` THB 907 / USD 3 · `credit_detail` 0 ทุกสกุล |
 | DW-46 | share01 ดู DW3 · comp01 ดู DW3 | เห็นเฉพาะรายการที่ `parent_id = 12` · comp01 ไม่เห็นรายการของ share01 |
 | DW-47 | `date_from` > `date_to` · ช่วง 32 วัน · `"2026/10/01"` | `422` |
 | DW-48 | ส่ง `role` ไม่ส่ง `user_id` · `transaction_type: "WITHDRAW"` | `422` · เฉพาะรายการถอน |

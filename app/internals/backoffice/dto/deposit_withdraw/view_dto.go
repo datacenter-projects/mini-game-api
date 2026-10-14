@@ -42,7 +42,7 @@ type CreditDetail struct {
 // controller ประกอบกับ response.PageData เอง — dto / service ไม่ import pkg/response (ดึง fiber มาด้วย)
 type DownlinesSummary struct {
 	CreditDetail CreditDetail               `json:"credit_detail"`
-	TotalSum     map[string]CurrencyAmounts `json:"total_sum"` // role ตัวใหญ่ → ยอดรวมของลูกตรงทั้งหมด · เฉพาะ role ที่มีลูก · ไม่มีลูก = {}
+	TotalSum     map[string]CurrencyAmounts `json:"total_sum"` // role ตัวเล็ก (agent / member …) → ยอดรวมของลูกตรงทั้งหมด · เฉพาะ role ที่มีลูก · ไม่มีลูก = {}
 }
 
 // bangkok — วันที่ของ DW3 เป็นเวลาไทย (DW-47) · ไม่ใช้ LoadLocation เพื่อไม่พึ่ง tzdata ของเครื่อง

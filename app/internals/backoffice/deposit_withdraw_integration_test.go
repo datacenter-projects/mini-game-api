@@ -426,7 +426,7 @@ func TestDWDownlinesList(t *testing.T) { // DW-40 – DW-44A
 	if a.LastLoginAt == "" || m.LastLoginAt != "" || m.LastLoginIP != "" { // agent01 login แล้วใน buildChain · Member ยังไม่เคย
 		t.Fatalf("last_login agent %q · member %q", a.LastLoginAt, m.LastLoginAt)
 	}
-	if len(p.TotalSum) != 2 || p.TotalSum["AGENT"]["THB"] != 9900 || p.TotalSum["MEMBER"]["THB"] != 100.5 || len(p.TotalSum["MEMBER"]) != all {
+	if len(p.TotalSum) != 2 || p.TotalSum["agent"]["THB"] != 9900 || p.TotalSum["member"]["THB"] != 100.5 || len(p.TotalSum["member"]) != all {
 		t.Fatalf("total_sum = %v", p.TotalSum)
 	}
 
@@ -436,7 +436,7 @@ func TestDWDownlinesList(t *testing.T) { // DW-40 – DW-44A
 	}
 	// keyword กรองทั้งรายชื่อและ total_sum · ไม่ลงหลาน
 	if p = list(c.shareTok, map[string]any{"keyword": "MEML"}); p.TotalCount != 1 || p.Data[0].Username != "memlist" ||
-		len(p.TotalSum) != 1 || p.TotalSum["MEMBER"]["THB"] != 100.5 {
+		len(p.TotalSum) != 1 || p.TotalSum["member"]["THB"] != 100.5 {
 		t.Fatalf("keyword = %+v", p)
 	}
 	if p = list(c.shareTok, map[string]any{"keyword": "grand"}); p.TotalCount != 0 || len(p.Data) != 0 || len(p.TotalSum) != 0 ||
@@ -452,8 +452,8 @@ func TestDWDownlinesList(t *testing.T) { // DW-40 – DW-44A
 			t.Fatalf("currency หลายสกุล %v", r.Currency)
 		}
 	}
-	if s := p.TotalSum["SHAREHOLDER"]; s["THB"] != 907 || s["USD"] != 3 {
-		t.Fatalf("total_sum SHAREHOLDER = %v", s)
+	if s := p.TotalSum["shareholder"]; s["THB"] != 907 || s["USD"] != 3 {
+		t.Fatalf("total_sum shareholder = %v", s)
 	}
 
 	// Seamless: has_balance = false · ยอด 0 ทุกสกุล · Superadmin ไม่มียอดของตัวเอง

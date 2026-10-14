@@ -4,7 +4,7 @@
 
 > **เปลี่ยนจากเดิม (14 ต.ค. — มีผลหลัง deploy รอบถัดจาก `dev-202610140819`)** — `downlines/list` (2.1): แถวเปลี่ยน `balances` (array) เป็น
 > **`currency` (map ครบ 27 สกุล · key ตัวใหญ่)** · เพิ่ม `last_login_ip` / `last_login_at` · `data` เพิ่ม **`credit_detail`** (ยอดของคนที่ login) และ
-> **`total_sum`** (ยอดรวมของลูกตรงทั้งหมดแยกตาม role) · field แบ่งหน้าอยู่ที่เดิม · 2.2 / 2.3 ไม่เปลี่ยน
+> **`total_sum`** (ยอดรวมของลูกตรงทั้งหมดแยกตาม role · key ตัวเล็ก เช่น `agent` / `member`) · field แบ่งหน้าอยู่ที่เดิม · 2.2 / 2.3 ไม่เปลี่ยน
 
 พื้นฐานใช้ร่วมกับเอกสารการจัดการสมาชิก: base URL / header / รูปแบบ response / ห้ามส่ง `null` / ตัวเลขเป็น JSON number / ตั้งค่า Postman ดู
 [agent_management.md](agent_management.md) หัวข้อ 1 · login / passcode / ด่านหลัง login ดู [auth.md](auth.md)
@@ -47,8 +47,8 @@ Response `data` (ตัวอย่างย่อ map สกุลเหลื�
 {
   "credit_detail": { "currency": { "THB": 900, "USD": 0, "CNY": 0 } },
   "total_sum": {
-    "AGENT":  { "THB": 5000, "USD": 0, "CNY": 0 },
-    "MEMBER": { "THB": 100,  "USD": 0, "CNY": 0 }
+    "agent":  { "THB": 5000, "USD": 0, "CNY": 0 },
+    "member": { "THB": 100,  "USD": 0, "CNY": 0 }
   },
   "current_page": 1, "total_page": 1, "total_count": 2, "limit": 20, "has_next": false, "has_prev": false,
   "data": [
@@ -62,7 +62,7 @@ Response `data` (ตัวอย่างย่อ map สกุลเหลื�
 }
 ```
 - **`credit_detail.currency`** = ยอดของคุณ (คนที่ login · sub = ยอดของเจ้าของ) · Superadmin ไม่มียอดของตัวเอง = `0` ทุกสกุล
-- **`total_sum`** = ยอดรวมของลูกตรง**ทั้งหมด** (ทุกหน้า · ตาม `keyword` ที่ส่ง) แยกตาม `role` · มีเฉพาะ role ที่มีลูก · ไม่มีลูก = `{}`
+- **`total_sum`** = ยอดรวมของลูกตรง**ทั้งหมด** (ทุกหน้า · ตาม `keyword` ที่ส่ง) แยกตาม `role` — key เป็น**ตัวเล็ก** (`agent` · `member` · `shareholder` · `company`) ต่างจาก field `role` ในแถวที่เป็นตัวใหญ่ · มีเฉพาะ role ที่มีลูก · ไม่มีลูก = `{}`
 - **`currency`** (ทุก map) = ครบ 27 สกุลที่ระบบรองรับ · key ตัวใหญ่ · สกุลที่บัญชีไม่มี / ยังไม่มียอด = `0` · บัญชี Seamless = `0` ทุกสกุล
 - เรียง username A→Z · ไม่มีลูก = `"data": []` (`credit_detail` ยังมีเสมอ)
 - `role`: `COMPANY` / `SHAREHOLDER` / `AGENT` / `MEMBER` — ส่งค่านี้กลับใน 2.2 ได้เลย
