@@ -118,7 +118,7 @@ func applyAgentInfo(ctx context.Context, tx *gorm.DB, actor agentAuthService.Act
 	if err := agentManagementPostgres.UpdateUserAgentInfoRepository(tx, child.ID, next.Name, OptionalString(next.PhoneCountryCode), OptionalString(next.Phone), now); err != nil {
 		return err
 	}
-	return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdateInfo, old, next, now)
+	return WriteLog(ctx, tx, actor, meta, TargetAgent, child.ID, child.Username, models.ChangeUpdateInfo, old, next, now)
 }
 
 type StatusValue struct {
@@ -142,7 +142,7 @@ func UpdateAgentStatusService(ctx context.Context, actor agentAuthService.Actor,
 		if err := agentManagementPostgres.UpdateUserAgentStatusRepository(tx, a.ID, next, now); err != nil {
 			return err
 		}
-		return WriteLog(ctx, tx, actor, meta, targetAgent, a.ID, a.Username, models.ChangeUpdateStatus,
+		return WriteLog(ctx, tx, actor, meta, TargetAgent, a.ID, a.Username, models.ChangeUpdateStatus,
 			StatusValue{a.Status}, StatusValue{next}, now)
 	})
 }
@@ -208,7 +208,7 @@ func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor
 			status = *req[g].Status
 		}
 		// ไล่ตาม field: pt_from_parent (เพดาน → ต่ำสุดที่ลูกใช้ MGMT-24) → force → remain_quota → commission_percent
-		is := agentManagementCore.CheckChildPT(v, c.Received[group], creatorIsMaster)
+		is := agentManagementCore.CheckChildPT(v, c.Received[group], creatorIsMaster, c.Agent.Role == models.AgentRoleSuperAdmin)
 		if is.Field == "pt_from_parent" {
 			return ChildPTError(g, is)
 		}
@@ -270,7 +270,7 @@ func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor
 	if err := agentManagementPostgres.CreateAccountChangeLogsRepository(tx, followerLogs); err != nil {
 		return err
 	}
-	return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdatePT, oldLog, newLog, now)
+	return WriteLog(ctx, tx, actor, meta, TargetAgent, child.ID, child.Username, models.ChangeUpdatePT, oldLog, newLog, now)
 }
 
 // followerPTValue — ค่าใน log SYNC_FROM_CSM ของ section pt
@@ -302,7 +302,7 @@ func syncFollowersPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Ac
 	rows := make([]models.AccountChangeLog, 0, len(followerIDs))
 	for _, id := range followerIDs {
 		cur, _ := groupSetting(byID[id], group)
-		row, err := ChangeLog(actor, meta, logger.RequestID(ctx), targetAgent, id, names[id], models.ChangeSyncFromCSM,
+		row, err := ChangeLog(actor, meta, logger.RequestID(ctx), TargetAgent, id, names[id], models.ChangeSyncFromCSM,
 			map[string]followerPTValue{string(group): {cur.PTFromParent, cur.Force, cur.Remain, cur.Status}},
 			map[string]any{"csm_id": csmID, string(group): followerPTValue{ptFromParent, 0, 0, status}}, now)
 		if err != nil {
@@ -401,7 +401,7 @@ func applyGames(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, 
 			return err
 		}
 	}
-	return WriteLog(ctx, tx, actor, meta, targetAgent, child.ID, child.Username, models.ChangeUpdateGames,
+	return WriteLog(ctx, tx, actor, meta, TargetAgent, child.ID, child.Username, models.ChangeUpdateGames,
 		map[string]any{"status_game": oldLog}, map[string]any{"status_game": newLog}, now)
 }
 
@@ -449,7 +449,7 @@ func syncFollowersGames(ctx context.Context, tx *gorm.DB, actor agentAuthService
 		if oldBy[id] == nil {
 			continue
 		}
-		row, err := ChangeLog(actor, meta, logger.RequestID(ctx), targetAgent, id, names[id], models.ChangeSyncFromCSM,
+		row, err := ChangeLog(actor, meta, logger.RequestID(ctx), TargetAgent, id, names[id], models.ChangeSyncFromCSM,
 			map[string]any{"status_game": oldBy[id]}, map[string]any{"csm_id": csmID, "status_game": newBy[id]}, now)
 		if err != nil {
 			return err

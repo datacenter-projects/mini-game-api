@@ -101,6 +101,9 @@ func ChildPTError(group string, is agentManagementCore.PTIssue) error {
 			en+": Share Master uses the PT of its Company Seamless Master (must be "+pct(is.Limit)+")")
 	case agentManagementCore.PTForceRemainExceeded:
 		return apperr.ErrForceRemainExceeded.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit), en+" must not exceed "+pct(is.Limit))
+	case agentManagementCore.PTSuperadminRemain: // MGMT-18A
+		return apperr.ErrValidation.WithMessage(th+" Superadmin ตั้งไม่ได้ (ส่วนที่เหลือคืน Superadmin อยู่แล้ว) ต้องเป็น 0",
+			en+" cannot be set by Superadmin (the remainder returns to Superadmin anyway), must be 0")
 	default:
 		return commissionRangeError(th, en)
 	}

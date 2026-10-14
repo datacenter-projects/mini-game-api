@@ -1,6 +1,10 @@
 package agentmanagement
 
-import "math"
+import (
+	"math"
+
+	"app/app/core/game"
+)
 
 // กฎค่าหุ้นส่วน (MGMT-16 – MGMT-25) · ทุกค่าเป็น % แบบ float64 ปัด 4 ตำแหน่ง (กฎข้อ 9 — แก้ 2026-10-09)
 
@@ -19,43 +23,22 @@ func isStep(v, step float64) bool {
 	return math.Mod(math.Round(v*10000), math.Round(step*10000)) == 0
 }
 
-// PTGroup — กลุ่ม PT ใน API (MGMT-16)
-type PTGroup string
+// PTGroup — กลุ่ม PT ใน API (MGMT-16) = กลุ่มเกมของ core/game · รายชื่อเกมอยู่ที่ core/game (game_rate RATE-01A)
+type PTGroup = game.Group
 
-const PTGroupMinigame PTGroup = "minigame"
+const PTGroupMinigame = game.GroupMinigame
 
 // GroupGame — เกมหนึ่งในกลุ่ม
-type GroupGame struct {
-	Category string
-	GameCode string
-}
-
-// groupGames — กลุ่ม → หมวด → เกม (MGMT-16) · เพิ่มเกม / กลุ่มที่นี่โดยไม่เปลี่ยน API / ตาราง
-var groupGames = map[PTGroup][]GroupGame{
-	PTGroupMinigame: {
-		{"minigame", "coin_toss"},
-		{"minigame", "rock_paper_scissors"},
-		{"minigame", "scratch_card"},
-	},
-}
+type GroupGame = game.Game
 
 // Groups — กลุ่มทั้งหมดเรียงตามชื่อ
-func Groups() []PTGroup { return []PTGroup{PTGroupMinigame} }
+func Groups() []PTGroup { return game.Groups() }
 
 // GamesOf — เกมในกลุ่ม · กลุ่มที่ไม่มี = nil
-func GamesOf(g PTGroup) []GroupGame { return groupGames[g] }
+func GamesOf(g PTGroup) []GroupGame { return game.GamesOf(g) }
 
 // GroupOfGame — กลุ่มของรหัสเกม · ไม่พบ = ok false
-func GroupOfGame(gameCode string) (PTGroup, bool) {
-	for g, games := range groupGames {
-		for _, gg := range games {
-			if gg.GameCode == gameCode {
-				return g, true
-			}
-		}
-	}
-	return "", false
-}
+func GroupOfGame(gameCode string) (PTGroup, bool) { return game.GroupOf(gameCode) }
 
 // IsPTStep — 0 ถึง max ทีละ 0.5%
 func IsPTStep(v float64) bool { return v >= 0 && v <= FullPT && isStep(v, PTStep) }
@@ -75,6 +58,7 @@ const (
 	PTSeamlessMasterLock              // 402307 (MGMT-19)
 	PTForceRemainExceeded             // 402308 (MGMT-25)
 	PTCommissionExceeded              // 402309 (MGMT-18)
+	PTSuperadminRemain                // 422 — Superadmin ตั้ง remain_quota ให้ลูกไม่ได้ (MGMT-18A)
 )
 
 // ChildPT — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม (MGMT-16)
@@ -85,10 +69,10 @@ type ChildPT struct {
 	Commission   float64
 }
 
-// ValidateChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก (MGMT-18, MGMT-19, MGMT-25)
-// creatorReceived = ค่าที่ผู้สร้างได้รับในกลุ่มนี้ · creatorIsSeamlessMaster = ผู้สร้างเป็น Company Seamless Master
-func ValidateChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster bool) PTViolation {
-	return CheckChildPT(v, creatorReceived, creatorIsSeamlessMaster).Violation
+// ValidateChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก (MGMT-18, MGMT-18A, MGMT-19, MGMT-25)
+// creatorReceived = ค่าที่ผู้สร้างได้รับในกลุ่มนี้ · creatorIsSeamlessMaster = ผู้สร้างเป็น Company Seamless Master · creatorIsSuperadmin = ผู้สร้างเป็น Superadmin
+func ValidateChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster, creatorIsSuperadmin bool) PTViolation {
+	return CheckChildPT(v, creatorReceived, creatorIsSeamlessMaster, creatorIsSuperadmin).Violation
 }
 
 // PTIssue — ผลตรวจค่าหุ้นส่วนพร้อม field ที่ผิดและค่าที่ตั้งได้ (ใช้สร้างข้อความ error)
@@ -99,7 +83,7 @@ type PTIssue struct {
 }
 
 // CheckChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก ไล่ตามลำดับ field ใน body (pt_from_parent → force → remain_quota → commission_percent)
-func CheckChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster bool) PTIssue {
+func CheckChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster, creatorIsSuperadmin bool) PTIssue {
 	if !IsPTStep(v.PTFromParent) {
 		return PTIssue{PTInvalidStep, "pt_from_parent", FullPT}
 	}
@@ -118,6 +102,9 @@ func CheckChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster bo
 		}
 		if creatorIsSeamlessMaster && f.v != 0 {
 			return PTIssue{PTSeamlessMasterLock, f.name, 0}
+		}
+		if creatorIsSuperadmin && f.name == "remain_quota" && f.v != 0 { // ส่วนที่เหลือคืน Superadmin อยู่แล้ว (MGMT-18A · MGMT-22)
+			return PTIssue{PTSuperadminRemain, f.name, 0}
 		}
 		if f.v > v.PTFromParent {
 			return PTIssue{PTForceRemainExceeded, f.name, v.PTFromParent}

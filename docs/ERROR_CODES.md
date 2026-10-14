@@ -44,6 +44,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` · ใช้ร่วมกับ `member_management` (`docs/modules/member_management.md`) |
 | 03 | account (บัญชี) | `pkg/apperr/account_errors.go` | `docs/modules/account.md` |
 | 04 | deposit_withdraw (ฝาก / ถอน) | `pkg/apperr/deposit_withdraw_errors.go` | `docs/modules/deposit_withdraw.md` (lead DQ9 2026-10-13) |
+| 06 | game_rate (อัตราแพ้ชนะ — ตรงกับเมนู ⑥) | `pkg/apperr/game_rate_errors.go` | `docs/modules/game_rate.md` |
 
 ## agent_auth (01)
 
@@ -118,3 +119,13 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 404307 | 200 | มีรายการของบัญชีนี้กำลังทำอยู่ กรุณาลองใหม่ (DW-21) |
 | 404401 | 200 | ไม่พบบัญชีลูกตรงของคุณ (DW-01 / DW-02) |
 | 504801 | 503 | ระบบไม่พร้อมทำรายการ กรุณาลองใหม่ (Redis ใช้ไม่ได้ — DW-21) |
+
+## game_rate (06)
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 406101 | 200 | ตั้งค่านี้แล้ว house edge ต่ำกว่าขั้นต่ำ 1% (msg บอกขั้น / แถว และค่าสูงสุดที่ตั้งได้) |
+| 406102 | 200 | สัดส่วนรางวัลรวมต้องเท่ากับ 100% |
+| 406301 | 200 | มีคนแก้ไปแล้ว กรุณาโหลดใหม่ (`base_version` ไม่ตรง) |
+| 406401 | 200 | ไม่พบเกมนี้ |
+| 406402 | 200 | ไม่พบเวอร์ชันนี้ |
