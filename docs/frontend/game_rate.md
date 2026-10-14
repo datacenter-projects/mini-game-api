@@ -219,6 +219,16 @@ Error: `422`, `406401`
 
 ### RE4 · บันทึก — `rate/detail/update`
 
+**curl** (`base_version` = `version` จาก RE2 · ยังไม่เคยตั้ง = `0` · `passcode` 6 หลักของคนที่กด)
+```bash
+# เกมขูดบัตร
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"scratch_card","base_version":0,"win_percent":50,"prizes":[{"multiplier":0.5,"share_percent":35},{"multiplier":1,"share_percent":35},{"multiplier":2,"share_percent":18},{"multiplier":5,"share_percent":10},{"multiplier":8,"share_percent":2}],"passcode":"123456"}'
+# โยนเหรียญ
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"coin_toss","base_version":0,"steps":[{"multiplier":1.9,"win_percent":50},{"multiplier":3.61,"win_percent":48},{"multiplier":6.859,"win_percent":46},{"multiplier":13.0321,"win_percent":44},{"multiplier":24.761,"win_percent":42},{"multiplier":47.0459,"win_percent":40},{"multiplier":89.3872,"win_percent":38},{"multiplier":169.8356,"win_percent":36},{"multiplier":322.6877,"win_percent":34},{"multiplier":613.1066,"win_percent":32}],"passcode":"123456"}'
+# เป่ายิ้งฉุบ (body แบบเดียวกับโยนเหรียญ)
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"rock_paper_scissors","base_version":0,"steps":[{"multiplier":1.9,"win_percent":50},{"multiplier":3.61,"win_percent":48},{"multiplier":6.859,"win_percent":46},{"multiplier":13.0321,"win_percent":44},{"multiplier":24.761,"win_percent":42},{"multiplier":47.0459,"win_percent":40},{"multiplier":89.3872,"win_percent":38},{"multiplier":169.8356,"win_percent":36},{"multiplier":322.6877,"win_percent":34},{"multiplier":613.1066,"win_percent":32}],"passcode":"123456"}'
+```
+
 **Request — Coin / RPS** (RPS ใช้ `"game_code":"rock_paper_scissors"` body เหมือนกัน)
 ```json
 {
@@ -379,6 +389,10 @@ Error: `422`, `406401`, `406402` (ไม่พบเวอร์ชันนี�
 **Request**
 ```json
 { "game_code": "scratch_card", "version": 1, "base_version": 2, "passcode": "123456" }
+```
+```bash
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/versions/rollback" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
+  -d '{"game_code":"scratch_card","version":1,"base_version":2,"passcode":"123456"}'
 ```
 - `version` = เวอร์ชันที่จะย้อนไป · `base_version` = เวอร์ชันปัจจุบันที่หน้าจอโหลดมา
 
