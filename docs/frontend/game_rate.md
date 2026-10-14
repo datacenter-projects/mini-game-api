@@ -1,6 +1,6 @@
 # API หลังบ้าน — อัตราแพ้ชนะ (`game_rate` · เมนู ⑥) — 14 ต.ค. 2026
 
-spec เต็ม: `docs/modules/game_rate.md` · **deploy บน dev แล้ว** (`dev-202610140730` · 14 ต.ค.) · ผู้ดูแล: boiledegg ·
+spec เต็ม: `docs/modules/game_rate.md` · **deploy บน dev แล้ว** (`dev-202610140730` · 14 ต.ค. · `status_updated_at` / `status_updated_by` ตั้งแต่ `dev-202610141129`) · ผู้ดูแล: boiledegg ·
 พื้นฐาน (base URL · header · รูปแบบ response · ห้าม `null` · Postman) ดู [agent_management.md](agent_management.md) หัวข้อ 1 · login / ด่านหลัง login ดู [auth.md](auth.md)
 
 > **ก่อนเทส:** ระบบไม่มีอัตราเริ่มต้น — Superadmin ต้องบันทึกอัตราของแต่ละเกมครั้งแรกเอง (RE4 · ค่าตัวอย่างหัวข้อ 4) · ยังไม่ตั้ง = `version: 0` เกมเปิดเล่นไม่ได้
@@ -8,7 +8,7 @@ spec เต็ม: `docs/modules/game_rate.md` · **deploy บน dev แล้�
 > **เพิ่ม / เปลี่ยน (13–14 ต.ค.)** — RE8 `rate/status/update` สวิตช์เปิด / ปิดเกมทั้งระบบ · RE1 มี `status_game` + `status_updated_at` / `status_updated_by` (เปิด / ปิดล่าสุดเมื่อไหร่ โดยใคร) · Scratch มี `prizes[].payout_percent` ต่อแถว ·
 > ข้อความ error (`msg` / `issues[].message`) ใช้ชื่ออ่านได้ เช่น "ขั้นที่ 1 · โอกาสชนะ …" — ชี้ช่องที่ผิดใช้ `issues[].field` (path เดิม)
 
-> ตัวอย่าง response ทุกอันในเอกสารนี้ได้จากการยิง API จริงใน test env (ตัดเฉพาะ `created_at` ให้อ่านง่าย) · ตัวเลขเป็นค่าตัวอย่าง
+> ตัวอย่าง response ส่วนใหญ่ได้จากการยิง API จริงใน test env (ตัดเฉพาะ `created_at` ให้อ่านง่าย) · field ที่เพิ่มทีหลัง (`status_game` · `status_updated_*` · `payout_percent` · ข้อความ error ใหม่) ใส่ตามรูปแบบที่ API ตอบจริง · ตัวเลขเป็นค่าตัวอย่าง
 
 ## 1. ภาพรวม
 
