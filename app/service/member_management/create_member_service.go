@@ -105,7 +105,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		m := models.UserMember{AgentID: c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: req.Name,
 			PhoneCountryCode: agentManagementService.OptionalString(req.PhoneCountryCode), Phone: agentManagementService.OptionalString(req.Phone),
 			Currency: currencies[0], Status: models.AgentStatusActive, Cnf: string(cnf),
-			PaymentType: paymentType, PaymentAccount: account, WinLimitPerDay: req.WinLimitPerDay, CreatedAt: now, UpdatedAt: now}
+			PaymentType: paymentType, PaymentAccount: account, WinLimitPerDay: *req.WinLimitPerDay, CreatedAt: now, UpdatedAt: now}
 		if err := createMemberRow(tx, &m, req.Account); err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		created, err := agentManagementService.ChangeLog(actor, meta, req.RequestID, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeCreate, nil,
 			map[string]any{"username": m.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone, "agent_id": c.Agent.ID,
 				"currency": m.Currency, "pt": ptLog, "payment_type": paymentType, "payment_account": maskedPaymentAccount(req.Account), // เลขบัญชีปิดบางส่วน (P8)
-				"win_limit_per_day": req.WinLimitPerDay}, now)
+				"win_limit_per_day": *req.WinLimitPerDay}, now)
 		if err != nil {
 			return err
 		}

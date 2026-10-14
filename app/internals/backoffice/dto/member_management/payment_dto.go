@@ -68,15 +68,15 @@ func parsePaymentAccount(prefix string, in *PaymentAccount) (models.MemberPaymen
 	}
 }
 
-// checkWinLimit — 0 ถึง 1,000,000 ทศนิยมไม่เกิน 4 ตำแหน่ง (MGMT-65 · กฎข้อ 9) · ยอดเงินรับเป็น float64 (ทีมตกลง 2026-10-12)
+// checkWinLimit — 0 ถึง 10,000,000 ทศนิยมไม่เกิน 4 ตำแหน่ง (MGMT-65 · กฎข้อ 9) · 0 = เล่นไม่ได้ · ยอดเงินรับเป็น float64 (ทีมตกลง 2026-10-12)
 func checkWinLimit(field string, v float64) error {
 	if v >= 0 && !memberManagementCore.WinLimitWithinMax(v) {
 		maxText := utils.FormatNumGrouped(memberManagementCore.MaxWinLimitPerDay)
-		return agentManagementDto.Invalid(field, "ต้องไม่เกิน "+maxText+" (0 = ไม่จำกัด)", "must not exceed "+maxText+" (0 = no limit)")
+		return agentManagementDto.Invalid(field, "ต้องไม่เกิน "+maxText+" (0 = เล่นไม่ได้)", "must not exceed "+maxText+" (0 = cannot play)")
 	}
 	if v < 0 || !utils.IsDecimal4(v) {
-		return agentManagementDto.Invalid(field, "ต้องเป็นตัวเลข ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง (0 = ไม่จำกัด)",
-			"must be a number ≥ 0 with at most 4 decimals (0 = no limit)")
+		return agentManagementDto.Invalid(field, "ต้องเป็นตัวเลข ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง (0 = เล่นไม่ได้)",
+			"must be a number ≥ 0 with at most 4 decimals (0 = cannot play)")
 	}
 	return nil
 }

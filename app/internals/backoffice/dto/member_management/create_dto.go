@@ -4,6 +4,7 @@
 package membermanagement
 
 import (
+	memberManagementCore "app/app/core/member_management"
 	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
 	"app/app/models"
 	"app/pkg/utils"
@@ -60,7 +61,7 @@ type CreateMemberRequest struct {
 	PT               map[string]MemberPTRequest `json:"pt"`
 	PaymentType      string                     `json:"payment_type"`      // MGMT-63 บังคับ
 	PaymentAccount   *PaymentAccount            `json:"payment_account"`   // MGMT-64 ไม่บังคับ
-	WinLimitPerDay   float64                    `json:"win_limit_per_day"` // MGMT-65 ไม่บังคับ (ไม่ส่ง = 0 ไม่จำกัด)
+	WinLimitPerDay   *float64                   `json:"win_limit_per_day"` // MGMT-65 ไม่บังคับ · ไม่ส่ง = 10,000,000 (Validate ตั้งให้) · 0 = เล่นไม่ได้
 
 	BalanceAmounts map[string]float64          `json:"-"` // ยอดต่อสกุล (ปัด 4 ตำแหน่ง) หลัง Validate
 	Payment        models.PaymentType          `json:"-"` // หลัง Validate (ก่อนปรับตาม Seamless)
@@ -97,5 +98,9 @@ func (r *CreateMemberRequest) Validate() error {
 	if r.Account, err = parsePaymentAccount("payment_account.", r.PaymentAccount); err != nil {
 		return err
 	}
-	return checkWinLimit("win_limit_per_day", r.WinLimitPerDay)
+	if r.WinLimitPerDay == nil { // ไม่ส่ง = ค่าเริ่มต้น (pointer แยกจาก 0 ที่แปลว่าเล่นไม่ได้)
+		def := float64(memberManagementCore.DefaultWinLimitPerDay)
+		r.WinLimitPerDay = &def
+	}
+	return checkWinLimit("win_limit_per_day", *r.WinLimitPerDay)
 }

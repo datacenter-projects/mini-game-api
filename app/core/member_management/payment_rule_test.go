@@ -105,12 +105,17 @@ func TestWinLimitWithinMax(t *testing.T) { // MGMT-65
 		in   float64
 		want bool
 	}{
-		{0, true},
+		{0, true}, // เล่นไม่ได้
+		{1, true},
 		{5000.5, true},
-		{1_000_000, true},
-		{1_000_000.0001, false},
-		{2_000_000, false},
+		{1_000_000.5, true},
+		{10_000_000, true},
+		{10_000_000.0001, false},
+		{20_000_000, false},
 		{-1, false},
+	}
+	if DefaultWinLimitPerDay != MaxWinLimitPerDay || !WinLimitWithinMax(DefaultWinLimitPerDay) {
+		t.Errorf("DefaultWinLimitPerDay = %v ต้องเท่าเพดาน %v", DefaultWinLimitPerDay, MaxWinLimitPerDay)
 	}
 	for _, tt := range tests {
 		if got := WinLimitWithinMax(tt.in); got != tt.want {
