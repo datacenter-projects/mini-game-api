@@ -82,7 +82,7 @@ func TestCSMEditsShareMaster(t *testing.T) { // MGMT-19 · lead B2: CSM แก�
 	// บัญชีอื่นยังต้องส่งครบ 5 ค่า
 	r := call(t, app, "POST", agentDetailUpdatePath, map[string]any{"id": k.share.ID, "pt": commissionOnly(0.1)}, k.comTok)
 	expect(t, r, 200, 422)
-	expectMsgHas(t, r.Msg, "PT ที่ให้ (Minigame)")
+	expectMsgHas(t, r.Msg, "PT ที่ปล่อยให้ชั้นล่าง")
 	// Superadmin แก้ CSM ต้องครบ 5 ค่าเหมือนเดิม (CSM ไม่ใช่ Share Master)
 	expect(t, call(t, app, "POST", agentDetailUpdatePath, map[string]any{"id": k.csm.ID, "pt": commissionOnly(0.1)}, k.saTok), 200, 422)
 }

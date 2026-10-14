@@ -130,7 +130,7 @@ func Percent(field string, d *float64) (float64, error) {
 		return 0, Invalid(field, "ต้องเป็นตัวเลข ทศนิยมไม่เกิน 4 ตำแหน่ง", "must be a number with at most 4 decimals")
 	}
 	if v < 0 || v > agentManagementCore.FullPT {
-		return 0, Invalid(field, "ต้องอยู่ระหว่าง 0 ถึง 100", "must be between 0 and 100")
+		return 0, Invalid(field, "ต้องอยู่ระหว่าง 0 – 100%", "must be between 0 and 100%")
 	}
 	return v, nil
 }
@@ -166,7 +166,7 @@ func (r *CreateAgentRequest) Validate() error {
 	}
 	for i, c := range r.Currencies {
 		if !agentManagementCore.IsSupportedCurrency(c) {
-			return Invalid(fmt.Sprintf("currencies[%d]", i), "สกุลเงินไม่ถูกต้อง", "is not a supported currency")
+			return Invalid(fmt.Sprintf("currencies[%d]", i), "ไม่ถูกต้อง", "is not a supported currency")
 		}
 	}
 	var err error

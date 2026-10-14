@@ -82,3 +82,22 @@ func TestFloatJSON(t *testing.T) { // API ส่งค่าตามที่�
 		}
 	}
 }
+
+func TestFormatNumGrouped(t *testing.T) {
+	tests := []struct {
+		in   float64
+		want string
+	}{
+		{1000000, "1,000,000"},
+		{1234.5, "1,234.5"},
+		{999, "999"},
+		{100000, "100,000"},
+		{0, "0"},
+		{-12345.6789, "-12,345.6789"},
+	}
+	for _, tt := range tests {
+		if got := FormatNumGrouped(tt.in); got != tt.want {
+			t.Errorf("FormatNumGrouped(%v) = %s, want %s", tt.in, got, tt.want)
+		}
+	}
+}

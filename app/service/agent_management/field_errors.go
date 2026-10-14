@@ -13,7 +13,8 @@ import (
 
 // error ที่บอกชื่อ field และค่าที่ตั้งได้ (แก้ 2026-10-09) — code เดิม เปลี่ยนแค่ msg
 
-func pct(v float64) string { return utils.FormatNum(v) }
+// pct — ค่า % สำหรับข้อความ error เช่น 90 → "90%"
+func pct(v float64) string { return utils.FormatNum(v) + "%" }
 
 func joinTypes(ts []agentManagementCore.UserType) string {
 	s := make([]string, len(ts))
@@ -90,22 +91,28 @@ func ChildPTError(group string, is agentManagementCore.PTIssue) error {
 		return nil
 	case agentManagementCore.PTInvalidStep:
 		if is.Field == "commission_percent" {
-			return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 1 ทีละ 0.1", en+" must be 0 – 1 in steps of 0.1")
+			return commissionStepError(th, en)
 		}
-		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 100 ทีละ 0.5", en+" must be 0 – 100 in steps of 0.5")
+		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 100% ทีละ 0.5%", en+" must be 0 – 100% in steps of 0.5%")
 	case agentManagementCore.PTExceedsReceived:
-		return apperr.ErrPTExceedsReceived.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่คุณได้รับ)",
-			en+" must not exceed "+pct(is.Limit)+" (what you received)")
+		return apperr.ErrPTExceedsReceived.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit), en+" must not exceed "+pct(is.Limit))
 	case agentManagementCore.PTSeamlessMasterLock: // Share Master ใช้ค่าตาม CSM (MGMT-19 · lead E1-2)
 		return apperr.ErrSeamlessMasterPTLocked.WithMessage(th+": Share Master ใช้ค่า PT ตาม Company Seamless Master (ต้องเป็น "+pct(is.Limit)+")",
 			en+": Share Master uses the PT of its Company Seamless Master (must be "+pct(is.Limit)+")")
 	case agentManagementCore.PTForceRemainExceeded:
-		_, given := utils.SubFieldLabels("pt", "pt_from_parent")
-		return apperr.ErrForceRemainExceeded.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit)+" (ค่าที่ให้ลูก)",
-			en+" must not exceed "+pct(is.Limit)+" ("+given[0]+")")
+		return apperr.ErrForceRemainExceeded.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit), en+" must not exceed "+pct(is.Limit))
 	default:
-		return apperr.ErrCommissionExceeded.WithMessage(th+" ตั้งได้ 0 – 1", en+" must be 0 – 1")
+		return commissionRangeError(th, en)
 	}
+}
+
+// commissionStepError / commissionRangeError — Commission 0 – 1% ทีละ 0.1% (MGMT-18) · ใช้ร่วมกับ PTError ของ Member
+func commissionStepError(th, en string) error {
+	return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 1% ทีละ 0.1%", en+" must be 0 – 1% in steps of 0.1%")
+}
+
+func commissionRangeError(th, en string) error {
+	return apperr.ErrCommissionExceeded.WithMessage(th+" ตั้งได้ 0 – 1%", en+" must be 0 – 1%")
 }
 
 // MemberPTError — ค่าที่ผู้สร้างถือสู้กับ Member (member_management MGMT-21) · ไม่เกินค่าที่ผู้สร้างได้รับ ทีละ 0.5
@@ -115,10 +122,9 @@ func MemberPTError(group string, v agentManagementCore.PTViolation, received flo
 	case agentManagementCore.PTOK:
 		return nil
 	case agentManagementCore.PTInvalidStep:
-		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – "+pct(received)+" ทีละ 0.5", en+" must be 0 – "+pct(received)+" in steps of 0.5")
+		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – "+pct(received)+" ทีละ 0.5%", en+" must be 0 – "+pct(received)+" in steps of 0.5%")
 	default:
-		return apperr.ErrPTExceedsReceived.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(received)+" (ค่าที่คุณได้รับ)",
-			en+" must not exceed "+pct(received)+" (what you received)")
+		return apperr.ErrPTExceedsReceived.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(received), en+" must not exceed "+pct(received))
 	}
 }
 
@@ -139,9 +145,8 @@ func CheckCreatorBalance(tx *gorm.DB, c Creator, amounts map[string]float64) err
 	}
 	for _, cur := range currencies {
 		if have[cur] < amounts[cur] {
-			b := utils.FormatNum(have[cur])
 			th, en := utils.FieldLabel("balance." + cur)
-			return apperr.ErrInsufficientInitial.WithMessage(th+" ยอดของคุณไม่พอ (มี "+b+")", en+" exceeds your balance ("+b+")")
+			return apperr.ErrInsufficientInitial.WithMessage(th+" เกินยอดเงินของคุณ", en+" exceeds your balance")
 		}
 	}
 	return nil

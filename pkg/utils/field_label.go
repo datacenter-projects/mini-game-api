@@ -6,7 +6,7 @@ import (
 )
 
 // FieldLabel — path ของ field ใน body (เช่น "pt.minigame.pt_from_parent") → ชื่อที่ผู้ใช้อ่านได้ สำหรับขึ้นต้น msg ของ error
-// เช่น "PT ที่ให้ (Minigame)" · ไม่อยู่ในตาราง = คืน path เดิม · path คู่ "a / b" แปลงทีละตัว
+// เช่น "PT ที่ปล่อยให้ชั้นล่าง" · ไม่อยู่ในตาราง = คืน path เดิม · path คู่ "a / b" แปลงทีละตัว
 // ชื่อกลุ่ม / เกม แปลงจากรหัส (coin_toss → Coin Toss) · สกุลเงิน / เมนู ใช้รหัสตามเดิม
 func FieldLabel(path string) (th, en string) {
 	parts := strings.Split(path, " / ")
@@ -34,13 +34,13 @@ type label struct{ th, en string }
 
 // sectionLabels — section ใน body → field → ชื่อที่แสดง (แก้ชื่อที่นี่ที่เดียว ทั้ง msg และ test ของ FieldLabel)
 var sectionLabels = map[string]map[string]label{
-	"pt": {
-		"pt_from_parent":     {"PT ที่ให้", "PT given"},
-		"force":              {"Force", "Force"},
-		"remain_quota":       {"Remain", "Remain"},
-		"commission_percent": {"Commission", "Commission"},
+	"pt": { // ตามคำบนฟอร์มหลังบ้าน (ปล่อย · บังคับถือสู้ · เอาส่วนที่เหลือ · คอมมิชชั่น) และคำของ QA 2026-10-14
+		"pt_from_parent":     {"PT ที่ปล่อยให้ชั้นล่าง", "PT given to the downline"},
+		"force":              {"บังคับถือสู้", "Forced hold"},
+		"remain_quota":       {"เอาส่วนที่เหลือ", "Take the remainder"},
+		"commission_percent": {"คอมมิชชั่น", "Commission"},
 		"status":             {"รับ PT", "Receives PT"},
-		"pt":                 {"PT ที่ถือสู้", "PT held"},
+		"pt":                 {"PT ที่ถือสู้กับสมาชิก", "PT held against members"},
 	},
 	"info": {
 		"name":               {"ชื่อ", "Name"},
@@ -98,10 +98,9 @@ func fieldLabel(path string) (string, string) {
 	case n == 2 && seg[0] == "pt":
 		g := titleCode(seg[1])
 		return "PT (" + g + ")", "PT (" + g + ")"
-	case n == 3 && seg[0] == "pt":
+	case n == 3 && seg[0] == "pt": // ไม่ต่อชื่อกลุ่ม — ตอนนี้มีกลุ่มเดียว (minigame · QA 2026-10-14)
 		if l, ok := sectionLabels["pt"][seg[2]]; ok {
-			g := titleCode(seg[1])
-			return l.th + " (" + g + ")", l.en + " (" + g + ")"
+			return l.th, l.en
 		}
 	case n == 2 && seg[0] == "status_game":
 		g := titleCode(seg[1])

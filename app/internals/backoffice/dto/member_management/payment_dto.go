@@ -71,7 +71,7 @@ func parsePaymentAccount(prefix string, in *PaymentAccount) (models.MemberPaymen
 // checkWinLimit — 0 ถึง 1,000,000 ทศนิยมไม่เกิน 4 ตำแหน่ง (MGMT-65 · กฎข้อ 9) · ยอดเงินรับเป็น float64 (ทีมตกลง 2026-10-12)
 func checkWinLimit(field string, v float64) error {
 	if v >= 0 && !memberManagementCore.WinLimitWithinMax(v) {
-		maxText := utils.FormatNum(memberManagementCore.MaxWinLimitPerDay)
+		maxText := utils.FormatNumGrouped(memberManagementCore.MaxWinLimitPerDay)
 		return agentManagementDto.Invalid(field, "ต้องไม่เกิน "+maxText+" (0 = ไม่จำกัด)", "must not exceed "+maxText+" (0 = no limit)")
 	}
 	if v < 0 || !utils.IsDecimal4(v) {

@@ -182,7 +182,7 @@ func TestMemberDetailUpdate(t *testing.T) { // MGMT-32M · MGMT-32N · lead M3-1
 	r = call(t, app, "POST", memberDetailUpdatePath, map[string]any{"id": m.ID, "info": map[string]any{"name": "ชื่อใหม่"},
 		"pt": map[string]any{"minigame": map[string]any{"pt": 60.5, "commission_percent": 0.3}}}, c.agentTok)
 	expect(t, r, 200, 402305)
-	expectMsgHas(t, r.Msg, "PT ที่ถือสู้ (Minigame)", "60")
+	expectMsgHas(t, r.Msg, "PT ที่ถือสู้กับสมาชิก", "60%")
 	if got := getMember(t, m.ID); got.Name != "ใจดี" {
 		t.Fatalf("pt ผิดต้องไม่บันทึก info ได้ชื่อ %q", got.Name)
 	}
