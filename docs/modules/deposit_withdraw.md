@@ -5,6 +5,8 @@
   upsert แถวยอดก่อน lock (DQ3) · module เดิมพันหักเงินตอนแทง (DQ4) · reason ของ Superadmin แยก (DQ5) · เพดาน 1,000,000,000 (DQ6) ·
   `parent_unlimited` แทน `null` (DQ7) · `credit` → `amount` (DQ8) · error module `04` (DQ9) · `request_id` เช็คข้ามเส้นทั้ง 2 ทาง (DQ10) ·
   DW1 มี `keyword` (DQ11) · `note` + DW3 `logs/list` ทำรอบนี้ (DQ12) · path / สิทธิ์ตาม spec (DQ13)
+- **lead ยืนยันเพิ่ม 2026-10-14** (ข้อที่ maofoy กำหนดตอนแก้ spec): DW3 ≤ 31 วัน + เห็นเฉพาะรายการที่ตัวเองเป็นแม่ (DW-46 / 47) · DW1 `keyword` เฉพาะลูกตรง (DW-41) ·
+  `create_requests` เป็นทะเบียน `request_id` กลาง (DW-26) · Redis ล่ม `504801` · tx timeout 8 วินาที (DW-23) · ลำดับ lock ใน ARCHITECTURE.md ใช้ทุก module รวม bet / settle (DW-51)
 - ผู้ดูแล: maofoy · PR review: boiledegg
 - ชื่อ module ในโค้ด: `deposit_withdraw` (`controllers/deposit_withdraw` · `dto/deposit_withdraw` · `service/deposit_withdraw` ·
   `repository/postgres/deposit_withdraw` · `repository/redis/deposit_withdraw`)
@@ -100,7 +102,7 @@ Superadmin เป็นแหล่งเงินเดียวของระ
 
 | ID | Rule |
 |---|---|
-| DW-46 | เห็นเฉพาะรายการที่ `parent_id = แม่` (รายการที่บัญชีนี้หรือ sub ของบัญชีนี้ทำ — กฎข้อ 22) · ลูกไม่เห็นรายการที่แม่ทำกับตัวเองในเส้นนี้ |
+| DW-46 | เห็นเฉพาะรายการที่ `parent_id = แม่` (รายการที่บัญชีนี้หรือ sub ของบัญชีนี้ทำ — กฎข้อ 22) · ลูกไม่เห็นรายการที่แม่ทำกับตัวเองในเส้นนี้ (ลูกดูได้ที่ Report / statement — module อื่น ทำทีหลัง · lead 2026-10-14) |
 | DW-47 | `date_from` / `date_to` บังคับ รูปแบบ `YYYY-MM-DD` เวลาไทย (+07:00) รวมทั้ง 2 วัน · `date_from` ≤ `date_to` · ช่วงไม่เกิน 31 วัน (`422`) |
 | DW-48 | ตัวกรองไม่บังคับ: `transaction_type` (`DEPOSIT` / `WITHDRAW` · `""` = ทั้งหมด) · `role` + `user_id` (ลูกคนเดียว · ส่งคู่กัน · `""` / `0` = ทุกคน) · เรียง `created_at` ใหม่→เก่า แล้ว `id` ใหม่→เก่า · `page` / `limit` ใน body |
 | DW-49 | index `idx_deposit_withdraw_logs_parent (parent_id, created_at DESC)` รองรับ query หลัก · กรองลูกใช้ index เดียวกัน + เงื่อนไข `target_*` |
@@ -211,7 +213,8 @@ Response `data` (share01 ฝาก 100 ให้ mem01):
 
 Error codes: `422`, `404301`, `404302`, `404303`, `404304`, `404306`, `404307`, `404401`, `504801` + error ของ passcode (`401204`, `401205`, `401304`)
 
-**ลำดับการเช็ค:** รูปแบบ (`422`) → passcode (middleware) → ADMIN (`404305`) → Redis lock (`404307` / `504801`) → `request_id` (ผลเดิม / `422`) →
+**ลำดับการเช็ค** (ตามลำดับ middleware ใน route — แก้ตอน implement 2026-10-14: ADMIN ไม่มีเมนูใดเลย ถ้าเช็คสิทธิ์ก่อนจะได้ `402303` แทน `404305`):
+ADMIN (`404305` — `dwMw.RejectAdmin`) → สิทธิ์ `payment` (`402303`) → passcode (`422` / `401204` …) → รูปแบบ body (`400` / `422`) → Redis lock (`404307` / `504801`) → `request_id` (ผลเดิม / `422`) →
 หาลูก (`404401`) → Seamless (`404302`) → สถานะลูก เฉพาะฝาก (`404301`) → สกุล (`404303`) → lock + ยอด (`404304` / `404306`)
 
 ### DW3 · POST /api/v1/bo/pr/deposit-withdraw/logs/list
