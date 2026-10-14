@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	targetAgent  = "AGENT"
+	TargetAgent  = "AGENT"
 	TargetMember = "MEMBER"
 )
 
@@ -40,7 +40,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 	}
 
 	err = database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if id, replay, err := FindReplay(tx, req.RequestID, actor, targetAgent); err != nil || replay {
+		if id, replay, err := FindReplay(tx, req.RequestID, actor, TargetAgent); err != nil || replay {
 			if err != nil {
 				return err
 			}
@@ -155,11 +155,11 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			}
 		}
 		if err := agentManagementPostgres.CreateCreateRequestRepository(tx, &models.CreateRequest{RequestID: req.RequestID, CreatorType: actor.AccountType,
-			CreatorID: actor.AccountID(), TargetType: targetAgent, TargetID: a.ID, CreatedAt: now}); err != nil {
+			CreatorID: actor.AccountID(), TargetType: TargetAgent, TargetID: a.ID, CreatedAt: now}); err != nil {
 			return err
 		}
 
-		created, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeCreate, nil,
+		created, err := ChangeLog(actor, meta, req.RequestID, TargetAgent, a.ID, a.Username, models.ChangeCreate, nil,
 			map[string]any{"user_type": newAcc.UserType, "username": a.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone,
 				"parent_id": c.Agent.ID, "currencies": currencies, "pt": pts, "status_game": statusGame}, now)
 		if err != nil {
@@ -167,7 +167,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		}
 		rows := []models.AccountChangeLog{created}
 		if len(req.BalanceAmounts) > 0 {
-			row, err := ChangeLog(actor, meta, req.RequestID, targetAgent, a.ID, a.Username, models.ChangeInitialBalance, nil,
+			row, err := ChangeLog(actor, meta, req.RequestID, TargetAgent, a.ID, a.Username, models.ChangeInitialBalance, nil,
 				map[string]any{"amounts": req.BalanceAmounts}, now)
 			if err != nil {
 				return err

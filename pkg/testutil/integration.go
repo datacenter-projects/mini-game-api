@@ -41,7 +41,8 @@ var (
 )
 
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
-var tables = []string{"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests",
+var tables = []string{"game_rate_prizes", "game_rate_steps", "game_rate_versions",
+	"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests",
 	"user_member_game_settings", "user_members", "agent_balances", "agent_game_settings", "agent_currencies",
 	"subaccounts", "user_agents"}
 
