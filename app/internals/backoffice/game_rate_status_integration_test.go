@@ -192,3 +192,42 @@ func logGame(v *string, game string, want bool) bool {
 	got, ok := d.StatusGame[game]
 	return ok && got == want && len(d.StatusGame) == 1
 }
+
+func TestRateStatusMissingRow(t *testing.T) { // lead G-S1: Superadmin ไม่มีแถวของเกม → เพิ่มแถวแล้วปิด / เปิดตามสั่ง (ไม่ล้มเงียบ)
+	app := setup2(t)
+	c := buildChain(t, app)
+	sa2 := seedSuperadmin2(t)
+	database.DBConn.Where("agent_id = ? AND game_code = ?", sa2.ID, "coin_toss").Delete(&models.AgentGameSetting{})
+
+	// เปิดอยู่แล้วทุกบัญชี (ไม่มีแถว = เปิด) → ส่งเปิด: เพิ่มแถว · changed false · ไม่มี log
+	if setGameStatus(t, app, c.saTok, "coin_toss", true) {
+		t.Fatal("เปิดซ้ำต้อง changed false")
+	}
+	var row models.AgentGameSetting
+	if err := database.DBConn.Where("agent_id = ? AND game_code = ?", sa2.ID, "coin_toss").Take(&row).Error; err != nil {
+		t.Fatalf("ต้องเพิ่มแถวที่ขาด: %v", err)
+	}
+	if !row.StatusGame || row.PTFromParent != 100 || !row.Status || row.Category != "minigame" || row.CreatedBy != "superadmin2" {
+		t.Fatalf("แถวที่เพิ่ม %+v", row)
+	}
+	if n := countRows(t, &models.AccountChangeLog{}, "action = ?", models.ChangeUpdateGames); n != 0 {
+		t.Fatalf("log %d แถว", n)
+	}
+
+	// ลบอีกครั้งแล้วปิด: เพิ่มแถวเป็น false · log ของบัญชีนั้น (เดิม true)
+	database.DBConn.Where("agent_id = ? AND game_code = ?", sa2.ID, "coin_toss").Delete(&models.AgentGameSetting{})
+	if !setGameStatus(t, app, c.saTok, "coin_toss", false) {
+		t.Fatal("ปิดต้อง changed")
+	}
+	if superadminStatus(t, sa2.ID, "coin_toss") {
+		t.Fatal("แถวที่เพิ่มต้องปิด")
+	}
+	var logs []models.AccountChangeLog
+	database.DBConn.Where("action = ? AND target_id = ?", models.ChangeUpdateGames, sa2.ID).Find(&logs)
+	if len(logs) != 1 || !logGame(logs[0].OldValue, "coin_toss", true) || !logGame(logs[0].NewValue, "coin_toss", false) {
+		t.Fatalf("log %+v", logs)
+	}
+	if st := listStatus(t, app, c.saTok); st["coin_toss"] {
+		t.Fatalf("list %v", st)
+	}
+}

@@ -17,7 +17,7 @@ spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** 
 - บันทึก / ย้อนต้องส่ง `passcode` และ `base_version` (เวอร์ชันที่หน้าจอโหลดมา) · มีคนบันทึกตัดหน้า = `406301` (msg บอกเวอร์ชันล่าสุดและคนแก้ → ให้โหลดใหม่)
 - ตัวเลขต้องเป็น JSON number (ส่งเป็นข้อความ เช่น `"50"` = code `400`)
 - `max_win_percent` = ค่าสูงสุดที่ตั้งได้จริง (ปัดลง 4 ตำแหน่ง · ไม่เกิน 50) กรอกค่านั้นแล้วบันทึกผ่านแน่นอน
-- RE3 `issues[].message` เป็นภาษาไทย · `changes[].from` / `to` เป็น `null` ได้ (รางวัลที่เพิ่ม / ลบ) — นอกนั้นไม่มี `null`
+- **ข้อความ error (`msg` / RE3 `issues[].message`) ใช้ชื่อที่คนอ่านเข้าใจ** เช่น `steps[0].win_percent` → "ขั้นที่ 1 · โอกาสชนะ" · `prizes[1].share_percent` → "รางวัลที่ 2 · สัดส่วนรางวัล" · `win_percent` → "อัตราชนะ" (เปลี่ยน 14 ต.ค. — lead Q9) · **ชี้ช่องที่ผิดให้ใช้ `issues[].field`** (คง path เดิม) · `message` เป็นภาษาไทย · `changes[].from` / `to` เป็น `null` ได้ (รางวัลที่เพิ่ม / ลบ) — นอกนั้นไม่มี `null`
 
 | # | Path (`POST` ทุกเส้น) | ใช้เมื่อ | สิทธิ์ |
 |---|---|---|---|
@@ -137,7 +137,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/get" -H "Authorization: Bearer
   }
 }
 ```
-- `per_ticket_percent` = โอกาสได้รางวัลแถวนั้นต่อบัตร 1 ใบ · `prizes[].payout_percent` = ผลตอบแทนที่แถวนั้นจ่ายคืนผู้เล่น (= `per_ticket_percent` × `multiplier` · ใช้กับคอลัมน์ "ผลตอบแทนผู้เล่น" · ทุกแถวรวมเท่ากับ `payout_percent` ของใบ — เพิ่ม 14 ต.ค.) · `avg_multiplier` = ตัวคูณเฉลี่ยของบัตรที่ชนะ
+- `per_ticket_percent` = โอกาสได้รางวัลแถวนั้นต่อบัตร 1 ใบ · `prizes[].payout_percent` = ผลตอบแทนที่แถวนั้นจ่ายคืนผู้เล่น (= `per_ticket_percent` × `multiplier` · ใช้กับคอลัมน์ "ผลตอบแทนผู้เล่น" · ทุกแถวรวมเท่ากับ `payout_percent` ของใบ — **อาจต่างได้ไม่เกิน 0.0001 จากการปัดทีละแถว** ใช้แสดงผลอย่างเดียว · เพิ่ม 14 ต.ค.) · `avg_multiplier` = ตัวคูณเฉลี่ยของบัตรที่ชนะ
 
 **Response — ยังไม่เคยตั้ง**
 ```json
@@ -163,7 +163,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/check" -H "Authorization: Bear
     "game_code": "coin_toss",
     "valid": false,
     "issues": [
-      { "field": "steps[0].win_percent", "code": 406101, "message": "steps[0].win_percent ตั้งได้ไม่เกิน 49.7487 (ร้านต้องได้อย่างน้อย 1%)" }
+      { "field": "steps[0].win_percent", "code": 406101, "message": "ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487% (ร้านต้องได้อย่างน้อย 1%)" }
     ],
     "steps": [
       { "step": 1, "multiplier": 1.99, "win_percent": 50, "reach_percent": 50, "payout_percent": 99.5, "house_edge_percent": 0.5, "max_win_percent": 49.7487 },
@@ -252,9 +252,9 @@ Error: `422`, `406401`
 **Response — error (ตัวอย่างจริง)**
 ```json
 { "code": 406301, "msg": "มีคนแก้ไปแล้ว (v2 โดย superadmin) กรุณาโหลดใหม่" }
-{ "code": 422, "msg": "steps[0].win_percent ต้องมากกว่า 0 และไม่เกิน 50" }
-{ "code": 406101, "msg": "steps[0].win_percent ตั้งได้ไม่เกิน 49.7487 (ร้านต้องได้อย่างน้อย 1%)" }
-{ "code": 406102, "msg": "prizes share_percent รวมต้องเท่ากับ 100 (ตอนนี้ 99.5)" }
+{ "code": 422, "msg": "ขั้นที่ 1 · โอกาสชนะ ต้องมากกว่า 0 และไม่เกิน 50" }
+{ "code": 406101, "msg": "ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487% (ร้านต้องได้อย่างน้อย 1%)" }
+{ "code": 406102, "msg": "สัดส่วนรางวัลรวมต้องเท่ากับ 100% (ตอนนี้ 99.5%)" }
 ```
 
 Error: `400` (ตัวเลขเป็นข้อความ), `422`, `401204` (passcode ผิด · msg บอกครั้งที่เหลือ), `401205`, `406101`, `406102`, `406301`, `406401`
@@ -404,6 +404,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/status/update" -H "Authorization: Bea
 - `changed: false` = ไม่มีอะไรเปลี่ยน (ไม่บันทึกประวัติ)
 - หลังสำเร็จให้โหลด RE1 ใหม่ (`status_game` ของเกมนั้นเปลี่ยน) · `agents/detail/get` ของทุกบัญชีจะเห็น `status_game_effective` ของเกมนั้นเป็น `false`
 - ประวัติการเปิด / ปิดอยู่ในประวัติการแก้ไขของบัญชี Superadmin (`UPDATE_GAMES`)
+- ตั้งให้ Superadmin ทุกบัญชี · บัญชีที่ยังไม่มีค่าของเกมนั้น ระบบสร้างให้แล้วปิด / เปิดตามที่ส่ง (ไม่ตอบ `changed: false` ทั้งที่เกมยังไม่ปิด)
 
 Error: `422`, `401204`, `401205`, `402303`, `406401`
 

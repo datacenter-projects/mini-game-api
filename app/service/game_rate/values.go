@@ -131,19 +131,20 @@ func issueField(is gameRateCore.RuleIssue) string {
 
 // issueError — RuleIssue → error ที่ client เห็น (406101 / 406102) พร้อม field และค่าที่ตั้งได้
 func issueError(is gameRateCore.RuleIssue, r Rates) *apperr.Error {
-	field := issueField(is)
 	if is.Code == gameRateCore.RuleShareSum {
 		var sum float64
 		for _, p := range r.Scratch.Prizes {
 			sum = utils.Round4(sum + p.SharePercent)
 		}
 		s := utils.FormatNum(sum)
-		return apperr.ErrRateShareSum.WithMessage("prizes share_percent รวมต้องเท่ากับ 100 (ตอนนี้ "+s+")",
-			"prizes share_percent must add up to 100 (now "+s+")")
+		return apperr.ErrRateShareSum.WithMessage("สัดส่วนรางวัลรวมต้องเท่ากับ 100% (ตอนนี้ "+s+"%)",
+			"prize shares must add up to 100% (now "+s+"%)")
 	}
+	// msg ใช้ชื่อที่คนอ่านเข้าใจ (lead Q9) · field ใน RE3 issues คง path (issueField)
+	th, en := utils.FieldLabel(issueField(is))
 	m := utils.FormatNum(is.MaxWinPercent)
-	return apperr.ErrRateHouseEdge.WithMessage(field+" ตั้งได้ไม่เกิน "+m+" (ร้านต้องได้อย่างน้อย 1%)",
-		field+" must be at most "+m+" (house edge must be at least 1%)")
+	return apperr.ErrRateHouseEdge.WithMessage(th+" ตั้งได้ไม่เกิน "+m+"% (ร้านต้องได้อย่างน้อย 1%)",
+		en+" must be at most "+m+"% (house edge must be at least 1%)")
 }
 
 // issueViews — RuleIssue ทั้งหมด → รายการของ RE3 (lead Q2)

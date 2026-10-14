@@ -11,8 +11,10 @@ import (
 	"app/pkg/utils"
 )
 
+// invalid — 422 ขึ้นต้นด้วยชื่อที่คนอ่านเข้าใจ (utils.FieldLabel — lead Q9: steps[0].win_percent → "ขั้นที่ 1 · โอกาสชนะ")
 func invalid(field, th, en string) error {
-	return apperr.ErrValidation.WithMessage(field+" "+th, field+" "+en)
+	labelTH, labelEN := utils.FieldLabel(field)
+	return apperr.ErrValidation.WithMessage(labelTH+" "+th, labelEN+" "+en)
 }
 
 // checkGame — game_code ต้องส่ง · ไม่มีในระบบ = 406401

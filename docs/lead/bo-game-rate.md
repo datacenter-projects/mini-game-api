@@ -49,3 +49,14 @@ branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3
 
 - RH1–RH7 ไป module เดิมพัน / engine: เก็บ `rate_version_id` · ยอดแทง · หน้าเกมเห็นแค่ตัวคูณ · Scratch แบ่งรางวัล / CASH OUT อัตโนมัติ · RPS ไม่มีผลเสมอ · Streak (RH6) · เช็คสวิตช์ปิดเกมทั้งสายก่อนรับเดิมพันใหม่ (RH7)
 - RE3 `issues[].message` เป็นภาษาไทยอย่างเดียว
+
+## 6. แก้ตามรีวิวรอบ 4 (ผลตรวจโค้ด `4815765` · 2026-10-14)
+
+| # | ผล |
+|---|---|
+| M1 (Q9) | `msg` ของ `422` / `406101` / `406102` และ RE3 `issues[].message` ใช้ `utils.FieldLabel` · เพิ่ม label ของ game_rate ในตารางเดียวกัน (`rowLabels` `steps` → "ขั้นที่ i+1" · `prizes` → "รางวัลที่ i+1" + field ในแถว · `game_code` / `base_version` / `win_percent` / `steps` / `prizes` / `status_game`) · `issues[].field` คง path · ตัวอย่าง: "ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487% (ร้านต้องได้อย่างน้อย 1%)" · `406102`: "สัดส่วนรางวัลรวมต้องเท่ากับ 100% (ตอนนี้ 99.5%)" · แก้ตัวอย่างใน spec + frontend doc · test: `TestFieldLabel` + format table เทียบกับ label + RE3 field / message |
+| G-S1 | RE8 lock `user_agents` ของทุก Superadmin (`FOR NO KEY UPDATE` เรียง id) แล้วแถวของเกม (`FOR UPDATE`) · บัญชีที่ไม่มีแถว = เพิ่มแถวใน tx เดียวกันตามค่าที่สั่ง (`pt_from_parent` 100 · รับ PT · ผู้สร้าง = ตัวเอง) · ไม่มีแถว = ถือว่าเปิดอยู่ (เท่ากับที่ `IsGameOpen` ไม่นับ) → ปิด = log `UPDATE_GAMES` (เดิม `true`) · เปิด = เพิ่มแถว `changed: false` ไม่มี log · test `TestRateStatusMissingRow` |
+| G-S2 | เอกสาร RATE-09 / RATE-34 + frontend: ผลรวม `prizes[].payout_percent` ต่างจากของใบได้ไม่เกิน 0.0001 (ปัดทีละแถว · ใช้แสดงผล) |
+| nit | ไม่ได้ทำ (verify report ไม่อยู่ใน repo) |
+
+merge dev ล่าสุด (`532ae1e`) แล้ว · unit + integration ผ่านทุก package · lint 0 issues

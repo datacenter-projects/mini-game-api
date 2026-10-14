@@ -179,8 +179,9 @@ func TestRateFormat(t *testing.T) { // RATE-01 / 03 / 04 / 10 / 11 / 20 / 21 / 3
 		if r.Code != tt.code {
 			t.Fatalf("%s: code %d (%s) want %d", tt.name, r.Code, r.Msg, tt.code)
 		}
-		if tt.field != "" && !strings.HasPrefix(r.Msg, tt.field+" ") {
-			t.Fatalf("%s: msg %q ต้องขึ้นต้นด้วย field %s", tt.name, r.Msg, tt.field)
+		// msg ขึ้นต้นด้วยชื่อที่คนอ่านเข้าใจของ field (lead Q9 · เช่น steps[0].win_percent → "ขั้นที่ 1 · โอกาสชนะ")
+		if label, _ := utils.FieldLabel(tt.field); tt.field != "" && (label == tt.field || !strings.HasPrefix(r.Msg, label+" ")) {
+			t.Fatalf("%s: msg %q ต้องขึ้นต้นด้วยชื่อของ %s (%s)", tt.name, r.Msg, tt.field, label)
 		}
 	}
 	if n := countRows(t, &models.GameRateVersion{}, "1 = 1"); n != 0 {
@@ -197,7 +198,7 @@ func TestRateRules(t *testing.T) { // RATE-07 · RATE-32 · RATE-33 · RN2 (deta
 	// house edge ต่ำกว่า 1%: msg บอก field + ค่าสูงสุด (ปัดลง) · ไม่สร้างเวอร์ชัน
 	r := call(t, app, "POST", rateUpdatePath, coinBody(0, rateSteps(func(s [][2]float64) { s[0] = [2]float64{1.99, 50} })), c.saTok)
 	expect(t, r, 200, 406101)
-	expectMsgHas(t, r.Msg, "steps[0].win_percent", "49.7487")
+	expectMsgHas(t, r.Msg, "ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487%")
 	if rateVersionCount(t, "coin_toss") != 0 {
 		t.Fatal("ผิดกฎต้องไม่สร้างเวอร์ชัน")
 	}
@@ -233,6 +234,21 @@ func TestRateRules(t *testing.T) { // RATE-07 · RATE-32 · RATE-33 · RN2 (deta
 		t.Fatal("detail/check ต้องไม่บันทึก")
 	}
 	expect(t, call(t, app, "POST", rateCheckPath, map[string]any{"game_code": "coin_toss", "steps": rateSteps(nil)[:9]}, c.saTok), 200, 422)
+
+	// lead Q9: issues[].field คง path (หน้าบ้านชี้ช่อง) · message ใช้ชื่อที่คนอ่านเข้าใจ
+	r = call(t, app, "POST", rateCheckPath, map[string]any{"game_code": "coin_toss", "steps": rateSteps(func(s [][2]float64) { s[0] = [2]float64{1.99, 50} })}, c.saTok)
+	expect(t, r, 200, 200)
+	var q9 struct {
+		Issues []struct {
+			Field   string `json:"field"`
+			Message string `json:"message"`
+		} `json:"issues"`
+	}
+	_ = json.Unmarshal(r.Data, &q9)
+	if len(q9.Issues) != 1 || q9.Issues[0].Field != "steps[0].win_percent" ||
+		q9.Issues[0].Message != "ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487% (ร้านต้องได้อย่างน้อย 1%)" {
+		t.Fatalf("issues %s", r.Data)
+	}
 }
 
 func TestRateVersions(t *testing.T) { // RATE-05 / 05A / 05B / 05C · RE1 / RE2 / RE5 / RE6
@@ -379,7 +395,7 @@ func TestRateRollbackChecksCurrentRules(t *testing.T) { // RATE-05A: เวอ�
 	}
 	r = call(t, app, "POST", rateRollbackPath, map[string]any{"game_code": "coin_toss", "version": 3, "base_version": 3, "passcode": passcode}, c.saTok)
 	expect(t, r, 200, 422)
-	expectMsgHas(t, r.Msg, "steps[5].win_percent", "50")
+	expectMsgHas(t, r.Msg, "ขั้นที่ 6 · โอกาสชนะ", "50")
 	if rateVersionCount(t, "coin_toss") != 3 {
 		t.Fatal("ย้อนผิดรูปแบบต้องไม่สร้างเวอร์ชัน")
 	}

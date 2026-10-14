@@ -55,7 +55,7 @@
 | RATE-06 | ค่าใหม่มีผลกับ**เดิมพันใหม่เท่านั้น** · เดิมพันที่เริ่มแล้ว (รวม Streak ที่ค้างอยู่) ใช้เวอร์ชันเดิมจนจบ · module เดิมพันเก็บ `rate_version_id` คู่กับเดิมพันทุกครั้ง (หัวข้อ 9 RH1) |
 | RATE-07 | **ร้านต้องได้ house edge ≥ 1% ทุกจุดที่ Member หยุดได้** (lead RR2 · แทน "> 0" เดิม) — Coin / RPS ทุกขั้น · Scratch ทั้งใบ · ไม่ผ่านที่จุดไหน บันทึกไม่ได้ทั้งชุด (`406101`) และ msg บอกขั้น / field และ `win_percent` สูงสุดที่ตั้งได้ · ค่าคงที่ขั้นต่ำ / เพดานอยู่ใน `core/game_rate` |
 | RATE-08 | **บันทึก / ย้อนต้องยืนยัน passcode** (`RequirePasscode`) · ทุกเวอร์ชันเก็บ log คนแก้: `created_by` (username ณ เวลานั้น · sub = `owner@name`), `actor_type` / `actor_id`, `ip`, `request_id`, `created_at` · ตารางเวอร์ชันคือ log (ห้ามแก้ / ลบ) ดูได้ที่ `versions/list` |
-| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · `prizes[].payout_percent` · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · **ยกเว้น `max_win_percent` ปัดลง** (ค่าที่แสดงต้องตั้งได้จริง — ปัดขึ้นแล้วกรอกค่านั้น house edge จะต่ำกว่า 1%) · หน้าบ้านปัดแสดงเอง |
+| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · `prizes[].payout_percent` (ปัดทีละแถว — ผลรวมอาจต่างจาก `payout_percent` ของใบได้ไม่เกิน 0.0001 · lead G-S2) · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · **ยกเว้น `max_win_percent` ปัดลง** (ค่าที่แสดงต้องตั้งได้จริง — ปัดขึ้นแล้วกรอกค่านั้น house edge จะต่ำกว่า 1%) · หน้าบ้านปัดแสดงเอง |
 | RATE-09A | **ไม่มีค่าเริ่มต้น**: เกมที่ยังไม่เคยตั้งค่า = `version = 0` · เอนจิ้นต้อง**ไม่รับเดิมพัน**ของเกมนั้นจนกว่าจะบันทึกครั้งแรก (หัวข้อ 5.8 · RH1) · ค่าตัวอย่างสำหรับ tester อยู่ใน `docs/frontend/game_rate.md` |
 
 ### Coin Flip (`coin_toss`)
@@ -88,7 +88,7 @@
 | RATE-31 | `prizes` = ตารางรางวัลของบัตรที่ชนะ · แต่ละแถว `multiplier` (> 0 · ≤ 1,000) + `share_percent` (> 0 · ≤ 100) · **1–10 แถว** · `multiplier` ห้ามซ้ำกัน · ลำดับแถวตามที่ส่ง (`row_no` 1–10) |
 | RATE-32 | `share_percent` ทุกแถวรวมกันต้อง **= 100 พอดี** (ตรวจด้วยเลขแม่นยำ · `406102`) |
 | RATE-33 | `avg_multiplier (A) = Σ(multiplier × share_percent ÷ 100)` · จ่ายคืนคาดหวัง `P = W × A` · `house_edge = 100% − P` ≥ 1% · `max_win_percent = 99% ÷ A` ไม่เกิน 50 |
-| RATE-34 | ต่อแถวรางวัล (ระบบคำนวณให้ใน response): % ต่อใบ `per_ticket_percent = W × share_percent ÷ 100` · ผลตอบแทนของแถว `payout_percent = per_ticket_percent × multiplier` (ทุกแถวรวม = `payout_percent` ของใบ · เพิ่ม 2026-10-14 ตามคอลัมน์ "ผลตอบแทนผู้เล่น" ในดีไซน์) |
+| RATE-34 | ต่อแถวรางวัล (ระบบคำนวณให้ใน response): % ต่อใบ `per_ticket_percent = W × share_percent ÷ 100` · ผลตอบแทนของแถว `payout_percent = per_ticket_percent × multiplier` (ทุกแถวรวม = `payout_percent` ของใบ **± 0.0001** จากการปัดทีละแถว — ใช้แสดงผลอย่างเดียว ไม่ทำ largest-remainder (lead G-S2) · เพิ่ม 2026-10-14 ตามคอลัมน์ "ผลตอบแทนผู้เล่น" ในดีไซน์) |
 | RATE-35 | ตรง 1 หรือ 2 ช่อง เอนจิ้นสุ่มเอง — **ไม่มีค่าให้ตั้ง** · การแบ่งรางวัลตรง 2 ช่องเป็นกฎของเอนจิ้น (หัวข้อ 9 RH4) |
 
 ตัวอย่าง (ค่าใน diagram): W 50% · ตาราง 0.5×/35, 1×/35, 2×/18, 5×/10, 8×/2 → `A = 1.545` · `P = 77.25%` · `house_edge = 22.75%` · `max_win = 99% ÷ 1.545 = 64.0776%` → แสดง **50** (เพดาน)
@@ -109,6 +109,7 @@
 
 ใต้ `/api/v1/bo/pr/rate` · ทุกเส้น `POST` · `Authenticated` + `PassedGates()` + `RequirePermission(rate, …)` · เส้นที่บันทึกเพิ่ม `RequirePasscode()` หลังสิทธิ์ (RATE-02) ·
 request ผ่าน `utils.ParseBodyNoNull` (ห้าม `null` · `422`) · ไม่รับ field ที่ไม่ใช่ของเกมนั้น (`422` — ยกเว้น `passcode`) · error ร่วมทุกเส้น: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, `401307`, `401311`, `402303`
+- **ข้อความ error (lead Q9 2026-10-14):** `msg` ของ `422` / `406101` / `406102` และ RE3 `issues[].message` ขึ้นต้นด้วยชื่อที่คนอ่านเข้าใจ (`utils.FieldLabel` — ตาราง label ที่เดียวกับ agent / member management) · แถวของตาราง `steps[i]` → "ขั้นที่ i+1" · `prizes[i]` → "รางวัลที่ i+1" · เช่น `"ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487% (ร้านต้องได้อย่างน้อย 1%)"` · **`issues[].field` คง path เดิม** (`steps[0].win_percent` — หน้าบ้านใช้ชี้ช่อง)
 
 | # | Path | สิทธิ์ | ใช้เมื่อ |
 |---|---|---|---|
@@ -205,7 +206,7 @@ Response `data` = รูปแบบเดียวกับ RE2 (ไม่ม�
 {
   "game_code": "coin_toss",
   "valid": false,
-  "issues": [ { "field": "steps[0].win_percent", "code": 406101, "message": "steps[0].win_percent ตั้งได้ไม่เกิน 49.7487 (ร้านต้องได้อย่างน้อย 1%)" } ],
+  "issues": [ { "field": "steps[0].win_percent", "code": 406101, "message": "ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487% (ร้านต้องได้อย่างน้อย 1%)" } ],
   "steps": [ { "step": 1, "multiplier": 1.99, "win_percent": 50, "reach_percent": 50, "payout_percent": 99.5, "house_edge_percent": 0.5, "max_win_percent": 49.7487 } ],
   "min_house_edge_percent": 0.5, "min_house_edge_step": 1, "max_payout_percent": 99.5
 }
@@ -337,7 +338,7 @@ Response `data`:
 
 - **ผลไหลลงทั้งสาย:** ไม่แก้ค่าของสายล่าง · การเช็คทั้งสาย (`core.IsGameOpen` — MGMT-20) อ่านค่าของ Superadmin อยู่แล้ว (Superadmin อยู่ต้น `cnf`) → ปิดที่ Superadmin = `status_game_effective = false` ทุกบัญชีใต้ Superadmin · เปิดคืน = แต่ละบัญชีกลับไปตามค่าของตัวเอง (บัญชีที่ปิดไว้เองยังปิด)
 - **สิทธิ์:** `rate` edit + passcode (RATE-02) — Superadmin และ sub ที่มีเมนู `rate` edit · ผู้ทำเป็น sub ก็ตั้งของทุกบัญชี Superadmin เหมือนกัน
-- **tx เดียว:** lock แถว `agent_game_settings` ของเกมนั้นของทุกบัญชี Superadmin ด้วย `FOR UPDATE` (เรียง `agent_id` — กฎข้อ 10) → ทุกบัญชีเป็นค่านั้นอยู่แล้ว = `changed: false` → update เฉพาะบัญชีที่ค่าต่าง → log 1 แถวต่อบัญชีนั้น
+- **tx เดียว:** lock แถว `user_agents` ของทุกบัญชี Superadmin (`FOR NO KEY UPDATE` เรียง `id` — กฎข้อ 10) แล้วแถว `agent_game_settings` ของเกมนั้น (`FOR UPDATE`) · **Superadmin ที่ยังไม่มีแถวของเกมนั้น = เพิ่มแถวใน tx เดียวกันตามค่าที่สั่ง** (ค่า PT เหมือนตอนสร้าง Superadmin · ไม่มีแถว = ถือว่าเปิดอยู่ — lead G-S1) → ทุกบัญชีเป็นค่านั้นอยู่แล้ว = `changed: false` → update เฉพาะบัญชีที่ค่าต่าง → log 1 แถวต่อบัญชีนั้น
 - **log:** `account_change_logs` · `action = UPDATE_GAMES` (ค่าเดียวกับ `agents/detail/update`) · `target` = บัญชี Superadmin · `old_value` / `new_value` = `{"status_game": {"coin_toss": true}}` / `{"status_game": {"coin_toss": false}}` · ผู้ทำ / IP / `request_id` ตาม MGMT-60 (sub = `owner@name`)
 - **ที่อื่นที่เห็นผล (ไม่ต้องแก้โค้ด):** `agents/detail/get` `status_game_effective` ของทุกบัญชีในสาย · `account/profile` `status_game` ของ Superadmin
 - **RE1 `rate/list`:** เพิ่ม `status_game` ต่อแถว (หัวข้อ 5.1)
@@ -401,7 +402,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RATE-05B | `base_version` เก่า · ยิงพร้อมกัน 2 request ด้วย `base_version` เดียวกัน | `406301` · สำเร็จ 1 อีกอัน `406301` |
 | RATE-05C | บันทึกค่าเดิมทั้งชุด · ย้อนไปเวอร์ชันที่ค่าเท่าปัจจุบัน | `200` `created: false` ไม่มีเวอร์ชันใหม่ |
 | RATE-05A | มี v1–v3 ย้อนไป v2 · ย้อนไปเวอร์ชันที่ไม่ผ่านกฎใหม่ (house edge · เพดาน 50 / รูปแบบ) · เวอร์ชันไม่มี · ไม่ส่ง passcode | v4 ค่าเท่า v2 `rollback_from = 2` · `406101` · `422` · `406402` · `422` |
-| RATE-07 / 13 | Coin Flip ขั้น 1 `1.99 / 50` (house edge 0.5%) · ขั้น 1 `1.99 / 49.7487` | `406101` msg บอก `steps[0].win_percent` ค่าสูงสุด 49.7487 · ไม่มีเวอร์ชันใหม่ · สำเร็จ |
+| RATE-07 / 13 | Coin Flip ขั้น 1 `1.99 / 50` (house edge 0.5%) · ขั้น 1 `1.99 / 49.7487` | `406101` msg "ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487%" (field `steps[0].win_percent` — lead Q9) · ไม่มีเวอร์ชันใหม่ · สำเร็จ |
 | RATE-07 | house edge = 1% พอดี | สำเร็จ |
 | RATE-10 | ส่ง 9 ขั้น | `422` |
 | RATE-11 | ตัวคูณขั้น 4 ≤ ขั้น 3 | `422` (`steps[3].multiplier`) |
@@ -419,6 +420,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RE8 | Superadmin ปิด `coin_toss` · ส่งซ้ำ · เปิดคืน | `changed: true` + log `UPDATE_GAMES` · `changed: false` ไม่มี log · Company / Agent / Member ใต้สาย `status_game_effective.coin_toss = false` แล้วกลับเป็น `true` (บัญชีที่ปิดเองยัง `false`) · RE1 `status_game` ตาม |
 | RE8 | Company / sub ไม่มี `rate` edit · ไม่ส่ง passcode · passcode ผิด · `game_code` ไม่มี · `status_game` เป็น `null` / ไม่ส่ง | `402303` · `422` · `401204` · `406401` · `422` |
 | RE8 | sub ของ Superadmin มี `rate` edit ปิดเกม | สำเร็จ · log ผู้ทำ = `owner@name` · `actor_type = SUB` |
+| RE8 (G-S1) | Superadmin บัญชีหนึ่งไม่มีแถว `agent_game_settings` ของ `coin_toss` · ส่งเปิด · ส่งปิด | เพิ่มแถว (`pt_from_parent` 100 · รับ PT · ผู้สร้าง = ตัวเอง) `changed: false` ไม่มี log · เพิ่มแถวเป็นปิด `changed: true` + log (เดิม `true`) · RE1 `status_game = false` |
 
 ## 8. Error codes (`06`)
 
@@ -444,6 +446,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | Q6 | หน้าบ้านขอ (ดีไซน์ "ตั้งได้สูงสุด 50%"): เพดาน `win_percent` ≤ 50% | ✅ เปลี่ยน 2026-10-12: **เพดาน `win_percent` 50 ทุกเกม** (ส่งเกิน = `422` · `max_win_percent` ไม่เกิน 50) |
 | Q7 | RPS ไม่มีเสมอ (คำขอหน้าบ้าน) | ✅ **lead ตัดสิน 2026-10-12: ตัดเสมอออก** — แก้หัวข้อ 2, RATE-20 – 23, 5.2, 5.4, 5.5, 6 (ไม่มีคอลัมน์ `draw_percent`), 7 แล้ว · เอนจิ้นต้องไม่มีผลเสมอ (RH5) |
 | Q8 | หน้าบ้านแจ้ง: ดีไซน์ Coin มีช่อง "อัตราชนะรวมของเกม" แต่ spec ตั้งแยกทีละขั้น | ✅ ตัดสิน 2026-10-12: ไม่มีอัตราชนะรวม (ตั้งทีละขั้น) · กล่องสรุปของหน้าบ้านใช้ค่าคำนวณ `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` และ `payout_percent` ต่อขั้น (เพิ่มใน RE2 / RE3) |
+| Q9 | ชื่อ field ในข้อความ error | ✅ lead 2026-10-14 (รีวิวรอบ 3–4): `field` คง path · `msg` / `message` ใช้ `utils.FieldLabel` + "ขั้นที่ i+1" / "รางวัลที่ i+1" (หัวข้อ 5) |
 
 ### สวิตช์ปิดเกม RE8 — ตัดสินแล้ว 2026-10-13
 
