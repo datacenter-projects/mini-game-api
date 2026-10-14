@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type meta struct {
@@ -59,12 +60,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := os.MkdirAll(root, 0o755); err != nil {
+	if err := os.MkdirAll(root, 0o750); err != nil {
 		log.Fatal(err)
 	}
 	s := &server{bucket: *bucket, dir: root}
 	log.Printf("fakes3 listening on http://%s · bucket %q · เก็บที่ %s", *addr, *bucket, root)
-	log.Fatal(http.ListenAndServe(*addr, s))
+	srv := &http.Server{Addr: *addr, Handler: s, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: time.Minute, WriteTimeout: time.Minute}
+	log.Fatal(srv.ListenAndServe())
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +98,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = os.Remove(file)
 		_ = os.Remove(file + ".meta")
 		w.WriteHeader(http.StatusNoContent)
-		log.Printf("DELETE %s", key)
+		log.Printf("DELETE %s", strconv.Quote(key))
 	default:
 		s.fail(w, http.StatusMethodNotAllowed, "MethodNotAllowed", "method not supported")
 	}
@@ -123,12 +125,12 @@ func (s *server) put(w http.ResponseWriter, r *http.Request, file, key string) {
 	if strings.HasPrefix(r.Header.Get("X-Amz-Content-Sha256"), "STREAMING-") || strings.Contains(r.Header.Get("Content-Encoding"), "aws-chunked") {
 		body = decodeAWSChunked(r.Body) // SDK ส่งแบบ aws-chunked (มี checksum trailer) — ถอดเอาเฉพาะเนื้อไฟล์
 	}
-	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(file), 0o750); err != nil {
 		s.fail(w, http.StatusInternalServerError, "InternalError", err.Error())
 		return
 	}
 	tmp := file + ".part"
-	f, err := os.Create(tmp)
+	f, err := os.Create(tmp) //nolint:gosec // G304: พาธผ่าน resolve แล้ว (อยู่ใต้ root เท่านั้น)
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, "InternalError", err.Error())
 		return
@@ -148,10 +150,10 @@ func (s *server) put(w http.ResponseWriter, r *http.Request, file, key string) {
 		return
 	}
 	m, _ := json.Marshal(meta{ContentType: r.Header.Get("Content-Type"), CacheControl: r.Header.Get("Cache-Control")})
-	_ = os.WriteFile(file+".meta", m, 0o644)
+	_ = os.WriteFile(file+".meta", m, 0o600)
 	w.Header().Set("ETag", `"fakes3"`)
 	w.WriteHeader(http.StatusOK)
-	log.Printf("PUT %s (%d bytes, %s)", key, n, r.Header.Get("Content-Type"))
+	log.Printf("PUT %s (%d bytes, %s)", strconv.Quote(key), n, strconv.Quote(r.Header.Get("Content-Type")))
 }
 
 func (s *server) get(w http.ResponseWriter, r *http.Request, file string) {
@@ -160,7 +162,7 @@ func (s *server) get(w http.ResponseWriter, r *http.Request, file string) {
 		s.fail(w, http.StatusNotFound, "NoSuchKey", "key not found")
 		return
 	}
-	if raw, err := os.ReadFile(file + ".meta"); err == nil {
+	if raw, err := os.ReadFile(file + ".meta"); err == nil { //nolint:gosec // G304: พาธผ่าน resolve แล้ว
 		var m meta
 		if json.Unmarshal(raw, &m) == nil {
 			if m.ContentType != "" {
@@ -171,12 +173,12 @@ func (s *server) get(w http.ResponseWriter, r *http.Request, file string) {
 			}
 		}
 	}
-	f, err := os.Open(file)
+	f, err := os.Open(file) //nolint:gosec // G304: พาธผ่าน resolve แล้ว
 	if err != nil {
 		s.fail(w, http.StatusNotFound, "NoSuchKey", "key not found")
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	http.ServeContent(w, r, "", st.ModTime(), f)
 }
 
