@@ -21,7 +21,7 @@ var ErrBalanceNegative = errors.New("balance would go negative")
 // ชื่อ CHECK ที่ Postgres ตั้งให้อัตโนมัติจาก CREATE TABLE / ADD COLUMN (ยืนยันด้วย integration test DW-34)
 const (
 	agentBalanceCheck = "agent_balances_amount_check"
-	memberCreditCheck = "user_members_credit_check"
+	memberCreditCheck = "user_members_credit_check" //nolint:gosec // ชื่อ CHECK constraint ไม่ใช่ credential
 )
 
 // balanceErr — แยก CHECK ยอดติดลบด้วยรหัส SQLSTATE + ชื่อ constraint (กฎข้อ 16 ห้ามเทียบข้อความ error)
