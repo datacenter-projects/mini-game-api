@@ -84,3 +84,15 @@
 | GE22-2 | เส้นฝั่งผู้เล่น (bundle + รายชื่อเกมของ lobby) ใครทำ → ตัดสินพร้อม review Player Auth |
 
 เก็บเล็กน้อย: AST-41 ขัดกับ AST-47 · `docs/lead/carl-asset.md` ยังเขียน "รอ commit" · ตัวอย่าง shades ย่อ · ตาราง field ของ request (ใส่ใน frontend doc ได้) — รายละเอียดใน verify report
+
+## ผลตรวจโค้ด `carl/asset` @ `b29a7ff` (lead zerph 2026-10-14 · รายงาน verify-asset-code)
+ไม่มี must-fix · การตัดสินของ lead ครบ · 16 เส้นตรง spec → **merge เข้า dev ได้หลังทำ A1–A2 + merge dev ล่าสุด + CI (integration) เขียว** · เปิด PR
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| A1 | ไม่มีเพดาน pixel (โลโก้ไม่ตรวจขนาด · ช่องที่ไม่มี `allowed_sizes`) — PNG 5 MB ขนาด 30000² ทำ browser ผู้เล่นค้างได้ | **เพดานกลางใน `checkImage` กว้างและสูง ≤ 4096 px ทุกเส้น upload** · เกิน = `405101` · เพิ่ม test |
+| A2 | อ่าน header ภาพไม่ได้แล้วปล่อยผ่าน (fail-open ตาม AST-17) | **เปลี่ยนเป็น fail-closed**: `DecodeConfig` ไม่ผ่าน = `405102` (รวม WebP) · แก้ AST-17 ใน spec · เพิ่ม test ไฟล์ที่มีแค่ magic byte |
+| A3 | รัน `migrate up` บน dev DB จาก branch ที่ยังไม่ merge โดยไม่ขอก่อน | lead รับทราบ · **ห้ามแก้ไฟล์ `20261012160000` / `20261012170000` อีก** (ต้องเปลี่ยน = เพิ่ม migration ใหม่) · ครั้งต่อไปขอก่อนเขียน DB / รัน migration บน env ร่วม |
+| A4 | เอา MinIO ออก ใช้ `scripts/fakes3` · ตรวจสิทธิ์ก่อนอ่าน body · GE10-1 เทียบค่าที่ไล่สายแล้ว | รับทั้งหมด |
+
+nit 7 ข้อใน verify report ทำหรือไม่ก็ได้ · spec เปลี่ยนสถานะจาก DRAFT เป็น APPROVED ได้หลังแก้ A2

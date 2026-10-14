@@ -3,6 +3,7 @@ package utils
 import (
 	"math"
 	"strconv"
+	"strings"
 )
 
 // เงินและ % เป็น float64 ทศนิยม ปัด 4 ตำแหน่ง (CLAUDE.md กฎข้อ 9 — แก้ 2026-10-09 · docs/modules/account.md ACC-18)
@@ -20,3 +21,24 @@ func IsDecimal4(v float64) bool { return math.Abs(v) < maxDecimal4Abs && Round4(
 
 // FormatNum — ตัวเลขสำหรับข้อความ error เช่น 90 → "90" · 0.5 → "0.5" · 10000.1234 → "10000.1234"
 func FormatNum(v float64) string { return strconv.FormatFloat(Round4(v), 'f', -1, 64) }
+
+// FormatNumGrouped — เหมือน FormatNum แต่คั่นหลักพันด้วย "," สำหรับข้อความที่ผู้ใช้อ่าน เช่น 1000000 → "1,000,000"
+func FormatNumGrouped(v float64) string {
+	s := FormatNum(v)
+	sign := ""
+	if strings.HasPrefix(s, "-") {
+		sign, s = "-", s[1:]
+	}
+	intPart, frac := s, ""
+	if i := strings.IndexByte(s, '.'); i >= 0 {
+		intPart, frac = s[:i], s[i:]
+	}
+	var b strings.Builder
+	for i, d := range intPart {
+		if i > 0 && (len(intPart)-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(d)
+	}
+	return sign + b.String() + frac
+}

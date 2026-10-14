@@ -227,11 +227,10 @@ func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor
 			}
 		}
 		if min := agentManagementCore.MinPTFromParent(grand, memberPTs); v.PTFromParent < min { // MGMT-24 · R1 · MGMT-19
-			p := utils.FormatNum(min)
-			th, en := utils.FieldLabel("pt." + g + ".pt_from_parent")
+			p := utils.FormatNum(min) + "%" // ข้อความตาม QA 2026-10-14
 			return apperr.ErrPTBelowChildUsage.WithMessage(
-				th+" ตั้งได้ต่ำสุด "+p+" เพราะลูกให้ต่อหรือถือสู้กับ Member อยู่ "+p,
-				en+" must be at least "+p+" because the child gives or holds "+p+" against Members")
+				"PT ที่ปล่อยให้ชั้นล่างต้องตั้งต่ำสุด "+p+" เพราะบัญชีภายใต้ถือสู้หรือปล่อยกับสมาชิกอยู่ "+p,
+				"PT given to the downline must be at least "+p+" because accounts under it hold or give "+p+" to Members")
 		}
 		if err := ChildPTError(g, is); err != nil {
 			return err
