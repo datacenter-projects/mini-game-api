@@ -89,6 +89,13 @@ var topLabels = map[string]label{
 	"payment_type":       {"ประเภทการชำระ", "Payment type"},
 	"win_limit_per_day":  {"ยอดชนะสูงสุดต่อวัน", "Daily win limit"},
 	"keyword":            {"คำค้นหา", "Keyword"},
+	// deposit_withdraw (docs/modules/deposit_withdraw.md) · role / user_id มาจากแถวที่เลือก ไม่ได้กรอกเอง
+	"amount":           {"จำนวนเงิน", "Amount"},
+	"currency":         {"สกุลเงิน", "Currency"},
+	"transaction_type": {"ประเภทรายการ", "Transaction type"},
+	"note":             {"หมายเหตุ", "Note"},
+	"date_from":        {"วันที่เริ่มต้น", "Start date"},
+	"date_to":          {"วันที่สิ้นสุด", "End date"},
 	// game_rate (lead Q9 2026-10-14)
 	"game_code":    {"เกม", "Game"},
 	"base_version": {"เวอร์ชันที่โหลดมา", "Loaded version"},

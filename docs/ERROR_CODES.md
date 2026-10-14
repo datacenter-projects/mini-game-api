@@ -43,6 +43,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 01 | agent_auth (backoffice auth) | `pkg/apperr/agent_auth_errors.go` | `docs/modules/agent_auth.md`, `docs/modules/agent_auth_phase2.md` · ใช้ร่วมกับ `admin_management` (`docs/modules/admin_management.md`) |
 | 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` · ใช้ร่วมกับ `member_management` (`docs/modules/member_management.md`) |
 | 03 | account (บัญชี) | `pkg/apperr/account_errors.go` | `docs/modules/account.md` |
+| 04 | deposit_withdraw (ฝาก / ถอน) | `pkg/apperr/deposit_withdraw_errors.go` | `docs/modules/deposit_withdraw.md` (lead DQ9 2026-10-13) |
 | 06 | game_rate (อัตราแพ้ชนะ — ตรงกับเมนู ⑥) | `pkg/apperr/game_rate_errors.go` | `docs/modules/game_rate.md` |
 
 ## agent_auth (01)
@@ -102,6 +103,22 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 |---|---|---|
 | 403301 | 200 | บัญชีนี้ไม่มีข้อมูลรับรอง API (Superadmin / ADMIN) |
 | 403302 | — | จองถาวร (ตัดก่อนปล่อยใช้ — AUTH-54 กันที่ middleware แทน) |
+
+## deposit_withdraw (04)
+
+ไม่มี code ที่ชนกับ `404001` (common) เพราะ `c` ≠ `0`
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 404301 | 200 | ฝากให้บัญชีที่ถูกระงับ / ล็อกไม่ได้ (ถอนได้ — DW-05) |
+| 404302 | 200 | บัญชีฝั่ง Seamless ไม่มียอดเงิน ฝาก / ถอนไม่ได้ (DW-06) |
+| 404303 | 200 | สกุลเงินนี้ไม่มีในบัญชีของคุณหรือบัญชีปลายทาง (DW-11) |
+| 404304 | 200 | ยอดเงินของคุณไม่พอ (DW-12) |
+| 404305 | 200 | ADMIN ทำรายการฝาก / ถอนไม่ได้ (DW-03) |
+| 404306 | 200 | ยอดเงินของบัญชีปลายทางไม่พอ (DW-13) |
+| 404307 | 200 | มีรายการของบัญชีนี้กำลังทำอยู่ กรุณาลองใหม่ (DW-21) |
+| 404401 | 200 | ไม่พบบัญชีลูกตรงของคุณ (DW-01 / DW-02) |
+| 504801 | 503 | ระบบไม่พร้อมทำรายการ กรุณาลองใหม่ (Redis ใช้ไม่ได้ — DW-21) |
 
 ## game_rate (06)
 
