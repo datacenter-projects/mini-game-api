@@ -19,7 +19,7 @@ type UserMember struct {
 	Cnf              string      `gorm:"column:cnf;default:'{\"parent\": []}'"` // JSONB สายชั้นบน {"parent":[{"id","position"}]} = สายของผู้สร้าง + ผู้สร้าง
 	PaymentType      PaymentType `gorm:"column:payment_type;default:'CASH'"`    // วิธีจ่ายเงิน แสดงผลอย่างเดียว (MGMT-63) · ไม่ตั้ง = ค่า default ของ DB
 	PaymentAccount   *string     `gorm:"column:payment_account"`                // JSONB ของ MemberPaymentAccount · NULL = ไม่มีบัญชี (MGMT-64)
-	WinLimitPerDay   float64     `gorm:"column:win_limit_per_day"`              // ลิมิตชนะต่อวัน หน่วยสกุล · 0 = ไม่จำกัด (MGMT-65)
+	WinLimitPerDay   float64     `gorm:"column:win_limit_per_day"`              // ลิมิตชนะต่อวัน หน่วยสกุล · 0 = เล่นไม่ได้ · DB default 10,000,000 (MGMT-65)
 	LastLoginAt      *time.Time  `gorm:"column:last_login_at"`
 	LastLoginIP      *string     `gorm:"column:last_login_ip"`
 	CreatedAt        time.Time   `gorm:"column:created_at"`

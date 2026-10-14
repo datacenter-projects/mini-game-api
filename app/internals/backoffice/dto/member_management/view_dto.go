@@ -23,7 +23,7 @@ type MemberDetailResponse struct {
 	PT               any                              `json:"pt"`
 	PaymentType      string                           `json:"payment_type"`      // MGMT-63
 	PaymentAccount   PaymentAccount                   `json:"payment_account"`   // MGMT-64 เลขบัญชีเต็ม · ไม่มี = ทุก field ""
-	WinLimitPerDay   float64                          `json:"win_limit_per_day"` // MGMT-65 · 0 = ไม่จำกัด
+	WinLimitPerDay   float64                          `json:"win_limit_per_day"` // MGMT-65 · 0 = เล่นไม่ได้
 	LastLoginAt      string                           `json:"last_login_at"`
 	LastLoginIP      string                           `json:"last_login_ip"`
 	CreatedAt        string                           `json:"created_at"`
