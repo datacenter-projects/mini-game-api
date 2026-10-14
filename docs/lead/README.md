@@ -11,6 +11,7 @@
 | `carl-asset.md` | `carl/asset` |
 | `bo-game-rate.md` | `boiledegg/bo/game_rate-settings` |
 | `bo-agent-management-mgmt18a.md` | `boiledegg/bo/agent_management` (MGMT-18A) |
+| `bo-asset.md` | `boiledegg/bo/asset` (งาน asset ของ carl + merge dev) |
 
 ## โครงของแต่ละไฟล์
 

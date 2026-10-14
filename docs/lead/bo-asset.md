@@ -1,0 +1,41 @@
+# Asset (หน้าตาเกม / หน้าเว็บ) — เตรียม merge เข้า dev · 2026-10-14
+
+จาก boiledegg · งานของ carl (`carl/asset`) · review: [docs/reviews/game-asset.md](../reviews/game-asset.md) · สถานะของ carl: [carl-asset.md](carl-asset.md)
+branch `boiledegg/bo/asset` (แตกจาก `carl/asset` @ `9b2956e` + merge dev ล่าสุด) · **ยังไม่ merge / deploy — รอ lead approve**
+
+## 1. เงื่อนไข merge จากผลตรวจโค้ด `b29a7ff` (lead 2026-10-14)
+
+| เงื่อนไข | ผล |
+|---|---|
+| A1 เพดาน 4096 px ทุกเส้น upload | ✅ carl แก้แล้ว (`1e5eb36`) — `core/asset` `MaxImageDimension = 4096` + test |
+| A2 อ่าน header ภาพไม่ได้ = `405102` (fail-closed) | ✅ carl แก้แล้ว (`1e5eb36`) — `image.DecodeConfig` ไม่ผ่าน = `405102` + test · spec APPROVED |
+| merge dev ล่าสุด | ✅ `824827f` (dev @ `3a80c7b` — รวม game_rate · MGMT-18A · deposit_withdraw) |
+| CI (integration) เขียว | ✅ รันในเครื่อง: unit + integration ผ่านทุก package · lint 0 issues |
+| A3 ห้ามแก้ `20261012160000` / `20261012170000` | ✅ ไม่ได้แตะ · 2 ไฟล์นี้รันบน RDS dev แล้ว (ตอน deploy ไม่มี migration ของ asset ให้รันเพิ่ม) |
+
+## 2. ที่ boiledegg ทำเพิ่มใน branch นี้
+
+| commit | งาน |
+|---|---|
+| `824827f` | merge dev → conflict 2 ไฟล์ (ทั้งสองฝั่งเพิ่มบรรทัดตรงจุดเดียวกัน — เก็บทั้งคู่): `routes.go` import asset + deposit_withdraw · `docs/ERROR_CODES.md` module 04 deposit_withdraw + 05 asset เรียงตามเลข · `pkg/testutil` รายการตารางที่ล้างครบ (game_rate · deposit_withdraw · asset) ไม่ซ้ำ |
+| `8492825` | แก้ lint 10 ข้อใน `scripts/fakes3/main.go` (ไม่แก้ CI จะไม่ build image): สิทธิ์โฟลเดอร์ `0750` / ไฟล์ `0600` · `http.Server` มี timeout · log ค่าจาก request ผ่าน `strconv.Quote` · `Close` เช็ค error · `//nolint:gosec` G304 พร้อมเหตุผล (path ผ่าน `resolve` อยู่ใต้ root เท่านั้น) · ลองรันจริง PUT / GET / DELETE ผ่าน |
+
+## 3. smoke test ในเครื่อง (API + `scripts/fakes3` + DB test) — ผ่าน 20 / 20
+
+| ส่วน | ผล |
+|---|---|
+| GLOBAL (Superadmin) | อัป `icon_button` 32×32 · `main_play` 186×76 + ใช้ทันที · เปิด URL รูปได้ (200 `image/png`) |
+| ไฟล์ผิด | ขนาดไม่ตรง → `405101` · ไม่ใช่รูป → `405102` · ช่องที่ไม่มี → `405401` |
+| สิทธิ์ | Superadmin แก้ของ Company → `405301` · Company ลบรูป GLOBAL → `405301` (ตรง 1.3) |
+| Company ของตัวเอง | อัป `icon_button` ขนาดที่ 2 (40×40) · `used/list` · `files/list` · `used/reset` · ลบรูปที่ไม่ใช้ |
+| bundle | `source: "mixed"` — `icon_button` จาก Company · `main_play` จาก GLOBAL |
+| theme / branding | ตั้งแล้ว get ได้ `source: "self"` ค่าตรง |
+
+ไม่ได้ทำใน smoke (integration test ของ carl ครอบแล้ว): เกม `coin_toss` / `rock_paper_scissors` · อัปโลโก้ · ไล่สายหลายชั้น · sub สิทธิ์ `view`
+
+## 4. ขอ lead approve
+
+1. merge `boiledegg/bo/asset` เข้า dev แล้ว deploy (tag ใหม่) — **ไม่มี migration ต้องรัน**
+2. infra ของ dev: ต้องตั้ง `S3_BUCKET` / `S3_REGION` / `S3_CDN_BASE_URL` + credential ของ AWS ใน env ของ dev ก่อน (ไม่ตั้ง = เส้นอัปโหลดตอบ `505801` แต่ระบบยัง boot ได้) — ตามรายการ "สิ่งที่ต้องมีจาก infra" ใน review
+3. หลัง deploy: รัน `scripts/seed_asset_global` อัปรูปค่ากลางของทุกช่อง (AST-61 · ต้องว่างก่อน UAT) — รอไฟล์จากทีมเกม / ออกแบบ
+4. nit 7 ข้อใน verify report ยังไม่ได้ทำ (ทำหรือไม่ก็ได้ตามผลตรวจ)
