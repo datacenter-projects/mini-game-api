@@ -264,7 +264,7 @@ func PTError(group string, v agentManagementCore.PTViolation) error {
 	case agentManagementCore.PTOK:
 		return nil
 	case agentManagementCore.PTInvalidStep: // ใช้กับ Commission ของ Member (member_management)
-		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 1 ทีละ 0.1", en+" must be 0 – 1 in steps of 0.1")
+		return commissionStepError(th, en)
 	case agentManagementCore.PTExceedsReceived:
 		return apperr.ErrPTExceedsReceived
 	case agentManagementCore.PTSeamlessMasterLock:
@@ -272,6 +272,6 @@ func PTError(group string, v agentManagementCore.PTViolation) error {
 	case agentManagementCore.PTForceRemainExceeded:
 		return apperr.ErrForceRemainExceeded
 	default:
-		return apperr.ErrCommissionExceeded.WithMessage(th+" ตั้งได้ 0 – 1", en+" must be 0 – 1")
+		return commissionRangeError(th, en)
 	}
 }
