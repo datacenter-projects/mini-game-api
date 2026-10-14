@@ -2,6 +2,10 @@
 
 เอกสารนี้ตรงกับโค้ดบน `dev` (deploy แล้ว `dev-202610140819`) · spec เต็ม: `docs/modules/deposit_withdraw.md` · ผู้ดูแล module: maofoy
 
+> **เปลี่ยนจากเดิม (14 ต.ค. — มีผลหลัง deploy รอบถัดจาก `dev-202610140819`)** — `downlines/list` (2.1): แถวเปลี่ยน `balances` (array) เป็น
+> **`currency` (map ครบ 27 สกุล · key ตัวใหญ่)** · เพิ่ม `last_login_ip` / `last_login_at` · `data` เพิ่ม **`credit_detail`** (ยอดของคนที่ login) และ
+> **`total_sum`** (ยอดรวมของลูกตรงทั้งหมดแยกตาม role) · field แบ่งหน้าอยู่ที่เดิม · 2.2 / 2.3 ไม่เปลี่ยน
+
 พื้นฐานใช้ร่วมกับเอกสารการจัดการสมาชิก: base URL / header / รูปแบบ response / ห้ามส่ง `null` / ตัวเลขเป็น JSON number / ตั้งค่า Postman ดู
 [agent_management.md](agent_management.md) หัวข้อ 1 · login / passcode / ด่านหลัง login ดู [auth.md](auth.md)
 
@@ -38,23 +42,35 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/deposit-withdraw/downlines/list" \
 | `keyword` | | ไม่ส่ง / `""` = ทั้งหมด · ส่ง 4–32 ตัว = ค้น username บางส่วน ไม่สนตัวพิมพ์ **เฉพาะลูกตรง** (ไม่ลงหลาน) |
 | `page` / `limit` | | ค่าเริ่มต้น 1 / 20 · สูงสุด 100 |
 
-Response `data`:
+Response `data` (ตัวอย่างย่อ map สกุลเหลือ 3 ตัว — **ของจริงมีครบ 27 สกุล** ทุก map):
 ```json
 {
+  "credit_detail": { "currency": { "THB": 900, "USD": 0, "CNY": 0 } },
+  "total_sum": {
+    "AGENT":  { "THB": 5000, "USD": 0, "CNY": 0 },
+    "MEMBER": { "THB": 100,  "USD": 0, "CNY": 0 }
+  },
   "current_page": 1, "total_page": 1, "total_count": 2, "limit": 20, "has_next": false, "has_prev": false,
   "data": [
-    { "id": 15,  "role": "AGENT",  "username": "agent01", "name": "agent01", "status": "ACTIVE",
-      "has_balance": true, "balances": [ { "currency": "THB", "amount": 5000 } ] },
-    { "id": 501, "role": "MEMBER", "username": "mem01",   "name": "ใจดี",    "status": "LOCKED",
-      "has_balance": true, "balances": [ { "currency": "THB", "amount": 100 } ] }
+    { "id": 15,  "role": "AGENT",  "username": "agent01", "name": "agent01", "status": "ACTIVE", "has_balance": true,
+      "currency": { "THB": 5000, "USD": 0, "CNY": 0 },
+      "last_login_ip": "203.0.113.10", "last_login_at": "2026-10-08T21:00:00+07:00" },
+    { "id": 501, "role": "MEMBER", "username": "mem01",   "name": "ใจดี",    "status": "LOCKED", "has_balance": true,
+      "currency": { "THB": 100, "USD": 0, "CNY": 0 },
+      "last_login_ip": "", "last_login_at": "" }
   ]
 }
 ```
-- เรียง username A→Z · ไม่มีลูก = `"data": []`
+- **`credit_detail.currency`** = ยอดของคุณ (คนที่ login · sub = ยอดของเจ้าของ) · Superadmin ไม่มียอดของตัวเอง = `0` ทุกสกุล
+- **`total_sum`** = ยอดรวมของลูกตรง**ทั้งหมด** (ทุกหน้า · ตาม `keyword` ที่ส่ง) แยกตาม `role` · มีเฉพาะ role ที่มีลูก · ไม่มีลูก = `{}`
+- **`currency`** (ทุก map) = ครบ 27 สกุลที่ระบบรองรับ · key ตัวใหญ่ · สกุลที่บัญชีไม่มี / ยังไม่มียอด = `0` · บัญชี Seamless = `0` ทุกสกุล
+- เรียง username A→Z · ไม่มีลูก = `"data": []` (`credit_detail` ยังมีเสมอ)
 - `role`: `COMPANY` / `SHAREHOLDER` / `AGENT` / `MEMBER` — ส่งค่านี้กลับใน 2.2 ได้เลย
 - `status`: `ACTIVE` / `SUSPENDED` / `LOCKED` (สถานะของลูกเอง)
-- `balances`: agent ได้ 1 รายการต่อสกุลของบัญชี (สกุลที่ยังไม่เคยมียอด = `0`) · Member ได้ 1 รายการ
+- `last_login_ip` / `last_login_at`: ยังไม่เคย login = `""`
 - ตัวอย่างนี้ `mem01` ถูกล็อก: ปุ่มฝากปิด · ปุ่มถอนเปิด
+
+สกุลทั้ง 27 ตัว: `ARS` `AUD` `BDT` `BOB` `BRL` `CLP` `CNY` `EUR` `GBP` `HKD` `IDR` `INR` `JPY` `KHR` `KRW` `LAK` `MMK` `MXN` `MYR` `NGN` `PHP` `PKR` `THB` `TWD` `USD` `USDT` `VND`
 
 ### 2.2 ฝาก / ถอน — `deposit-withdraw/create`
 
@@ -76,7 +92,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/deposit-withdraw/create" \
 | `request_id` | ✓ | UUID **สร้างใหม่ทุกครั้งที่กดปุ่ม** · ส่งซ้ำ (เน็ตหลุด / timeout / ได้ `404307`) ใช้ค่าเดิม = ได้ผลเดิม ไม่ย้ายเงินซ้ำ |
 | `role` | ✓ | ค่า `role` จากแถวใน 2.1 (ตัวพิมพ์ใหญ่) |
 | `user_id` | ✓ | ค่า `id` จากแถวใน 2.1 |
-| `currency` | ✓ | สกุลจาก `balances` ของแถว (ต้องเป็นสกุลของคุณด้วย) |
+| `currency` | ✓ | สกุลที่ทั้งคุณและลูกมี (ไม่ใช่ = `404303`) · ⚠️ map `currency` ใน 2.1 มีครบ 27 สกุล — ค่า `0` แยกไม่ได้ว่า "มีสกุลนี้แต่ยอด 0" หรือ "ไม่มีสกุลนี้" |
 | `amount` | ✓ | > 0 · ≤ 1,000,000,000 · ทศนิยม ≤ 4 ตำแหน่ง · ส่งเป็นข้อความ (`"100"`) = `400` |
 | `transaction_type` | ✓ | `DEPOSIT` / `WITHDRAW` (ตัวพิมพ์ใหญ่เท่านั้น) |
 | `note` | | หมายเหตุ ≤ 200 ตัว · ไม่มี = ไม่ส่ง หรือ `""` · ช่องว่างหัวท้ายถูกตัด |

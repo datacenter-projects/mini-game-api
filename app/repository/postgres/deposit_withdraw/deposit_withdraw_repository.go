@@ -106,30 +106,37 @@ func GetDWLogRepository(db *gorm.DB, id uint) (models.DepositWithdrawLog, error)
 
 // DWDownlineRow — ลูกตรง 1 แถวของ DW1 (ฝั่ง agent หรือ Member)
 type DWDownlineRow struct {
-	ID        uint
-	Role      string // role ของ agent · Member = "MEMBER"
-	AgentType *models.AgentType
-	Username  string
-	Name      *string
-	Status    models.AgentStatus
-	Currency  *string // Member เท่านั้น
-	Credit    float64 // Member เท่านั้น
+	ID          uint
+	Role        string // role ของ agent · Member = "MEMBER"
+	AgentType   *models.AgentType
+	Username    string
+	Name        *string
+	Status      models.AgentStatus
+	Currency    *string // Member เท่านั้น
+	Credit      float64 // Member เท่านั้น
+	LastLoginAt *time.Time
+	LastLoginIP *string
 }
 
 // dwDownlineSQL — ลูกตรงของ parent ทั้งฝั่ง agent (ไม่รวม ADMIN — AUTH-43) และ Member · กรอง username บางส่วน (DW-40 / DW-41)
 const dwDownlineSQL = `
-	SELECT id, role, agent_type, username, name, status, NULL AS currency, 0::double precision AS credit
+	SELECT id, role, agent_type, username, name, status, NULL AS currency, 0::double precision AS credit, last_login_at, last_login_ip
 	FROM user_agents WHERE parent_id = @parent AND role <> 'ADMIN' AND (@q = '' OR username LIKE @like ESCAPE '\')
 	UNION ALL
-	SELECT id, 'MEMBER', NULL, username, name, status, currency, credit
+	SELECT id, 'MEMBER', NULL, username, name, status, currency, credit, last_login_at, last_login_ip
 	FROM user_members WHERE agent_id = @parent AND (@q = '' OR username LIKE @like ESCAPE '\')`
 
-var likeEscaper = strings.NewReplacer(`\`, `\`, `%`, `\%`, `_`, `\_`)
+// likeEscaper — ให้ \ % _ ใน keyword เป็นตัวอักษรธรรมดา (ESCAPE '\')
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+func dwDownlineArgs(parentID uint, q string) map[string]any {
+	return map[string]any{"parent": parentID, "q": q, "like": "%" + likeEscaper.Replace(q) + "%"}
+}
 
 // ListDWDownlinesRepository — ลูกตรงเรียง username A→Z แบ่งหน้า + จำนวนทั้งหมด · q = keyword ตัวเล็กแล้ว (ว่าง = ไม่กรอง)
 // index: idx_user_agents_parent_username · idx_user_members_agent_username
 func ListDWDownlinesRepository(db *gorm.DB, parentID uint, q string, offset, limit int) ([]DWDownlineRow, int64, error) {
-	args := map[string]any{"parent": parentID, "q": q, "like": "%" + likeEscaper.Replace(q) + "%"}
+	args := dwDownlineArgs(parentID, q)
 	var total int64
 	if err := db.Raw("SELECT count(*) FROM ("+dwDownlineSQL+") d", args).Scan(&total).Error; err != nil {
 		return nil, 0, err
@@ -143,13 +150,26 @@ func ListDWDownlinesRepository(db *gorm.DB, parentID uint, q string, offset, lim
 	return rows, total, err
 }
 
-// ListAgentCurrenciesOfRepository — สกุลของหลายบัญชีในครั้งเดียว (DW-43 ห้าม N+1) เรียง agent_id, currency
-func ListAgentCurrenciesOfRepository(db *gorm.DB, agentIDs []uint) ([]models.AgentCurrency, error) {
-	var out []models.AgentCurrency
-	if len(agentIDs) == 0 {
-		return out, nil
-	}
-	err := db.Select("agent_id", "currency").Where("agent_id IN ?", agentIDs).Order("agent_id, currency").Find(&out).Error
+// DWSumRow — ยอดรวมของลูกตรงต่อ role ต่อสกุล (total_sum — DW-44A) · Currency nil = role นี้มีลูกแต่ยังไม่มีแถวยอด
+type DWSumRow struct {
+	Role     string
+	Currency *string
+	Total    float64
+}
+
+// SumDWDownlinesRepository — ยอดรวมของลูกตรงทั้งหมด (ทุกหน้า · ตาม keyword เดียวกับรายชื่อ) แยก role / สกุล
+// ฝั่ง agent LEFT JOIN agent_balances (PK agent_id, currency) · Member รวม credit ตามสกุลของตัวเอง
+func SumDWDownlinesRepository(db *gorm.DB, parentID uint, q string) ([]DWSumRow, error) {
+	var out []DWSumRow
+	err := db.Raw(`
+		SELECT a.role AS role, b.currency AS currency, COALESCE(SUM(b.amount), 0) AS total
+		FROM user_agents a LEFT JOIN agent_balances b ON b.agent_id = a.id
+		WHERE a.parent_id = @parent AND a.role <> 'ADMIN' AND (@q = '' OR a.username LIKE @like ESCAPE '\')
+		GROUP BY a.role, b.currency
+		UNION ALL
+		SELECT 'MEMBER', currency, SUM(credit)
+		FROM user_members WHERE agent_id = @parent AND (@q = '' OR username LIKE @like ESCAPE '\')
+		GROUP BY currency`, dwDownlineArgs(parentID, q)).Scan(&out).Error
 	return out, err
 }
 

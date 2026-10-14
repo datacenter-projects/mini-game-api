@@ -14,70 +14,104 @@ import (
 	"app/platform/database"
 )
 
-// ListDownlinesService — POST /api/v1/bo/pr/deposit-withdraw/downlines/list (DW1 · DW-40 – DW-45)
-// 4 query ต่อหน้า: ลูกตรง (count + page) · Company หัวสายของแม่ · สกุล + ยอดของลูกฝั่ง agent แบบ IN (ไม่มี N+1)
+// ListDownlinesService — POST /api/v1/bo/pr/deposit-withdraw/downlines/list (DW1 · DW-40 – DW-45 · DW-44A)
+// 6 query: ลูกตรง (count + page) · Company หัวสายของแม่ · ยอดของแม่ + ลูกฝั่ง agent ในหน้า (IN ครั้งเดียว — ไม่มี N+1) · ยอดรวมแยก role
 func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q depositWithdrawDto.DownlinesRequest,
-	page utils.Page) ([]depositWithdrawDto.DownlineRow, int64, error) {
+	page utils.Page) ([]depositWithdrawDto.DownlineRow, int64, depositWithdrawDto.DownlinesSummary, error) {
 	db := database.DBConn.WithContext(ctx)
+	var summary depositWithdrawDto.DownlinesSummary
 	rows, total, err := depositWithdrawPostgres.ListDWDownlinesRepository(db, actor.AgentID, q.Keyword, page.Offset(), page.Limit)
-	if err != nil || len(rows) == 0 {
-		return []depositWithdrawDto.DownlineRow{}, total, err
+	if err != nil {
+		return nil, 0, summary, err
 	}
 	// ลูกทุกคนอยู่สายเดียวกับแม่ · แม่เป็น Superadmin (ไม่อยู่ใต้ Company) = ดูประเภทของ Company ลูกทีละแถว (DW-44)
 	parentType, err := agentManagementPostgres.GetChainCompanyTypeRepository(db, actor.AgentID)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, summary, err
 	}
 	parentSeamless := isSeamless(parentType)
 
-	var agentIDs []uint
+	agentIDs := []uint{actor.AgentID} // แม่ + ลูกฝั่ง agent ในหน้านี้
 	for _, r := range rows {
 		if r.Role != depositWithdrawCore.RoleMember {
 			agentIDs = append(agentIDs, r.ID)
 		}
 	}
-	currencies, err := depositWithdrawPostgres.ListAgentCurrenciesOfRepository(db, agentIDs)
-	if err != nil {
-		return nil, 0, err
-	}
 	balances, err := depositWithdrawPostgres.ListAgentBalancesOfRepository(db, agentIDs)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, summary, err
 	}
-	amount := make(map[uint]map[string]float64, len(agentIDs))
+	amounts := make(map[uint]depositWithdrawDto.CurrencyAmounts, len(agentIDs))
 	for _, b := range balances {
-		if amount[b.AgentID] == nil {
-			amount[b.AgentID] = map[string]float64{}
+		if amounts[b.AgentID] == nil {
+			amounts[b.AgentID] = newCurrencyAmounts()
 		}
-		amount[b.AgentID][b.Currency] = b.Amount
+		addAmount(amounts[b.AgentID], b.Currency, b.Amount)
 	}
-	views := make(map[uint][]depositWithdrawDto.BalanceView, len(agentIDs))
-	for _, c := range currencies { // เรียง agent_id, currency · ไม่มีแถวยอด = 0 (DW-43)
-		views[c.AgentID] = append(views[c.AgentID], depositWithdrawDto.BalanceView{Currency: c.Currency, Amount: amount[c.AgentID][c.Currency]})
+	// ฝั่ง Seamless ไม่มียอดเงิน ส่ง 0 ทุกสกุล (MGMT-15 · ACC-19)
+	summary.CreditDetail.Currency = newCurrencyAmounts()
+	if !parentSeamless && amounts[actor.AgentID] != nil {
+		summary.CreditDetail.Currency = amounts[actor.AgentID]
 	}
 
 	out := make([]depositWithdrawDto.DownlineRow, 0, len(rows))
 	for _, r := range rows {
 		row := depositWithdrawDto.DownlineRow{ID: r.ID, Role: r.Role, Username: r.Username, Status: string(r.Status),
-			HasBalance: !parentSeamless, Balances: []depositWithdrawDto.BalanceView{}}
+			HasBalance: !parentSeamless, Currency: newCurrencyAmounts()}
 		if r.Name != nil {
 			row.Name = *r.Name
 		}
-		if r.Role == depositWithdrawCore.RoleMember {
+		if r.LastLoginIP != nil {
+			row.LastLoginIP = *r.LastLoginIP
+		}
+		if r.LastLoginAt != nil {
+			row.LastLoginAt = formatTime(*r.LastLoginAt)
+		}
+		if r.Role == string(models.AgentRoleCompany) && isSeamless(r.AgentType) {
+			row.HasBalance = false
+		}
+		switch {
+		case !row.HasBalance: // คง 0 ทุกสกุล
+		case r.Role == depositWithdrawCore.RoleMember:
 			if r.Currency != nil {
-				row.Balances = []depositWithdrawDto.BalanceView{{Currency: *r.Currency, Amount: r.Credit}}
+				addAmount(row.Currency, *r.Currency, r.Credit)
 			}
-		} else {
-			if r.Role == string(models.AgentRoleCompany) && isSeamless(r.AgentType) {
-				row.HasBalance = false
-			}
-			if v := views[r.ID]; v != nil {
-				row.Balances = v
-			}
+		case amounts[r.ID] != nil:
+			row.Currency = amounts[r.ID]
 		}
 		out = append(out, row)
 	}
-	return out, total, nil
+
+	sums, err := depositWithdrawPostgres.SumDWDownlinesRepository(db, actor.AgentID, q.Keyword)
+	if err != nil {
+		return nil, 0, summary, err
+	}
+	summary.TotalSum = map[string]depositWithdrawDto.CurrencyAmounts{}
+	for _, s := range sums {
+		if summary.TotalSum[s.Role] == nil {
+			summary.TotalSum[s.Role] = newCurrencyAmounts()
+		}
+		if s.Currency != nil {
+			addAmount(summary.TotalSum[s.Role], *s.Currency, s.Total)
+		}
+	}
+	return out, total, summary, nil
+}
+
+// newCurrencyAmounts — map ครบทุกสกุลที่ระบบรองรับ ค่าเริ่ม 0 (DW-43)
+func newCurrencyAmounts() depositWithdrawDto.CurrencyAmounts {
+	m := make(depositWithdrawDto.CurrencyAmounts, len(agentManagementCore.Currencies))
+	for _, c := range agentManagementCore.Currencies {
+		m[c] = 0
+	}
+	return m
+}
+
+// addAmount — บวกยอดเข้าสกุลแล้วปัด 4 ตำแหน่ง (กฎข้อ 9) · สกุลที่ไม่อยู่ในรายการของระบบ = ข้าม
+func addAmount(m depositWithdrawDto.CurrencyAmounts, currency string, amount float64) {
+	if v, ok := m[currency]; ok {
+		m[currency] = utils.Round4(v + amount)
+	}
 }
 
 // ListLogsService — POST /api/v1/bo/pr/deposit-withdraw/logs/list (DW3 · DW-46 – DW-49) · เห็นเฉพาะรายการที่ตัวเองเป็นแม่

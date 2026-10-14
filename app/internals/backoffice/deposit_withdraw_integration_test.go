@@ -370,56 +370,102 @@ func TestDWBalanceConstraint(t *testing.T) { // DW-34
 	}
 }
 
-func TestDWDownlinesList(t *testing.T) { // DW-40 – DW-44
+func TestDWDownlinesList(t *testing.T) { // DW-40 – DW-44A
 	app := setup2(t)
 	c := buildChain(t, app)
 	b2b, _ := mustCreate(t, app, c.comTok, agentBody("SHARE_B2B", "shareb2b", []string{"THB", "USD"}, childPT(50, 0, 0, 0)))
 	setBalance(t, b2b.ID, "THB", 7)
+	setBalance(t, b2b.ID, "USD", 3)
+	setBalance(t, c.share.ID, "THB", 900)
+	setBalance(t, c.agent.ID, "THB", 9900)
 	createMemberOf(t, app, c.shareTok, "memlist")
 	createMemberOf(t, app, c.agentTok, "memlistgrand")
+	database.DBConn.Model(&models.UserMember{}).Where("username = ?", "memlist").Update("credit", 100.5)
 
 	type row struct {
-		ID         uint                             `json:"id"`
-		Role       string                           `json:"role"`
-		Username   string                           `json:"username"`
-		HasBalance bool                             `json:"has_balance"`
-		Balances   []depositWithdrawDto.BalanceView `json:"balances"`
+		ID          uint               `json:"id"`
+		Role        string             `json:"role"`
+		Username    string             `json:"username"`
+		Status      string             `json:"status"`
+		HasBalance  bool               `json:"has_balance"`
+		Currency    map[string]float64 `json:"currency"`
+		LastLoginIP string             `json:"last_login_ip"`
+		LastLoginAt string             `json:"last_login_at"`
 	}
 	type page struct {
-		TotalCount int64 `json:"total_count"`
-		Data       []row `json:"data"`
+		CreditDetail struct {
+			Currency map[string]float64 `json:"currency"`
+		} `json:"credit_detail"`
+		TotalSum   map[string]map[string]float64 `json:"total_sum"`
+		TotalCount int64                         `json:"total_count"`
+		TotalPage  int                           `json:"total_page"`
+		Data       []row                         `json:"data"`
 	}
 	list := func(tok string, body map[string]any) page {
 		r := call(t, app, "POST", dwDownlinesPath, body, tok)
 		expect(t, r, 200, 200)
 		var p page
-		_ = json.Unmarshal(r.Data, &p)
+		if err := json.Unmarshal(r.Data, &p); err != nil {
+			t.Fatal(err)
+		}
 		return p
 	}
+	const all = 27 // agentManagementCore.Currencies
 
 	p := list(c.shareTok, map[string]any{})
 	if p.TotalCount != 2 || p.Data[0].Username != "agent01" || p.Data[1].Username != "memlist" || p.Data[1].Role != "MEMBER" {
 		t.Fatalf("share01 = %+v", p)
 	}
-	if p = list(c.shareTok, map[string]any{"keyword": "MEML"}); p.TotalCount != 1 || p.Data[0].Username != "memlist" {
+	if len(p.CreditDetail.Currency) != all || p.CreditDetail.Currency["THB"] != 900 || p.CreditDetail.Currency["USD"] != 0 {
+		t.Fatalf("credit_detail = %v", p.CreditDetail.Currency)
+	}
+	a, m := p.Data[0], p.Data[1]
+	if len(a.Currency) != all || a.Currency["THB"] != 9900 || len(m.Currency) != all || m.Currency["THB"] != 100.5 {
+		t.Fatalf("currency ของแถว agent %v · member %v", a.Currency, m.Currency)
+	}
+	if a.LastLoginAt == "" || m.LastLoginAt != "" || m.LastLoginIP != "" { // agent01 login แล้วใน buildChain · Member ยังไม่เคย
+		t.Fatalf("last_login agent %q · member %q", a.LastLoginAt, m.LastLoginAt)
+	}
+	if len(p.TotalSum) != 2 || p.TotalSum["AGENT"]["THB"] != 9900 || p.TotalSum["MEMBER"]["THB"] != 100.5 || len(p.TotalSum["MEMBER"]) != all {
+		t.Fatalf("total_sum = %v", p.TotalSum)
+	}
+
+	// total_sum รวมลูกตรงทั้งหมด ไม่ใช่แค่หน้าที่แสดง
+	if p = list(c.shareTok, map[string]any{"page": 1, "limit": 1}); len(p.Data) != 1 || p.TotalPage != 2 || len(p.TotalSum) != 2 {
+		t.Fatalf("แบ่งหน้า %+v", p)
+	}
+	// keyword กรองทั้งรายชื่อและ total_sum · ไม่ลงหลาน
+	if p = list(c.shareTok, map[string]any{"keyword": "MEML"}); p.TotalCount != 1 || p.Data[0].Username != "memlist" ||
+		len(p.TotalSum) != 1 || p.TotalSum["MEMBER"]["THB"] != 100.5 {
 		t.Fatalf("keyword = %+v", p)
 	}
-	if p = list(c.shareTok, map[string]any{"keyword": "grand"}); p.TotalCount != 0 {
+	if p = list(c.shareTok, map[string]any{"keyword": "grand"}); p.TotalCount != 0 || len(p.Data) != 0 || len(p.TotalSum) != 0 ||
+		p.CreditDetail.Currency["THB"] != 900 {
 		t.Fatalf("keyword ไม่ลงหลาน = %+v", p)
 	}
 	expect(t, call(t, app, "POST", dwDownlinesPath, map[string]any{"keyword": "ab"}, c.shareTok), 200, 422)
 
+	// หลายสกุล · total_sum ของ Share รวม share01 + shareb2b
 	p = list(c.comTok, map[string]any{})
 	for _, r := range p.Data {
-		if r.Username == "shareb2b" && fmt.Sprint(r.Balances) != "[{THB 7} {USD 0}]" {
-			t.Fatalf("balances หลายสกุล %+v", r.Balances)
+		if r.Username == "shareb2b" && (r.Currency["THB"] != 7 || r.Currency["USD"] != 3) {
+			t.Fatalf("currency หลายสกุล %v", r.Currency)
 		}
 	}
+	if s := p.TotalSum["SHAREHOLDER"]; s["THB"] != 907 || s["USD"] != 3 {
+		t.Fatalf("total_sum SHAREHOLDER = %v", s)
+	}
+
+	// Seamless: has_balance = false · ยอด 0 ทุกสกุล · Superadmin ไม่มียอดของตัวเอง
 	mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_RESELLER", "reseller01", nil, childPT(80, 0, 0, 0)))
-	for _, r := range list(c.saTok, map[string]any{}).Data {
-		if (r.Username == "reseller01") == r.HasBalance {
-			t.Fatalf("has_balance %+v", r)
+	p = list(c.saTok, map[string]any{})
+	for _, r := range p.Data {
+		if (r.Username == "reseller01") == r.HasBalance || (r.Username == "reseller01" && r.Currency["THB"] != 0) {
+			t.Fatalf("Seamless %+v", r)
 		}
+	}
+	if len(p.CreditDetail.Currency) != all || p.CreditDetail.Currency["THB"] != 0 {
+		t.Fatalf("credit_detail ของ Superadmin = %v", p.CreditDetail.Currency)
 	}
 }
 
