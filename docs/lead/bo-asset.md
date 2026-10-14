@@ -20,7 +20,7 @@ branch `boiledegg/bo/asset` (แตกจาก `carl/asset` @ `9b2956e` + merge
 | `824827f` | merge dev → conflict 2 ไฟล์ (ทั้งสองฝั่งเพิ่มบรรทัดตรงจุดเดียวกัน — เก็บทั้งคู่): `routes.go` import asset + deposit_withdraw · `docs/ERROR_CODES.md` module 04 deposit_withdraw + 05 asset เรียงตามเลข · `pkg/testutil` รายการตารางที่ล้างครบ (game_rate · deposit_withdraw · asset) ไม่ซ้ำ |
 | `8492825` | แก้ lint 10 ข้อใน `scripts/fakes3/main.go` (ไม่แก้ CI จะไม่ build image): สิทธิ์โฟลเดอร์ `0750` / ไฟล์ `0600` · `http.Server` มี timeout · log ค่าจาก request ผ่าน `strconv.Quote` · `Close` เช็ค error · `//nolint:gosec` G304 พร้อมเหตุผล (path ผ่าน `resolve` อยู่ใต้ root เท่านั้น) · ลองรันจริง PUT / GET / DELETE ผ่าน |
 
-## 3. smoke test ในเครื่อง (API + `scripts/fakes3` + DB test) — ผ่าน 20 / 20
+## 3. smoke test ในเครื่อง (API + `scripts/fakes3` + DB test) — รอบ 1 ผ่าน 20 / 20 · รอบ 2 ผ่าน 51 / 51
 
 | ส่วน | ผล |
 |---|---|
@@ -31,7 +31,17 @@ branch `boiledegg/bo/asset` (แตกจาก `carl/asset` @ `9b2956e` + merge
 | bundle | `source: "mixed"` — `icon_button` จาก Company · `main_play` จาก GLOBAL |
 | theme / branding | ตั้งแล้ว get ได้ `source: "self"` ค่าตรง |
 
-ไม่ได้ทำใน smoke (integration test ของ carl ครอบแล้ว): เกม `coin_toss` / `rock_paper_scissors` · อัปโลโก้ · ไล่สายหลายชั้น · sub สิทธิ์ `view`
+### smoke รอบ 2 — ผ่าน 51 / 51
+
+| ส่วน | ผล |
+|---|---|
+| เกมอื่น | `coin_toss` (11 ช่อง) / `rock_paper_scissors` (12 ช่อง) — ทุกช่องไม่กำหนดขนาด (`allowed_sizes: []`) · อัป GLOBAL + ใช้ทันที · เปิด URL ได้ · `used/list` / theme GLOBAL ได้ |
+| ไล่สาย Company → Share → Agent | Company ตั้งรูป / ธีม / ชื่อเว็บ → Agent ได้ค่าของ Company (`upline` · `inherited_from` = Company) · Share ตั้ง `main_play` → Agent ได้ `main_play` จาก Share + `icon_button` จาก Company (`source: upline` — ที่มาประเภทเดียวกัน) · Agent ตั้งเองอีกช่อง → `source: mixed` |
+| สิทธิ์ในสาย | Company ดูของ Agent ได้ · Company แก้ของ Share → `405301` · Agent ดูของ Company → `402402` |
+| โลโก้ | อัปได้ เปิด URL ได้ · Agent ได้โลโก้ของ Company · กว้าง 4100 px → `405101` · ไม่ใช่รูป → `405102` · ไม่แนบไฟล์ → `422` · อัปซ้ำได้ URL ใหม่ (เขียนทับ) · `branding/reset` แล้ว Agent ไม่มี branding (ไม่มีค่ากลาง) |
+| sub ของ Company สิทธิ์ `asset` = view | เปลี่ยนรหัสครั้งแรก + ตั้ง passcode · ดู `used/list` / bundle ได้ · อัปรูป / ตั้งธีม / อัปโลโก้ → `402303` |
+
+ไม่เจอบั๊ก · ข้อที่ไม่ผ่านระหว่างเขียน script เป็นความเข้าใจผิดของ script เอง (ชื่อมีช่องว่าง / ใช้ token ผิดคน / ช่องไม่กำหนดขนาด / คาด `mixed` ทั้งที่ทุกช่องเป็น `upline`) — ระบบตอบตรง spec ทุกข้อ
 
 ## 4. ขอ lead approve
 
