@@ -10,6 +10,7 @@
 | `bo-currency-rate.md` | `boiledegg/bo/currency-rate` |
 | `bo-game-rate.md` | `boiledegg/bo/game_rate-settings` |
 | `bo-agent-management-mgmt18a.md` | `boiledegg/bo/agent_management` (MGMT-18A) |
+| `bo-deposit-withdraw.md` | `maofoy/bo/deposit-withdraw` |
 
 ## โครงของแต่ละไฟล์
 
