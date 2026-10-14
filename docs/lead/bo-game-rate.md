@@ -27,7 +27,7 @@ branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3
 | S1–S10 | spec `docs/modules/game_rate.md` แก้ครบ (หัวเอกสาร · สิทธิ์ · float 4 ตำแหน่ง · house edge ≥ 1% · เพดาน · `base_version` · RE1–RE7 + ตัวอย่างครบ 10 ขั้นที่คำนวณจริง · schema · test · error · open items) + หัวข้อ 10 แผน implement |
 | C1 | `app/core/game` รายชื่อเกม · agent_management ใช้จากที่นี่ (ไม่เปลี่ยนพฤติกรรม) |
 | C2 | `app/core/game_rate`: รูปแบบอัตรา · ตรวจรูปแบบ · สูตรด้วย `big.Rat` · ค่าคำนวณ · เทียบค่าเท่า · `changes` · table test (5% · 13.36% · 22.75% · ขอบ 1% · เพดาน 50) |
-| C3 | migration `20261012160000_game_rate` (3 ตาราง · DOUBLE + CHECK · `step >= 1` ไม่ผูก 10 ขั้น) · models · repository (batch · advisory lock) |
+| C3 | migration `20261014110000_game_rate` (3 ตาราง · DOUBLE + CHECK · `step >= 1` ไม่ผูก 10 ขั้น) · models · repository (batch · advisory lock) |
 | C4 | service: tx เดียว · lock ต่อเกม → `base_version` (`406301`) → กฎ → ค่าเท่า (`created: false`) → insert batch · rollback ตรวจกฎปัจจุบัน |
 | C5 | routes RE1–RE7 `POST /bo/pr/rate/…` · `rate` view / edit ก่อน passcode · error `406101`–`406402` |
 | C6 | `CurrentVersionService` (version 0 = `ErrRateNotConfigured`) · `ByVersionIDService` + cache ใน memory |
@@ -41,7 +41,7 @@ branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3
 
 ## 4. ก่อน deploy
 
-1. migrate RDS dev `20261012160000_game_rate` (ตารางใหม่ล้วน ไม่แตะข้อมูลเดิม)
+1. migrate RDS dev `20261014110000_game_rate` (ตารางใหม่ล้วน ไม่แตะข้อมูลเดิม)
 2. ระบบไม่มีค่าเริ่มต้น — Superadmin ต้องตั้งอัตราเองก่อนเปิดเกม (ค่าตัวอย่างใน `docs/frontend/game_rate.md` หัวข้อ 4)
 3. แจ้งหน้าบ้าน: เส้นใหม่ RE1–RE8 (RE8 สวิตช์ปิดเกม · RE1 มี `status_game`) · เพดาน 50 · RPS ไม่มีเสมอ · `max_win_percent` ปัดลง · ล็อก / เกลี่ยเป็นฝั่งหน้าบ้าน
 

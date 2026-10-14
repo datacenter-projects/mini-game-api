@@ -2,7 +2,7 @@
 -- ค่ากลางชุดเดียวทั้งระบบ · 1 แถว game_rate_versions ต่อการบันทึกที่ค่าเปลี่ยน (ห้าม UPDATE / DELETE — เป็น log คนแก้ RATE-08)
 -- ค่า % / ตัวคูณ DOUBLE PRECISION ปัด 4 ตำแหน่ง (กฎข้อ 9 · lead RR1) · CHECK กันค่าหลุดช่วง · กฎ house edge ตรวจใน core/game_rate
 -- รูปแบบอัตรา (RATE-01A): steps → game_rate_steps · prizes → win_percent ในแถวเวอร์ชัน + game_rate_prizes
--- version ตั้งหลัง 20261012120000 ที่รันบน dev แล้ว (make migration ได้เลข UTC ที่น้อยกว่า — lead MA6)
+-- version 20261014110000: เดิม 20261012160000 ชนกับ migration asset ของ carl ที่รันบน RDS dev แล้ว (goose เห็นว่ารันแล้วแต่ไม่มีตาราง) — เปลี่ยนเลขก่อน deploy ครั้งแรก
 
 -- +goose Up
 CREATE TABLE game_rate_versions (
