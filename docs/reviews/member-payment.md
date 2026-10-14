@@ -28,3 +28,17 @@
 - C2 DTO / service / repository: create + detail/get + detail/update (2 section ใหม่) · สิทธิ์ `payment` · lock `FOR NO KEY UPDATE` · unique violation → `402405`
 - C3 log ปิดบางส่วนของเลขบัญชี (P8)
 - C4 test: คู่ไม่ครบ 422 · ธนาคารไม่อยู่ในรายการ 422 · ซ้ำใต้ผู้สร้างเดียวกัน 402405 · คนละผู้สร้างได้ · Seamless = CASH · sub ไม่มี `payment` edit แก้ section payment ไม่ได้ · log ปิดบางส่วน · ค่าเดิมไม่เขียน log · รัน integration แนบผล · แจ้ง frontend
+
+## ตรวจงานรอบที่ 1 (2026-10-12 · maofoy `faa5ea5` `0e23819` `0e6c1cc` `e982a65` `4527bb0` `ed0cd62` `12922d9` `6d6b95a`)
+ผลตรวจ: P1–P15 ทำครบ ✅ · migration · unique → `402405` · เลขบัญชีใน log ปิดบางส่วน · สิทธิ์ `payment` · Seamless = CASH · tx / lock ✅ · build / vet / unit / structure ผ่าน · **integration ยังไม่มีใครรัน** · merge ตรงเข้า dev ไม่ผ่าน PR · **ยังไม่ deploy dev จนกว่าจะทำรายการด้านล่างครบ**
+
+| # | เรื่อง | lead ตัดสิน |
+|---|---|---|
+| Q1 | `win_limit_per_day` ≤ 1,000,000 (maofoy เพิ่มเอง) | **คงเพดาน 1,000,000 บาท (THB)** — ระบบใช้ THB เป็นค่ากลาง · ตอนตรวจให้**แปลงค่าของ Member เป็นบาทก่อนแล้วค่อยเทียบ** (ไม่ใช่เทียบตัวเลขดิบในสกุลของ Member) · ต้องใช้อัตราแลกเปลี่ยน — module `currency_rate` ยังอยู่ใน branch `boiledegg/bo/currency-rate` ไม่อยู่บน dev → maofoy ประสาน boiledegg ว่าจะใช้อัตราจากไหน (ถ้ายังไม่มีอัตราของสกุลนั้น = ปฏิเสธพร้อม error ที่ชัดเจน ไม่ใช่ผ่านเงียบ) · Member สกุล THB เทียบตรงได้เลย |
+| Q2 | request เงิน / % เป็น `float64` แทน `utils.Decimal` (ทีมตกลง) | **อนุมัติ** · ผลข้างเคียง: ตัวเลขที่ส่งเป็นข้อความ = 400 (เดิม 422) — แจ้งหน้าบ้าน |
+| Q3 | sub ที่มีแค่ `member` edit ใส่บัญชีธนาคารตอน create ได้ | **ปล่อยตามเดิม** (การแก้ทีหลังยังต้องมี `payment` edit) |
+| Q4 | รายการธนาคาร 17 แห่ง | **พอแล้ว** (เพิ่มทีหลังได้) |
+| Q5 | เลขบัญชีเต็มเห็นได้ทั้งสายชั้นบน | **ตาม P8 เดิม** (เต็มใน `detail/get`) |
+| Q6 | msg เป็น label แทน path ของ field | **รับ** · code ไม่เปลี่ยน · ถามหน้าบ้านก่อนว่าไม่ได้ parse path จาก msg |
+
+**maofoy ต้องทำก่อน deploy dev:** 1) Q1 แปลงเป็นบาทก่อนเทียบ 2) `payment_type` ผิดตอน create ได้ `422` เหมือน update 3) รัน integration แนบผล 4) แจ้งหน้าบ้าน: `payment_type` บังคับ · ตัวเลขเป็นข้อความ = 400 · msg เปลี่ยนเป็น label · ต่อไปขอให้เปิด PR ให้ boiledegg review แทน commit ตรง dev
