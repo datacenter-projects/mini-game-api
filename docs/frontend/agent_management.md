@@ -3,6 +3,10 @@
 เอกสารนี้ตรงกับโค้ดบน `dev` (agent_management PR 2 + PR 3 — **ตาม lead review 9 ต.ค.**) และ branch `boiledegg/bo/subaccount` (หัวข้อ 3.10 / 3.11 / sub เปลี่ยนรหัสผ่าน — **ตาม lead review 11 ต.ค.** ใช้บน server หลัง merge + deploy) ·
 spec เต็ม: `docs/modules/agent_management.md` · พื้นฐานเรื่อง login / session / ด่านหลัง login ดู `docs/frontend/auth.md`
 
+> **เปลี่ยน (14 ต.ค. · deploy dev `dev-202610140730`)** — Superadmin (และ sub ของ Superadmin) สร้าง / แก้ Company ทุกประเภท (รวม CSM) **ต้องส่ง `remain_quota: 0`** ·
+> ไม่ใช่ 0 = `422` "เอาส่วนที่เหลือ Superadmin ตั้งไม่ได้ (ส่วนที่เหลือคืน Superadmin อยู่แล้ว) ต้องเป็น 0" · `force` ตั้งได้ตามเดิม · ชั้นอื่นตั้ง `remain_quota` ได้ตามเดิม ·
+> Company เดิมที่ Superadmin ตั้ง remain ไว้ ถูกปรับเป็น 0 แล้ว (หน้าแก้ Company ของ Superadmin ควรล็อกช่องนี้เป็น 0)
+
 > **เปลี่ยนจากเดิม (9 ต.ค.)** — path ใหม่ทั้งหมด เส้นเดิมได้ `404` (หัวข้อ 5) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` ·
 > แก้บัญชีเหลือเส้นเดียว `agents/detail/update` · `copy-sources` → `agents/list` · `subaccounts/list` ใช้ `keyword` แทน `q` · ไม่มีเมนูสิทธิ์ `pt` แล้ว (`pt` แสดงเสมอ) ·
 > Share Reseller / Share Master สร้าง Agent ไม่ได้ · **เบอร์โทร 2 field** `phone_country_code` + `phone` (หัวข้อ 1.5) ·

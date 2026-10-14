@@ -1,6 +1,6 @@
 # game_rate (อัตราแพ้ชนะ) — Spec
 
-- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ตัดสินครบ 2026-10-12 (Q2–Q8) · Q1 สวิตช์ปิดเกม RE8 (lead ทบทวน 2026-10-13 · QS1–QS3) · implement C1–C9 เสร็จ รอ lead review** (branch `boiledegg/bo/game_rate-settings`)
+- สถานะ: **APPROVED** (lead (zerph) 2026-10-08) · **แก้ตาม lead review 2026-10-12** ([docs/reviews/game-rate.md](../reviews/game-rate.md) — RS1 · RR1–RR6 · RN1–RN2 · RP1) — **ตัดสินครบ 2026-10-12 (Q2–Q8) · Q1 สวิตช์ปิดเกม RE8 (lead ทบทวน 2026-10-13 · QS1–QS3) · implement C1–C9 เสร็จ · **deploy dev `dev-202610140730` (2026-10-14)** (branch `boiledegg/bo/game_rate-settings`)
   - RS1 ค่ากลางชุดเดียว Superadmin (+ sub ที่มีเมนู `rate`) ตั้ง · ไม่ไล่สาย ไม่มีค่าต่อบัญชี
   - RR1 ตัวคูณ / % เป็น float ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9 · แทน INT ×100 / bp) · RNG `0–999,999` · ตรวจสูตรด้วยเลขแม่นยำ (`big.Rat`)
   - RR2 house edge ≥ 1% ทุกจุดที่หยุดได้ · RR3 ตัวคูณ ≤ 1,000 · `win_percent > 0` · **`win_percent` ≤ 50 ทุกเกม (2026-10-12)**

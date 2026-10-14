@@ -2,7 +2,7 @@
 
 จาก boiledegg · review: [docs/reviews/game-rate.md](../reviews/game-rate.md)
 branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3 commit เอกสาร · ไม่เอา commit test-infra เก่า · ลบ branch `boiledegg/bo/game-rate` แล้ว) ·
-**ยังไม่ merge / deploy — รอ lead review**
+**merge เข้า dev + deploy แล้ว** (`7407f0f` · migration `7702f1e` · tag `dev-202610140730` · 14 ต.ค.) — lead approve หลังรีวิวรอบ 4
 
 ## 1. การตัดสินระหว่างทำ (ผ่าน boiledegg · 2026-10-12)
 
@@ -60,3 +60,15 @@ branch `boiledegg/bo/game_rate-settings` (แตกจาก dev + cherry-pick 3
 | nit | ไม่ได้ทำ (verify report ไม่อยู่ใน repo) |
 
 merge dev ล่าสุด (`532ae1e`) แล้ว · unit + integration ผ่านทุก package · lint 0 issues
+
+## 7. deploy dev (2026-10-14)
+
+1. lead approve → merge `boiledegg/bo/game_rate-settings` เข้า dev (`ccf8f00`) ตามด้วย `boiledegg/bo/agent_management` (MGMT-18A · `7407f0f`) — ไม่มี conflict
+2. lint 0 issues · unit + integration ผ่านทุก package (test DB reset ใหม่)
+3. ⚠ **เลข migration ชน:** `20261012160000` ของ game_rate ชนกับ `20261012160000_asset_create_tables` ของ `carl/asset`
+   ที่รันบน RDS dev ไปแล้ว (branch ยังไม่ merge) → goose เห็นว่ารันแล้วแต่ไม่มีตาราง game_rate ·
+   **เปลี่ยนเป็น `20261014110000`** (`7702f1e` — ไฟล์นี้ไม่เคยรันที่ไหน ไม่ขัด A3) · test ทั้งชุดผ่านอีกรอบ
+4. migrate RDS dev: `20261014110000_game_rate` · `20261014120000_agent_management_superadmin_remain` — OK ทั้งคู่
+5. tag `dev-202610140730` → GitHub Actions build image → infra rollout
+6. ต่อจากนี้: แจ้งหน้าบ้าน (`docs/frontend/game_rate.md` หัวเอกสาร) · Superadmin บน dev ตั้งอัตรา 3 เกมให้ tester (ระบบไม่มีค่าเริ่มต้น)
+   · ฝากแจ้ง carl: RDS dev มี `20261012160000` / `20261012170000` ของ `carl/asset` รันแล้ว — merge ต้องใช้เลขเดิม

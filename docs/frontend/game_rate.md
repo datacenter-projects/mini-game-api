@@ -1,7 +1,12 @@
-# API หลังบ้าน — อัตราแพ้ชนะ (`game_rate` · เมนู ⑥) — 12 ต.ค. 2026
+# API หลังบ้าน — อัตราแพ้ชนะ (`game_rate` · เมนู ⑥) — 14 ต.ค. 2026
 
-spec เต็ม: `docs/modules/game_rate.md` · **ยังไม่ deploy** (ทำเสร็จใน branch `boiledegg/bo/game_rate-settings` · รอ lead review) · ผู้ดูแล: boiledegg ·
+spec เต็ม: `docs/modules/game_rate.md` · **deploy บน dev แล้ว** (`dev-202610140730` · 14 ต.ค.) · ผู้ดูแล: boiledegg ·
 พื้นฐาน (base URL · header · รูปแบบ response · ห้าม `null` · Postman) ดู [agent_management.md](agent_management.md) หัวข้อ 1 · login / ด่านหลัง login ดู [auth.md](auth.md)
+
+> **ก่อนเทส:** ระบบไม่มีอัตราเริ่มต้น — Superadmin ต้องบันทึกอัตราของแต่ละเกมครั้งแรกเอง (RE4 · ค่าตัวอย่างหัวข้อ 4) · ยังไม่ตั้ง = `version: 0` เกมเปิดเล่นไม่ได้
+>
+> **เพิ่ม / เปลี่ยน (13–14 ต.ค.)** — RE8 `rate/status/update` สวิตช์เปิด / ปิดเกมทั้งระบบ · RE1 มี `status_game` · Scratch มี `prizes[].payout_percent` ต่อแถว ·
+> ข้อความ error (`msg` / `issues[].message`) ใช้ชื่ออ่านได้ เช่น "ขั้นที่ 1 · โอกาสชนะ …" — ชี้ช่องที่ผิดใช้ `issues[].field` (path เดิม)
 
 > ตัวอย่าง response ทุกอันในเอกสารนี้ได้จากการยิง API จริงใน test env (ตัดเฉพาะ `created_at` ให้อ่านง่าย) · ตัวเลขเป็นค่าตัวอย่าง
 
