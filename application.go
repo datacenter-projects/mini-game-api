@@ -15,6 +15,7 @@ import (
 	"app/platform/database"
 	"app/platform/logger"
 	"app/platform/metrics"
+	"app/platform/storage"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -47,6 +48,13 @@ func main() {
 		logger.SugarLogger.Fatalw("connect redis", "error", err)
 	}
 	defer database.CloseRedis() //nolint:errcheck
+
+	// storage ไม่พร้อมต้อง boot ได้ (asset AST-30) — เส้นที่แตะ storage ตอบ 505801 เอง
+	if err := storage.Init(ctx, configs.Cfg.Storage); err != nil {
+		logger.SugarLogger.Warnw("storage init failed — uploads disabled", "error", err)
+	} else if !storage.Available() {
+		logger.SugarLogger.Warnw("storage not configured (S3_BUCKET empty) — uploads disabled")
+	}
 
 	var metricsSrv *http.Server
 	if configs.Cfg.MetricsAddr != "" {

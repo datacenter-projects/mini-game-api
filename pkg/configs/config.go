@@ -23,9 +23,10 @@ type Config struct {
 	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
 	MetricsAddr string
 
-	DB    DBConfig
-	Redis RedisConfig
-	Auth  AuthConfig
+	DB      DBConfig
+	Redis   RedisConfig
+	Auth    AuthConfig
+	Storage StorageConfig
 
 	MigrateOnStart bool
 }
@@ -72,6 +73,17 @@ type RedisConfig struct {
 	Addr     string
 	Password string
 	DB       int
+}
+
+// StorageConfig — object storage (S3) ของไฟล์ asset (docs/modules/asset.md AST-30, AST-49)
+// ไม่ตั้ง Bucket = storage ไม่พร้อม แต่ระบบต้อง boot ได้ (เส้นอัปโหลดตอบ 505801 · เส้นอ่านทำงานปกติ)
+// credential ใช้ default chain ของ AWS SDK (IRSA / env ของ SDK) — ห้ามเก็บ key ใน config ของเรา
+type StorageConfig struct {
+	Region        string
+	Bucket        string
+	CDNBaseURL    string        // base ของ URL ที่ตอบ client · ว่าง = ตอบ key ตรงๆ
+	UploadTimeout time.Duration // timeout ต่อการอัป / ลบ 1 object
+	Endpoint      string        // ว่าง = AWS จริง · ตั้งเมื่อใช้ MinIO ใน local / test
 }
 
 // Cfg เป็น global ให้ทุก layer อ่านได้ (แบบเดียวกับ database.DBConn)
@@ -129,6 +141,14 @@ func Load() error {
 			PasscodeFailWindow:     getEnvDuration("PASSCODE_FAIL_WINDOW", 24*time.Hour),
 			PasscodeBlockDuration:  getEnvDuration("PASSCODE_BLOCK_DURATION", time.Hour),
 			TempCredentialTTL:      getEnvDuration("TEMP_CREDENTIAL_TTL", 24*time.Hour),
+		},
+
+		Storage: StorageConfig{
+			Region:        getEnv("S3_REGION", "ap-southeast-1"),
+			Bucket:        os.Getenv("S3_BUCKET"),
+			CDNBaseURL:    os.Getenv("S3_CDN_BASE_URL"),
+			UploadTimeout: getEnvDuration("S3_UPLOAD_TIMEOUT", 30*time.Second),
+			Endpoint:      os.Getenv("S3_ENDPOINT"),
 		},
 
 		MigrateOnStart: getEnvBool("MIGRATE_ON_START", false),

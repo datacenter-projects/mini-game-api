@@ -44,6 +44,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 02 | agent_management (การจัดการสมาชิก) | `pkg/apperr/agent_management_errors.go` | `docs/modules/agent_management.md` · ใช้ร่วมกับ `member_management` (`docs/modules/member_management.md`) |
 | 03 | account (บัญชี) | `pkg/apperr/account_errors.go` | `docs/modules/account.md` |
 | 04 | deposit_withdraw (ฝาก / ถอน) | `pkg/apperr/deposit_withdraw_errors.go` | `docs/modules/deposit_withdraw.md` (lead DQ9 2026-10-13) |
+| 05 | asset (หน้าตาเกม / หน้าเว็บ) | `pkg/apperr/asset_errors.go` | `docs/modules/asset.md` · game_rate ใช้ 06 (lead GQ6) |
 | 06 | game_rate (อัตราแพ้ชนะ — ตรงกับเมนู ⑥) | `pkg/apperr/game_rate_errors.go` | `docs/modules/game_rate.md` |
 
 ## agent_auth (01)
@@ -119,6 +120,24 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 404307 | 200 | มีรายการของบัญชีนี้กำลังทำอยู่ กรุณาลองใหม่ (DW-21) |
 | 404401 | 200 | ไม่พบบัญชีลูกตรงของคุณ (DW-01 / DW-02) |
 | 504801 | 503 | ระบบไม่พร้อมทำรายการ กรุณาลองใหม่ (Redis ใช้ไม่ได้ — DW-21) |
+
+## asset (05)
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 405101 | 200 | ขนาดภาพไม่ตรงกับที่ช่องนี้รับ (msg บอกขนาดที่รับ) · หรือกว้าง / สูงเกิน 4096 px |
+| 405102 | 200 | ชนิดไฟล์ไม่รองรับ (รับ png / jpeg / gif / webp) · รวมไฟล์ที่อ่าน header ภาพไม่ได้ |
+| 405103 | 200 | ไฟล์ใหญ่เกิน 5 MB |
+| 405301 | 200 | ไม่มีสิทธิ์แก้หน้าตาของบัญชีนี้ |
+| 405302 | — | จองถาวร (ตัดก่อนปล่อยใช้ — lead GR4) |
+| 405303 | — | จองถาวร (ตัดก่อนปล่อยใช้ — lead GR2) |
+| 405304 | 200 | ช่องนี้เลิกใช้แล้ว |
+| 405401 | 200 | ไม่พบเกมหรือช่อง asset |
+| 405402 | 200 | ไม่พบ asset (ตอบเหมือนกันทุกกรณี) |
+| 405403 | 200 | asset ยังถูกใช้งานอยู่ |
+| 405404 | — | จองถาวร (banner เลื่อน — ใช้ตอนทำ banner) |
+| 505801 | 503 | ที่เก็บไฟล์ยังไม่พร้อม |
+| 505802 | 502 | อัปโหลดไปที่เก็บไฟล์ไม่สำเร็จ |
 
 ## game_rate (06)
 

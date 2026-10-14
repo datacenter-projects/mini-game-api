@@ -49,16 +49,27 @@ func findNull(v any, path string) (string, bool) {
 	return "", false
 }
 
+// CheckNoNull — 422 เมื่อมี null ที่ใดใน body (account ACC-32: ไม่มี null ใน API) · body ว่าง / ไม่มี null = nil
+// ใช้ร่วมกันทุกที่ที่อ่าน body เอง (ParseBodyNoNull, middleware ที่อ่าน field ก่อน controller) ให้ข้อความเหมือนกัน
+func CheckNoNull(body []byte) error {
+	if len(body) == 0 {
+		return nil
+	}
+	path, ok := FindJSONNull(body)
+	if !ok {
+		return nil
+	}
+	if path == "" {
+		path = "body"
+	}
+	th, en := FieldLabel(path)
+	return apperr.ErrValidation.WithMessage(th+" ห้ามเป็น null", en+" must not be null")
+}
+
 // ParseBodyNoNull — เหมือน ParseBody แต่ตอบ 422 เมื่อมี null ที่ใดใน body (account ACC-32: ไม่มี null ใน API)
 func ParseBodyNoNull(c *fiber.Ctx, out Validatable) error {
-	if body := c.Body(); len(body) > 0 {
-		if path, ok := FindJSONNull(body); ok {
-			if path == "" {
-				path = "body"
-			}
-			th, en := FieldLabel(path)
-			return apperr.ErrValidation.WithMessage(th+" ห้ามเป็น null", en+" must not be null")
-		}
+	if err := CheckNoNull(c.Body()); err != nil {
+		return err
 	}
 	return ParseBody(c, out)
 }
