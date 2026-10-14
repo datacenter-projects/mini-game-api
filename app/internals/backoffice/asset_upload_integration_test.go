@@ -254,13 +254,13 @@ func TestAssetUploadChecks(t *testing.T) { // AST-11 · AST-14 – AST-17 · AST
 	expect(t, up(nil, pngOf(t, 40, 40)), 200, 200)                                                                      // ขนาดที่ 2 ของ icon_button
 	expect(t, up(nil, pngOf(t, 36, 36)), 200, codeImageSize)                                                            // ไม่ตรงทั้งสองขนาด
 	expect(t, up(map[string]string{"game_code": "coin_toss", "asset_type": "background"}, pngOf(t, 123, 45)), 200, 200) // ช่องไม่มีสเปก
-	expect(t, up(nil, webpUnreadable()), 200, 200)                                                                      // อ่านขนาดไม่ได้ = ผ่าน (fail-open)
+	expect(t, up(nil, webpUnreadable()), 200, codeFileType)                                                             // อ่านขนาดไม่ได้ = ปฏิเสธ (fail-closed — lead A2)
 
 	// AST-20: อัปช่องเดิมกี่ครั้งก็เก็บทุกเวอร์ชัน
 	for i := 0; i < 3; i++ {
 		expect(t, up(nil, pngOf(t, 32, 32)), 200, 200)
 	}
-	if n := countRows(t, &models.AssetConfig{}, "asset_type_id = ? AND agent_id = ?", slotID(t, "scratch_card", "icon_button"), w.share.ID); n < 6 {
+	if n := countRows(t, &models.AssetConfig{}, "asset_type_id = ? AND agent_id = ?", slotID(t, "scratch_card", "icon_button"), w.share.ID); n < 5 { // webp ที่อ่านขนาดไม่ได้ไม่ถูกนับแล้ว (lead A2)
 		t.Errorf("config ของช่องเดิมต้องเก็บทุกเวอร์ชัน (มี %d)", n)
 	}
 	if n := countRows(t, &models.AssetConfig{}, "is_deleted = true"); n != 0 {

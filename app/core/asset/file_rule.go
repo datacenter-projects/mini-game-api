@@ -16,6 +16,9 @@ import (
 // MaxFileSize — ขนาดไฟล์สูงสุดของรูป (AST-16 · lead GR3)
 const MaxFileSize = 5 * 1024 * 1024
 
+// MaxImageDimension — กว้าง / สูงสูงสุดของรูปทุกเส้นอัปโหลด (AST-17 · lead A1) · กันไฟล์เล็กแต่ pixel มหาศาล
+const MaxImageDimension = 4096
+
 // ImageKind — ชนิดรูปที่รับ (AST-16) · SVG และอื่นๆ ไม่รับ
 type ImageKind string
 
@@ -27,21 +30,22 @@ const (
 )
 
 // ErrUnsupportedImage — เนื้อไฟล์ไม่ใช่ png / jpeg / gif / webp (ไม่เชื่อ Content-Type ที่ client ส่ง)
+// หรือขึ้นต้นถูกชนิดแต่อ่านขนาดภาพจาก header ไม่ได้ (fail-closed — AST-17 · lead A2)
 var ErrUnsupportedImage = errors.New("unsupported image type")
 
-// ImageInfo — ผลตรวจเนื้อไฟล์ · SizeKnown = false เมื่ออ่านขนาดภาพไม่ได้ (fail-open — AST-17)
+// ImageInfo — ผลตรวจเนื้อไฟล์ · ผ่าน DetectImage แล้วรู้ขนาดภาพเสมอ
 type ImageInfo struct {
 	Kind        ImageKind
 	ContentType string
 	Width       int
 	Height      int
-	SizeKnown   bool
 }
 
 // Ext — นามสกุลของ storage key (AST-16)
 func (i ImageInfo) Ext() string { return string(i.Kind) }
 
-// DetectImage — ตรวจชนิดจาก magic bytes ของเนื้อไฟล์ แล้วอ่านขนาดภาพ (AST-16, AST-17)
+// DetectImage — ตรวจชนิดจาก magic bytes ของเนื้อไฟล์ แล้วอ่านขนาดภาพจาก header (AST-16, AST-17)
+// อ่านขนาดไม่ได้ = ErrUnsupportedImage (fail-closed — lead A2) · ไม่ถอดรหัสทั้งภาพ
 func DetectImage(data []byte) (ImageInfo, error) {
 	var info ImageInfo
 	switch {
@@ -57,16 +61,21 @@ func DetectImage(data []byte) (ImageInfo, error) {
 		return ImageInfo{}, ErrUnsupportedImage
 	}
 
+	var ok bool
 	if info.Kind == ImageWebP {
-		info.Width, info.Height, info.SizeKnown = webpSize(data)
-		return info, nil
+		info.Width, info.Height, ok = webpSize(data)
+	} else if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+		info.Width, info.Height, ok = cfg.Width, cfg.Height, cfg.Width > 0 && cfg.Height > 0
 	}
-	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil { // อ่านขนาดไม่ได้ = ผ่าน (fail-open — ขนาดภาพเป็นเรื่องหน้าตา ไม่ใช่ความปลอดภัย)
-		return info, nil
+	if !ok {
+		return ImageInfo{}, ErrUnsupportedImage
 	}
-	info.Width, info.Height, info.SizeKnown = cfg.Width, cfg.Height, cfg.Width > 0 && cfg.Height > 0
 	return info, nil
+}
+
+// DimensionAllowed — กว้างและสูงไม่เกิน MaxImageDimension (AST-17 · lead A1) · ใช้กับทุกเส้นอัปโหลด รวมโลโก้และช่องที่ไม่มีสเปก
+func DimensionAllowed(w, h int) bool {
+	return w <= MaxImageDimension && h <= MaxImageDimension
 }
 
 // webpSize — อ่านขนาดจาก header ของ WebP (VP8 lossy · VP8L lossless · VP8X extended) ไม่ถอดรหัสภาพ

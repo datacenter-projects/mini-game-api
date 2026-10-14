@@ -73,6 +73,66 @@ func TestAssetTargetCheckedBeforeBody(t *testing.T) { // 7.1: สิทธิ์
 	expect(t, assetCall(t, app, "used/list", scopeAgent(w.csm.ID, "game_code", nil), w.shareTok), 200, 422)
 }
 
+func TestAssetImageLimits(t *testing.T) { // AST-17 · lead A1 (กว้าง / สูง ≤ 4096 ทุกเส้นอัป) · lead A2 (อ่าน header ไม่ได้ = 405102)
+	app := setup2(t)
+	fake := testutil.NewFakeS3(t)
+	w := buildAssetWorld(t, app)
+	sid := w.share.ID
+	upFree := func(file []byte) testutil.Response { // coin_toss/background = ช่องที่ไม่มี allowed_sizes
+		return postForm(t, app, "files/upload", formAgent(sid, "game_code", "coin_toss", "asset_type", "background"), file, w.shareTok)
+	}
+	logo := func(file []byte) testutil.Response {
+		return postForm(t, app, "branding/logo/upload", map[string]string{"agent_id": itoa(sid)}, file, w.shareTok)
+	}
+	before := fake.Puts()
+
+	// A1: เกิน 4096 ด้านใดด้านหนึ่ง = 405101 ทั้งช่องที่ไม่มีสเปก · ช่องที่มีสเปก · โลโก้
+	for name, r := range map[string]testutil.Response{
+		"ช่องไม่มีสเปก กว้าง 4097": upFree(pngOf(t, 4097, 1)),
+		"ช่องไม่มีสเปก สูง 4097":   upFree(pngOf(t, 1, 4097)),
+		"ช่องมีสเปก":               postForm(t, app, "files/upload", formAgent(sid, "game_code", "scratch_card", "asset_type", "icon_button"), pngOf(t, 4097, 32), w.shareTok),
+		"โลโก้":                    logo(pngOf(t, 4097, 1)),
+		"webp ใหญ่ (VP8X)":         upFree(webpExtended(5000, 10)),
+	} {
+		expect(t, r, 200, codeImageSize)
+		if !strings.Contains(r.Msg, "4096×4096") {
+			t.Errorf("%s: msg ต้องบอกเพดาน: %s", name, r.Msg)
+		}
+	}
+	// A2: magic ถูกแต่อ่าน header ไม่ได้ = 405102 (รวม WebP และโลโก้)
+	for name, f := range map[string][]byte{
+		"png magic อย่างเดียว":  []byte("\x89PNG\r\n\x1a\n"),
+		"jpeg magic อย่างเดียว": []byte("\xff\xd8\xff"),
+		"gif magic อย่างเดียว":  []byte("GIF89a"),
+		"webp magic อย่างเดียว": []byte("RIFF\x00\x00\x00\x00WEBP"),
+		"webp อ่านขนาดไม่ได้":   webpUnreadable(),
+	} {
+		expect(t, upFree(f), 200, codeFileType)
+		if r := logo(f); r.Code != codeFileType {
+			t.Errorf("โลโก้ %s: code %d (%s)", name, r.Code, r.Msg)
+		}
+	}
+	if fake.Puts() != before {
+		t.Errorf("ไฟล์ที่ไม่ผ่านต้องไม่ถูกอัปขึ้น storage: puts %d → %d", before, fake.Puts())
+	}
+
+	// ขอบพอดี 4096 ผ่าน
+	expect(t, upFree(pngOf(t, 4096, 1)), 200, 200)
+	expect(t, upFree(pngOf(t, 1, 4096)), 200, 200)
+	expect(t, logo(pngOf(t, 4096, 1)), 200, 200)
+}
+
+// webpExtended — header ของ WebP แบบ VP8X ที่บอกขนาด canvas (ไม่มีข้อมูลภาพจริง — ระบบอ่านแค่ header)
+func webpExtended(w, h int) []byte {
+	d := make([]byte, 30)
+	copy(d[0:], "RIFF")
+	copy(d[8:], "WEBPVP8X")
+	x, y := w-1, h-1
+	d[24], d[25], d[26] = byte(x), byte(x>>8), byte(x>>16)
+	d[27], d[28], d[29] = byte(y), byte(y>>8), byte(y>>16)
+	return d
+}
+
 func TestAssetUploadCreatedAtMatchesList(t *testing.T) { // created_at ใน response ของ upload = ค่าที่ DB บันทึก (เดียวกับ files/list)
 	app := setup2(t)
 	testutil.NewFakeS3(t)

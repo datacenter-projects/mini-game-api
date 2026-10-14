@@ -75,14 +75,14 @@ func TestDetectImage(t *testing.T) { // AST-16 · AST-17
 		kind ImageKind
 		ct   string
 		w, h int
-		size bool
 	}{
-		{"png", pngBytes(t, 425, 425), ImagePNG, "image/png", 425, 425, true},
-		{"jpeg", jpegBytes(t, 608, 1080), ImageJPEG, "image/jpeg", 608, 1080, true},
-		{"gif", gifBytes(t, 32, 32), ImageGIF, "image/gif", 32, 32, true},
-		{"webp lossy (VP8)", webpHeader("VP8 ", 502, 514), ImageWebP, "image/webp", 502, 514, true},
-		{"webp lossless (VP8L)", webpHeader("VP8L", 1920, 1080), ImageWebP, "image/webp", 1920, 1080, true},
-		{"webp extended (VP8X)", webpHeader("VP8X", 544, 851), ImageWebP, "image/webp", 544, 851, true},
+		{"png", pngBytes(t, 425, 425), ImagePNG, "image/png", 425, 425},
+		{"jpeg", jpegBytes(t, 608, 1080), ImageJPEG, "image/jpeg", 608, 1080},
+		{"gif", gifBytes(t, 32, 32), ImageGIF, "image/gif", 32, 32},
+		{"webp lossy (VP8)", webpHeader("VP8 ", 502, 514), ImageWebP, "image/webp", 502, 514},
+		{"webp lossless (VP8L)", webpHeader("VP8L", 1920, 1080), ImageWebP, "image/webp", 1920, 1080},
+		{"webp extended (VP8X)", webpHeader("VP8X", 544, 851), ImageWebP, "image/webp", 544, 851},
+		{"webp extended ใหญ่เกินเพดาน (อ่านได้ — เพดานตรวจที่ DimensionAllowed)", webpHeader("VP8X", 5000, 100), ImageWebP, "image/webp", 5000, 100},
 	}
 	for _, tt := range tests {
 		got, err := DetectImage(tt.data)
@@ -93,8 +93,8 @@ func TestDetectImage(t *testing.T) { // AST-16 · AST-17
 		if got.Kind != tt.kind || got.ContentType != tt.ct || got.Ext() != string(tt.kind) {
 			t.Errorf("%s: kind/ct got %s/%s", tt.name, got.Kind, got.ContentType)
 		}
-		if got.SizeKnown != tt.size || got.Width != tt.w || got.Height != tt.h {
-			t.Errorf("%s: size got %dx%d known=%v, want %dx%d", tt.name, got.Width, got.Height, got.SizeKnown, tt.w, tt.h)
+		if got.Width != tt.w || got.Height != tt.h {
+			t.Errorf("%s: size got %dx%d, want %dx%d", tt.name, got.Width, got.Height, tt.w, tt.h)
 		}
 	}
 }
@@ -120,26 +120,52 @@ func TestDetectImageRejects(t *testing.T) { // AST-16: ตรวจจากเ�
 	}
 }
 
-func TestDetectImageFailOpenWhenSizeUnreadable(t *testing.T) { // AST-17: อ่านขนาดไม่ได้ = ผ่าน
-	trunc := pngBytes(t, 10, 10)[:20] // magic ถูก แต่ถูกตัดจน decoder อ่านขนาดไม่ได้
-	got, err := DetectImage(trunc)
-	if err != nil {
-		t.Fatalf("ต้องไม่ error: %v", err)
-	}
-	if got.Kind != ImagePNG || got.SizeKnown {
-		t.Errorf("ต้องเป็น png ที่ไม่รู้ขนาด: %+v", got)
-	}
-
+func TestDetectImageRejectsUnreadableHeader(t *testing.T) { // AST-17 · lead A2: magic ถูกแต่อ่านขนาดไม่ได้ = ปฏิเสธ (fail-closed)
 	badWebp := webpHeader("VP8 ", 100, 100)
 	badWebp[23] = 0 // start code ผิด
-	got, err = DetectImage(badWebp)
-	if err != nil || got.Kind != ImageWebP || got.SizeKnown {
-		t.Errorf("webp อ่านขนาดไม่ได้ ต้องผ่านแบบไม่รู้ขนาด: %+v err=%v", got, err)
+	unknownChunk := webpHeader("VP8 ", 1, 1)
+	copy(unknownChunk[12:], "ABCD")
+	zeroWebp := webpHeader("VP8 ", 1, 1)
+	zeroWebp[26], zeroWebp[27] = 0, 0 // กว้าง 0
+
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{"png magic อย่างเดียว", []byte("\x89PNG\r\n\x1a\n")},
+		{"png ถูกตัดจนอ่าน header ไม่ได้", pngBytes(t, 10, 10)[:20]},
+		{"jpeg magic อย่างเดียว", []byte("\xff\xd8\xff")},
+		{"gif magic อย่างเดียว", []byte("GIF89a")},
+		{"webp magic อย่างเดียว", []byte("RIFF\x00\x00\x00\x00WEBP")},
+		{"webp สั้นกว่า header", append([]byte("RIFF\x20\x00\x00\x00WEBPVP8 "), make([]byte, 8)...)},
+		{"webp start code ผิด", badWebp},
+		{"webp chunk ที่ไม่รู้จัก", unknownChunk},
+		{"webp กว้าง 0", zeroWebp},
 	}
-	unknown := webpHeader("VP8 ", 1, 1)
-	copy(unknown[12:], "ABCD")
-	if got, err = DetectImage(unknown); err != nil || got.SizeKnown {
-		t.Errorf("chunk ที่ไม่รู้จัก ต้องผ่านแบบไม่รู้ขนาด: %+v err=%v", got, err)
+	for _, tt := range tests {
+		if _, err := DetectImage(tt.data); !errors.Is(err, ErrUnsupportedImage) {
+			t.Errorf("%s: ต้อง ErrUnsupportedImage ได้ %v", tt.name, err)
+		}
+	}
+}
+
+func TestDimensionAllowed(t *testing.T) { // AST-17 · lead A1: กว้าง / สูง ≤ 4096
+	tests := []struct {
+		w, h int
+		want bool
+	}{
+		{1, 1, true},
+		{4096, 4096, true},
+		{4096, 1, true},
+		{4097, 1, false},
+		{1, 4097, false},
+		{4097, 4097, false},
+		{16384, 16384, false},
+	}
+	for _, tt := range tests {
+		if got := DimensionAllowed(tt.w, tt.h); got != tt.want {
+			t.Errorf("DimensionAllowed(%d, %d) = %v, want %v", tt.w, tt.h, got, tt.want)
+		}
 	}
 }
 

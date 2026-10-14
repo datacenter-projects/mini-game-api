@@ -165,7 +165,7 @@ func padded(data []byte, n int) []byte {
 	return append(data, make([]byte, n-len(data))...)
 }
 
-// webpUnreadable — webp ที่ magic ถูกแต่อ่านขนาดไม่ได้ (fail-open — AST-17)
+// webpUnreadable — webp ที่ magic ถูกแต่อ่านขนาดไม่ได้ (ต้องได้ 405102 — AST-17 · lead A2)
 func webpUnreadable() []byte {
 	d := make([]byte, 40)
 	copy(d[0:], "RIFF")

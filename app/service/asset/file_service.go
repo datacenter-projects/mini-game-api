@@ -3,6 +3,7 @@ package asset
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	assetCore "app/app/core/asset"
@@ -22,7 +23,8 @@ import (
 // cacheControl ของ object — key ไม่ซ้ำทุกครั้งที่อัป จึง cache ยาวได้ (AST-16)
 const cacheControl = "public, max-age=31536000, immutable"
 
-// checkImage — ตรวจขนาดไฟล์ + ชนิดจากเนื้อไฟล์ (AST-16) · ไม่ผ่าน = 405103 / 405102
+// checkImage — ใช้กับทุกเส้นอัปโหลด (รูปของช่อง + โลโก้): ขนาดไฟล์ → ชนิดจากเนื้อไฟล์ + อ่านขนาดภาพได้ → เพดาน pixel
+// ไม่ผ่าน = 405103 / 405102 (รวมอ่าน header ไม่ได้ — fail-closed · lead A2) / 405101 (เกิน 4096 px — lead A1) · AST-16, AST-17
 func checkImage(file []byte) (assetCore.ImageInfo, error) {
 	if len(file) > assetCore.MaxFileSize {
 		return assetCore.ImageInfo{}, apperr.ErrAssetFileTooLarge
@@ -31,8 +33,19 @@ func checkImage(file []byte) (assetCore.ImageInfo, error) {
 	if errors.Is(err, assetCore.ErrUnsupportedImage) {
 		return info, apperr.ErrAssetFileType
 	}
-	return info, err
+	if err != nil {
+		return info, err
+	}
+	if !assetCore.DimensionAllowed(info.Width, info.Height) {
+		return info, errImageTooBig
+	}
+	return info, nil
 }
+
+// errImageTooBig — 405101 เมื่อกว้างหรือสูงเกินเพดาน (lead A1)
+var errImageTooBig = apperr.ErrAssetImageSize.WithMessage(
+	fmt.Sprintf("ขนาดภาพต้องไม่เกิน %d×%d px", assetCore.MaxImageDimension, assetCore.MaxImageDimension),
+	fmt.Sprintf("Image must not exceed %d×%d px", assetCore.MaxImageDimension, assetCore.MaxImageDimension))
 
 // putObject — อัปขึ้น storage · ไม่พร้อม = 505801 · อัปไม่สำเร็จ / timeout = 505802 (AST-19)
 func putObject(ctx context.Context, key string, file []byte, info assetCore.ImageInfo) error {
@@ -87,7 +100,7 @@ func UploadFileService(ctx context.Context, actor agentAuthService.Actor, target
 	if err != nil {
 		return res, apperr.ErrInternal.Wrap(err)
 	}
-	if info.SizeKnown && !assetCore.SizeAllowed(allowed, info.Width, info.Height) { // อ่านขนาดไม่ได้ = ผ่าน (AST-17)
+	if !assetCore.SizeAllowed(allowed, info.Width, info.Height) { // ผ่าน checkImage แล้วรู้ขนาดเสมอ (AST-17)
 		return res, apperr.ErrAssetImageSize.WithMessage(
 			"ขนาดภาพไม่ตรงกับที่ช่องนี้รับ (รับ "+assetCore.FormatSizes(allowed)+")",
 			"Image size is not accepted by this slot (accepts "+assetCore.FormatSizes(allowed)+")")
