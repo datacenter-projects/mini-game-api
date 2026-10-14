@@ -17,21 +17,32 @@ type DownlinesRequest struct {
 
 func (r *DownlinesRequest) Validate() error { return agentManagementDto.NormalizeKeyword(&r.Keyword) }
 
-// BalanceView — ยอด 1 สกุล
-type BalanceView struct {
-	Currency string  `json:"currency"`
-	Amount   float64 `json:"amount"`
-}
+// CurrencyAmounts — ยอดต่อสกุล ครบทุกสกุลที่ระบบรองรับ (agentManagementCore.Currencies) · key ตัวใหญ่ · ไม่มียอด = 0 (DW-43)
+type CurrencyAmounts map[string]float64
 
 // DownlineRow — 1 แถวของ DW1 (DW-42) · role / id ส่งกลับใน DW2 ได้ทันที
 type DownlineRow struct {
-	ID         uint          `json:"id"`
-	Role       string        `json:"role"`
-	Username   string        `json:"username"`
-	Name       string        `json:"name"`
-	Status     string        `json:"status"`
-	HasBalance bool          `json:"has_balance"` // false = สาย Seamless (DW-44)
-	Balances   []BalanceView `json:"balances"`
+	ID          uint            `json:"id"`
+	Role        string          `json:"role"`
+	Username    string          `json:"username"`
+	Name        string          `json:"name"`
+	Status      string          `json:"status"`
+	HasBalance  bool            `json:"has_balance"` // false = สาย Seamless (DW-44)
+	Currency    CurrencyAmounts `json:"currency"`
+	LastLoginIP string          `json:"last_login_ip"` // "" = ยังไม่เคย login (ACC-32)
+	LastLoginAt string          `json:"last_login_at"`
+}
+
+// CreditDetail — ยอดของคนที่ login (แม่ · sub = เจ้าของ) (DW-44A) · Superadmin ไม่มียอดของตัวเอง = 0 ทุกสกุล
+type CreditDetail struct {
+	Currency CurrencyAmounts `json:"currency"`
+}
+
+// DownlinesSummary — ส่วนของ data ใน DW1 ที่อยู่นอก PageData (lead อนุมัติยกเว้นกฎข้อ 19 · 2026-10-14)
+// controller ประกอบกับ response.PageData เอง — dto / service ไม่ import pkg/response (ดึง fiber มาด้วย)
+type DownlinesSummary struct {
+	CreditDetail CreditDetail               `json:"credit_detail"`
+	TotalSum     map[string]CurrencyAmounts `json:"total_sum"` // role ตัวเล็ก (agent / member …) → ยอดรวมของลูกตรงทั้งหมด · เฉพาะ role ที่มีลูก · ไม่มีลูก = {}
 }
 
 // bangkok — วันที่ของ DW3 เป็นเวลาไทย (DW-47) · ไม่ใช้ LoadLocation เพื่อไม่พึ่ง tzdata ของเครื่อง

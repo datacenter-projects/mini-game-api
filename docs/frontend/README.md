@@ -8,6 +8,7 @@
 | [account.md](account.md) | Profile, ข้อมูลรับรอง API, Dashboard | `account.md` |
 | [agent_management.md](agent_management.md) | สร้างบัญชี, รายชื่อ / ค้นหาดาวน์ไลน์, รายละเอียด, แก้ข้อมูล / สถานะ / PT / เปิด-ปิดเกม, บัญชีย่อย | `agent_management.md` |
 | [member_management.md](member_management.md) | สร้าง Member, รายละเอียด, แก้ข้อมูล / สถานะ / Commission (ผู้ดูแล maofoy) | `member_management.md` |
+| [deposit_withdraw.md](deposit_withdraw.md) | ฝาก / ถอนเงินให้ลูกตรง, รายชื่อลูกตรง + ยอด, ประวัติ (ผู้ดูแล maofoy) | `deposit_withdraw.md` |
 | [asset.md](asset.md) | หน้าตาเกม / หน้าเว็บ: รูปต่อช่อง (คลัง / เลือกใช้ / reset), ธีม, ชื่อเว็บ + โลโก้, preview (ยังไม่ merge เข้า `dev`) | `asset.md` |
 | [admin_management.md](admin_management.md) | ADMIN: รีเซ็ต passcode / รหัสผ่านให้บัญชีอื่น, ค้นหาบัญชีทั้งระบบ | `admin_management.md` |
 | [game_rate.md](game_rate.md) | อัตราแพ้ชนะ (เมนู ⑥): รายชื่อเกม, ค่าปัจจุบัน, ตรวจ / คำนวณ, บันทึก, ประวัติ, ย้อนเวอร์ชัน — **ยังไม่ deploy** | `game_rate.md` |

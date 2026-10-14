@@ -10,6 +10,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// downlinesData — data ของ DW1: credit_detail + total_sum + field แบ่งหน้ามาตรฐาน (lead อนุมัติยกเว้นกฎข้อ 19 · 2026-10-14)
+type downlinesData struct {
+	depositWithdrawDto.DownlinesSummary
+	response.PageData[depositWithdrawDto.DownlineRow]
+}
+
 // ListDownlinesController — POST /api/v1/bo/pr/deposit-withdraw/downlines/list (DW1)
 func ListDownlinesController(c *fiber.Ctx) error {
 	var req depositWithdrawDto.DownlinesRequest
@@ -17,11 +23,11 @@ func ListDownlinesController(c *fiber.Ctx) error {
 		return response.Error(c, err)
 	}
 	page := utils.NewPage(req.Page, req.Limit)
-	rows, total, err := depositWithdrawService.ListDownlinesService(c.UserContext(), middleware.GetActor(c), req, page)
+	rows, total, summary, err := depositWithdrawService.ListDownlinesService(c.UserContext(), middleware.GetActor(c), req, page)
 	if err != nil {
 		return response.Error(c, err)
 	}
-	return response.Page(c, rows, page, total)
+	return response.OK(c, downlinesData{DownlinesSummary: summary, PageData: response.NewPageData(rows, page, total)})
 }
 
 // ListLogsController — POST /api/v1/bo/pr/deposit-withdraw/logs/list (DW3)

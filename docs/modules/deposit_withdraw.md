@@ -7,6 +7,7 @@
   DW1 มี `keyword` (DQ11) · `note` + DW3 `logs/list` ทำรอบนี้ (DQ12) · path / สิทธิ์ตาม spec (DQ13)
 - **lead ยืนยันเพิ่ม 2026-10-14** (ข้อที่ maofoy กำหนดตอนแก้ spec): DW3 ≤ 31 วัน + เห็นเฉพาะรายการที่ตัวเองเป็นแม่ (DW-46 / 47) · DW1 `keyword` เฉพาะลูกตรง (DW-41) ·
   `create_requests` เป็นทะเบียน `request_id` กลาง (DW-26) · Redis ล่ม `504801` · tx timeout 8 วินาที (DW-23) · ลำดับ lock ใน ARCHITECTURE.md ใช้ทุก module รวม bet / settle (DW-51)
+- **แก้ DW1 response 2026-10-14 (lead อนุมัติ)**: `currency` map 27 สกุล · `last_login_*` · `credit_detail` · `total_sum` แยก role (DW-42 – DW-44A · ยกเว้นกฎข้อ 19)
 - ผู้ดูแล: maofoy · PR review: boiledegg
 - ชื่อ module ในโค้ด: `deposit_withdraw` (`controllers/deposit_withdraw` · `dto/deposit_withdraw` · `service/deposit_withdraw` ·
   `repository/postgres/deposit_withdraw` · `repository/redis/deposit_withdraw`)
@@ -93,9 +94,10 @@ Superadmin เป็นแหล่งเงินเดียวของระ
 |---|---|
 | DW-40 | เฉพาะลูกตรงของแม่ (agent ไม่รวม ADMIN + Member) · `UNION ALL` 2 ตาราง แบบเดียวกับ `downlines/list` · เรียง username A→Z · `page` / `limit` ใน body (`utils.NewPage` · ค่าเริ่มต้น 20 สูงสุด 100) |
 | DW-41 | `keyword` (DQ11): ไม่ส่ง / `""` = ทั้งหมด · ส่ง = 4–32 ตัว (`422`) ค้น username บางส่วน ไม่สนตัวพิมพ์ **เฉพาะลูกตรง** (ไม่ลงหลาน — ต่างจาก E2) · escape `%` `_` `\` |
-| DW-42 | แต่ละแถว: `id` · `role` · `username` · `name` · `status` · `has_balance` · `balances` · `role` ส่งกลับในเส้น DW2 ได้ทันที (DW-02) |
-| DW-43 | `balances`: agent = 1 รายการต่อสกุลใน `agent_currencies` (ไม่มีแถวยอด = `0`) · Member = 1 รายการ (`currency` + `credit`) · ยอดฝั่ง agent ดึงด้วย `agent_id IN (...)` ครั้งเดียวต่อหน้า (กฎข้อ 23 ห้าม N+1) |
-| DW-44 | `has_balance = false` = สาย Seamless (DW-06) · `status` = สถานะของลูกเอง (แม่ผ่าน `PassedGates()` แล้ว สายด้านบนจึงไม่ถูกระงับ) · หน้าบ้าน: ปุ่มฝากเปิดเมื่อ `has_balance` และ `ACTIVE` · **ปุ่มถอนเปิดเมื่อ `has_balance` (ลูกไม่ ACTIVE ก็ถอนได้ — DW-05)** |
+| DW-42 | แต่ละแถว: `id` · `role` · `username` · `name` · `status` · `has_balance` · `currency` · `last_login_ip` · `last_login_at` (ยังไม่เคย login = `""`) · `role` ส่งกลับในเส้น DW2 ได้ทันที (DW-02) — **แก้ 2026-10-14 (lead อนุมัติ): `balances` (array) → `currency` (map) + last login** |
+| DW-43 | `currency` = map **ครบ 27 สกุลที่ระบบรองรับ** (`agentManagementCore.Currencies`) · key ตัวใหญ่ · สกุลที่ไม่มียอด / บัญชีไม่มี = `0` · agent = `agent_balances` · Member = `credit` ที่สกุลของตัวเอง · ยอดของแม่ + ลูกฝั่ง agent ในหน้าดึงด้วย `agent_id IN (...)` ครั้งเดียว (กฎข้อ 23 ห้าม N+1) |
+| DW-44 | `has_balance = false` = สาย Seamless (DW-06) · ยอด `0` ทุกสกุล · `status` = สถานะของลูกเอง (แม่ผ่าน `PassedGates()` แล้ว สายด้านบนจึงไม่ถูกระงับ) · หน้าบ้าน: ปุ่มฝากเปิดเมื่อ `has_balance` และ `ACTIVE` · **ปุ่มถอนเปิดเมื่อ `has_balance` (ลูกไม่ ACTIVE ก็ถอนได้ — DW-05)** |
+| DW-44A | **นอก PageData (lead อนุมัติยกเว้นกฎข้อ 19 · 2026-10-14)**: `credit_detail.currency` = ยอดของคนที่ login (แม่ · sub = เจ้าของ) map 27 สกุล (ซ้ำกับ profile `balances` — ACC-19 · แม่เป็น Superadmin / สาย Seamless = `0` ทุกสกุล) · `total_sum` = ยอดรวมของ**ลูกตรงทั้งหมด** (ทุกหน้า · ตาม `keyword` เดียวกับรายชื่อ) แยกตาม `role` **key ตัวเล็ก** (`agent` · `member` · `shareholder` · `company` — แก้ 2026-10-14 จากตัวใหญ่ · field `role` ในแถวยังตัวใหญ่) → map 27 สกุล · ใส่เฉพาะ role ที่มีลูก · ไม่มีลูก = `{}` · รวมด้วย query SUM 1 ครั้ง (`GROUP BY role, currency`) · controller ประกอบกับ `response.PageData` (dto / service ไม่ import `pkg/response`) |
 | DW-45 | API ส่งยอดตามที่เก็บ ไม่ปัดเพิ่ม (กฎข้อ 9) |
 
 ### ประวัติ (DW3)
@@ -147,19 +149,27 @@ Request (ไม่บังคับ):
 ```json
 { "keyword": "", "page": 1, "limit": 20 }
 ```
-Response `data` (share01 login):
+Response `data` (share01 login · map สกุลย่อเหลือบางตัว — ของจริงมีครบ 27 สกุล):
 ```json
 {
+  "credit_detail": { "currency": { "THB": 900, "USD": 0, "CNY": 0 } },
+  "total_sum": {
+    "agent":  { "THB": 5000, "USD": 0, "CNY": 0 },
+    "member": { "THB": 100,  "USD": 0, "CNY": 0 }
+  },
   "current_page": 1, "total_page": 1, "total_count": 2, "limit": 20, "has_next": false, "has_prev": false,
   "data": [
-    { "id": 15,  "role": "AGENT",  "username": "agent01", "name": "agent01", "status": "ACTIVE",
-      "has_balance": true, "balances": [ { "currency": "THB", "amount": 5000 } ] },
-    { "id": 501, "role": "MEMBER", "username": "mem01",   "name": "ใจดี",    "status": "LOCKED",
-      "has_balance": true, "balances": [ { "currency": "THB", "amount": 100 } ] }
+    { "id": 15,  "role": "AGENT",  "username": "agent01", "name": "agent01", "status": "ACTIVE", "has_balance": true,
+      "currency": { "THB": 5000, "USD": 0, "CNY": 0 },
+      "last_login_ip": "203.0.113.10", "last_login_at": "2026-10-08T21:00:00+07:00" },
+    { "id": 501, "role": "MEMBER", "username": "mem01",   "name": "ใจดี",    "status": "LOCKED", "has_balance": true,
+      "currency": { "THB": 100, "USD": 0, "CNY": 0 },
+      "last_login_ip": "", "last_login_at": "" }
   ]
 }
 ```
 - `mem01` ถูกล็อก: ปุ่มฝากปิด · ปุ่มถอนเปิด (DW-44)
+- `total_sum` รวมลูกตรงทุกคน (ไม่ใช่แค่หน้านี้) · มีเฉพาะ role ที่มีลูก (DW-44A)
 
 Error codes: `422`
 
@@ -371,15 +381,19 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 | DW-33 | sub `share01@staff` ฝากให้ agent01 | ledger `actor_type = SUB` · log `actor_username = share01@staff` · `parent_id = 12` |
 | DW-34 | integration: ชื่อ constraint `agent_balances_amount_check` / `user_members_credit_check` มีใน `pg_constraint` · repository UPDATE ยอดติดลบตรงๆ | มีครบ · ได้ `ErrBalanceNegative` |
 | DW-40 / 41 | share01 มีลูก agent 1 + Member 1 + ADMIN ในระบบ · `keyword` `"mem0"` · `"ab"` · keyword ของหลาน | 2 แถว A→Z ไม่มี ADMIN · `mem01` · `422` · ไม่พบ |
-| DW-43 | agent ที่มี 2 สกุลแต่มีแถวยอดแค่ THB | `balances` 2 รายการ USD = 0 |
-| DW-44 | Company Seamless ใน list ของ Superadmin | `has_balance = false` |
+| DW-43 | แม่ / ลูก / Member ที่มียอดสกุลเดียว · Share B2B THB 7 + USD 3 | `currency` ครบ 27 key · สกุลอื่น = 0 · THB 7 · USD 3 |
+| DW-44 | Company Seamless ใน list ของ Superadmin | `has_balance = false` · `currency` = 0 ทุกสกุล |
+| DW-44A | share01 (THB 900) มี agent01 9,900 + Member 100.5 · `limit 1` · `keyword` เฉพาะ Member · keyword ไม่เจอ · comp01 ดู (share01 900 + shareb2b 7 / USD 3) · Superadmin ดู | `credit_detail` THB 900 · `total_sum` `{agent: 9900, member: 100.5}` · ยังรวม 2 role · มีแค่ `member` · `{}` + `credit_detail` ยังมี · `shareholder` THB 907 / USD 3 · `credit_detail` 0 ทุกสกุล |
 | DW-46 | share01 ดู DW3 · comp01 ดู DW3 | เห็นเฉพาะรายการที่ `parent_id = 12` · comp01 ไม่เห็นรายการของ share01 |
 | DW-47 | `date_from` > `date_to` · ช่วง 32 วัน · `"2026/10/01"` | `422` |
 | DW-48 | ส่ง `role` ไม่ส่ง `user_id` · `transaction_type: "WITHDRAW"` | `422` · เฉพาะรายการถอน |
 
 ## 8. Contract changes (สำหรับแจ้ง frontend)
 
-ไม่มี breaking change — เส้นใหม่ทั้ง 3 เส้น · เอกสารหน้าบ้าน `docs/frontend/deposit_withdraw.md` เขียน**หลังโค้ดเสร็จและผ่าน lead review** (S15)
+เส้นใหม่ทั้ง 3 เส้น · เอกสารหน้าบ้าน [docs/frontend/deposit_withdraw.md](../frontend/deposit_withdraw.md)
+
+**Breaking change ของ DW1 (2026-10-14 · lead อนุมัติ · หลัง deploy `dev-202610140819`)**: แถวเปลี่ยน `balances` (array) → `currency` (map 27 สกุล) ·
+เพิ่ม `last_login_ip` / `last_login_at` · `data` เพิ่ม `credit_detail` และ `total_sum` (field แบ่งหน้าเดิมอยู่ที่เดิม)
 
 - หน้าฝากถอนใช้ DW1 · ส่ง `role` + `id` + สกุลจากแถวไปที่ DW2 ตรงๆ
 - DW2 สร้าง `request_id` ใหม่ทุกครั้งที่กด (กดซ้ำเพราะเน็ตหลุด = ใช้ค่าเดิม) · ส่ง `passcode`
