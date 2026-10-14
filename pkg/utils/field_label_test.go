@@ -10,12 +10,12 @@ func TestFieldLabel(t *testing.T) {
 		path, th, en string
 	}{
 		{"pt.minigame", "PT (Minigame)", "PT (Minigame)"},
-		{"pt.minigame.pt_from_parent", "PT ที่ให้ (Minigame)", "PT given (Minigame)"},
-		{"pt.minigame.force", "Force (Minigame)", "Force (Minigame)"},
-		{"pt.minigame.remain_quota", "Remain (Minigame)", "Remain (Minigame)"},
-		{"pt.minigame.commission_percent", "Commission (Minigame)", "Commission (Minigame)"},
-		{"pt.minigame.status", "รับ PT (Minigame)", "Receives PT (Minigame)"},
-		{"pt.minigame.pt", "PT ที่ถือสู้ (Minigame)", "PT held (Minigame)"},
+		{"pt.minigame.pt_from_parent", "PT ที่ปล่อยให้ชั้นล่าง", "PT given to the downline"},
+		{"pt.minigame.force", "บังคับถือสู้", "Forced hold"},
+		{"pt.minigame.remain_quota", "เอาส่วนที่เหลือ", "Take the remainder"},
+		{"pt.minigame.commission_percent", "คอมมิชชั่น", "Commission"},
+		{"pt.minigame.status", "รับ PT", "Receives PT"},
+		{"pt.minigame.pt", "PT ที่ถือสู้กับสมาชิก", "PT held against members"},
 		{"info.name", "ชื่อ", "Name"},
 		{"info.phone_country_code / info.phone", "รหัสประเทศ / เบอร์โทร", "Country code / Phone"},
 		{"status_game.rock_paper_scissors", "สถานะเกม (Rock Paper Scissors)", "Game status (Rock Paper Scissors)"},
@@ -57,7 +57,7 @@ func TestSubFieldLabels(t *testing.T) {
 		fields  []string
 		th, en  string
 	}{
-		{"pt", []string{"pt_from_parent", "commission_percent"}, "PT ที่ให้|Commission", "PT given|Commission"},
+		{"pt", []string{"pt_from_parent", "commission_percent"}, "PT ที่ปล่อยให้ชั้นล่าง|คอมมิชชั่น", "PT given to the downline|Commission"},
 		{"payment_account", []string{"bank_code", "account_number"}, "ธนาคาร|เลขบัญชี", "Bank|Account number"},
 		{"info", []string{"name", "unknown"}, "ชื่อ|unknown", "Name|unknown"},
 		{"nope", []string{"name"}, "name", "name"},

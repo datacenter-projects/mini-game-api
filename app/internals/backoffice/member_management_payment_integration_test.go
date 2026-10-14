@@ -126,7 +126,7 @@ func TestMemberPaymentCreate(t *testing.T) { // MGMT-63 – MGMT-65 · P1–P9 �
 		"payment_account null":       {func(b map[string]any) { b["payment_account"] = nil }, "payment_account"},
 		"win_limit ติดลบ":            {func(b map[string]any) { b["win_limit_per_day"] = -1 }, "ยอดชนะสูงสุดต่อวัน"},
 		"win_limit ทศนิยม 5 ตำแหน่ง": {func(b map[string]any) { b["win_limit_per_day"] = 10.12345 }, "ยอดชนะสูงสุดต่อวัน"},
-		"win_limit เกิน 1,000,000":   {func(b map[string]any) { b["win_limit_per_day"] = 1000000.5 }, "ต้องไม่เกิน 1000000"},
+		"win_limit เกิน 1,000,000":   {func(b map[string]any) { b["win_limit_per_day"] = 1000000.5 }, "ต้องไม่เกิน 1,000,000"},
 	} {
 		b := memberBody("mempaybad", 0)
 		tc.edit(b)
