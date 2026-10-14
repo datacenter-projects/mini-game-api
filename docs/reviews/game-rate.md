@@ -63,3 +63,14 @@
 | # | เรื่อง | ผล |
 |---|---|---|
 | Q9 | ชื่อ field ในข้อความ error | **`field` คง path เดิม** (เช่น `steps[0].win_percent` — หน้าบ้านใช้ชี้ช่อง) · **`message` / `msg` ใช้ชื่อที่คนอ่านเข้าใจ** แบบ `utils.FieldLabel` เหมือน agent / member management · array มีเลขแถว: `steps[i]` → "ขั้นที่ i+1" · `prizes[i]` → "รางวัลที่ i+1" (เพิ่มในตาราง label ที่เดียว) · ตัวอย่าง: `"ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487% (ร้านต้องได้อย่างน้อย 1%)"` · แก้ตัวอย่างใน spec + `docs/frontend/game_rate.md` |
+
+## รอบ 4 — ผลตรวจโค้ด `4815765` (lead zerph 2026-10-14 · รายงาน verify-game-rate)
+ยังไม่ merge — แก้ 3 ข้อนี้ใน branch เดิมแล้วส่งตรวจอีกรอบ:
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| M1 | Q9 ยังไม่ทำ — msg `422` / `406101` / `406102` และ RE3 `issues[].message` ขึ้นต้นด้วย path ดิบ | **ต้องแก้** ตาม Q9 (`utils.FieldLabel` + "ขั้นที่ i+1" / "รางวัลที่ i+1") + แก้ตัวอย่างใน spec และ `docs/frontend/game_rate.md` |
+| G-S1 | RE8: Superadmin ไม่มีแถว `agent_game_settings` ของเกมนั้น → ตอบ `changed: false` แต่เกมไม่ได้ปิด (สวิตช์ฉุกเฉินล้มเงียบ) | **upsert แถวที่ขาดใน tx เดียวกันแล้วปิด/เปิดตามที่สั่ง** · log `UPDATE_GAMES` ตามปกติ · เพิ่ม test เกมที่ไม่มีแถว |
+| G-S2 | ผลรวม `prizes[].payout_percent` อาจต่างจาก `payout_percent` ของใบ ±0.0001 (ปัดทีละแถว) | **แก้เอกสาร** (RATE-09 / RATE-34 + frontend doc) ว่าอาจต่างได้ไม่เกิน 0.0001 จากการปัด — ใช้แสดงผลอย่างเดียว · ไม่ทำ largest-remainder |
+
+nit 4 ข้อใน verify report ทำหรือไม่ก็ได้ · ก่อนส่งตรวจ: merge dev ล่าสุด + integration test ผ่าน
