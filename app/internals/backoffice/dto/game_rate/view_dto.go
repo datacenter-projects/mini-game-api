@@ -45,6 +45,7 @@ type PrizeView struct {
 	Multiplier       float64 `json:"multiplier"`
 	SharePercent     float64 `json:"share_percent"`
 	PerTicketPercent float64 `json:"per_ticket_percent"`
+	PayoutPercent    float64 `json:"payout_percent"`
 }
 
 // PrizesCalc — ค่าของรูปแบบ prizes

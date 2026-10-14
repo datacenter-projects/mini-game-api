@@ -113,8 +113,9 @@ func TestComputeScratchDiagram(t *testing.T) { // RATE-33 / 34 · ตัวอ�
 		t.Fatalf("result %+v", res)
 	}
 	wantPer := []float64{17.5, 17.5, 9, 5, 1}
+	wantPay := []float64{8.75, 17.5, 18, 25, 8} // รวม 77.25 = payout ของใบ
 	for i, p := range res.Prizes {
-		if p.RowNo != i+1 || p.PerTicketPercent != wantPer[i] {
+		if p.RowNo != i+1 || p.PerTicketPercent != wantPer[i] || p.PayoutPercent != wantPay[i] {
 			t.Fatalf("prize %d %+v", i, p)
 		}
 	}

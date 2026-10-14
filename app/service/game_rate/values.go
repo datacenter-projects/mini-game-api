@@ -93,7 +93,8 @@ func prizesCalc(s gameRateCore.Scratch) (gameRateDto.PrizesCalc, []gameRateCore.
 	}
 	res, issues := gameRateCore.ComputeScratch(s)
 	for _, p := range res.Prizes {
-		out.Prizes = append(out.Prizes, gameRateDto.PrizeView{RowNo: p.RowNo, Multiplier: p.Multiplier, SharePercent: p.SharePercent, PerTicketPercent: p.PerTicketPercent})
+		out.Prizes = append(out.Prizes, gameRateDto.PrizeView{RowNo: p.RowNo, Multiplier: p.Multiplier, SharePercent: p.SharePercent,
+			PerTicketPercent: p.PerTicketPercent, PayoutPercent: p.PayoutPercent})
 	}
 	out.WinPercent, out.AvgMultiplier, out.PayoutPercent = res.WinPercent, res.AvgMultiplier, res.PayoutPercent
 	out.HouseEdgePercent, out.MaxWinPercent = res.HouseEdgePercent, res.MaxWinPercent

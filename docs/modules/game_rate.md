@@ -55,7 +55,7 @@
 | RATE-06 | ค่าใหม่มีผลกับ**เดิมพันใหม่เท่านั้น** · เดิมพันที่เริ่มแล้ว (รวม Streak ที่ค้างอยู่) ใช้เวอร์ชันเดิมจนจบ · module เดิมพันเก็บ `rate_version_id` คู่กับเดิมพันทุกครั้ง (หัวข้อ 9 RH1) |
 | RATE-07 | **ร้านต้องได้ house edge ≥ 1% ทุกจุดที่ Member หยุดได้** (lead RR2 · แทน "> 0" เดิม) — Coin / RPS ทุกขั้น · Scratch ทั้งใบ · ไม่ผ่านที่จุดไหน บันทึกไม่ได้ทั้งชุด (`406101`) และ msg บอกขั้น / field และ `win_percent` สูงสุดที่ตั้งได้ · ค่าคงที่ขั้นต่ำ / เพดานอยู่ใน `core/game_rate` |
 | RATE-08 | **บันทึก / ย้อนต้องยืนยัน passcode** (`RequirePasscode`) · ทุกเวอร์ชันเก็บ log คนแก้: `created_by` (username ณ เวลานั้น · sub = `owner@name`), `actor_type` / `actor_id`, `ip`, `request_id`, `created_at` · ตารางเวอร์ชันคือ log (ห้ามแก้ / ลบ) ดูได้ที่ `versions/list` |
-| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · **ยกเว้น `max_win_percent` ปัดลง** (ค่าที่แสดงต้องตั้งได้จริง — ปัดขึ้นแล้วกรอกค่านั้น house edge จะต่ำกว่า 1%) · หน้าบ้านปัดแสดงเอง |
+| RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · `prizes[].payout_percent` · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · **ยกเว้น `max_win_percent` ปัดลง** (ค่าที่แสดงต้องตั้งได้จริง — ปัดขึ้นแล้วกรอกค่านั้น house edge จะต่ำกว่า 1%) · หน้าบ้านปัดแสดงเอง |
 | RATE-09A | **ไม่มีค่าเริ่มต้น**: เกมที่ยังไม่เคยตั้งค่า = `version = 0` · เอนจิ้นต้อง**ไม่รับเดิมพัน**ของเกมนั้นจนกว่าจะบันทึกครั้งแรก (หัวข้อ 5.8 · RH1) · ค่าตัวอย่างสำหรับ tester อยู่ใน `docs/frontend/game_rate.md` |
 
 ### Coin Flip (`coin_toss`)
@@ -88,7 +88,7 @@
 | RATE-31 | `prizes` = ตารางรางวัลของบัตรที่ชนะ · แต่ละแถว `multiplier` (> 0 · ≤ 1,000) + `share_percent` (> 0 · ≤ 100) · **1–10 แถว** · `multiplier` ห้ามซ้ำกัน · ลำดับแถวตามที่ส่ง (`row_no` 1–10) |
 | RATE-32 | `share_percent` ทุกแถวรวมกันต้อง **= 100 พอดี** (ตรวจด้วยเลขแม่นยำ · `406102`) |
 | RATE-33 | `avg_multiplier (A) = Σ(multiplier × share_percent ÷ 100)` · จ่ายคืนคาดหวัง `P = W × A` · `house_edge = 100% − P` ≥ 1% · `max_win_percent = 99% ÷ A` ไม่เกิน 50 |
-| RATE-34 | % ต่อใบของแต่ละแถว `per_ticket_percent = W × share_percent ÷ 100` (ระบบคำนวณให้ใน response) |
+| RATE-34 | ต่อแถวรางวัล (ระบบคำนวณให้ใน response): % ต่อใบ `per_ticket_percent = W × share_percent ÷ 100` · ผลตอบแทนของแถว `payout_percent = per_ticket_percent × multiplier` (ทุกแถวรวม = `payout_percent` ของใบ · เพิ่ม 2026-10-14 ตามคอลัมน์ "ผลตอบแทนผู้เล่น" ในดีไซน์) |
 | RATE-35 | ตรง 1 หรือ 2 ช่อง เอนจิ้นสุ่มเอง — **ไม่มีค่าให้ตั้ง** · การแบ่งรางวัลตรง 2 ช่องเป็นกฎของเอนจิ้น (หัวข้อ 9 RH4) |
 
 ตัวอย่าง (ค่าใน diagram): W 50% · ตาราง 0.5×/35, 1×/35, 2×/18, 5×/10, 8×/2 → `A = 1.545` · `P = 77.25%` · `house_edge = 22.75%` · `max_win = 99% ÷ 1.545 = 64.0776%` → แสดง **50** (เพดาน)
@@ -178,11 +178,11 @@ Response `data` (Coin Flip — ค่าตัวอย่างจาก diagra
   "version": 1,
   "win_percent": 50,
   "prizes": [
-    { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5 },
-    { "row_no": 2, "multiplier": 1,   "share_percent": 35, "per_ticket_percent": 17.5 },
-    { "row_no": 3, "multiplier": 2,   "share_percent": 18, "per_ticket_percent": 9 },
-    { "row_no": 4, "multiplier": 5,   "share_percent": 10, "per_ticket_percent": 5 },
-    { "row_no": 5, "multiplier": 8,   "share_percent": 2,  "per_ticket_percent": 1 }
+    { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 8.75 },
+    { "row_no": 2, "multiplier": 1,   "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 17.5 },
+    { "row_no": 3, "multiplier": 2,   "share_percent": 18, "per_ticket_percent": 9, "payout_percent": 18 },
+    { "row_no": 4, "multiplier": 5,   "share_percent": 10, "per_ticket_percent": 5, "payout_percent": 25 },
+    { "row_no": 5, "multiplier": 8,   "share_percent": 2,  "per_ticket_percent": 1, "payout_percent": 8 }
   ],
   "avg_multiplier": 1.545,
   "payout_percent": 77.25,

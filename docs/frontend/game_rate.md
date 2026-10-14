@@ -122,11 +122,11 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/get" -H "Authorization: Bearer
     "version": 2,
     "win_percent": 50,
     "prizes": [
-      { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5 },
-      { "row_no": 2, "multiplier": 1,   "share_percent": 35, "per_ticket_percent": 17.5 },
-      { "row_no": 3, "multiplier": 2,   "share_percent": 18, "per_ticket_percent": 9 },
-      { "row_no": 4, "multiplier": 5,   "share_percent": 10, "per_ticket_percent": 5 },
-      { "row_no": 5, "multiplier": 8,   "share_percent": 2,  "per_ticket_percent": 1 }
+      { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 8.75 },
+      { "row_no": 2, "multiplier": 1,   "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 17.5 },
+      { "row_no": 3, "multiplier": 2,   "share_percent": 18, "per_ticket_percent": 9, "payout_percent": 18 },
+      { "row_no": 4, "multiplier": 5,   "share_percent": 10, "per_ticket_percent": 5, "payout_percent": 25 },
+      { "row_no": 5, "multiplier": 8,   "share_percent": 2,  "per_ticket_percent": 1, "payout_percent": 8 }
     ],
     "avg_multiplier": 1.545,
     "payout_percent": 77.25,
@@ -137,7 +137,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/get" -H "Authorization: Bearer
   }
 }
 ```
-- `per_ticket_percent` = โอกาสได้รางวัลแถวนั้นต่อบัตร 1 ใบ · `avg_multiplier` = ตัวคูณเฉลี่ยของบัตรที่ชนะ
+- `per_ticket_percent` = โอกาสได้รางวัลแถวนั้นต่อบัตร 1 ใบ · `prizes[].payout_percent` = ผลตอบแทนที่แถวนั้นจ่ายคืนผู้เล่น (= `per_ticket_percent` × `multiplier` · ใช้กับคอลัมน์ "ผลตอบแทนผู้เล่น" · ทุกแถวรวมเท่ากับ `payout_percent` ของใบ — เพิ่ม 14 ต.ค.) · `avg_multiplier` = ตัวคูณเฉลี่ยของบัตรที่ชนะ
 
 **Response — ยังไม่เคยตั้ง**
 ```json
@@ -187,7 +187,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/check" -H "Authorization: Bear
     "valid": true,
     "issues": [],
     "win_percent": 50,
-    "prizes": [ { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5 } ],
+    "prizes": [ { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 8.75 } ],
     "avg_multiplier": 1.545,
     "payout_percent": 77.25,
     "house_edge_percent": 22.75,
@@ -341,9 +341,9 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/versions/detail/get" -H "Authorizatio
     "version": 1,
     "win_percent": 35,
     "prizes": [
-      { "row_no": 1, "multiplier": 0.5, "share_percent": 20, "per_ticket_percent": 7 },
-      { "row_no": 2, "multiplier": 1,   "share_percent": 50, "per_ticket_percent": 17.5 },
-      { "row_no": 3, "multiplier": 2,   "share_percent": 30, "per_ticket_percent": 10.5 }
+      { "row_no": 1, "multiplier": 0.5, "share_percent": 20, "per_ticket_percent": 7, "payout_percent": 3.5 },
+      { "row_no": 2, "multiplier": 1,   "share_percent": 50, "per_ticket_percent": 17.5, "payout_percent": 17.5 },
+      { "row_no": 3, "multiplier": 2,   "share_percent": 30, "per_ticket_percent": 10.5, "payout_percent": 21 }
     ],
     "avg_multiplier": 1.2,
     "payout_percent": 42,

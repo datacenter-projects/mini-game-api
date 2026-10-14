@@ -119,7 +119,8 @@ type PrizeResult struct {
 	RowNo            int
 	Multiplier       float64
 	SharePercent     float64
-	PerTicketPercent float64
+	PerTicketPercent float64 // โอกาสที่ 1 ใบได้รางวัลแถวนี้ = W × share
+	PayoutPercent    float64 // ผลตอบแทนที่แถวนี้จ่ายคืน = W × share × multiplier · ทุกแถวรวม ≈ PayoutPercent ของใบ
 }
 
 // ScratchResult — ค่าที่คำนวณของ Scratch Card (RATE-33 · RATE-34)
@@ -145,7 +146,8 @@ func ComputeScratch(s Scratch) (ScratchResult, []RuleIssue) {
 		avg.Add(avg, new(big.Rat).Mul(rat(p.Multiplier), share))
 		shareSum.Add(shareSum, share)
 		res.Prizes[i] = PrizeResult{RowNo: i + 1, Multiplier: p.Multiplier, SharePercent: p.SharePercent,
-			PerTicketPercent: round4(percentOf(new(big.Rat).Mul(w, share)))}
+			PerTicketPercent: round4(percentOf(new(big.Rat).Mul(w, share))),
+			PayoutPercent:    round4(percentOf(new(big.Rat).Mul(new(big.Rat).Mul(w, share), rat(p.Multiplier))))}
 	}
 	if shareSum.Cmp(ratOne) != 0 {
 		issues = append(issues, RuleIssue{Code: RuleShareSum, Field: "prizes", Index: -1})

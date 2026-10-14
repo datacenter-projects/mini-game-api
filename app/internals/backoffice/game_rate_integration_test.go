@@ -255,6 +255,15 @@ func TestRateVersions(t *testing.T) { // RATE-05 / 05A / 05B / 05C · RE1 / RE2 
 	if s := saveRate(t, app, c.saTok, rateUpdatePath, scratchBody(2, 50, []map[string]any{{"multiplier": 1, "share_percent": 60}, {"multiplier": 2, "share_percent": 30}, {"multiplier": 5, "share_percent": 10}})); s.Created || s.Version != 2 {
 		t.Fatalf("ค่าเดิม %+v", s)
 	}
+	// RE2 ต่อแถว: per_ticket = W × share · payout = per_ticket × multiplier (RATE-34 · รวม 85 = payout ของใบ)
+	r = call(t, app, "POST", rateDetailPath, map[string]any{"game_code": "scratch_card"}, c.saTok)
+	expect(t, r, 200, 200)
+	for _, want := range []string{`"per_ticket_percent":30,"payout_percent":30}`, `"per_ticket_percent":15,"payout_percent":30}`,
+		`"per_ticket_percent":5,"payout_percent":25}`, `"payout_percent":85,`} {
+		if !strings.Contains(string(r.Data), want) {
+			t.Fatalf("RE2 ไม่มี %s ใน %s", want, r.Data)
+		}
+	}
 	// base_version เก่า = 406301 บอกเวอร์ชันล่าสุดและคนแก้ (RATE-05B · Q5)
 	r = call(t, app, "POST", rateUpdatePath, scratchBody(1, 45, ratePrizes()), c.saTok)
 	expect(t, r, 200, 406301)
