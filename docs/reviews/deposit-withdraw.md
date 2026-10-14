@@ -45,3 +45,17 @@
 - S13 `ERROR_CODES.md` จอง `04` + ตาราง code (HTTP 200)
 - S14 test case: ยิงพร้อมกันที่ลูกเดียวกัน (ได้ lock 1 · อีกอันได้ "กำลังทำรายการ") · กดซ้ำหลังจบ = ผลเดิม · retry หลังลูกถูกระงับ = ผลเดิม · ฝากครั้งแรกให้ agent ที่ไม่มีแถวยอด · ถอนจากลูก LOCKED · sub ของ Superadmin ฝาก · `amount` 1,000,000,001 · `request_id` ซ้ำข้ามเส้น `422` · Redis ล่ม = ปฏิเสธ · `null` ใน `note` = `422`
 - S15 `docs/MIGRATION_STATUS.md` + `docs/frontend/deposit_withdraw.md`
+
+## รอบ 2 — ยืนยันสิ่งที่ maofoy กำหนดเอง (lead zerph 2026-10-14 · spec `d861a63`)
+ยืนยันทั้ง 6 ข้อ:
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| R1 | DW3 ช่วงวัน ≤ 31 วัน · เห็นเฉพาะรายการที่ตัวเองเป็นแม่ (DW-46 / 47) | ✅ · ลูกดูรายการที่แม่ทำกับตัวเอง → ไปอยู่ใน Report / statement ทีหลัง |
+| R2 | DW1 `keyword` ค้นเฉพาะลูกตรง ไม่ลงหลาน (DW-41) | ✅ |
+| R3 | `create_requests` เป็นทะเบียน `request_id` กลาง · DW insert `target_type = 'DW'` (DW-26) | ✅ · `FindReplay` ตอบ `422` เมื่อ `target_type` ไม่ตรงอยู่แล้ว (`creator.go:247`) ไม่ต้องแก้ agent_management |
+| R4 | Redis ล่ม = `504801` (HTTP 503 · `c = 8`) | ✅ |
+| R5 | tx timeout 8 วินาที < lock TTL 10 วินาที (DW-23) | ✅ |
+| R6 | ลำดับ lock ใน `docs/ARCHITECTURE.md` ใช้กับทุก module | ✅ · bet / settle ต้องทำตามด้วย |
+
+S15 (`docs/frontend/deposit_withdraw.md`) ทำหลังโค้ดผ่าน review · implement ผ่าน PR ให้ Boiledegg review
