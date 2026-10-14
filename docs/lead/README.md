@@ -9,6 +9,8 @@
 | `bo-management.md` | `boiledegg/bo/management` |
 | `bo-currency-rate.md` | `boiledegg/bo/currency-rate` |
 | `carl-asset.md` | `carl/asset` |
+| `bo-game-rate.md` | `boiledegg/bo/game_rate-settings` |
+| `bo-agent-management-mgmt18a.md` | `boiledegg/bo/agent_management` (MGMT-18A) |
 
 ## โครงของแต่ละไฟล์
 

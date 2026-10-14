@@ -64,6 +64,15 @@ var sectionLabels = map[string]map[string]label{
 	"limit": {
 		"win_limit_per_day": {"ยอดชนะสูงสุดต่อวัน", "Daily win limit"},
 	},
+	"steps": { // game_rate steps[i].x (lead Q9)
+		"multiplier":   {"ตัวคูณ", "Multiplier"},
+		"win_percent":  {"โอกาสชนะ", "Win chance"},
+		"draw_percent": {"โอกาสเสมอ", "Draw chance"},
+	},
+	"prizes": { // game_rate prizes[i].x (lead Q9)
+		"multiplier":    {"ตัวคูณ", "Multiplier"},
+		"share_percent": {"สัดส่วนรางวัล", "Prize share"},
+	},
 }
 
 // topLabels — field ระดับบนสุดของ agent_management / member_management ที่ผู้ใช้อ่านไม่ออก
@@ -80,6 +89,20 @@ var topLabels = map[string]label{
 	"payment_type":       {"ประเภทการชำระ", "Payment type"},
 	"win_limit_per_day":  {"ยอดชนะสูงสุดต่อวัน", "Daily win limit"},
 	"keyword":            {"คำค้นหา", "Keyword"},
+	// game_rate (lead Q9 2026-10-14)
+	"game_code":    {"เกม", "Game"},
+	"base_version": {"เวอร์ชันที่โหลดมา", "Loaded version"},
+	"version":      {"เวอร์ชัน", "Version"},
+	"steps":        {"ตารางขั้น", "Steps"},
+	"prizes":       {"ตารางรางวัล", "Prizes"},
+	"win_percent":  {"อัตราชนะ", "Win rate"},
+	"status_game":  {"สถานะเกม", "Game status"},
+}
+
+// rowLabels — array ที่แต่ละแถวมีเลขในข้อความ (เลขเริ่ม 1) · field ในแถวอยู่ sectionLabels ชื่อเดียวกัน
+var rowLabels = map[string]label{
+	"steps":  {"ขั้นที่", "Step"},
+	"prizes": {"รางวัลที่", "Prize"},
 }
 
 func fieldLabel(path string) (string, string) {
@@ -94,6 +117,16 @@ func fieldLabel(path string) (string, string) {
 	}
 	seg := strings.Split(path, ".")
 	n := len(seg)
+	if n == 2 { // แถวของตาราง: steps[0].win_percent → ขั้นที่ 1 · โอกาสชนะ (game_rate — lead Q9)
+		if name, i, ok := indexed(seg[0]); ok {
+			if row, ok := rowLabels[name]; ok {
+				if l, ok := sectionLabels[name][seg[1]]; ok {
+					num := strconv.Itoa(i + 1)
+					return row.th + " " + num + " · " + l.th, row.en + " " + num + " · " + l.en
+				}
+			}
+		}
+	}
 	switch {
 	case n == 2 && seg[0] == "pt":
 		g := titleCode(seg[1])

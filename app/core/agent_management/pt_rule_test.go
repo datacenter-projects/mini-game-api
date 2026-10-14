@@ -48,7 +48,7 @@ func TestValidateChildPT(t *testing.T) { // MGMT-18, MGMT-19, MGMT-25
 		{"Seamless Master ตั้ง force", ChildPT{80, 5, 0, 0}, 80, true, PTSeamlessMasterLock},
 	}
 	for _, tt := range tests {
-		if got := ValidateChildPT(tt.v, tt.received, tt.master); got != tt.want {
+		if got := ValidateChildPT(tt.v, tt.received, tt.master, false); got != tt.want {
 			t.Errorf("%s: ValidateChildPT = %v, want %v", tt.name, got, tt.want)
 		}
 	}
@@ -144,6 +144,25 @@ func TestIsGameOpen(t *testing.T) { // MGMT-20
 	for _, tt := range tests {
 		if got := IsGameOpen(tt.chain); got != tt.want {
 			t.Errorf("%s: IsGameOpen = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestCheckChildPTSuperadminRemain(t *testing.T) { // MGMT-18A: Superadmin ตั้ง remain_quota ไม่ได้ · force ได้ตามเดิม
+	tests := []struct {
+		name       string
+		v          ChildPT
+		superadmin bool
+		want       PTIssue
+	}{
+		{"Superadmin remain 5", ChildPT{PTFromParent: 80, Remain: 5}, true, PTIssue{PTSuperadminRemain, "remain_quota", 0}},
+		{"Superadmin force 10 remain 0", ChildPT{PTFromParent: 80, Force: 10}, true, PTIssue{Violation: PTOK}},
+		{"Superadmin force เกินมาก่อน remain", ChildPT{PTFromParent: 80, Force: 90, Remain: 5}, true, PTIssue{PTForceRemainExceeded, "force", 80}},
+		{"ชั้นอื่น remain 5", ChildPT{PTFromParent: 80, Remain: 5}, false, PTIssue{Violation: PTOK}},
+	}
+	for _, tt := range tests {
+		if got := CheckChildPT(tt.v, FullPT, false, tt.superadmin); got != tt.want {
+			t.Errorf("%s: %+v want %+v", tt.name, got, tt.want)
 		}
 	}
 }

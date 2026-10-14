@@ -27,7 +27,7 @@ func TestCheckChildPT(t *testing.T) { // MGMT-18, MGMT-19, MGMT-25 · ไล่�
 		{"master ตั้ง force", ChildPT{80, 5, 0, 0}, 80, true, PTIssue{PTSeamlessMasterLock, "force", 0}},
 	}
 	for _, tt := range tests {
-		if got := CheckChildPT(tt.v, tt.received, tt.master); got != tt.want {
+		if got := CheckChildPT(tt.v, tt.received, tt.master, false); got != tt.want {
 			t.Errorf("%s: got %+v, want %+v", tt.name, got, tt.want)
 		}
 	}

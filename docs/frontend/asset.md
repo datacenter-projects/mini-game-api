@@ -106,13 +106,13 @@ login / session / ด่านหลัง login / ตั้งค่า Postman
 
 ### 1.7 เกมและช่องรูป (ค่าร่าง — ดึงจาก `slots/list` เสมอ)
 
-เกม (`game_code`) เรียงตามระบบ: `coin_toss` · `rock_paper_scissors` · `scratch_card` · ทุกเกมมีช่อง **`game_cover`** (รูปปกเกมในหน้า lobby)
+เกม (`game_code`) เรียงตามระบบ: `scratch_card` · `coin_toss` · `rock_paper_scissors` · ทุกเกมมีช่อง **`game_cover`** (รูปปกเกมในหน้า lobby)
 
 | เกม | ช่อง (เรียงตามระบบ) | ตรวจขนาดภาพ |
 |---|---|---|
+| `scratch_card` (19) | ตามตารางด้านล่าง | ตรวจ |
 | `coin_toss` (11) | `background` · `coin_heads` · `coin_tails` · `selection_button` · `outer_frame` · `bet_limit` · `bet_history` · `winner` · `game_cover` · `loading` · `win_highlight` | ไม่ตรวจ |
 | `rock_paper_scissors` (12) | `background` · `hand_rock` · `hand_paper` · `hand_scissors` · `selection_button` · `outer_frame` · `bet_limit` · `bet_history` · `winner` · `game_cover` · `loading` · `win_highlight` | ไม่ตรวจ |
-| `scratch_card` (19) | ตามตารางด้านล่าง | ตรวจ |
 
 `scratch_card` (กว้าง × สูง · เรียงตามระบบ):
 
@@ -184,9 +184,9 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/games/list" \
   "code": 200,
   "msg": "สำเร็จ",
   "data": [
+    { "game_code": "scratch_card", "game_cover": "https://cdn.example.com/games/scratch_card/agents/12/game_cover/1791949259206671900-e668a769.png" },
     { "game_code": "coin_toss", "game_cover": "https://cdn.example.com/games/coin_toss/global/game_cover/1791949259194689800-9476d20d.png" },
-    { "game_code": "rock_paper_scissors", "game_cover": "" },
-    { "game_code": "scratch_card", "game_cover": "https://cdn.example.com/games/scratch_card/agents/12/game_cover/1791949259206671900-e668a769.png" }
+    { "game_code": "rock_paper_scissors", "game_cover": "" }
   ]
 }
 ```

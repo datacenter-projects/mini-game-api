@@ -109,6 +109,7 @@
 | | • เกมใหม่ที่เพิ่มเข้ากลุ่มภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
 | MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 4 ตำแหน่ง · ภายในเป็น `float64` ปัด 4 ตำแหน่ง (กฎข้อ 9) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ค่าที่ให้ลูก (`pt_from_parent`): 0 ถึง**ค่าที่ตัวเองได้รับ** ทีละ 0.5% (เกิน = `402305`) · Force / Remain: 0 ถึงค่าที่ให้ลูกคนนั้น ทีละ 0.5% (`402308`) · Commission: 0–1% ทีละ 0.1% (`402309`) · Commission ของลูกตั้ง**เกินของผู้สร้างได้** แต่ไม่เกิน 1% |
+| MGMT-18A | **Superadmin ไม่ตั้ง Remain ให้ลูก** (Company ทุกประเภท รวม CSM — ตัดสิน 2026-10-14): ส่วนที่ไม่มีใครถือคืน Superadmin อยู่แล้ว (MGMT-22) · `remain_quota` ที่ Superadmin (และ sub ของ Superadmin) ส่งตอนสร้าง / แก้ต้องเป็น `0` · ไม่ใช่ 0 = `422` "Superadmin ตั้งเอาส่วนที่เหลือไม่ได้ (ส่วนที่เหลือคืน Superadmin อยู่แล้ว)" · **การคิดตอน settle เหมือนเดิม** · `force` ตั้งได้ตามเดิม (MGMT-18) · migration ปรับ `remain` ของแถวที่ `parent_id` เป็น Superadmin เป็น `0` |
 | MGMT-19 | **Company Seamless Master (CSM) — lead H2 / H3 / Q-R1 / E1-1 / B2:** |
 | | • CSM **ถือสู้ไม่ได้** · ได้รับจาก Superadmin เท่าไรต้องส่งให้ Share Master ทั้งหมด · Share Master มีได้ไม่จำกัด |
 | | • Share Master ใช้ค่าตาม CSM อัตโนมัติ: `pt_from_parent` = ค่าที่ CSM ได้รับ · `force` = `remain_quota` = 0 · `status` = ของ CSM · `status_game` = ของ CSM |
@@ -596,6 +597,7 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 | MGMT-15A | สร้างพร้อมกัน 2 คำขอ ยอดพอแค่คำขอเดียว | สำเร็จ 1 · อีกอัน `402312` |
 | MGMT-15A | sub มี `member` edit ไม่มี `payment` ส่ง `balance` | `402303` |
 | MGMT-17 / 18 | `"force": null` · `pt_from_parent` `30.25` · commission `1.01` · `30.12345` · ให้ลูกเกินที่ได้รับ | `422` · `422` · `422` · `422` · `402305` ("ค่าที่ให้ลูกเกินกว่าที่ได้รับ") |
+| MGMT-18A | Superadmin สร้าง Company `remain_quota` 10 · สร้าง CSM `remain_quota` 5 · `remain_quota` 0 + `force` 10 · แก้ Company (`detail/update`) `remain_quota` 10 · Company สร้าง Share `remain_quota` 10 · migration: Company เดิม `remain` 20 | `422` · `422` · สำเร็จ · `422` · สำเร็จ (ชั้นอื่นตั้งได้ตามเดิม) · `remain` = 0 (ค่าอื่นไม่แตะ) |
 | MGMT-19 | CSM สร้าง Share Master ส่งแค่ `commission_percent` | สำเร็จ · `pt_from_parent` = ค่าที่ CSM ได้รับ · force / remain 0 · `status_game` = ของ CSM |
 | MGMT-19 | CSM สร้าง Share Master ส่ง `pt_from_parent` · ส่ง `status_game` | `422` "Share Master ใช้ค่าตาม Company Seamless Master" |
 | MGMT-19 | CSM `detail/update` Share Master: `commission_percent` · `pt_from_parent` · `status_game` · `info` | สำเร็จ · `422` · `422` · สำเร็จ |

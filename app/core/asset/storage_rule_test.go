@@ -95,7 +95,7 @@ func TestNormalizeSiteName(t *testing.T) { // AST-42 · lead GE13
 }
 
 func TestGameCodes(t *testing.T) { // AST-10
-	want := []string{"coin_toss", "rock_paper_scissors", "scratch_card"}
+	want := []string{"scratch_card", "coin_toss", "rock_paper_scissors"} // ลำดับของระบบ (app/core/game · 2026-10-12)
 	got := GameCodes()
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)

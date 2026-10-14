@@ -17,6 +17,7 @@ import (
 	agentAuthController "app/app/internals/backoffice/controllers/agent_auth"
 	agentManagementController "app/app/internals/backoffice/controllers/agent_management"
 	assetController "app/app/internals/backoffice/controllers/asset"
+	gameRateController "app/app/internals/backoffice/controllers/game_rate"
 	memberManagementController "app/app/internals/backoffice/controllers/member_management"
 	mw "app/app/internals/backoffice/middleware"
 	adminMw "app/app/internals/backoffice/middleware/admin_management"
@@ -105,4 +106,16 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/asset/branding/logo/upload", mw.PassedGates(), assetEdit, byAgent, targetEdit, assetController.UploadLogoController)
 	pr.Post("/asset/branding/reset", mw.PassedGates(), assetEdit, byAgent, targetEdit, assetController.ResetBrandingController)
 	pr.Post("/asset/bundle/detail/get", mw.PassedGates(), assetView, byAgent, targetView, assetController.GetBundleController)
+	// game_rate (อัตราแพ้ชนะ · เมนู ⑥) — docs/modules/game_rate.md หัวข้อ 5 (lead RN1) · สิทธิ์ rate (มีแค่ Superadmin + sub ที่ได้เมนูนี้ — RATE-02)
+	// บันทึก / ย้อน: สิทธิ์ก่อน passcode
+	rateView := mw.RequirePermission(agentManagementCore.MenuRate, agentManagementCore.LevelView)
+	rateEdit := mw.RequirePermission(agentManagementCore.MenuRate, agentManagementCore.LevelEdit)
+	pr.Post("/rate/list", mw.PassedGates(), rateView, gameRateController.ListRatesController)
+	pr.Post("/rate/detail/get", mw.PassedGates(), rateView, gameRateController.GetRateController)
+	pr.Post("/rate/detail/check", mw.PassedGates(), rateView, gameRateController.CheckRateController)
+	pr.Post("/rate/detail/update", mw.PassedGates(), rateEdit, mw.RequirePasscode(), gameRateController.UpdateRateController)
+	pr.Post("/rate/versions/list", mw.PassedGates(), rateView, gameRateController.ListVersionsController)
+	pr.Post("/rate/versions/detail/get", mw.PassedGates(), rateView, gameRateController.GetVersionController)
+	pr.Post("/rate/versions/rollback", mw.PassedGates(), rateEdit, mw.RequirePasscode(), gameRateController.RollbackRateController)
+	pr.Post("/rate/status/update", mw.PassedGates(), rateEdit, mw.RequirePasscode(), gameRateController.SetGameStatusController)
 }

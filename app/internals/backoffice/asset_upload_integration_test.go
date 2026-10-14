@@ -121,7 +121,7 @@ func TestAssetCatalogEndpoints(t *testing.T) { // AST-10 · AST-12 · AST-13 · 
 		GameCode  string `json:"game_code"`
 		GameCover string `json:"game_cover"`
 	}](t, r)
-	if len(games) != 3 || games[0].GameCode != "coin_toss" || games[1].GameCode != "rock_paper_scissors" || games[2].GameCode != "scratch_card" {
+	if len(games) != 3 || games[0].GameCode != "scratch_card" || games[1].GameCode != "coin_toss" || games[2].GameCode != "rock_paper_scissors" {
 		t.Fatalf("games/list: %+v", games)
 	}
 	for _, g := range games {
@@ -133,37 +133,25 @@ func TestAssetCatalogEndpoints(t *testing.T) { // AST-10 · AST-12 · AST-13 · 
 	// ปก GLOBAL ของ scratch_card
 	gcover := uploadScratch(t, app, w.saTok, formGlobal(), "game_cover")
 	r = assetCall(t, app, "games/list", nil, w.agentTok)
-	games = decode[[]struct {
-		GameCode  string `json:"game_code"`
-		GameCover string `json:"game_cover"`
-	}](t, r)
-	if games[2].GameCover != gcover.URL || games[0].GameCover != "" {
-		t.Fatalf("agent01 ต้องเห็นปก GLOBAL: %+v", games)
+	if coverOf(t, r, "scratch_card") != gcover.URL || coverOf(t, r, "coin_toss") != "" {
+		t.Fatalf("agent01 ต้องเห็นปก GLOBAL: %s", r.Data)
 	}
 	// share01 ตั้งปกของตัวเอง → agent01 (ลูก) ได้ปกของ share01 (ไล่สายจากผู้เรียก — GE1-1) · เกมอื่นได้ GLOBAL
 	own := uploadScratch(t, app, w.shareTok, formAgent(w.share.ID), "game_cover")
 	r = assetCall(t, app, "games/list", nil, w.agentTok)
-	games = decode[[]struct {
-		GameCode  string `json:"game_code"`
-		GameCover string `json:"game_cover"`
-	}](t, r)
-	if games[2].GameCover != own.URL {
-		t.Fatalf("agent01 ต้องได้ปกของ share01: %+v", games)
+	if coverOf(t, r, "scratch_card") != own.URL {
+		t.Fatalf("agent01 ต้องได้ปกของ share01: %s", r.Data)
 	}
 	// comp01 (ชั้นบนของ share01) ยังเห็นปก GLOBAL · sa เห็น GLOBAL
 	r = assetCall(t, app, "games/list", nil, w.comTok)
-	if g := decode[[]struct {
-		GameCover string `json:"game_cover"`
-	}](t, r); g[2].GameCover != gcover.URL {
-		t.Fatalf("comp01: %+v", g)
+	if coverOf(t, r, "scratch_card") != gcover.URL {
+		t.Fatalf("comp01: %s", r.Data)
 	}
 	// ปกที่เลือกใช้ชนะไฟล์ที่อัปล่าสุด (ใช้ used เท่านั้น — AST-24)
 	uploadScratch(t, app, w.saTok, formGlobal("use_now", "false"), "game_cover")
 	r = assetCall(t, app, "games/list", nil, w.comTok)
-	if g := decode[[]struct {
-		GameCover string `json:"game_cover"`
-	}](t, r); g[2].GameCover != gcover.URL {
-		t.Fatalf("ไฟล์ที่อัปด้วย use_now=false ต้องไม่ถูกใช้: %+v", g)
+	if coverOf(t, r, "scratch_card") != gcover.URL {
+		t.Fatalf("ไฟล์ที่อัปด้วย use_now=false ต้องไม่ถูกใช้: %s", r.Data)
 	}
 	// ปิดเกมของบัญชี (status_game) ไม่ทำให้เกมหายจากรายการ (GE1-2)
 	if err := database.DBConn.Model(&models.AgentGameSetting{}).Where("agent_id = ? AND game_code = ?", w.agent.ID, "coin_toss").
@@ -174,6 +162,21 @@ func TestAssetCatalogEndpoints(t *testing.T) { // AST-10 · AST-12 · AST-13 · 
 	if g := decode[[]struct{}](t, r); len(g) != 3 {
 		t.Fatalf("เกมที่ status_game ปิดต้องยังอยู่ในรายการ: %s", r.Data)
 	}
+}
+
+// coverOf — game_cover ของเกมจาก response ของ games/list (หาด้วยชื่อเกม ไม่พึ่งลำดับ)
+func coverOf(t *testing.T, r testutil.Response, game string) string {
+	t.Helper()
+	for _, g := range decode[[]struct {
+		GameCode  string `json:"game_code"`
+		GameCover string `json:"game_cover"`
+	}](t, r) {
+		if g.GameCode == game {
+			return g.GameCover
+		}
+	}
+	t.Fatalf("games/list ไม่มีเกม %s: %s", game, r.Data)
+	return ""
 }
 
 func TestAssetUploadChecks(t *testing.T) { // AST-11 · AST-14 – AST-17 · AST-19 · AST-20
