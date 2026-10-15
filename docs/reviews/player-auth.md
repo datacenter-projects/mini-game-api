@@ -16,14 +16,16 @@
 | # | เส้น | ผู้เรียก | ผล |
 |---|---|---|---|
 | L1 | `POST /api/v1/player/pb/login` | ผู้เล่นเอง **ทุกสาย** · `{username, password}` | token |
-| L2 | `POST /api/v1/transfer/login` | server operator สาย Transfer | token + link lobby (ติดตั๋ว) |
-| L3 | `POST /api/v1/transfer/launch` | server operator สาย Transfer · + `game_code` | token + link เข้าเกมนั้น (ติดตั๋ว) |
+| L2 | `POST /api/v1/transfer/login` | server operator สาย Transfer | token + link lobby (**ใส่ token ใน URL** — LQ-c ใหม่) |
+| L3 | `POST /api/v1/transfer/launch` | server operator สาย Transfer · + `game_code` | token + link เข้าเกมนั้น · ⏸ **ยังไม่ทำรอบนี้** (lead 2026-10-15) |
 | L4 | `POST /api/v1/seamless/login` | server operator สาย Seamless | ⏸ พักไว้ |
 | L5 | `POST /api/v1/seamless/launch` | server operator สาย Seamless | ⏸ พักไว้ |
 
 - `redirectLogin` แบบ sportbook = launcher → ใช้ชื่อ `launch`
 - launch **ไม่ต้อง login ก่อน** — operator ส่งครั้งเดียวจบ
-- **link ติดตั๋วใช้ครั้งเดียว อายุ 60 วินาที ไม่ใช่ token** · หน้าเกมแลกตั๋วเป็น session ที่ `POST /api/v1/player/pb/launch/exchange` · token ยังคืนให้ operator ใน response
+- **LQ-c (lead แก้ 2026-10-15): link ใส่ token ใน URL ตรงๆ แบบ askmelotto** — ไม่มีตั๋ว ไม่มีเส้น `launch/exchange` · หน้าเกมอ่าน token จาก URL แล้วใช้เป็น `Authorization` ต่อ
+  - (เดิม: ตั๋วใช้ครั้งเดียว 60 วินาที + `POST /api/v1/player/pb/launch/exchange` — ยกเลิก)
+  - ลดความเสี่ยง token หลุด: หน้าเกมลบ token ออกจาก URL ทันทีหลังอ่าน (`history.replaceState`) · หน้าเกมตั้ง `Referrer-Policy: no-referrer` · ห้าม log query string ของ URL หน้าเกมฝั่งเรา · token มีอายุตาม session (idle 30 นาที / absolute 4 ชั่วโมง) และ login ใหม่เตะอันเก่า
 - เกมที่ระบุใน launch ปิดอยู่ = error ตั้งแต่ตอน launch
 - รองรับทั้ง 2 โหมดกระเป๋า · ทำ Transfer ก่อน (milestone 23 ต.ค.)
 
@@ -43,7 +45,7 @@
 
 ### session (PQ5 / PQ6)
 - แบบ BO: JWT `typ = "pl"` (secret เดียวกับ BO) · Redis `pl:sess:*` · **idle 30 นาที · absolute 4 ชั่วโมง** · ไม่มี refresh (ต่ออายุทุก request) · หน้าเกม ping ระหว่างเล่น
-- **1 session ต่อ Member** — login / launch / exchange ใหม่เตะอันเก่า · session เก่าได้ code "ถูก login จากที่อื่น"
+- **1 session ต่อ Member** — login / launch ใหม่เตะอันเก่า · session เก่าได้ code "ถูก login จากที่อื่น"
 
 ### สถานะ (PQ7) — ใช้สถานะที่แย่ที่สุดของ Member + สายบนทุกคน
 | สถานะ | login / launch | ใช้งานหลัง login | เดิมพัน | session |
@@ -57,7 +59,7 @@
 - logout `POST /api/v1/player/pr/auth/logout` (idempotent)
 - `members/status/update` → LOCKED: **ลบ session ผู้เล่นหลัง commit** · Redis ล่ม = log warn · agent ถูก LOCKED ไม่ต้องไล่ลบ Member (middleware เช็คสายบน)
 - ผู้เล่นเปลี่ยนรหัสเองได้ `POST /api/v1/player/pr/auth/password/update` (เตะ session อื่น) · ⏸ BO reset รหัสยังไม่ทำ
-- rate limit แบบ BO (IP 20/นาที · ผิด 5 ครั้ง / 15 นาที บล็อก 15 นาที · key `pl:login:*`) · ตั๋วใช้ครั้งเดียว + IP limit เดียวกัน
+- rate limit แบบ BO (IP 20/นาที · ผิด 5 ครั้ง / 15 นาที บล็อก 15 นาที · key `pl:login:*`)
 - path ผู้เล่น `/api/v1/player/pb/*` (public) · `/api/v1/player/pr/*` (ต้อง login) · POST ทั้งหมด (N1) · `agent_id` / `member_id` อ่านจาก session เท่านั้น ห้ามรับจาก body
 - รายชื่อเกมใน lobby ต้อง login (GQ9) · bundle ของ asset = Schneider ทำหลัง middleware ผู้เล่น merge (GE22-2)
 - เกมปิด: เช็คตอนเดิมพัน + launch · lobby แสดงเป็นเกมปิด · maintenance ทั้งระบบ = spec แยก
@@ -68,15 +70,13 @@
 | # | เส้น | หน้าที่ |
 |---|---|---|
 | PA1 | `POST /api/v1/player/pb/login` | login ตรง → `{token, expires_at, member{…}}` |
-| PA2 | `POST /api/v1/player/pb/launch/exchange` | `{ticket}` → token |
 | PA3 | `POST /api/v1/player/pr/auth/logout` | ลบ session |
 | PA4 | `POST /api/v1/player/pr/auth/password/update` | เปลี่ยนรหัสตัวเอง |
 | PA5 | `POST /api/v1/player/pr/me/get` | โปรไฟล์ + ยอด + สถานะ (`can_bet`) |
 | PA7 | `POST /api/v1/player/pr/games/list` | รายชื่อเกมของ lobby (เปิด / ปิด) |
-| L2 | `POST /api/v1/transfer/login` | token + link lobby |
-| L3 | `POST /api/v1/transfer/launch` | token + link เข้าเกม |
+| L2 | `POST /api/v1/transfer/login` | token + link lobby (token ใน URL) |
 | TR | `POST /api/v1/transfer/register` | สร้างผู้เล่น |
 | — | middleware ผู้เล่น + middleware operator (key + IP) | |
 | — | `members/status/update` LOCKED ลบ session ผู้เล่น | แก้ member_management |
 
-นอกขอบเขต: `seamless/*` · GetMember · balance / deposit / withdraw ของ operator (spec "Transfer API" แยก) · BO reset รหัส · เปลี่ยน username ของ Member จาก BO
+นอกขอบเขต: `transfer/launch` (L3 — lead 2026-10-15) · `player/pb/launch/exchange` (ยกเลิก — LQ-c ใหม่) · `seamless/*` · GetMember · balance / deposit / withdraw ของ operator (spec "Transfer API" แยก) · BO reset รหัส · เปลี่ยน username ของ Member จาก BO
