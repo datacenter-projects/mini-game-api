@@ -80,3 +80,20 @@
 | — | `members/status/update` LOCKED ลบ session ผู้เล่น | แก้ member_management |
 
 นอกขอบเขต: `transfer/launch` (L3 — lead 2026-10-15) · `player/pb/launch/exchange` (ยกเลิก — LQ-c ใหม่) · `seamless/*` · GetMember · balance / deposit / withdraw ของ operator (spec "Transfer API" แยก) · BO reset รหัส · เปลี่ยน username ของ Member จาก BO
+
+## รอบ 2 — คำถามจากร่าง spec (Boiledegg `docs/lead/bo-player-auth.md` · lead 2026-10-15)
+| # | เรื่อง | ผล |
+|---|---|---|
+| Q1 | ใครเรียก `transfer/*` ได้ | เฉพาะ `SHARE_B2C` และ `AGENT` · ประเภทอื่น = error |
+| Q2 | สกุลเงินของผู้เล่นที่ระบบสร้าง | `currency` **ไม่บังคับ**: agent มีสกุลเดียว → ใช้สกุลนั้น · หลายสกุลแล้วไม่ส่ง = `422` · ส่งมาต้องอยู่ในสกุลของ agent |
+| Q3 | `name` | = `player_username` |
+| Q4 | ยอดตั้งต้น | `credit = 0` · `payment_type = CASH` · ผู้สร้างฝากให้ทีหลัง (spec Transfer API) |
+| Q5 | PT / commission ของผู้เล่นที่ระบบสร้าง | **`pt` = ค่าเต็มที่ agent ได้รับ (agent ถือสู้เองทั้งหมด · `remain_quota` = 0) · `commission_percent` = 0** · `win_limit_per_day` = ค่า default ของ DB |
+| Q6 | `can_bet` | ACTIVE + `win_limit_per_day > 0` · เกมปิดดูที่ `games/list` รายเกม |
+| Q7 | `games/list` | ใช้ `GamesListService` ของ asset ซ้ำ (`app/service/asset/catalog_service.go`) · ส่ง `game_code` · `name` (จาก catalog) · `open` (เปิดจริงตามสายบน) · `game_cover` · **ไม่ส่งค่า rate** |
+| Q8 | rate limit `transfer/*` | IP 20/นาที (`pl:op:ip:*`) · whitelist ว่าง = ปฏิเสธทุก IP (ACC-07) |
+| Q9 | ชื่อ field ของ operator | **`snake_case`** (`agent_username` · `player_username` · `key`) เหมือน API ทั้งระบบ — แทนชื่อ camelCase ในหัวข้อการตัดสินด้านบน |
+| Q10 | เปลี่ยนรหัส | 1 session ต่อคน → session ปัจจุบันใช้ต่อ ไม่ต้องทำอะไรเพิ่ม |
+| Q11 | `agent@player` ชนรูปแบบ `agent@sub` | ไม่ต้องกัน — คนละตาราง + login คนละเส้น |
+| Q12 | URL lobby | env `PLAYER_LOBBY_URL` (+ `.env.example`) · query ชื่อ `token` |
+| Q13 | เช็คสายบนทุก request | ไม่ cache · query เดียว · วัดตอน load test (k6) |
