@@ -13,3 +13,21 @@
 | Q5 | เส้น dev `POST /api/v1/bo/pr/dev/pt/calculate` ADMIN เท่านั้น · เปิดด้วย `DEV_ROUTES_ENABLED` · `APP_ENV=prod` + เปิด flag = boot ไม่ผ่าน | **อนุมัติ** |
 
 Maofoy: แก้ spec ตาม Q2 / Q3 (รวมแก้ MGMT-18A / MGMT-20 ใน agent_management ให้ตรง) · ใส่ "อนุมัติโดย: zerph · 2026-10-15" · implement ผ่าน PR
+
+## รอบ 2 — ผลตรวจโค้ด (`2e7d7bc` + `910bd38` บน dev · lead zerph 2026-10-15 · รายงาน verify-pt-calculation)
+ตรรกะถูก: ชุด A–F + เคสคิดมือเพิ่ม 8 เคส ตรงกับโค้ดทุกเคส · Q1–Q5 ✅ · query 3 ครั้ง · CSM force `422` + migration `20261015150000` ปลอดภัย
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| M1 | **integration test (pt_calculation · CSM force · migration) ยังไม่เคยรัน** — merge เข้า dev ตรงไม่ผ่าน PR (CI รันแค่ PR / release) | **ต้องรันให้ผ่านและแนบผล** ก่อน lead เริ่ม bet core |
+| S1 | service ไม่ log `508601` + ค่าทั้งสายเอง (ถ้า module เดิมพันห่อ error log จะหาย) | **แก้** — log ที่ service พร้อมค่าทั้งสาย |
+| S2 | integration ขาดชุด C / D / E2 + test นับ query ≤ 3 | **เพิ่ม** |
+| L1 | Member `pt = 0` แต่ผู้สร้างมี Force → ผู้สร้างถูกบังคับถือตาม Force | **ตั้งใจ** — Force = ชั้นบนบังคับให้ถืออย่างน้อยเท่านี้ ตั้ง pt 0 ให้ Member หลบไม่ได้ |
+| L2 | Superadmin ปิด `pt.status` ของ CSM → sync ไป Share Master → ทั้งสายถือ 0 · PT คืน Superadmin ทั้งหมด | **ตั้งใจ** (ตรง Q2) |
+
+### ย้ายเส้น dev ออกจาก backoffice (แทน Q5 / PTC-40 – PTC-43 ส่วนที่ขัด)
+- **context ใหม่ `app/internals/developer/`** (`routes.go` + `controllers/{module}` + `dto/{module}`) · `pkg/routes` เรียกเฉพาะเมื่อ `DEV_ROUTES_ENABLED=true` · service / core / repository ของ `pt_calculation` อยู่ที่เดิม
+- **path `/api/v1/dev/pt/calculate`** (ไม่อยู่ใต้ `/bo/...`)
+- **ไม่ต้อง login** · ไม่ใช้ middleware ของ backoffice · ยังกันด้วย flag: **`APP_ENV=prod` + flag เปิด = boot ไม่ผ่าน (กันแค่ prod)** · ปิด flag = เส้นไม่มี (`404001`)
+- เครื่องมือ dev อื่นในอนาคตอยู่ใน context นี้
+- แก้ CLAUDE.md (โครงสร้าง `app/internals/{backoffice|frontend|game|developer}` + กฎข้อ 28 ระบุว่า context `developer` เป็น public เฉพาะ env ที่เปิด flag) · ARCHITECTURE.md · spec PTC-40 – PTC-43 · `.env.example` — **lead อนุมัติการเปลี่ยนโครงสร้างนี้** · ทำใน PR เดียวกับ M1 / S1 / S2
