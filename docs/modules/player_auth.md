@@ -60,6 +60,7 @@
 | PA-08B | **สร้างพร้อมกัน**: สร้างผู้เล่นใหม่ 2 คำขอพร้อมกัน — ตัวที่แพ้ unique constraint: `register` ได้ `407401` · `login` อ่านผู้เล่นที่สร้างแล้วทำต่อ **ไม่ error** (ห้ามคืน 500) · มี integration test ยิงพร้อมกัน |
 | PA-09 | ค่าตั้งต้นของผู้เล่นที่ระบบสร้างให้ (lead Q3–Q5): `name` = `player_username` · `credit = 0` · `payment_type = CASH` (ผู้สร้างฝากให้ทีหลัง — spec Transfer API) · `pt` = **ค่าเต็มที่ agent ได้รับ** (agent ถือสู้เองทั้งหมด · `remain_quota = 0`) · `commission_percent = 0` · **`win_limit_per_day` = ค่าตั้งต้นตาม MGMT-65** (lead R4-2 · แก้ความหมายโดย member-payment รอบ 2.1): **หน่วยบาท (THB) เสมอ ไม่มีสกุลเงิน** · ใช้ค่าตั้งต้น `DefaultWinLimitPerDay` (`app/core/member_management` = 10,000,000 บาท) ตัวเดียวกับที่ `members/create` ให้เมื่อไม่ส่งค่า · **ไม่ต้องแปลงสกุล ไม่ใช้ `currency_rate`** (การแปลงอยู่ที่ module เดิมพัน) · **ห้ามพึ่งค่า `DEFAULT` ของคอลัมน์ใน DB** (ส่งค่านี้ชัดเจนตอน insert) · `status = ACTIVE` |
 | PA-09A | Member ที่สร้างจาก BO ยังใช้ username แบบเดิม (MGMT-05) — รอบนี้**ไม่แก้** `members/create` |
+| PA-09B | **เขียน `account_change_logs` `CREATE`** (lead S2 รอบ 6) เมื่อสร้างผู้เล่นให้ operator (`transfer/register` และสร้างอัตโนมัติใน `transfer/login`) ใน tx เดียวกับการสร้าง — เหมือน `members/create` (MGMT-60): ผู้ทำ = **agent เจ้าของ key** · `ip` = IP ของ operator · `new_value` = username · name · agent_id · currency · pt ต่อกลุ่ม · payment_type · win_limit_per_day · `has_password` · `source = transfer_api` (**ห้ามมีรหัสผ่านหรือ hash**) · login ซ้ำ / `register` ซ้ำไม่เขียน log เพิ่ม · ชนกันตอนสร้างพร้อมกัน tx ที่แพ้ rollback ทั้งก้อน (ไม่มี log เกิน 1 แถวต่อผู้เล่น) |
 
 ### 3.2 operator ยืนยันตัว (PQ4)
 
@@ -81,7 +82,7 @@
 | PA-22 | **1 session ต่อ Member** — login (ทางไหนก็ตาม) ใหม่เตะอันเก่าทันที · token เก่าได้ `407204` "ถูก login จากที่อื่น" |
 | PA-23 | ถ้าสร้าง session ใน Redis ไม่สำเร็จ → login ล้ม (`500`) ห้ามออก token ที่ไม่มี session รองรับ (เหมือน AUTH-13) |
 | PA-24 | token ไม่มี / ลายเซ็นผิด / หมดอายุ → `407202` · session ไม่มีแล้ว (logout / idle / absolute) → `407203` |
-| PA-25 | บันทึก `last_login_at` / `last_login_ip` ตอน login (ไม่ผูก session กับ IP / device · ไม่มี captcha) · บันทึกไม่ได้ไม่ทำให้ login ล้ม (log warn) · IP ตอนใช้งานไม่ตรงกับตอน login ไม่ block ไม่ต้อง log |
+| PA-25 | บันทึก `last_login_at` / `last_login_ip` ตอน login (ไม่ผูก session กับ IP / device · ไม่มี captcha) · บันทึกไม่ได้ไม่ทำให้ login ล้ม (log warn) · IP ตอนใช้งานไม่ตรงกับตอน login ไม่ block ไม่ต้อง log · **`transfer/login` (L2): `last_login_ip` = IP ของ server operator ที่เรียก (ไม่ใช่ IP ของผู้เล่น)** — ระบบไม่เห็น IP ผู้เล่นในเส้นนี้ |
 | PA-26 | logout (`pr/auth/logout`) ยกเลิก session ปัจจุบัน · idempotent: เรียกซ้ำ / session หลุดไปแล้ว ตอบสำเร็จเหมือนกัน · token ปลอม / เลย absolute `407202` · logout ด้วย token เก่าไม่กระทบ session ปัจจุบัน |
 | PA-27 | HTTP status ของ error ทั้ง module ตรงแบบ BO auth (module 01): `407201–204` → 401 · `407301–303` → 403 · error business อื่นตอบ 200 · `429` / `500` ตาม common |
 
@@ -107,14 +108,14 @@
 | ID | Rule |
 |---|---|
 | PA-40 | `player/pb/login`: เรียกเกิน **20 ครั้ง/นาที ต่อ IP** → `429` |
-| PA-41 | ผิด **5 ครั้งภายใน 15 นาที** ต่อ username → username นั้น login ไม่ได้ **15 นาที** (`407303`) แม้รหัสถูก · ตัวนับเดียวกันนับ **login ผิด (PA1) และรหัสเดิมผิดใน `password/update` (PA4)** · login สำเร็จล้างตัวนับ · ไม่เปลี่ยน status ของบัญชี |
+| PA-41 | ผิด **5 ครั้งภายใน 15 นาที** ต่อ username → username นั้น login ไม่ได้ **15 นาที** (`407303`) แม้รหัสถูก · ตัวนับเดียวกันนับ **login ผิด (PA1) และรหัสเดิมผิดใน `password/update` (PA4)** · login สำเร็จล้างตัวนับ · ไม่เปลี่ยน status ของบัญชี · **ถ้าครบ limit ที่ PA4 (รหัสเดิมผิดครั้งที่ 5) → ตอบ `407303` และ session ปัจจุบันของผู้เล่นถูกตัด** (token เดิมได้ `407203`) |
 | PA-42 | `transfer/*`: เรียกเกิน **20 ครั้ง/นาที ต่อ IP** (key `pl:op:ip:*` · lead Q8) → `429` |
 
 ### 3.6 เปลี่ยนรหัสผ่าน / ข้อมูลผู้เล่น
 
 | ID | Rule |
 |---|---|
-| PA-50 | ผู้เล่นเปลี่ยนรหัสเองได้ (`pr/auth/password/update`) · ส่งรหัสเดิม + รหัสใหม่ · รหัสเดิมผิด `407205` (และนับตาม PA-41) · รหัสใหม่ตามกติกา AUTH-36 (ฟังก์ชันใน `app/core` ตัวเดียวกับ BO) · ต้องไม่ซ้ำรหัสเดิม · session ปัจจุบันใช้ต่อ (1 session ต่อคน ไม่มี session อื่นให้เตะ — lead Q10) |
+| PA-50 | ผู้เล่นเปลี่ยนรหัสเองได้ (`pr/auth/password/update`) · ส่งรหัสเดิม + รหัสใหม่ · รหัสเดิมผิด `407205` (และนับตาม PA-41 — ครั้งที่ครบ limit ได้ `407303` + ตัด session) · รหัสใหม่ตามกติกา AUTH-36 (ฟังก์ชันใน `app/core` ตัวเดียวกับ BO) · ต้องไม่ซ้ำรหัสเดิม · session ปัจจุบันใช้ต่อ (1 session ต่อคน ไม่มี session อื่นให้เตะ — lead Q10) |
 | PA-51 | ผู้เล่นที่ไม่มีรหัส (`password_hash = ''`) เปลี่ยนรหัสไม่ได้ `407307` (ใช้ในเส้นนี้ได้) · ผู้เล่นจาก operator ที่ตั้งรหัสไว้ (TR) เปลี่ยนได้ |
 | PA-53 | BO reset รหัสผู้เล่น · operator reset / เปลี่ยนรหัสให้ผู้เล่น **ยังไม่ทำ** |
 | PA-54 | `me/get` คืนโปรไฟล์ + สถานะ: `username` · `name` · `currency` · `status` · `can_bet` · **ไม่มี `credit`** (ใช้ `balance/get`) · ยังไม่มี win limit / ยอดที่เหลือวันนี้ (→ spec Bet) |
@@ -286,7 +287,7 @@ Response `data`:
 - login ผู้เล่นใหม่พร้อมกัน → ไม่ error (PA-08B) · ผู้เล่นที่สร้างอัตโนมัติไม่มีรหัส (PA-07)
 - มาตรการลดความเสี่ยง token อยู่ใน URL (LQ-c): หน้าเกมลบ token ออกจาก URL ทันทีหลังอ่าน (`history.replaceState`) · หน้าเกมตั้ง `Referrer-Policy: no-referrer` · **ห้าม log query string ของ URL หน้าเกมฝั่งเรา** (รวม access log ของ proxy ที่เราคุมได้) · token อายุตาม session และ login ใหม่เตะอันเก่า (PA-21 / PA-22)
 
-Error codes: `422` · `407206` · `407305` · `407302` · `407306` · `407308` · `429` · `500`
+Error codes: `422` · `407206` · `407305` · `407301` · `407302` · `407306` · `407308` · `429` · `500` · `503` (ไม่ได้ตั้ง `PLAYER_LOBBY_URL`)
 
 ### TR · POST /api/v1/transfer/register
 
@@ -373,7 +374,8 @@ Redis:
 | PA-08B | ยิง `transfer/login` ผู้เล่นใหม่ชื่อเดียวกันพร้อมกัน N คำขอ | ทุกคำขอสำเร็จ · มีแถวเดียว · ไม่มี 500 |
 | PA-08B | ยิง `register` ชื่อเดียวกันพร้อมกัน | 1 สำเร็จ · ที่เหลือ `407401` · ไม่มี 500 |
 | PA-10/11 | key ผิด · agent ไม่มี · IP นอก whitelist · whitelist ว่าง | `407206` · `407206` · `407305` · `407305` |
-| PA-12 | ยิง `transfer/login` ด้วย key จริง + `register` ด้วย password แล้วอ่าน log | ไม่พบ key / password ในทุกบรรทัด |
+| PA-12 | ยิง `transfer/login` / `register` ด้วย key จริง · key ผิด · agent ไม่มี · password ผู้เล่น · password ไม่ผ่านกติกา · IP นอก whitelist แล้วเก็บ log ทุกทาง (zap ระดับ debug · SQL ของ gorm ระดับ info พร้อมค่า · request log ของ fiber) | ไม่พบ key / password ในทุกบรรทัด (test `TestOperatorSecretsNotLogged` — ตรวจแล้วว่า log key แล้ว test ตก) |
+| PA-09B | `transfer/login` ผู้เล่นใหม่ · `register` (มี / ไม่มี password) · login ซ้ำ · register ซ้ำ · สร้างพร้อมกัน | `account_change_logs` CREATE 1 แถวต่อผู้เล่น · ผู้ทำ = agent เจ้าของ key · ip ของ operator · ไม่มีรหัสผ่าน / hash ใน `new_value` (`TestTransferCreateWritesChangeLog`) |
 | PA-13 | agent LOCKED · สายบนของ agent LOCKED · เรียก `login` / `register` | `407302` ทุกเส้น ทุกกรณี |
 | PA-13 | agent SUSPENDED: ผู้เล่นเดิม login · ผู้เล่นใหม่ login · register | สำเร็จ `can_bet = false` · `407308` · `407308` |
 | PA-14 | เรียกด้วย `COMPANY_TRANSFER` / `SHARE_B2B` · `SHARE_B2C` · `AGENT` | `407306` · สำเร็จ · สำเร็จ |

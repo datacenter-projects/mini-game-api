@@ -30,7 +30,7 @@ func TransferRegisterController(c *fiber.Ctx) error {
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
 		return response.Error(c, err)
 	}
-	res, err := playerAuthService.TransferRegisterService(c.UserContext(), middleware.GetOperator(c), req)
+	res, err := playerAuthService.TransferRegisterService(c.UserContext(), middleware.GetOperator(c), req, middleware.RequestMeta(c))
 	if err != nil {
 		return response.Error(c, err)
 	}

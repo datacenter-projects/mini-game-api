@@ -14,9 +14,11 @@ import (
 	"app/app/models"
 	accountPostgres "app/app/repository/postgres/account"
 	agentAuthPostgres "app/app/repository/postgres/agent_auth"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	memberManagementPostgres "app/app/repository/postgres/member_management"
 	playerAuthPostgres "app/app/repository/postgres/player_auth"
 	playerAuthRedis "app/app/repository/redis/player_auth"
+	agentAuthService "app/app/service/agent_auth"
 	agentManagementService "app/app/service/agent_management"
 	"app/pkg/apperr"
 	"app/pkg/configs"
@@ -111,7 +113,7 @@ func TransferLoginService(ctx context.Context, op Operator, req transferDto.Tran
 		if op.Gate == playerAuthCore.OperatorSuspended { // PA-13: agent SUSPENDED สร้างผู้เล่นใหม่ไม่ได้
 			return res, apperr.ErrPlayerCreatorSuspended
 		}
-		m, err = createPlayer(ctx, op, username, player, req.Currency, "")
+		m, err = createPlayer(ctx, op, meta.IP, username, player, req.Currency, "")
 		if errors.Is(err, apperr.ErrPlayerExists) { // PA-08B: แพ้การสร้างพร้อมกัน → อ่านผู้เล่นที่สร้างแล้วทำต่อ ไม่ error
 			m, err = playerAuthPostgres.GetMemberByUsernameRepository(db, username)
 		}
@@ -146,7 +148,7 @@ func TransferLoginService(ctx context.Context, op Operator, req transferDto.Tran
 
 // TransferRegisterService — TR POST /api/v1/transfer/register (PA-08, PA-08A, PA-13)
 // สร้างผู้เล่นอย่างเดียว ไม่ออก token · มีแล้ว = 407401 · password (ไม่บังคับ) = ผู้เล่น login ตรงที่ PA1 ได้
-func TransferRegisterService(ctx context.Context, op Operator, req transferDto.TransferRegisterRequest) (transferDto.TransferRegisterResponse, error) {
+func TransferRegisterService(ctx context.Context, op Operator, req transferDto.TransferRegisterRequest, meta RequestMeta) (transferDto.TransferRegisterResponse, error) {
 	var res transferDto.TransferRegisterResponse
 	player := playerAuthCore.NormalizeUsername(req.PlayerUsername)
 	username := playerAuthCore.ComposeUsername(op.Username, player)
@@ -168,7 +170,7 @@ func TransferRegisterService(ctx context.Context, op Operator, req transferDto.T
 		}
 		hash = h
 	}
-	m, err := createPlayer(ctx, op, username, player, req.Currency, hash)
+	m, err := createPlayer(ctx, op, meta.IP, username, player, req.Currency, hash)
 	if err != nil {
 		return res, err
 	}
@@ -178,7 +180,7 @@ func TransferRegisterService(ctx context.Context, op Operator, req transferDto.T
 // createPlayer สร้างผู้เล่นให้ operator ใน tx เดียว (PA-07 / PA-08 / PA-09)
 // ค่าตั้งต้น: name = player_username · credit 0 · CASH · pt = ค่าเต็มที่ agent ได้รับ (remain 0) · commission 0 · win limit ตาม MGMT-65
 // ชน unique ของ username (สร้างพร้อมกัน / มีแล้ว) → ErrPlayerExists
-func createPlayer(ctx context.Context, op Operator, username, name, requestedCurrency, passwordHash string) (models.UserMember, error) {
+func createPlayer(ctx context.Context, op Operator, ip, username, name, requestedCurrency, passwordHash string) (models.UserMember, error) {
 	var m models.UserMember
 	err := database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		c, err := agentManagementService.LoadCreatorByAgentID(tx, op.AgentID)
@@ -209,19 +211,40 @@ func createPlayer(ctx context.Context, op Operator, username, name, requestedCur
 			return err
 		}
 		var settings []models.UserMemberGameSetting
+		ptLog := map[string]playerPTValue{}
 		for _, g := range agentManagementCore.Groups() {
 			received := c.Received[g]
 			pt := received // agent ถือสู้เองทั้งหมด
 			remain := agentManagementCore.MemberRemain(received, pt)
+			ptLog[string(g)] = playerPTValue{PT: pt, Remain: remain, Commission: 0}
 			for _, game := range agentManagementCore.GamesOf(g) {
 				settings = append(settings, models.UserMemberGameSetting{UserMemberID: m.ID, GameCode: game.GameCode, ParentID: c.Agent.ID,
 					Category: game.Category, PT: pt, Remain: remain, Commission: 0,
 					CreatedBy: op.Username, CreatedAt: now, UpdatedBy: op.Username, UpdatedAt: now})
 			}
 		}
-		return memberManagementPostgres.CreateUserMemberGameSettingsRepository(tx, settings)
+		if err := memberManagementPostgres.CreateUserMemberGameSettingsRepository(tx, settings); err != nil {
+			return err
+		}
+
+		// S2 (lead รอบ 6): เขียน account_change_logs CREATE เหมือน members/create — ผู้ทำ = agent เจ้าของ key · ip = IP ของ operator · value ห้ามมีรหัสผ่าน
+		actor := agentAuthService.Actor{AccountType: models.AccountTypeAgent, AgentID: op.AgentID, Username: op.Username}
+		row, err := agentManagementService.ChangeLog(actor, agentAuthService.RequestMeta{IP: ip}, "", agentManagementService.TargetMember, m.ID, m.Username,
+			models.ChangeCreate, nil, map[string]any{"username": m.Username, "name": m.Name, "agent_id": c.Agent.ID, "currency": m.Currency, "pt": ptLog,
+				"payment_type": m.PaymentType, "win_limit_per_day": m.WinLimitPerDay, "has_password": passwordHash != "", "source": "transfer_api"}, now)
+		if err != nil {
+			return err
+		}
+		return agentManagementPostgres.CreateAccountChangeLogsRepository(tx, []models.AccountChangeLog{row})
 	})
 	return m, err
+}
+
+// playerPTValue — ค่า PT ของผู้เล่น 1 กลุ่มใน account_change_logs (รูปเดียวกับ members/create — MGMT-60)
+type playerPTValue struct {
+	PT         float64 `json:"pt"`
+	Remain     float64 `json:"remain"`
+	Commission float64 `json:"commission"`
 }
 
 // defaultWinLimit — ค่าตั้งต้น win_limit_per_day ของผู้เล่นที่ระบบสร้าง (PA-09 · lead R4-2 + member-payment รอบ 2.1)
