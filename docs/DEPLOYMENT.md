@@ -95,6 +95,8 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 | `JWT_SECRET` | Secret, required, อย่างน้อย 32 ตัวอักษร, แยกค่าต่อ env |
 | `PASSWORD_COST` | bcrypt cost — **12** (default) ห้ามลดบน dev/prod ค่า 4 ใช้กับ CI/test เท่านั้น |
 | `SESSION_*`, `LOGIN_*`, `PASSCODE_*`, `TEMP_CREDENTIAL_TTL` | มี default ใช้ตาม `.env.example` ได้ |
+| `PLAYER_SESSION_*`, `OPERATOR_IP_LIMIT_PER_MINUTE` | มี default ใช้ตาม `.env.example` ได้ (player_auth) |
+| `PLAYER_LOBBY_URL` | URL หน้า lobby ที่ `transfer/login` ต่อ `?token=` ท้าย — **prod / dev ต้องตั้ง** ไม่ตั้ง = `transfer/login` ตอบ 503 |
 | `MIGRATE_ON_START` | **`false`** (default เมื่อไม่ตั้ง) — migration รันแยกตามข้อถัดไป |
 
 key ที่ required ถ้าขาด app จะไม่ boot (log `missing required env: ...`)

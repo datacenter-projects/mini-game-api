@@ -2,6 +2,7 @@ package routes
 
 import (
 	"app/app/externals/provider"
+	"app/app/externals/transfer"
 	"app/app/health"
 	"app/app/internals/backoffice"
 	"app/app/internals/frontend"
@@ -25,6 +26,7 @@ func SetupRoutes(a *fiber.App) {
 	frontend.RegisterRoutes(api)   // /api/v1/player/...
 	game.RegisterRoutes(api)       // /api/v1/{scratch,cointoss,rockpaperscissors}/...
 	provider.RegisterRoutes(api)   // /api/v1/provider/...
+	transfer.RegisterRoutes(api)   // /api/v1/transfer/...
 
 	middleware.NotFoundRoute(a)
 }

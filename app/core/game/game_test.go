@@ -48,3 +48,15 @@ func TestGamesOf(t *testing.T) {
 		t.Fatalf("Groups() = %v", Groups())
 	}
 }
+
+func TestNameOf(t *testing.T) { // PA-55: ทุกเกมต้องมีชื่อทั้ง 2 ภาษา
+	for _, g := range All() {
+		th, en, ok := NameOf(g.GameCode)
+		if !ok || th == "" || en == "" {
+			t.Errorf("เกม %q ไม่มีชื่อครบ 2 ภาษา: %q / %q / %v", g.GameCode, th, en, ok)
+		}
+	}
+	if _, _, ok := NameOf("no_such_game"); ok {
+		t.Error("เกมที่ไม่มีต้อง ok = false")
+	}
+}
