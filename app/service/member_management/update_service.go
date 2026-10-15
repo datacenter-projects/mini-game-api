@@ -13,6 +13,7 @@ import (
 	memberManagementPostgres "app/app/repository/postgres/member_management"
 	agentAuthService "app/app/service/agent_auth"
 	agentManagementService "app/app/service/agent_management"
+	playerAuthService "app/app/service/player_auth"
 	"app/pkg/apperr"
 	"app/platform/database"
 
@@ -194,12 +195,16 @@ func memberGroupSetting(settings []models.UserMemberGameSetting, group agentMana
 // UpdateMemberStatusService — POST /manage/members/status/update (M4 · MGMT-30) · ส่งสถานะเดิม = 200 ไม่เขียน log (lead MQ5)
 func UpdateMemberStatusService(ctx context.Context, actor agentAuthService.Actor, req memberManagementDto.UpdateStatusRequest,
 	meta agentAuthService.RequestMeta) error {
-	return database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	var lockedMemberID uint // ตั้งเป็น LOCKED จริงในคำขอนี้ → ลบ session ผู้เล่นหลัง commit (player_auth PA-34 · ปิด MGMT-30A)
+	err := database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		m, err := lockMemberChild(tx, actor, req.ID)
 		if err != nil {
 			return err
 		}
 		next := models.AgentStatus(req.Status)
+		if next == models.AgentStatusLocked {
+			lockedMemberID = m.ID // ส่ง LOCKED ซ้ำก็ลบ session อีกรอบได้ (ลองใหม่ได้ถ้ารอบก่อน Redis ล่ม)
+		}
 		if next == m.Status {
 			return nil
 		}
@@ -210,4 +215,11 @@ func UpdateMemberStatusService(ctx context.Context, actor agentAuthService.Actor
 		return agentManagementService.WriteLog(ctx, tx, actor, meta, agentManagementService.TargetMember, m.ID, m.Username, models.ChangeUpdateStatus,
 			agentManagementService.StatusValue{Status: m.Status}, agentManagementService.StatusValue{Status: next}, now)
 	})
+	if err != nil {
+		return err
+	}
+	if lockedMemberID != 0 { // หลัง commit เท่านั้น · Redis ล่ม = log warn ไม่ทำให้ request ล้ม (PA-34)
+		playerAuthService.EndSessionsOfMemberService(ctx, lockedMemberID)
+	}
+	return nil
 }

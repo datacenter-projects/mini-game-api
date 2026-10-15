@@ -156,3 +156,22 @@
 | R4-2 | PA-09 `win_limit_per_day` ของผู้เล่นที่ระบบสร้าง = "ค่า default ของ DB" | **แก้**: ใช้ค่าตั้งต้นตาม MGMT-65 ล่าสุด (เพดาน 1,000,000 บาท แปลงเป็นสกุลของผู้เล่น — member-payment รอบ 2) ผ่านฟังก์ชันเดียวกับ `members/create` · ห้ามพึ่งค่า default ของคอลัมน์ใน DB |
 
 Boiledegg: แก้ PA-09 + ใส่ "อนุมัติโดย: zerph · 2026-10-15" ในหัว spec · เอา **[เสนอ]** ออกจาก `407308`
+
+## รอบ 5 — ระหว่าง implement (`boiledegg/player/auth` @ `0ce5c78` · lead 2026-10-15)
+| # | เรื่อง | ผล |
+|---|---|---|
+| R5-1 | migration `20261015140000` แก้ CHECK `ck_user_members_username` เป็น `^[a-z0-9]{3,32}(@[a-z0-9]{3,32})?$` + `VARCHAR(65)` | **อนุมัติ** (CHECK เดิมรับ `agent@player` ไม่ได้) · down ย้อนไม่ได้เมื่อมีผู้เล่นแบบ `@` — ตามหมายเหตุใน migration |
+| R5-2 | ชื่อเกมใน catalog (`app/core/game/game.go`) | **ยืนยันตามที่ตั้ง**: `scratch_card` สแครชการ์ด / Scratch Card · `coin_toss` โยนเหรียญ / Coin Toss · `rock_paper_scissors` เป่ายิ้งฉุบ / Rock Paper Scissors |
+| R5-3 | verify โค้ด | เปิด verify ที่ `0ce5c78` ทันที ไม่รอ PR |
+
+## รอบ 6 — ผล verify โค้ด (`0ce5c78` + `a529bcd` · lead 2026-10-15 · รายงาน verify-player-auth)
+การตัดสินของ lead ตรงครบ · `key` ไม่อยู่ใน log ใด · must-fix 0 · should-fix 3 · nit 7 → **merge ได้เมื่อครบเงื่อนไขด้านล่าง**
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| S1 | `c.IP()` เมื่อตั้ง `TRUSTED_PROXIES` ได้ `X-Forwarded-For` ทั้งก้อน (`"a, b"`) → operator โดน `407305` เมื่อมี proxy หลายชั้น · client ปลอม XFF หลบ rate limit ได้ (ของเดิม — กระทบ BO login ด้วย) | **แยกเป็นงานแก้ ทำหลัง merge แต่ก่อนเปิดให้ operator ใช้จริง** · อ่าน IP จาก header ที่ ingress ของเราตั้ง หรือไล่ XFF จากขวาข้าม proxy ที่เชื่อถือ · **ห้ามแก้ด้วยเปิด `EnableIPValidation` อย่างเดียว** (ได้ IP ซ้ายสุดที่ client ปลอมได้ → หลบ whitelist) · ทดสอบยิงผ่าน ingress จริงบน dev |
+| S2 | ผู้เล่นที่สร้างผ่าน `transfer/register` / สร้างอัตโนมัติ ไม่มี `account_change_logs` `CREATE` | **เขียน log** · ผู้ทำ = agent เจ้าของ `key` (เหมือน `members/create`) |
+| S3 | test PA-12 เช็คแค่ response | **เพิ่ม test** ว่า `key` / `password` ไม่อยู่ใน log |
+
+**เงื่อนไข merge:** แก้ S2 + S3 · แนบผล integration test (หรือ CI เขียว) · nit 7 ข้อใน `reviews/mini-game-api/verify-player-auth.md` (error list ของ L2 ขาด `407301` / `503` · PA4 ผิดครบแล้วตัด session ให้เขียนใน spec · `last_login_ip` ของ L2 = IP ของ operator ฯลฯ) ทำได้ใน PR เดียวกัน
+**ก่อน deploy dev:** migrate `20261015140000` + ตั้ง `PLAYER_LOBBY_URL` (`TRUSTED_PROXIES` หลังแก้ S1)

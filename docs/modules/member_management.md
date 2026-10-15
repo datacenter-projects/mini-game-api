@@ -57,7 +57,7 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | | • ผู้สร้างไม่มีแถว PT ของกลุ่มนั้น (ข้อมูลก่อน module ②) → ค่าที่ได้รับ = 0 → ตั้งได้แค่ `pt` 0 |
 | MGMT-29 | รายละเอียด: ทุก field ยกเว้น password / hash · ไม่มี `passcode_set` / `status_game` · **`pt` แสดงเสมอ** (ไม่มีเมนูสิทธิ์ `pt` แล้ว — lead P4) · มี `payment_type` · `payment_account` (เลขบัญชีเต็ม) · `win_limit_per_day` (MGMT-63 – MGMT-65) |
 | MGMT-30 | สถานะ `ACTIVE` / `SUSPENDED` / `LOCKED` แก้ได้เฉพาะผู้สร้างโดยตรง (`402304`) · ตั้งกลับ `ACTIVE` ได้ · ไม่ต้อง passcode · **ส่งสถานะเดิม = `200` ไม่เขียน log** (lead MQ5) · `status` ที่แสดง = สถานะที่ใช้งานจริง (หัวสายถูกระงับ = `SUSPENDED`) |
-| MGMT-30A | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน: **open item** → กำหนดตอน review Player Auth (lead MQ7 · ร่าง: LOCKED = login ไม่ได้ + ตัด session · SUSPENDED = login / ดูได้ เดิมพันไม่ได้) |
+| MGMT-30A | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน (lead MQ7 · **ปิดแล้ว 2026-10-15** ตาม player_auth PQ7 / PA-30 – PA-35): `LOCKED` = login ไม่ได้ + ตัด session (ตั้ง `LOCKED` ที่ M4 → ลบ session ผู้เล่นหลัง commit · ส่ง `LOCKED` ซ้ำก็ลบอีกรอบ) · `SUSPENDED` = login / ดูข้อมูลได้ เดิมพันไม่ได้ (`can_bet = false`) · สถานะที่ใช้งานจริง = แย่สุดของ Member + สายบน · รายละเอียด: `docs/modules/player_auth.md` |
 | MGMT-32M | `members/detail/update` (lead M3-1 · MN2 · P13): section `info` / `pt` / `payment` / `limit` ไม่บังคับ แต่**ต้องมีอย่างน้อย 1** (`422` "ต้องส่งอย่างน้อย 1 section") · `info` ส่งบาง field ได้ (ไม่ส่ง = คงเดิม · เบอร์ต้องส่งคู่) · `pt.{กลุ่ม}` ต้องครบ `pt` + `commission_percent` · `payment` ส่ง `payment_type` และ / หรือ `payment_account` (ไม่ส่ง = คงเดิม · `payment_account` ที่ส่ง**แทนทั้งก้อน** · ล้างบัญชีส่ง `{}`) · `limit` ต้องมี `win_limit_per_day` · ผู้สร้างโดยตรงเท่านั้น (หลาน `402304` · นอกสาย `402402`) · tx เดียว (section ไหนผิดไม่บันทึกเลย) · ทำตามลำดับ `info` → `pt` → `payment` → `limit` · log แยกแถว `UPDATE_INFO` / `UPDATE_PT` / `UPDATE_PAYMENT` / `UPDATE_LIMIT` เฉพาะ section ที่เปลี่ยนจริง · ค่าเดิม = ไม่เขียน log · ไม่ต้อง passcode |
 | MGMT-32N | Member ไม่มีแถวค่าตั้งของกลุ่มที่ส่ง (ข้อมูลก่อน module ②) → ข้ามกลุ่มนั้นเงียบ ไม่บันทึก ไม่เขียน log (lead MQ4) |
 | MGMT-35M | `members/list` (lead M5): Member ที่เป็น**ลูกตรงของตัวเอง** ไว้ทำ dropdown "คัดลอกการตั้งค่าจาก" → เลือกแล้วเรียก `members/detail/get` · `keyword` ไม่บังคับ 4–32 ตัว (ค้น username บางส่วน ไม่สนตัวพิมพ์) · A→Z · ไม่แบ่งหน้า สูงสุด 500 · ไม่มี = `[]` |
@@ -353,7 +353,7 @@ test ของเส้น Member อยู่ในชุด integration test �
 
 | # | เรื่อง | ตัดสินเมื่อ |
 |---|---|---|
-| MQ7 | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน (MGMT-30A) | review Player Auth |
+| MQ7 | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน (MGMT-30A) | ✅ ตัดสินแล้วใน review Player Auth (PQ7) → `player_auth.md` PA-30 – PA-35 |
 | MA2 | ความหมายของ Remain ตอน settle | module Settle |
 | P10 | `win_limit_per_day`: วิธีนับ "ชนะ" · เวลาตัดรอบวัน · ผลเมื่อถึงลิมิต · **`0` = ห้ามเล่น ต้องบังคับตอนเดิมพัน** · **แปลงยอดชนะจากสกุลของ Member เป็นบาทก่อนเทียบ** (เรทจากไหน / ตอนไหน) (MGMT-65) | module เดิมพัน |
 
