@@ -201,7 +201,7 @@ func createPlayer(ctx context.Context, op Operator, username, name, requestedCur
 		now := time.Now()
 		m = models.UserMember{AgentID: c.Agent.ID, Username: username, PasswordHash: passwordHash, Name: name, Currency: currency,
 			Status: models.AgentStatusActive, Cnf: string(cnf), PaymentType: models.PaymentTypeCash,
-			WinLimitPerDay: defaultWinLimit(currency), CreatedAt: now, UpdatedAt: now}
+			WinLimitPerDay: defaultWinLimit(), CreatedAt: now, UpdatedAt: now}
 		if err := memberManagementPostgres.CreateUserMemberRepository(tx, &m); err != nil {
 			if errors.Is(err, apperr.ErrConflict) {
 				return apperr.ErrPlayerExists
@@ -224,11 +224,9 @@ func createPlayer(ctx context.Context, op Operator, username, name, requestedCur
 	return m, err
 }
 
-// defaultWinLimit — ค่าตั้งต้น win_limit_per_day ของผู้เล่นที่ระบบสร้าง (PA-09 · lead R4-2)
-// ต้องเท่ากับที่ members/create ให้เมื่อไม่ส่งค่า และห้ามพึ่งค่า DEFAULT ของคอลัมน์ใน DB — ส่งค่านี้ชัดเจนตอน insert เสมอ
-// TODO(player_auth × maofoy): MGMT-65 ล่าสุด = เพดาน 1,000,000 บาท แปลงเป็นสกุลผู้เล่น (member-payment รอบ 2 · currency_rate) —
-// ฟังก์ชันกลางนั้นยังไม่อยู่บน dev (members/create ยังใช้ค่าคงที่ DefaultWinLimitPerDay) · เมื่อ maofoy merge แล้วให้เรียกตัวเดียวกันที่นี่
-func defaultWinLimit(currency string) float64 {
-	_ = currency
+// defaultWinLimit — ค่าตั้งต้น win_limit_per_day ของผู้เล่นที่ระบบสร้าง (PA-09 · lead R4-2 + member-payment รอบ 2.1)
+// หน่วยบาท (THB) เสมอ ไม่มีสกุลเงิน — ไม่ต้องแปลงสกุล / ไม่ใช้ currency_rate (การแปลงอยู่ที่ module เดิมพัน) · เท่ากับที่ members/create ให้เมื่อไม่ส่งค่า
+// ห้ามพึ่งค่า DEFAULT ของคอลัมน์ใน DB — ส่งค่านี้ชัดเจนตอน insert เสมอ
+func defaultWinLimit() float64 {
 	return float64(memberManagementCore.DefaultWinLimitPerDay)
 }

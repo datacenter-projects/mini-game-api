@@ -58,7 +58,7 @@
 | PA-08 | `transfer/register`: สร้างผู้เล่นอย่างเดียว ไม่ออก token · ส่ง `password` (ไม่บังคับ) = ผู้เล่น login ตรงได้ (PA-03) · ไม่ส่ง = เข้าทาง operator อย่างเดียว · กติการหัส = AUTH-36 (ฟังก์ชันเดียวกับ BO ใน `app/core`) ไม่ผ่าน `422` · **ห้าม log รหัส · ไม่คืนรหัส** · มีผู้เล่นแล้ว = `407401` (operator ถือเป็น "สร้างไว้แล้ว" — เขียนในเอกสาร frontend) |
 | PA-08A | **สกุลเงิน** (lead Q2 / รอบ 3): `currency` ใน L2 / TR **ไม่บังคับ** · agent มีสกุลเดียว → ใช้สกุลนั้น · agent มีหลายสกุลแล้วไม่ส่ง = `422` · ส่งมาต้องอยู่ในสกุลของ agent (`422`) · **ผู้เล่นมีอยู่แล้วแต่ `currency` ที่ส่งมาไม่ตรง → `422` "สกุลเงินไม่ตรงกับผู้เล่น"** (L2) |
 | PA-08B | **สร้างพร้อมกัน**: สร้างผู้เล่นใหม่ 2 คำขอพร้อมกัน — ตัวที่แพ้ unique constraint: `register` ได้ `407401` · `login` อ่านผู้เล่นที่สร้างแล้วทำต่อ **ไม่ error** (ห้ามคืน 500) · มี integration test ยิงพร้อมกัน |
-| PA-09 | ค่าตั้งต้นของผู้เล่นที่ระบบสร้างให้ (lead Q3–Q5): `name` = `player_username` · `credit = 0` · `payment_type = CASH` (ผู้สร้างฝากให้ทีหลัง — spec Transfer API) · `pt` = **ค่าเต็มที่ agent ได้รับ** (agent ถือสู้เองทั้งหมด · `remain_quota = 0`) · `commission_percent = 0` · **`win_limit_per_day` = ค่าตั้งต้นตาม MGMT-65 ล่าสุด** (lead R4-2): เพดาน **1,000,000 บาท แปลงเป็นสกุลของผู้เล่น** (ใช้ `currency_rate` — member-payment รอบ 2) ผ่าน**ฟังก์ชันเดียวกับ `members/create`** (`app/core/member_management` — ห้ามเขียนซ้ำ) · **ห้ามพึ่งค่า `DEFAULT` ของคอลัมน์ใน DB** (ไม่ส่งค่านี้ตอน insert เองไม่ได้ ต้องคำนวณแล้วส่งชัดเจน) · ค่ากำลังแก้โดย maofoy (MGMT-65) — ต้องประสานก่อน implement ส่วนนี้ · `status = ACTIVE` |
+| PA-09 | ค่าตั้งต้นของผู้เล่นที่ระบบสร้างให้ (lead Q3–Q5): `name` = `player_username` · `credit = 0` · `payment_type = CASH` (ผู้สร้างฝากให้ทีหลัง — spec Transfer API) · `pt` = **ค่าเต็มที่ agent ได้รับ** (agent ถือสู้เองทั้งหมด · `remain_quota = 0`) · `commission_percent = 0` · **`win_limit_per_day` = ค่าตั้งต้นตาม MGMT-65** (lead R4-2 · แก้ความหมายโดย member-payment รอบ 2.1): **หน่วยบาท (THB) เสมอ ไม่มีสกุลเงิน** · ใช้ค่าตั้งต้น `DefaultWinLimitPerDay` (`app/core/member_management` = 10,000,000 บาท) ตัวเดียวกับที่ `members/create` ให้เมื่อไม่ส่งค่า · **ไม่ต้องแปลงสกุล ไม่ใช้ `currency_rate`** (การแปลงอยู่ที่ module เดิมพัน) · **ห้ามพึ่งค่า `DEFAULT` ของคอลัมน์ใน DB** (ส่งค่านี้ชัดเจนตอน insert) · `status = ACTIVE` |
 | PA-09A | Member ที่สร้างจาก BO ยังใช้ username แบบเดิม (MGMT-05) — รอบนี้**ไม่แก้** `members/create` |
 
 ### 3.2 operator ยืนยันตัว (PQ4)
@@ -363,7 +363,7 @@ Redis:
 | PA-03 / PA-08 | `register` ส่ง `password` แล้ว login ตรง `agent01@p001` | สำเร็จ · token |
 | PA-04 | ไม่พบ username · รหัสผิด | `407201` ทั้งคู่ |
 | PA-05 | `player_username` `"AB"` · `"abc!"` · 33 ตัว · `"ABC"` | `422` · `422` · `422` · สำเร็จ เก็บ `agent@abc` |
-| PA-07 / PA-09 | `transfer/login` ผู้เล่นใหม่ | สร้าง + token + link · `name = player_username` · `credit = 0` · `payment_type = CASH` · `pt` = ค่าเต็มของ agent · `commission = 0` · `win_limit_per_day` = เพดาน 1,000,000 บาทแปลงเป็นสกุลผู้เล่น (เท่ากับที่ `members/create` ให้เมื่อไม่ส่งค่า — ไม่ใช่ default ของ DB) |
+| PA-07 / PA-09 | `transfer/login` ผู้เล่นใหม่ | สร้าง + token + link · `name = player_username` · `credit = 0` · `payment_type = CASH` · `pt` = ค่าเต็มของ agent · `commission = 0` · `win_limit_per_day` = `DefaultWinLimitPerDay` 10,000,000 บาท (เท่ากับที่ `members/create` ให้เมื่อไม่ส่งค่า · ส่งชัดเจนตอน insert ไม่ใช่ default ของ DB · ไม่แปลงสกุล) |
 | PA-07 | `transfer/login` ผู้เล่นเดิม 2 ครั้ง | ไม่สร้างซ้ำ · ครั้งที่ 2 เตะ session แรก |
 | PA-07 | `language` = `en` · ไม่ส่ง · `fr` | link ลงท้าย `&lang=en` · `&lang=th` · `422` |
 | PA-08 | `register` ซ้ำ | `407401` |
@@ -437,7 +437,7 @@ Redis:
 |---|---|---|---|
 | Q1 | ใครเรียก `transfer/*` ได้ | `SHARE_B2C` และ `AGENT` | PA-14 |
 | Q2 | สกุลเงินผู้เล่นที่ระบบสร้าง | `currency` ไม่บังคับ · สกุลเดียวใช้สกุลนั้น · หลายสกุลไม่ส่ง `422` · ต้องอยู่ในสกุล agent | PA-08A |
-| Q3–Q5 | ค่าตั้งต้น | `name = player_username` · `credit = 0` · `CASH` · `pt` = ค่าเต็ม agent · commission 0 · win limit = เพดาน MGMT-65 (1,000,000 บาทแปลงสกุล — R4-2) | PA-09 |
+| Q3–Q5 | ค่าตั้งต้น | `name = player_username` · `credit = 0` · `CASH` · `pt` = ค่าเต็ม agent · commission 0 · win limit = `DefaultWinLimitPerDay` (บาท ไม่แปลงสกุล — R4-2 + member-payment รอบ 2.1) | PA-09 |
 | Q6 | `can_bet` | ACTIVE + `win_limit_per_day > 0` | PA-35 |
 | Q7 | `games/list` | `GamesListService` ซ้ำ · `game_code` / `name_th` / `name_en` / `open` / `game_cover` · ไม่มี rate | PA-55 |
 | Q8 | rate limit `transfer/*` | IP 20/นาที · whitelist ว่าง = ปฏิเสธ | PA-42 · PA-10 |
@@ -449,7 +449,7 @@ Redis:
 
 รอบ 3 (ทีละ endpoint): เพิ่ม PA6 · เอา `credit` ออกจาก `me/get` · `games/list` เพิ่มชื่อเกม · `register` รับ `password` · L2 รับ `language` และ `currency` ไม่ตรง = `422` · ยิงพร้อมกันไม่ error · agent SUSPENDED สร้างผู้เล่นใหม่ไม่ได้ · LOCKED ปฏิเสธทุก `transfer/*` · PA1 ไม่มีรหัส = `407201` · PA4 นับ PA-41 · field `snake_case` · ย้าย `BearerToken`
 
-**รอบ 4 (lead zerph 2026-10-15) — อนุมัติ spec:** R4-1 รับ `407308` (HTTP 403) "บัญชีผู้สร้างถูกระงับ สร้างผู้เล่นใหม่ไม่ได้" · R4-2 แก้ PA-09 `win_limit_per_day` ของผู้เล่นที่ระบบสร้างเป็นค่าตั้งต้นตาม MGMT-65 ล่าสุด ไม่พึ่ง default ของ DB (แก้แล้ว)
+**รอบ 4 (lead zerph 2026-10-15) — อนุมัติ spec:** R4-1 รับ `407308` (HTTP 403) "บัญชีผู้สร้างถูกระงับ สร้างผู้เล่นใหม่ไม่ได้" · R4-2 แก้ PA-09 `win_limit_per_day` ของผู้เล่นที่ระบบสร้างเป็นค่าตั้งต้นตาม MGMT-65 ไม่พึ่ง default ของ DB (แก้แล้ว) · member-payment รอบ 2.1 (2026-10-15) กำหนดว่า win limit เป็นบาทเสมอ ไม่ต้องแปลงสกุล — PA-09 ใช้ `DefaultWinLimitPerDay` ตัวเดียวกับ `members/create`
 
 ## 10. Checklist ก่อนเปิด PR (ตามลำดับ review → implement)
 

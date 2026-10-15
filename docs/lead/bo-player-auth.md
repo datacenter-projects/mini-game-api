@@ -17,7 +17,7 @@ branch `boiledegg/player/auth` (merge dev ล่าสุดแล้ว · ย�
 
 ## 2. ติด / ต้องประสาน
 
-- **PA-09 win limit (R4-2) ยังไม่ครบ:** ตอนนี้ผู้เล่นที่ระบบสร้างใช้ค่าคงที่ `DefaultWinLimitPerDay` = 10,000,000 (ค่าเดียวกับที่ `members/create` ให้เมื่อไม่ส่งค่า · **ส่งชัดเจนตอน insert ไม่พึ่ง DEFAULT ของ DB**) ผ่านฟังก์ชันเดียว `defaultWinLimit(currency)` ใน `app/service/player_auth/operator_service.go` · เพดาน 1,000,000 บาทแปลงสกุล (member-payment รอบ 2) **ยังไม่มีบน dev** — `members/create` ยังใช้ค่าคงที่ · maofoy ยังไม่ push · `currency_rate` (`convert_service`) อยู่ใน branch `boiledegg/bo/currency-rate` ที่ยังไม่ merge → ต้องรอ maofoy merge แล้วสลับฟังก์ชันเดียวนี้ (มี TODO กำกับ)
+- **PA-09 win limit (R4-2) — ครบแล้ว:** lead ออก member-payment รอบ 2.1 (2026-10-15) ว่า `win_limit_per_day` เป็นหน่วยบาทเสมอ ไม่ต้องแปลงสกุล / ไม่ใช้ `currency_rate` (การแปลงอยู่ที่ module เดิมพัน) และให้ Player Auth ใช้ `DefaultWinLimitPerDay` ตัวเดียวกับ `members/create` → ผู้เล่นที่ระบบสร้างได้ 10,000,000 บาท ส่งชัดเจนตอน insert ไม่พึ่ง DEFAULT ของ DB (ฟังก์ชัน `defaultWinLimit()` ใน `operator_service.go`) · ไม่ต้องรอ maofoy แล้ว (โค้ดเขาคงเดิม) · spec PA-09 อัปเดตแล้ว
 - ชื่อเกมไทยที่ใส่ (สแครชการ์ด / โยนเหรียญ / เป่ายิ้งฉุบ) ผู้ร่างตั้งเอง — ขอให้ยืนยันคำที่ใช้บนหน้าเกม
 - **ก่อน deploy dev:** ต้อง migrate RDS (เช็ค `goose_db_version` + เลข `20261015140000` ไม่ชนกับ branch อื่น) และตั้ง `PLAYER_LOBBY_URL` ใน env ของ dev (ไม่ตั้ง = `transfer/login` ตอบ `503`)
 
@@ -32,4 +32,5 @@ branch `boiledegg/player/auth` (merge dev ล่าสุดแล้ว · ย�
 - 2026-10-15 · ร่าง spec `player_auth.md` + ส่งคำถาม 13 ข้อให้ lead
 - 2026-10-15 · แก้ spec ตาม review รอบ 2–3 (PA6 · name_th/en · register password · snake_case · SUSPENDED/LOCKED ฯลฯ) · สถานะ → รอ approve
 - 2026-10-15 · lead อนุมัติ spec (รอบ 4) · แก้ PA-09 win limit ตาม R4-2 · สถานะ → APPROVED · พร้อม implement
-- 2026-10-15 · implement 8 เส้น + middleware + migration + test (branch `boiledegg/player/auth`) · เหลือ win limit ตาม MGMT-65 ใหม่ (รอ maofoy) · รอสั่งเปิด PR
+- 2026-10-15 · implement 8 เส้น + middleware + migration + test (branch `boiledegg/player/auth`) · win limit ปิดตาม member-payment รอบ 2.1 (บาทเสมอ ไม่แปลงสกุล) · รอสั่งเปิด PR
+- 2026-10-15 · ปิดเรื่อง win limit: ตามรอบ 2.1 ใช้ `DefaultWinLimitPerDay` (บาท ไม่แปลงสกุล) · ตัด TODO / พารามิเตอร์สกุลออกจาก `defaultWinLimit()` · merge dev ล่าสุด
