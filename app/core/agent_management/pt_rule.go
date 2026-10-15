@@ -59,6 +59,7 @@ const (
 	PTForceRemainExceeded             // 402308 (MGMT-25)
 	PTCommissionExceeded              // 402309 (MGMT-18)
 	PTSuperadminRemain                // 422 — Superadmin ตั้ง remain_quota ให้ลูกไม่ได้ (MGMT-18A)
+	PTSeamlessMasterForce             // 422 — ตั้ง force ให้ CSM ไม่ได้ (MGMT-18A · lead pt_calculation Q3)
 )
 
 // ChildPT — ค่าที่ผู้สร้างตั้งให้ลูก 1 กลุ่ม (MGMT-16)
@@ -71,8 +72,9 @@ type ChildPT struct {
 
 // ValidateChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก (MGMT-18, MGMT-18A, MGMT-19, MGMT-25)
 // creatorReceived = ค่าที่ผู้สร้างได้รับในกลุ่มนี้ · creatorIsSeamlessMaster = ผู้สร้างเป็น Company Seamless Master · creatorIsSuperadmin = ผู้สร้างเป็น Superadmin
-func ValidateChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster, creatorIsSuperadmin bool) PTViolation {
-	return CheckChildPT(v, creatorReceived, creatorIsSeamlessMaster, creatorIsSuperadmin).Violation
+// childIsSeamlessMaster = ลูกเป็น Company Seamless Master (ตั้ง force ไม่ได้ — MGMT-18A)
+func ValidateChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster, creatorIsSuperadmin, childIsSeamlessMaster bool) PTViolation {
+	return CheckChildPT(v, creatorReceived, creatorIsSeamlessMaster, creatorIsSuperadmin, childIsSeamlessMaster).Violation
 }
 
 // PTIssue — ผลตรวจค่าหุ้นส่วนพร้อม field ที่ผิดและค่าที่ตั้งได้ (ใช้สร้างข้อความ error)
@@ -83,7 +85,7 @@ type PTIssue struct {
 }
 
 // CheckChildPT — ตรวจค่าที่ผู้สร้างตั้งให้ลูก ไล่ตามลำดับ field ใน body (pt_from_parent → force → remain_quota → commission_percent)
-func CheckChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster, creatorIsSuperadmin bool) PTIssue {
+func CheckChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster, creatorIsSuperadmin, childIsSeamlessMaster bool) PTIssue {
 	if !IsPTStep(v.PTFromParent) {
 		return PTIssue{PTInvalidStep, "pt_from_parent", FullPT}
 	}
@@ -105,6 +107,9 @@ func CheckChildPT(v ChildPT, creatorReceived float64, creatorIsSeamlessMaster, c
 		}
 		if creatorIsSuperadmin && f.name == "remain_quota" && f.v != 0 { // ส่วนที่เหลือคืน Superadmin อยู่แล้ว (MGMT-18A · MGMT-22)
 			return PTIssue{PTSuperadminRemain, f.name, 0}
+		}
+		if childIsSeamlessMaster && f.name == "force" && f.v != 0 { // CSM ถือสู้ไม่ได้ (MGMT-18A · MGMT-19 · lead pt_calculation Q3)
+			return PTIssue{PTSeamlessMasterForce, f.name, 0}
 		}
 		if f.v > v.PTFromParent {
 			return PTIssue{PTForceRemainExceeded, f.name, v.PTFromParent}

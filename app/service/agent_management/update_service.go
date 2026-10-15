@@ -208,7 +208,7 @@ func applyChildPT(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor
 			status = *req[g].Status
 		}
 		// ไล่ตาม field: pt_from_parent (เพดาน → ต่ำสุดที่ลูกใช้ MGMT-24) → force → remain_quota → commission_percent
-		is := agentManagementCore.CheckChildPT(v, c.Received[group], creatorIsMaster, c.Agent.Role == models.AgentRoleSuperAdmin)
+		is := agentManagementCore.CheckChildPT(v, c.Received[group], creatorIsMaster, c.Agent.Role == models.AgentRoleSuperAdmin, childIsCSM)
 		if is.Field == "pt_from_parent" {
 			return ChildPTError(g, is)
 		}

@@ -33,6 +33,9 @@ type Config struct {
 	PlayerLobbyURL string
 
 	MigrateOnStart bool
+
+	// DevRoutesEnabled — เปิดเส้น dev (/api/v1/bo/pr/dev/...) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
+	DevRoutesEnabled bool
 }
 
 // AuthConfig — ค่าตาม spec docs/modules/agent_auth.md (AUTH-07, AUTH-10, AUTH-11)
@@ -164,7 +167,8 @@ func Load() error {
 			Endpoint:      os.Getenv("S3_ENDPOINT"),
 		},
 
-		MigrateOnStart: getEnvBool("MIGRATE_ON_START", false),
+		MigrateOnStart:   getEnvBool("MIGRATE_ON_START", false),
+		DevRoutesEnabled: getEnvBool("DEV_ROUTES_ENABLED", false),
 	}
 
 	if len(missing) > 0 {
@@ -178,6 +182,9 @@ func Load() error {
 	}
 	if cfg.MetricsAddr != "" && cfg.MetricsAddr == cfg.ServerAddr {
 		return fmt.Errorf("METRICS_ADDR must differ from SERVER_ADDR")
+	}
+	if cfg.DevRoutesEnabled && cfg.IsProd() { // PTC-41
+		return fmt.Errorf("DEV_ROUTES_ENABLED must be false when APP_ENV=prod")
 	}
 	if cfg.Auth.PlayerSessionIdleTimeout > cfg.Auth.PlayerSessionAbsoluteTimeout {
 		return fmt.Errorf("PLAYER_SESSION_IDLE_TIMEOUT must not exceed PLAYER_SESSION_ABSOLUTE_TIMEOUT")
