@@ -156,3 +156,10 @@
 | R4-2 | PA-09 `win_limit_per_day` ของผู้เล่นที่ระบบสร้าง = "ค่า default ของ DB" | **แก้**: ใช้ค่าตั้งต้นตาม MGMT-65 ล่าสุด (เพดาน 1,000,000 บาท แปลงเป็นสกุลของผู้เล่น — member-payment รอบ 2) ผ่านฟังก์ชันเดียวกับ `members/create` · ห้ามพึ่งค่า default ของคอลัมน์ใน DB |
 
 Boiledegg: แก้ PA-09 + ใส่ "อนุมัติโดย: zerph · 2026-10-15" ในหัว spec · เอา **[เสนอ]** ออกจาก `407308`
+
+## รอบ 5 — ระหว่าง implement (`boiledegg/player/auth` @ `0ce5c78` · lead 2026-10-15)
+| # | เรื่อง | ผล |
+|---|---|---|
+| R5-1 | migration `20261015140000` แก้ CHECK `ck_user_members_username` เป็น `^[a-z0-9]{3,32}(@[a-z0-9]{3,32})?$` + `VARCHAR(65)` | **อนุมัติ** (CHECK เดิมรับ `agent@player` ไม่ได้) · down ย้อนไม่ได้เมื่อมีผู้เล่นแบบ `@` — ตามหมายเหตุใน migration |
+| R5-2 | ชื่อเกมใน catalog (`app/core/game/game.go`) | **ยืนยันตามที่ตั้ง**: `scratch_card` สแครชการ์ด / Scratch Card · `coin_toss` โยนเหรียญ / Coin Toss · `rock_paper_scissors` เป่ายิ้งฉุบ / Rock Paper Scissors |
+| R5-3 | verify โค้ด | เปิด verify ที่ `0ce5c78` ทันที ไม่รอ PR |
