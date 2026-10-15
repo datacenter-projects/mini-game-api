@@ -85,3 +85,20 @@ func sizeItems(sizes []assetCore.Size) []assetDto.SizeItem {
 	}
 	return out
 }
+
+// GameCoversOfAgentService — URL ปกที่ใช้งานจริงของทุกเกม ไล่สายจาก agent นี้ (game_code → url · เกมไม่มีปกไม่อยู่ใน map)
+// ใช้โดย player_auth games/list (PA-55): ผู้เล่นเห็นปกแบบเดียวกับที่ BO preview ของผู้สร้างตรงเห็น (AST-51 / AST-57) ผ่านกฎเดียวกับ used/list
+// อ่านปกไม่สำเร็จ = map ว่าง + log warn (ปกเป็นส่วนเสริม ไม่ทำให้ทั้งเส้นล้ม — AST-46)
+func GameCoversOfAgentService(ctx context.Context, agentID uint) (map[string]string, error) {
+	db := database.DBConn.WithContext(ctx)
+	chain, err := chainOf(db, agentID)
+	if err != nil {
+		return nil, err
+	}
+	covers, err := gameCovers(db, chain)
+	if err != nil {
+		logger.Ctx(ctx).Warnw("asset covers of agent failed", "agent_id", agentID, "error", err)
+		return map[string]string{}, nil
+	}
+	return covers, nil
+}

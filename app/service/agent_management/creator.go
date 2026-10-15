@@ -29,8 +29,13 @@ type Creator struct {
 }
 
 func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
+	return LoadCreatorByAgentID(db, actor.AgentID)
+}
+
+// LoadCreatorByAgentID — เหมือน LoadCreator แต่รู้แค่ id ของผู้สร้าง (operator ที่สร้างผู้เล่นผ่าน Key ไม่มี Actor — player_auth PA-07)
+func LoadCreatorByAgentID(db *gorm.DB, agentID uint) (Creator, error) {
 	var c Creator
-	a, err := agentManagementPostgres.GetAgentProfileRepository(db, actor.AgentID)
+	a, err := agentManagementPostgres.GetAgentProfileRepository(db, agentID)
 	if err != nil {
 		return c, err
 	}

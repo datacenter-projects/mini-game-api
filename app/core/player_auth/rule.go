@@ -125,3 +125,40 @@ func LobbyLink(base, token, lang string) (string, bool) {
 	u.RawQuery += extra
 	return u.String(), true
 }
+
+// CurrencyViolation — ผลเลือกสกุลของผู้เล่นที่ระบบสร้าง (PA-08A)
+type CurrencyViolation int
+
+const (
+	CurrencyOK         CurrencyViolation = iota
+	CurrencyRequired                     // agent มีหลายสกุลแต่ไม่ส่ง currency
+	CurrencyNotAgents                    // ส่งมาแต่ไม่อยู่ในสกุลของ agent
+	CurrencyNoneConfig                   // agent ไม่มีสกุลเลย (ข้อมูลผู้สร้างไม่ครบ — internal)
+)
+
+// ResolveCurrency — สกุลของผู้เล่นใหม่: ไม่ส่ง + agent มีสกุลเดียว = สกุลนั้น · หลายสกุลต้องส่ง · ส่งมาต้องอยู่ในสกุลของ agent (PA-08A · lead Q2)
+// requested ตัวพิมพ์เล็ก / ใหญ่ก็ได้ (แปลงเป็นตัวใหญ่ให้)
+func ResolveCurrency(agentCurrencies []string, requested string) (string, CurrencyViolation) {
+	requested = strings.ToUpper(strings.TrimSpace(requested))
+	if requested != "" {
+		for _, c := range agentCurrencies {
+			if c == requested {
+				return requested, CurrencyOK
+			}
+		}
+		return "", CurrencyNotAgents
+	}
+	switch len(agentCurrencies) {
+	case 0:
+		return "", CurrencyNoneConfig
+	case 1:
+		return agentCurrencies[0], CurrencyOK
+	}
+	return "", CurrencyRequired
+}
+
+// CurrencyMatchesPlayer — ผู้เล่นเดิม: ส่ง currency มาต้องตรงกับของผู้เล่น (ไม่ส่ง = ผ่าน) (PA-08A · L2)
+func CurrencyMatchesPlayer(playerCurrency, requested string) bool {
+	requested = strings.ToUpper(strings.TrimSpace(requested))
+	return requested == "" || requested == playerCurrency
+}

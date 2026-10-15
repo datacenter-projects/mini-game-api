@@ -1,6 +1,7 @@
 package agentauth
 
 import (
+	"fmt"
 	"time"
 	"unicode/utf8"
 
@@ -149,4 +150,26 @@ func CurrentGate(mustChangePassword, mustChangePasscode, passcodeSet bool) Gate 
 		return GateSetupPasscode
 	}
 	return GateNone
+}
+
+// PasswordViolationMessage — ข้อความ (ไทย / อังกฤษ) ของผลตรวจรหัสผ่านที่ไม่ผ่าน (AUTH-36) ไม่รวมชื่อ field · PasswordOK = ว่าง
+// ใช้ร่วม backoffice และ player_auth (frontend ห้าม import dto ของ backoffice)
+func PasswordViolationMessage(v PasswordViolation) (th, en string) {
+	switch v {
+	case PasswordOK:
+		return "", ""
+	case PasswordInvalidChar:
+		return "ใช้ได้เฉพาะ a-z, A-Z, 0-9 และอักขระพิเศษ ห้ามมีช่องว่าง", "may contain only a-z, A-Z, 0-9 and ASCII symbols, no spaces"
+	case PasswordTooShort:
+		return fmt.Sprintf("ต้องยาวอย่างน้อย %d ตัว", PasswordMinLen), fmt.Sprintf("must be at least %d characters", PasswordMinLen)
+	case PasswordTooLong:
+		return fmt.Sprintf("ต้องยาวไม่เกิน %d ตัว", PasswordMaxLen), fmt.Sprintf("must not exceed %d characters", PasswordMaxLen)
+	case PasswordNoLetter:
+		return "ต้องมีตัวอักษรอย่างน้อย 1 ตัว", "must contain at least 1 letter"
+	case PasswordNoDigit:
+		return "ต้องมีตัวเลขอย่างน้อย 1 ตัว", "must contain at least 1 digit"
+	case PasswordRepeated:
+		return fmt.Sprintf("ห้ามมีตัวเดียวกันซ้ำติดกัน %d ตัวขึ้นไป", PasswordMaxRepeat+1), fmt.Sprintf("must not repeat the same character %d or more times in a row", PasswordMaxRepeat+1)
+	}
+	return "รูปแบบไม่ถูกต้อง", "is invalid"
 }

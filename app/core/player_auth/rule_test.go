@@ -162,3 +162,33 @@ func TestLobbyLink(t *testing.T) { // rule: L2 · LQ-c
 		}
 	}
 }
+
+func TestResolveCurrency(t *testing.T) { // rule: PA-08A
+	tests := []struct {
+		name      string
+		agent     []string
+		requested string
+		want      string
+		v         CurrencyViolation
+	}{
+		{"สกุลเดียว ไม่ส่ง", []string{"THB"}, "", "THB", CurrencyOK},
+		{"สกุลเดียว ส่งตรง", []string{"THB"}, "THB", "THB", CurrencyOK},
+		{"ส่งตัวเล็ก", []string{"THB", "USD"}, " usd ", "USD", CurrencyOK},
+		{"หลายสกุล ไม่ส่ง", []string{"THB", "USD"}, "", "", CurrencyRequired},
+		{"ส่งสกุลนอก agent", []string{"THB"}, "USD", "", CurrencyNotAgents},
+		{"agent ไม่มีสกุล ไม่ส่ง", nil, "", "", CurrencyNoneConfig},
+		{"agent ไม่มีสกุล ส่งมา", nil, "THB", "", CurrencyNotAgents},
+	}
+	for _, tt := range tests {
+		got, v := ResolveCurrency(tt.agent, tt.requested)
+		if got != tt.want || v != tt.v {
+			t.Errorf("%s: ResolveCurrency = %q, %v want %q, %v", tt.name, got, v, tt.want, tt.v)
+		}
+	}
+}
+
+func TestCurrencyMatchesPlayer(t *testing.T) { // rule: PA-08A
+	if !CurrencyMatchesPlayer("THB", "") || !CurrencyMatchesPlayer("THB", "thb") || CurrencyMatchesPlayer("THB", "USD") {
+		t.Error("CurrencyMatchesPlayer ผิด")
+	}
+}
