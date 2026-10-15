@@ -146,3 +146,13 @@
 - register ซ้ำ = `407401` · spec เขียนว่า operator ถือเป็น "สร้างไว้แล้ว"
 - agent SUSPENDED **สร้างผู้เล่นใหม่ไม่ได้** (ทั้ง register และ auto-create ใน L2) · ผู้เล่นเดิม login ได้
 - operator reset / เปลี่ยนรหัสให้ผู้เล่น — ยังไม่ทำ
+
+## รอบ 4 — approve spec (`boiledegg/player/auth` @ `f50a8b8` · lead zerph 2026-10-15)
+**✅ อนุมัติ spec `docs/modules/player_auth.md`** โดยมีเงื่อนไข 1 ข้อ — แก้แล้วเริ่ม implement ผ่าน PR ได้ทันที (commit แรก: ย้าย `BearerToken` ไป `pkg/middleware`)
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| R4-1 | error ตอน agent SUSPENDED สร้างผู้เล่นใหม่ (register / auto-create ใน `transfer/login`) | **รับ `407308` (HTTP 403) "บัญชีผู้สร้างถูกระงับ สร้างผู้เล่นใหม่ไม่ได้"** |
+| R4-2 | PA-09 `win_limit_per_day` ของผู้เล่นที่ระบบสร้าง = "ค่า default ของ DB" | **แก้**: ใช้ค่าตั้งต้นตาม MGMT-65 ล่าสุด (เพดาน 1,000,000 บาท แปลงเป็นสกุลของผู้เล่น — member-payment รอบ 2) ผ่านฟังก์ชันเดียวกับ `members/create` · ห้ามพึ่งค่า default ของคอลัมน์ใน DB |
+
+Boiledegg: แก้ PA-09 + ใส่ "อนุมัติโดย: zerph · 2026-10-15" ในหัว spec · เอา **[เสนอ]** ออกจาก `407308`
