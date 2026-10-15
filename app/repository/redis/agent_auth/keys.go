@@ -28,3 +28,10 @@ func keyBOPasscodeFail(t models.AccountType, id uint) string {
 func keyBOPasscodeBlock(t models.AccountType, id uint) string {
 	return fmt.Sprintf("bo:passcode:block:%s:%d", strings.ToLower(string(t)), id)
 }
+
+// อัตราแลกเปลี่ยน — docs/modules/currency_rate.md CR-03, CR-10
+const (
+	keyCurrencyRateLock = "currency_rate:sync:lock"
+	keyCurrencyRate     = "currency_rate:usdt"      // hash: สกุล → เรท ×10^8
+	keyCurrencyRateMeta = "currency_rate:usdt:meta" // hash: date, synced_at
+)

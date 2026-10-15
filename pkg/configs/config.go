@@ -3,6 +3,7 @@ package configs
 import (
 	"fmt"
 	"net/netip"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -26,9 +27,10 @@ type Config struct {
 	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
 	MetricsAddr string
 
-	DB    DBConfig
-	Redis RedisConfig
-	Auth  AuthConfig
+	DB           DBConfig
+	Redis        RedisConfig
+	Auth         AuthConfig
+	CurrencyRate CurrencyRateConfig
 
 	Storage StorageConfig
 
@@ -40,6 +42,15 @@ type Config struct {
 	// DevRoutesEnabled — เปิด context developer (/api/v1/dev/... ไม่ต้อง login) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
 	DevRoutesEnabled bool
 }
+
+// CurrencyRateConfig — docs/modules/currency_rate.md (CR-02, หัวข้อ 6)
+type CurrencyRateConfig struct {
+	SyncEnabled bool   // IS_CURRENCY_RATE_SYNC (ค่าเริ่มต้น true)
+	BaseURL     string // CURRENCY_RATE_API_BASE_URL — origin เปล่า ไม่มี path
+}
+
+// ค่าเริ่มต้นของ CURRENCY_RATE_API_BASE_URL (host ฝั่ง dev) — ใช้ได้เฉพาะ local / dev
+const defaultCurrencyRateBaseURL = "https://dev-api.amblotto.net"
 
 // AuthConfig — ค่าตาม spec docs/modules/agent_auth.md (AUTH-07, AUTH-10, AUTH-11)
 // และ docs/modules/agent_auth_phase2.md (AUTH-35, AUTH-46)
@@ -174,6 +185,10 @@ func Load() error {
 		DevRoutesEnabled: getEnvBool("DEV_ROUTES_ENABLED", false),
 	}
 
+	if err := loadCurrencyRate(cfg, required); err != nil {
+		return err
+	}
+
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required env: %s", strings.Join(missing, ", "))
 	}
@@ -261,4 +276,27 @@ func getEnvList(key string) []string {
 		}
 	}
 	return out
+}
+
+// loadCurrencyRate — CURRENCY_RATE_API_BASE_URL ต้องเป็น origin เปล่า (scheme://host[:port]) · บังคับใน uat / prod
+// local / dev ไม่ตั้ง = ใช้ค่าเริ่มต้น (host ฝั่ง dev) — docs/modules/currency_rate.md หัวข้อ 6
+func loadCurrencyRate(cfg *Config, required func(string) string) error {
+	cfg.CurrencyRate.SyncEnabled = getEnvBool("IS_CURRENCY_RATE_SYNC", true)
+	var raw string
+	switch cfg.AppEnv {
+	case "uat", "prod":
+		raw = required("CURRENCY_RATE_API_BASE_URL")
+		if raw == "" {
+			return nil // แจ้งรวมกับ env อื่นที่ขาด
+		}
+	default:
+		raw = getEnv("CURRENCY_RATE_API_BASE_URL", defaultCurrencyRateBaseURL)
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+		u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return fmt.Errorf("CURRENCY_RATE_API_BASE_URL must be a bare origin like https://dev-api.amblotto.net (no path or trailing slash)")
+	}
+	cfg.CurrencyRate.BaseURL = raw
+	return nil
 }

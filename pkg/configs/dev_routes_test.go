@@ -14,6 +14,7 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("REDIS_ADDR", "127.0.0.1:6379")
 	t.Setenv("JWT_SECRET", strings.Repeat("x", 32))
 	t.Setenv("METRICS_ADDR", "")
+	t.Setenv("CURRENCY_RATE_API_BASE_URL", "https://rates.example.com") // บังคับใน uat / prod (currency_rate)
 }
 
 func TestLoadDevRoutes(t *testing.T) { // pt_calculation PTC-41: DEV_ROUTES_ENABLED ค่าเริ่มต้น false · prod เปิดไม่ได้

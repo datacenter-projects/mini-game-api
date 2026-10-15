@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	currencyRateService "app/app/service/currency_rate"
 	"app/pkg/configs"
 	"app/pkg/middleware"
 	"app/pkg/routes"
@@ -77,6 +78,9 @@ func main() {
 			}
 		}()
 	}
+
+	// ดึงอัตราแลกเปลี่ยนทุก 15 นาที — docs/modules/currency_rate.md (หยุดเมื่อ ctx ถูกยกเลิกตอน shutdown)
+	currencyRateService.StartSyncWorker(ctx)
 
 	app := fiber.New(configs.FiberConfig())
 	middleware.FiberMiddleware(app)
