@@ -338,7 +338,7 @@ ALTER TABLE user_members DROP CONSTRAINT ck_user_members_username;
 ALTER TABLE user_members ADD CONSTRAINT ck_user_members_username CHECK (username = lower(username) AND username ~ '^[a-z0-9]{3,32}$');
 ALTER TABLE user_members ALTER COLUMN username TYPE VARCHAR(32);
 ```
-- **แก้เพิ่มตอน implement (2026-10-15 · รอ lead ยืนยันตอน review PR):** `user_members` มี CHECK `ck_user_members_username` รับแค่ `^[a-z0-9]{3,32}$` — ผู้เล่น `agent@player` จะ insert ไม่ได้ถ้าไม่แก้ CHECK ด้วย (เจอตอนรัน integration test) · แถวเดิมทุกแถว (ไม่มี `@`) ผ่าน CHECK ใหม่เหมือนเดิม
+- **แก้เพิ่มตอน implement (2026-10-15 · lead อนุมัติแล้วที่ 0ce5c78):** `user_members` มี CHECK `ck_user_members_username` รับแค่ `^[a-z0-9]{3,32}$` — ผู้เล่น `agent@player` จะ insert ไม่ได้ถ้าไม่แก้ CHECK ด้วย (เจอตอนรัน integration test) · แถวเดิมทุกแถว (ไม่มี `@`) ผ่าน CHECK ใหม่เหมือนเดิม
 - `uq_user_members_username` (unique เดิม) รองรับ PA-06 / PA-08 / PA-08B · ไม่ต้องมี index เพิ่ม · ตารางเล็ก ไม่ต้องแยก 3 ขั้น (docs/DEPLOYMENT.md)
 - ไม่มีตารางใหม่ (ใช้ `user_members` · `user_member_game_settings` · `api_credentials` · `api_allowed_ips` · `user_agents`)
 - `core/player_auth` มี validator `player_username` (3–32 `a-z0-9`) และประกอบ username ความยาวไม่เกิน 65 (รวม `@`) แยกจาก MGMT-05
