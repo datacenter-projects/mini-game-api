@@ -63,7 +63,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 			return err
 		}
 		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO — หัวข้อ 2.1 · lead U3 / MQ2):
-		// ประเภทผู้สร้าง → username → เบอร์ → balance (Seamless → ยอดไม่พอ) → pt → commission_percent → บัญชีธนาคาร
+		// ประเภทผู้สร้าง → username → เบอร์ → balance (สกุล → ยอดไม่พอ · สาย Seamless ส่งได้แล้ว 2026-10-15) → pt → commission_percent → บัญชีธนาคาร
 		if !agentManagementCore.CanCreateMember(c.UserType) {
 			return apperr.ErrCannotCreateType
 		}
@@ -77,7 +77,7 @@ func CreateMemberService(ctx context.Context, actor agentAuthService.Actor, req 
 		if len(currencies) != 1 { // ผู้สร้าง Member มี 1 สกุลเสมอ (MGMT-11 – MGMT-13) — ไม่ใช่ = ข้อมูลผู้สร้างไม่ครบ
 			return apperr.ErrInternal.Wrap(fmt.Errorf("creator %d has %d currencies, want 1", c.Agent.ID, len(currencies)))
 		}
-		if err := agentManagementService.CheckInitialBalance(req.BalanceAmounts, agentManagementCore.IsSeamless(c.CompanyType), currencies); err != nil {
+		if err := agentManagementService.CheckInitialBalance(req.BalanceAmounts, currencies); err != nil {
 			return err
 		}
 		if err := agentManagementService.CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {

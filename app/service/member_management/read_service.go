@@ -48,7 +48,7 @@ func GetMemberDetailService(ctx context.Context, actor agentAuthService.Actor, i
 	if err != nil {
 		return res, err
 	}
-	amount := map[string]float64{m.Currency: m.Credit} // ยอด = user_members.credit · ฝั่ง Seamless = 0 เสมอ (MGMT-15B)
+	amount := map[string]float64{m.Currency: m.Credit} // ยอด = user_members.credit · ฝั่ง Seamless แสดงยอดจริง (MGMT-15B แก้ 2026-10-15)
 	member := string(agentManagementCore.UserTypeMember)
 	res = memberManagementDto.MemberDetailResponse{ID: m.ID, Role: member, UserType: member, Username: m.Username, Name: m.Name,
 		PhoneCountryCode: agentManagementService.StringOrEmpty(m.PhoneCountryCode), Phone: agentManagementService.StringOrEmpty(m.Phone),
