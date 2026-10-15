@@ -1,4 +1,4 @@
-# Player Auth (ผู้เล่นเข้าระบบ · สาย Transfer) — spec อนุมัติแล้ว (lead zerph 2026-10-15) · **implement แล้ว รอเปิด PR / verify**
+# Player Auth (ผู้เล่นเข้าระบบ · สาย Transfer) — verify ผ่าน (รอบ 6) · แก้ S2 / S3 / nit แล้ว · **รอ merge ส่วนต่าง + S1 เป็นงานถัดไป**
 
 จาก boiledegg · review: [docs/reviews/player-auth.md](../reviews/player-auth.md) (รอบ 1–4) · spec: [docs/modules/player_auth.md](../modules/player_auth.md) (**APPROVED**) · เอกสารหน้าบ้าน: [docs/frontend/player_auth.md](../frontend/player_auth.md)
 branch `boiledegg/player/auth` (merge dev ล่าสุดแล้ว · ยังไม่เปิด PR · ยังไม่ merge / deploy dev)
@@ -21,9 +21,20 @@ branch `boiledegg/player/auth` (merge dev ล่าสุดแล้ว · ย�
 - ชื่อเกมไทย (สแครชการ์ด / โยนเหรียญ / เป่ายิ้งฉุบ) — lead ยืนยันแล้ว
 - **ก่อน deploy dev:** ต้อง migrate RDS (เช็ค `goose_db_version` + เลข `20261015140000` ไม่ชนกับ branch อื่น) และตั้ง `PLAYER_LOBBY_URL` ใน env ของ dev (ไม่ตั้ง = `transfer/login` ตอบ `503`)
 
+## 2.1 ตามเงื่อนไข merge รอบ 6 (verify `0ce5c78` + `a529bcd` ผ่าน · must-fix 0)
+
+- **S2 แก้แล้ว:** ผู้เล่นที่สร้างผ่าน `transfer/register` / สร้างอัตโนมัติใน `transfer/login` เขียน `account_change_logs` CREATE ใน tx เดียวกัน (ผู้ทำ = agent เจ้าของ key · ip = IP ของ operator · ไม่มีรหัสผ่าน / hash) — spec PA-09B + `TestTransferCreateWritesChangeLog`
+- **S3 แก้แล้ว:** `TestOperatorSecretsNotLogged` เก็บ log ทุกทาง (zap debug · SQL ของ gorm info พร้อมค่า · request log ของ fiber) แล้วตรวจว่าไม่มี key / password — **ตรวจแล้วว่าถ้าใส่โค้ด log key test ตก** (mutation check)
+- **ผล integration test:** `go test -tags=integration ./...` ทุก package ผ่านบน test env (Postgres 55432 / Redis 56379) หลังแก้ · `go vet` · `gofmt` · `check_structure.sh` ผ่าน · ยังไม่ได้รัน `golangci-lint` (รอ CI)
+- **nit 7 ข้อ:** ทำแล้ว 3 ข้อที่ระบุในรอบ 6 (error list ของ L2 เพิ่ม `407301` / `503` · PA4 รหัสเดิมผิดครบ → `407303` + ตัด session เขียนใน spec PA-41 / PA-50 · `last_login_ip` ของ L2 = IP ของ operator เขียนใน PA-25) · **อีก 4 ข้อยังไม่ได้ทำ — ไฟล์ `reviews/mini-game-api/verify-player-auth.md` ไม่อยู่ใน repo นี้ ขอรายการ**
+- **merge เข้า dev ไปแล้วก่อนได้รับผล verify** (77ba1b7 · ตามคำสั่งผู้ใช้) + migrate RDS dev `20261015140000` แล้ว · **ยังไม่ deploy / ไม่ได้ออก tag** · ส่วนต่างรอบนี้อยู่ใน branch ยังไม่เข้า dev
+- **S1 (งานถัดไป · ทำหลัง merge แต่ก่อนเปิดให้ operator ใช้จริง):** `c.IP()` + `TRUSTED_PROXIES` ได้ XFF ทั้งก้อน · ยังไม่ได้เริ่ม
+
 ## 3. คำถามที่รอ lead
 
-ไม่มี — lead ตอบแล้ว (0ce5c78): อนุมัติ migration แก้ CHECK `ck_user_members_username` · ยืนยันชื่อเกม สแครชการ์ด / โยนเหรียญ / เป่ายิ้งฉุบ · เปิด verify แล้ว ยังไม่ต้อง merge / deploy จนกว่าผล verify ออก
+| # | เรื่อง | ข้อเสนอ |
+|---|---|---|
+| 1 | nit ที่เหลือ 4 จาก 7 ข้อ — ไฟล์ verify report ไม่อยู่ใน repo | ขอรายการ (วางในแชท / commit ไฟล์เข้า `docs/reviews/`) |
 
 ## 4. ประวัติอัปเดต
 
@@ -33,3 +44,4 @@ branch `boiledegg/player/auth` (merge dev ล่าสุดแล้ว · ย�
 - 2026-10-15 · implement 8 เส้น + middleware + migration + test (branch `boiledegg/player/auth`) · win limit ปิดตาม member-payment รอบ 2.1 (บาทเสมอ ไม่แปลงสกุล) · รอสั่งเปิด PR
 - 2026-10-15 · ปิดเรื่อง win limit: ตามรอบ 2.1 ใช้ `DefaultWinLimitPerDay` (บาท ไม่แปลงสกุล) · ตัด TODO / พารามิเตอร์สกุลออกจาก `defaultWinLimit()` · merge dev ล่าสุด
 - 2026-10-15 · lead อนุมัติ migration แก้ CHECK + ยืนยันชื่อเกม · เปิด verify ที่ `0ce5c78` · รอผล verify ก่อน merge / deploy
+- 2026-10-15 · verify ผ่าน (รอบ 6) · แก้ S2 (change log) + S3 (test ไม่ log key / password) + nit 3 ข้อ · integration ทั้งชุดผ่าน · ขอรายการ nit ที่เหลือ 4 ข้อ

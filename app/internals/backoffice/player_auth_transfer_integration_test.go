@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -17,8 +19,12 @@ import (
 	"app/pkg/configs"
 	"app/pkg/testutil"
 	"app/platform/database"
+	"app/platform/logger"
 
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 const (
@@ -455,4 +461,165 @@ func TestTransferLobbyNotConfigured(t *testing.T) { // L2: PLAYER_LOBBY_URL ไ�
 		t.Error("ระบบไม่พร้อมออก link ต้องไม่สร้างผู้เล่น")
 	}
 	expect(t, e.register(t, "p002", nil), 200, 200) // register ไม่ต้องใช้ lobby
+}
+
+// syncBuffer — buffer ที่ปลอดภัยเมื่อหลาย goroutine เขียน (zap / gorm / pipe ของ stdout)
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// captureAllLogs เก็บ log ทุกทางที่ request ผ่านไปเขียนได้: zap (logger.Ctx) ระดับ debug · gorm ระดับ info พร้อมค่าใน SQL (เข้มกว่า prod ที่ Warn + parameterized) ·
+// stdout (request log ของ fiber) — คืนฟังก์ชันอ่านข้อความที่เก็บได้ และฟังก์ชันสร้าง app ใหม่ที่ผูก request log เข้ากับตัวเก็บนี้
+func captureAllLogs(t *testing.T) (read func() string, newApp func() *fiber.App) {
+	t.Helper()
+	sink := &syncBuffer{}
+
+	origLogger, origSugar := logger.Logger, logger.SugarLogger
+	enc := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+	logger.Logger = zap.New(zapcore.NewCore(enc, zapcore.AddSync(sink), zapcore.DebugLevel))
+	logger.SugarLogger = logger.Logger.Sugar()
+
+	origGorm := database.DBConn.Logger
+	database.DBConn.Logger = gormlogger.New(log.New(sink, "", 0), gormlogger.Config{LogLevel: gormlogger.Info, ParameterizedQueries: false})
+
+	origStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(sink, r)
+		close(done)
+	}()
+	os.Stdout = w
+
+	t.Cleanup(func() {
+		os.Stdout = origStdout
+		_ = w.Close()
+		<-done
+		logger.Logger, logger.SugarLogger = origLogger, origSugar
+		database.DBConn.Logger = origGorm
+	})
+	return sink.String, func() *fiber.App { return testutil.NewApp(nil) } // fiber logger ผูก os.Stdout ตอนสร้าง app → ต้องสร้างหลัง redirect
+}
+
+func TestOperatorSecretsNotLogged(t *testing.T) { // PA-12 · lead S3: key / password ไม่อยู่ใน log ทุกทาง
+	e := trSetup(t)
+	const (
+		playerPw  = "Qz7!secretPlayerPw"
+		wrongKey  = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffdeadbeef"
+		shortPw   = "tooShort1" // ไม่ผ่าน AUTH-36 → 422 ก็ต้องไม่ถูก log
+		unknownPw = "Zz9!unknownAgentPw"
+	)
+	realKey := opKeyOf(e.c.agent.ID)
+
+	read, newApp := captureAllLogs(t)
+	app := newApp()
+
+	// เส้นสำเร็จ · key ผิด · agent ไม่มี · register ใส่ password · password ไม่ผ่านกติกา · IP นอก whitelist · สร้างพร้อมกัน
+	post := func(path string, body map[string]any) {
+		call(t, app, "POST", path, body, "")
+	}
+	post(trLoginPath, map[string]any{"agent_username": "agent01", "key": realKey, "player_username": "p001"})
+	post(trLoginPath, map[string]any{"agent_username": "agent01", "key": wrongKey, "player_username": "p001"})
+	post(trLoginPath, map[string]any{"agent_username": "ghostagent", "key": wrongKey, "player_username": "p001"})
+	post(trRegisterPath, map[string]any{"agent_username": "agent01", "key": realKey, "player_username": "p002", "password": playerPw})
+	post(trRegisterPath, map[string]any{"agent_username": "agent01", "key": realKey, "player_username": "p003", "password": shortPw})
+	post(trRegisterPath, map[string]any{"agent_username": "ghostagent", "key": wrongKey, "player_username": "p004", "password": unknownPw})
+	post(trRegisterPath, map[string]any{"agent_username": "agent01", "key": realKey, "player_username": "p002", "password": playerPw}) // ซ้ำ
+	// เส้นที่ service ตอบ 503 พร้อมสาเหตุ (zap logger.Ctx ทำงานจริง) — พิสูจน์ว่าตัวเก็บ zap ใช้ได้ · ต้องทำก่อนลบ whitelist ไม่งั้นไม่ถึง service
+	configs.Cfg.PlayerLobbyURL = "not a url"
+	post(trLoginPath, map[string]any{"agent_username": "agent01", "key": realKey, "player_username": "p005"})
+
+	if err := database.DBConn.Where("agent_id = ?", e.c.agent.ID).Delete(&models.APIAllowedIP{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	post(trLoginPath, map[string]any{"agent_username": "agent01", "key": realKey, "player_username": "p001"}) // IP ไม่ผ่าน
+
+	logs := read()
+	// กันกรณีตัวเก็บว่างเปล่า (test ผ่านเพราะไม่ได้เก็บอะไรเลย): ต้องเห็น request log ของ fiber · SQL ของ gorm · และ log ของ zap
+	for _, want := range []string{"transfer", "user_members", "request failed"} {
+		if !strings.Contains(logs, want) {
+			t.Fatalf("ตัวเก็บ log ไม่ได้ข้อมูลที่ควรเห็น %q (ความยาว %d)", want, len(logs))
+		}
+	}
+	for name, secret := range map[string]string{"key จริงของ agent": realKey, "key ผิดที่ยิงมา": wrongKey,
+		"password ผู้เล่น": playerPw, "password ที่ไม่ผ่านกติกา": shortPw, "password ของ agent ที่ไม่มี": unknownPw} {
+		if strings.Contains(logs, secret) {
+			t.Errorf("พบ %s ใน log", name)
+		}
+	}
+}
+
+func TestTransferCreateWritesChangeLog(t *testing.T) { // lead S2: ผู้เล่นที่ระบบสร้างมี account_change_logs CREATE โดย agent เจ้าของ key
+	e := trSetup(t)
+
+	check := func(username string, wantPassword bool) {
+		t.Helper()
+		m, ok := memberByUsername(t, username)
+		if !ok {
+			t.Fatalf("ไม่พบผู้เล่น %s", username)
+		}
+		logs := memberLogs(t, m.ID, models.ChangeCreate)
+		if len(logs) != 1 {
+			t.Fatalf("%s: account_change_logs CREATE = %d แถว want 1", username, len(logs))
+		}
+		l := logs[0]
+		if l.ActorType != models.AccountTypeAgent || l.ActorID != e.c.agent.ID || l.ActorUsername != "agent01" {
+			t.Errorf("%s: ผู้ทำ = %s #%d %q (ต้องเป็น agent01 เจ้าของ key)", username, l.ActorType, l.ActorID, l.ActorUsername)
+		}
+		if l.TargetUsername != username || l.IP == nil || *l.IP == "" {
+			t.Errorf("%s: target %q ip %v", username, l.TargetUsername, l.IP)
+		}
+		if l.NewValue == nil {
+			t.Fatalf("%s: ไม่มี new_value", username)
+		}
+		var v map[string]any
+		if err := json.Unmarshal([]byte(*l.NewValue), &v); err != nil {
+			t.Fatal(err)
+		}
+		if v["username"] != username || v["currency"] != "THB" || v["source"] != "transfer_api" || v["has_password"] != wantPassword {
+			t.Errorf("%s: new_value = %v", username, v)
+		}
+		if strings.Contains(*l.NewValue, mgPassword) || strings.Contains(*l.NewValue, m.PasswordHash) && m.PasswordHash != "" {
+			t.Errorf("%s: new_value ห้ามมีรหัสผ่าน / hash", username)
+		}
+	}
+
+	trLoginOK(t, e, "p001", nil) // สร้างอัตโนมัติ
+	check("agent01@p001", false)
+	trLoginOK(t, e, "p001", nil) // login ซ้ำไม่เขียน log เพิ่ม
+	check("agent01@p001", false)
+
+	expect(t, e.register(t, "p002", map[string]any{"password": mgPassword}), 200, 200)
+	check("agent01@p002", true)
+	expect(t, e.register(t, "p002", nil), 200, 407401) // ซ้ำ = ไม่มี log เพิ่ม
+	check("agent01@p002", true)
+
+	// ชนกันตอนสร้างพร้อมกัน → rollback ทั้ง tx: log ไม่เกิน 1 แถวต่อผู้เล่น
+	const n = 6
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			callQuiet(e.app, trLoginPath, e.body("racer3", nil))
+		}()
+	}
+	wg.Wait()
+	check("agent01@racer3", false)
 }
