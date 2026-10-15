@@ -78,6 +78,8 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 
 ชื่อ key ทั้งหมดดูที่ `.env.example` (ต้นฉบับคือ `pkg/configs/config.go`) ค่าที่เป็นความลับเก็บใน k8s Secret
 
+> ⚠️ **`TRUSTED_PROXIES` — dev / uat / prod ต้องตั้งเสมอ:** app อยู่หลัง ingress / LB ถ้าไม่ตั้ง **ทุกคนจะได้ IP ของ ingress** → rate limit ของ BO login และ player login ใช้ร่วมกันทั้งระบบ (คนเดียวรัวก็ล็อกทุกคน) + whitelist ของ operator (`transfer/*`) ไม่ผ่าน (`407305`) · ต้องใส่ CIDR ของ proxy **ทุกชั้น** (ALB / nginx pod / CDN ถ้ามี) · ถ้าไม่ตั้งนอก `APP_ENV=local` app จะ boot ได้แต่ log `warn` ตั้งแต่เริ่ม (`TRUSTED_PROXIES is empty …`) · ตั้งผิดรูปแบบ = boot ไม่ขึ้น
+
 | key | หมายเหตุ |
 |---|---|
 | `APP_ENV` | `dev` / `prod` |

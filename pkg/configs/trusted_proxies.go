@@ -42,3 +42,13 @@ func validateLobbyURL(s string) error {
 	}
 	return nil
 }
+
+// ProxyWarning คืนข้อความเตือนตอน boot เมื่อไม่ได้ตั้ง TRUSTED_PROXIES นอกเครื่อง local (ว่าง = ไม่มีคำเตือน)
+// อยู่หลัง ingress แต่ไม่ตั้ง = ทุกคนได้ IP ของ ingress → rate limit ของ BO / ผู้เล่น login ใช้ร่วมกันทั้งระบบ + whitelist ของ operator ไม่ผ่าน (407305)
+// dev / uat / prod ต้องตั้งเสมอ · application.go เรียกใช้แล้ว log warn (ไม่หยุด boot เพราะ local / เครื่องที่ไม่มี proxy ก็ไม่ต้องตั้ง)
+func (c *Config) ProxyWarning() string {
+	if len(c.TrustedProxies) > 0 || c.AppEnv == "local" {
+		return ""
+	}
+	return "TRUSTED_PROXIES is empty: behind an ingress every client gets the ingress IP — BO / player login rate limit becomes shared and operator whitelist fails (407305). Set it to the CIDRs of every proxy layer in dev / uat / prod"
+}

@@ -69,3 +69,25 @@ func TestLoadRejectsBadTrustedProxiesAndLobbyURL(t *testing.T) { // S1-a · N5: 
 		t.Fatalf("prefixes = %v err %v", Cfg.TrustedProxyPrefixes, err)
 	}
 }
+
+func TestProxyWarning(t *testing.T) { // lead รอบ 4: เตือนตอน boot เมื่อไม่ตั้ง TRUSTED_PROXIES นอก local
+	tests := []struct {
+		env     string
+		proxies []string
+		warn    bool
+	}{
+		{"local", nil, false},
+		{"dev", nil, true},
+		{"uat", nil, true},
+		{"prod", nil, true},
+		{"dev", []string{"10.0.0.0/8"}, false},
+		{"prod", []string{"10.0.0.0/8"}, false},
+		{"local", []string{"10.0.0.0/8"}, false},
+	}
+	for _, tt := range tests {
+		c := &Config{AppEnv: tt.env, TrustedProxies: tt.proxies}
+		if got := c.ProxyWarning() != ""; got != tt.warn {
+			t.Errorf("APP_ENV=%s proxies=%v: warn = %v want %v", tt.env, tt.proxies, got, tt.warn)
+		}
+	}
+}

@@ -56,3 +56,4 @@ branch `boiledegg/player/auth` + `boiledegg/fix/client-ip` **merge เข้า 
 - 2026-10-15 · verify ผ่าน (รอบ 6) · แก้ S2 (change log) + S3 (test ไม่ log key / password) + nit 3 ข้อ · integration ทั้งชุดผ่าน · ขอรายการ nit ที่เหลือ 4 ข้อ
 - 2026-10-15 · S1: เพิ่ม `middleware.ClientIP` (ไล่ XFF จากขวาข้าม proxy ที่เชื่อถือ) แทน `c.IP()` ทุกจุด · branch `boiledegg/fix/client-ip` · ยังไม่ merge / ยังไม่ได้ทดสอบผ่าน ingress จริง
 - 2026-10-15 · รอบ 7: แก้ S1-a (validate TRUSTED_PROXIES ตอน boot) + N5 (PLAYER_LOBBY_URL) + nit doc (PA-10 · สถานะ merge · N3) · เหลือ N4 / N7 / S1-b
+- 2026-10-15 · รอบ 4 ผ่าน (20722ab) · เพิ่มตามที่ lead ฝาก: log warn ตอน boot ถ้าไม่ตั้ง TRUSTED_PROXIES นอก local (`Config.ProxyWarning`) + ข้อความเตือนชัดใน DEPLOYMENT.md · ยังไม่ deploy dev จนกว่าจะได้ CIDR ของ ingress
