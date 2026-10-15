@@ -1,0 +1,180 @@
+# การคิด PT ต่อ Member (`pt_calculation`) — Spec
+
+- สถานะ: **DRAFT** (รอ lead review)
+- อนุมัติโดย: — · วันที่: —
+- ผู้ดูแล: maofoy · branch `maofoy/utils/pt-calculate`
+- ที่มาของ rule: [docs/references/pt-force-remain-commission.md](../references/pt-force-remain-commission.md) (reference ยังไม่ใช่ spec) · agent_management MGMT-16 – MGMT-25 · member_management MGMT-21 · ไม่ได้ extract จากโค้ดเก่า
+- ชื่อ module ในโค้ด: `pt_calculation` (`core/pt_calculation` · `service/pt_calculation` · `controllers/pt_calculation` · `dto/pt_calculation`)
+
+> เอกสารนี้คือ source of truth ของ module — โค้ดและ test ต้องตรงกับเอกสารนี้ ถ้าไม่ตรงให้แก้โค้ด
+> หรือแก้เอกสารผ่านการอนุมัติใหม่ ห้ามอ้างเอกสารของโปรเจกต์เก่า
+
+## 1. หน้าที่ของ module
+
+ใส่ `member_id` + `game_code` แล้วได้ **PT สุดท้าย** (หลังคิด Force → Remain → คืน Superadmin) และ **% Commission** ของทุกชั้นในสายของ Member คนนั้น
+
+- **service** `CalculateMemberPTService` — ไว้ให้ module เดิมพันเรียกตอนรับ bet (เก็บผลไว้กับ bet — MGMT-23 "มีผลกับ bet ใหม่")
+- **เส้น dev** `POST /api/v1/bo/pr/dev/pt/calculate` — ให้ dev / QA เช็คผลเอง · เปิดเฉพาะ env ที่ตั้ง `DEV_ROUTES_ENABLED=true`
+
+**ไม่อยู่ใน module นี้:** คิดเป็นเงิน (ได้ / เสียตาม PT · ยอด Commission ที่ชั้นบนจ่าย) · กรณี Member ชนะ · เช็คสถานะบัญชี / เปิด-ปิดเกม / `win_limit_per_day` ก่อนรับ bet — ทั้งหมดอยู่ module เดิมพัน / Settle
+
+## 2. คำศัพท์
+
+| คำ | ความหมาย |
+|---|---|
+| สาย | ชั้นฝั่ง agent จาก Superadmin ลงมาถึงผู้สร้าง Member = `user_members.cnf.parent` (เรียงบน → ล่าง · MGMT-61) · ยาวไม่เท่ากัน (Agent ซ้อนได้ไม่จำกัด · Company 1 to 1 สร้าง Member ตรง — MGMT-02) |
+| `L0 … Lk` | ชั้นในสาย · `L0` = Superadmin · `Lk` = ผู้สร้าง Member |
+| `P[i]` | `agent_game_settings.pt_from_parent` ของ `Li` (ได้รับจากผู้สร้าง) · `P[0]` = 100 |
+| `hold[i]` | PT ที่ `Li` ถือตามที่ตั้งไว้ · `i < k`: `P[i] − P[i+1]` · `i = k`: `pt` ของ Member (`user_member_game_settings.pt`) |
+| `Force[i]` / `Remain[i]` | `force` / `remain` ในแถว `agent_game_settings` ของ `Li` (ผู้สร้างของ `Li` ตั้งให้) · `0` = ไม่ตั้ง · ไม่ใช้ของ `L0` |
+| `left` | PT ที่ยังไม่มีใครถือ = `100 − Σ hold` |
+| PT สุดท้าย | PT ที่ชั้นนั้นถือจริงหลังคิด Force / Remain / คืน Superadmin · รวมทุกชั้น = 100 |
+
+## 3. Business rules
+
+### การคิด PT
+
+| ID | Rule |
+|---|---|
+| PTC-01 | อ่านค่าของเกม `game_code` ที่ส่งมา: แถว `agent_game_settings` ของทุกชั้นในสาย + แถว `user_member_game_settings` ของ Member · ใช้ค่าล่าสุด ณ ตอนคิด |
+| PTC-02 | `hold` ตั้งต้นตามคำศัพท์ · `left = 100 − Σ hold` (เท่ากับ `P[k] − pt` ของ Member) · **ไม่ใช้คอลัมน์ `user_member_game_settings.remain`** (เป็นค่าที่ระบบคิดเก็บไว้แสดงผล ไม่ใช่กฎ Remain) |
+| PTC-03 | คิด**จากชั้นล่างสุดขึ้นไป** `i = k … 1` · ในชั้นเดียวกัน**คิด Force ก่อน Remain เสมอ** · ใช้ค่าหลังสเต็ปก่อนหน้า |
+| PTC-04 | **Force[i]:** `s = Σ eff[i..k]` · ถ้า `s < Force[i]` → **`Li` ถือเพิ่ม** `min(Force[i] − s, left)` · ไม่งั้นไม่ทำงาน |
+| PTC-05 | **Remain[i]:** `s = Σ eff[i..k]` (หลัง Force ของชั้นเดียวกัน) · ถ้า `s < Remain[i]` → **`L(i−1)` ถือเพิ่ม** `min(Remain[i] − s, left)` · ไม่งั้นไม่ทำงาน |
+| PTC-06 | จบทุกชั้นแล้ว `left` ที่เหลือ**คืน Superadmin** (`eff[0] += left` — MGMT-22) |
+| PTC-07 | ปัด 4 ตำแหน่ง (`utils.Round4`) หลังบวก / ลบทุกครั้ง · เทียบ `s < Force` / `s < Remain` ด้วยค่าที่ปัดแล้ว (กฎข้อ 9) |
+| PTC-08 | ตรวจผล: `Round4(Σ PT สุดท้าย) = 100` · ทุกค่า ≥ 0 · ไม่ผ่าน = `508601` + log ทั้งสาย (ห้ามคืนผลที่ผิด) |
+| PTC-09 | ข้อมูลในสายผิดรูป = `508601` + log: ขาดแถว settings ของชั้นใดชั้นหนึ่งสำหรับเกมนี้ · `P[i+1] > P[i]` · `pt` ของ Member > `P[k]` · `parent_id` ของแถวไม่ตรงกับลำดับใน `cnf` |
+| PTC-10 | ข้อสังเกต (ไม่ต้องเขียนโค้ดเพิ่ม): ถ้าข้อมูลตรง MGMT-18 / MGMT-25 (`Force` / `Remain` ≤ ค่าที่ให้ลูก) ส่วนที่ขาดจะไม่เกิน `left` เสมอ — `min(…, left)` เป็นแค่ตัวกัน · ถ้าโดนตัดจริงให้ log `warn` ไว้ตรวจข้อมูล |
+
+ตัวอย่างอ่านได้ใน [docs/references/pt-force-remain-commission.md](../references/pt-force-remain-commission.md) ข้อ 3 — ตรงกับ PTC-03 – PTC-06 เมื่อ `k = 3`
+
+### Commission
+
+| ID | Rule |
+|---|---|
+| PTC-11 | `commission` ของชั้นฝั่ง agent = `agent_game_settings.commission` ของชั้นนั้น (ผู้สร้างตั้งให้) · Superadmin = `0` เสมอ (ไม่มีผู้สร้าง) · Member = `user_member_game_settings.commission` |
+| PTC-12 | คืนเป็น **% ตามที่ตั้ง** ไม่คิดเป็นเงิน (สูตรเงินดู reference ข้อ 4 — ตัดสินใน module Settle) |
+
+### Input / ผลลัพธ์
+
+| ID | Rule |
+|---|---|
+| PTC-20 | `member_id` บังคับ > 0 · `game_code` บังคับ ต้องเป็นเกมที่มีในระบบ (`app/core/game`) — ไม่ผ่าน = `422` (msg บอก field) |
+| PTC-21 | ไม่พบ Member = `408401` |
+| PTC-22 | ผลเป็น array เรียงจาก Superadmin ลงไปถึง Member (ตามลำดับใน `cnf` + Member ท้ายสุด) · Agent ซ้อนหลายชั้น = มี `position: "agent"` หลายแถว · แถว Member ไม่มี `pt` |
+| PTC-23 | `position` = role ตัวเล็กตาม `cnf` (`superadmin` · `company` · `shareholder` · `agent`) · Member = `member` · `id` ของ Member เป็น id ใน `user_members` (คนละตารางกับฝั่ง agent — อาจซ้ำกับ id ของ agent ได้ ให้ดูคู่กับ `position`) |
+| PTC-24 | ค่า % ส่งตามที่เก็บ (ปัด 4 ตำแหน่งแล้ว) หน้าบ้านปัดเองตอนแสดง (กฎข้อ 9) |
+
+### อ่านข้อมูล
+
+| ID | Rule |
+|---|---|
+| PTC-30 | อ่านอย่างเดียว ไม่ lock · ใช้ `db` ที่ผู้เรียกส่งมา (module เดิมพันส่ง tx ของ bet ได้) · query ไม่เกิน 3 ครั้งต่อการคิด: Member + settings ของ Member · settings ของทุกชั้นในสาย (`agent_id IN (…) AND game_code = ?` — ห้ามวนทีละชั้น · กฎข้อ 23) · role ของทุกชั้นจาก `cnf` (ไม่ต้อง query เพิ่ม) |
+| PTC-31 | ใช้ index ที่มีอยู่: `agent_game_settings` PK `(agent_id, game_code)` · `user_member_game_settings` PK `(user_member_id, game_code)` — ไม่ต้องเพิ่ม migration |
+
+### เส้น dev
+
+| ID | Rule |
+|---|---|
+| PTC-40 | เส้น dev ลงทะเบียนแยกใน `backoffice.RegisterDevRoutes(api)` (`app/internals/backoffice/dev_routes.go`) · `pkg/routes` เรียก**เฉพาะเมื่อ** `configs.DevRoutesEnabled = true` |
+| PTC-41 | config ใหม่ `DEV_ROUTES_ENABLED` (bool · ค่าเริ่มต้น `false`) · แก้ `config.go` + `.env.example` ใน PR เดียวกัน (กฎข้อ 25) · **prod ห้ามเปิด** — ถ้า `APP_ENV=prod` และ `DEV_ROUTES_ENABLED=true` ให้ boot ไม่ผ่าน |
+| PTC-42 | สิทธิ์: login + `mw.PassedGates()` + `adminMw.RequireAdmin()` (ADMIN เท่านั้น · บรรทัดเดียวกับ route — กฎข้อ 28) · ADMIN เป็นบัญชีระดับระบบจึงเห็นทุกสาย (ไม่ scope ตามเจ้าของ — ข้อยกเว้นกฎข้อ 22 เฉพาะเส้น dev) |
+| PTC-43 | ปิด flag แล้วเส้นไม่มีอยู่ = `404001` (ไม่บอกว่ามีเส้นนี้) |
+
+## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
+
+ไม่ได้ extract จากโค้ดเก่า (rule มาจาก reference + spec ที่อนุมัติแล้ว)
+
+## 5. Endpoints
+
+| Method | Path | สิทธิ์ที่ต้องมี | Contract เทียบของเก่า |
+|---|---|---|---|
+| POST | `/api/v1/bo/pr/dev/pt/calculate` | ADMIN · เปิดเมื่อ `DEV_ROUTES_ENABLED=true` | ใหม่ (เส้น dev ไม่แจ้ง frontend) |
+
+### POST /api/v1/bo/pr/dev/pt/calculate
+
+Request:
+```json
+{ "member_id": 123, "game_code": "coin_toss" }
+```
+
+Response `data` (ตัวอย่างจาก reference ข้อ 3 — ดูข้อมูลตั้งต้นในหัวข้อ 7.1):
+```json
+[
+  { "id": 1,   "position": "superadmin",  "pt": 20, "commission": 0 },
+  { "id": 2,   "position": "company",     "pt": 25, "commission": 1 },
+  { "id": 3,   "position": "shareholder", "pt": 25, "commission": 0.7 },
+  { "id": 4,   "position": "agent",       "pt": 30, "commission": 0.3 },
+  { "id": 123, "position": "member",                "commission": 1 }
+]
+```
+
+Error codes: `422` · `408401` · `408301` (ถ้า lead เลือกแบบ ก ใน Q2) · `508601` · `404001` (flag ปิด)
+
+### Service (ให้ module เดิมพันเรียก)
+
+```go
+// app/service/pt_calculation
+func CalculateMemberPTService(ctx context.Context, db *gorm.DB, memberID uint, gameCode string) ([]Layer, error)
+
+// app/core/pt_calculation — pure function + table test (กฎข้อ 6)
+func Calculate(in Input) ([]float64, error) // in: hold[0..k] · Force[1..k] · Remain[1..k] → PT สุดท้าย[0..k]
+```
+
+## 6. Schema
+
+ไม่มีตารางใหม่ · ไม่มี migration · อ่าน `user_members` (`cnf`) · `user_member_game_settings` · `agent_game_settings`
+
+## 7. Test cases
+
+### 7.1 ข้อมูลตั้งต้น
+
+| ชุด | สาย (`P` = ค่าที่ได้รับ · F / R = Force / Remain ในแถวของชั้นนั้น) | Member | PT สุดท้าย |
+|---|---|---|---|
+| A (reference ข้อ 3) | SA → Company `P` 95 → Share `P` 85 F 20 R 70 → Agent `P` 70 F 30 R 40 | `pt` 20 | SA 20 · Co 25 · Sh 25 · Ag 30 |
+| B (Agent ซ้อน) | SA → Company `P` 90 → Share B2B `P` 80 → Agent a1 `P` 70 F 0 R 60 → Agent a2 `P` 50 F 40 R 45 | `pt` 30 | SA 15 · Co 10 · Sh 10 · a1 25 · a2 40 |
+| C (Company 1 to 1 สร้าง Member) | SA → Company 1to1 `P` 90 F 80 | `pt` 60 | SA 20 · Co 80 |
+| D (ไม่มี Force / Remain) | SA → Company `P` 90 → Share `P` 70 → Agent `P` 60 | `pt` 40 | SA 30 · Co 20 · Sh 10 · Ag 40 (เหลือ 20 คืน SA — ตรงตัวอย่าง m2 ใน agent_management) |
+
+ไล่ชุด B: hold 10 / 10 / 10 / 20 / 30 · left 20 → a2 Force 40: 30 < 40 → a2 +10 = 40 (left 10) → a2 Remain 45: 40 < 45 → a1 +5 = 25 (left 5) →
+a1 Remain 60: 25 + 40 = 65 ≥ 60 ไม่ทำงาน → คืน SA 5 → 15 · รวม 15 + 10 + 10 + 25 + 40 = 100
+
+### 7.2 Test
+
+| Rule ID | Input | Expected |
+|---|---|---|
+| PTC-03 – 06 | ชุด A · B · C · D (core table test + integration) | PT สุดท้ายตาม 7.1 · รวม 100 |
+| PTC-04 | Force = `s` พอดี | ไม่ทำงาน (`<` ไม่ใช่ `≤`) |
+| PTC-05 | Force แล้ว `s` ≥ Remain | Remain ไม่ทำงาน |
+| PTC-07 | (core table test เท่านั้น — ค่าจริงตั้งได้ทีละ 0.5% ตาม MGMT-18) ค่าที่มีเศษ เช่น `P` 33.3333 / `pt` 11.1111 | ทุกค่าปัด 4 ตำแหน่ง · รวม 100 |
+| PTC-10 | ข้อมูลจงใจผิด MGMT-18 (Force > ค่าที่ได้รับ) | ถือเพิ่มไม่เกิน `left` · log warn · รวม 100 |
+| PTC-09 | ลบแถว settings ของชั้นกลาง · `P` ลูก > `P` ผู้สร้าง | `508601` |
+| PTC-11 | ชุด A | commission SA 0 · ชั้นอื่นตามที่ตั้ง |
+| PTC-20 | ไม่ส่ง `member_id` · `game_code` ไม่มีจริง | `422` msg บอก field |
+| PTC-21 | `member_id` ไม่มีจริง | `408401` |
+| PTC-22 | ชุด B | 6 แถว · `agent` 2 แถวเรียงบน → ล่าง |
+| PTC-30 | ชุด B (5 ชั้น) | query ไม่เกิน 3 ครั้ง |
+| PTC-41 – 43 | flag ปิด · flag เปิด + บัญชีไม่ใช่ ADMIN · `APP_ENV=prod` + flag เปิด | `404001` · `401308` · boot ไม่ผ่าน |
+
+## 8. Contract changes
+
+ไม่มี — เส้น dev ไม่แจ้ง frontend
+
+## 9. Error codes (`bb=08`)
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 408301 | 200 | บัญชีในสายตั้งไม่รับ PT ของเกมนี้ (`pt.status = false`) — ยังคิดไม่ได้ (รอ Q2) |
+| 408401 | 200 | ไม่พบ Member |
+| 508601 | 500 | ข้อมูล PT ในสายไม่ถูกต้อง คิด PT ไม่ได้ (log รายละเอียด · msg ไม่บอกรายละเอียดภายใน) |
+
+## 10. คำถามถึง lead
+
+| # | เรื่อง | ข้อเสนอ |
+|---|---|---|
+| Q1 | อนุมัติให้ใช้กฎใน reference (Force ก่อน Remain · ล่างขึ้นบน · Force ชั้นนั้นถือเพิ่ม · Remain ผู้สร้างถือเพิ่ม · เหลือคืน Superadmin) เป็น rule จริง PTC-03 – PTC-06 และขยายเป็นสายยาว N ชั้น | อนุมัติตามนี้ |
+| Q2 | ชั้นที่ `pt.status = false` (O1 ของ agent_management · lead Q-R3) — PT ส่วนนั้นไปอยู่กับใคร | ก) ตอบ `408301` จนกว่าจะตัดสิน (แนะนำ — ไม่เดา) · ข) คิดเหมือน `true` |
+| Q3 | **CSM ถือสู้ไม่ได้ (MGMT-19) แต่ Superadmin ตั้ง `force` ให้ CSM ได้ (MGMT-18A)** · ถ้า Share Master + ชั้นล่างถือรวมไม่ถึง Force ของ CSM → PTC-04 จะให้ CSM ถือเพิ่ม ขัดกับ MGMT-19 | ก) ข้าม Force ของ CSM (ส่วนที่ขาดคืน Superadmin) · ข) ห้ามตั้ง `force` ให้ CSM (แก้ agent_management) · ค) ให้ CSM ถือได้เฉพาะจาก Force |
+| Q4 | Force / Remain ไม่มีกฎว่า Force ≤ Remain · ถ้า Force ≥ Remain แล้ว Remain ไม่มีผลเสมอ | คงไว้ (ไม่ validate) — แจ้งเพื่อรับทราบ |
+| Q5 | เส้น dev ใช้ ADMIN อย่างเดียว และเปิดด้วย `DEV_ROUTES_ENABLED` (ห้ามเปิดบน prod) | อนุมัติตามนี้ |
