@@ -1,21 +1,28 @@
 //go:build integration
 
 // API test ของเส้น dev คิด PT ต่อ Member — docs/modules/pt_calculation.md (PTC-02 – PTC-43 · ชุดข้อมูลหัวข้อ 7.1)
+// เส้นอยู่ context developer (/api/v1/dev — ไม่ต้อง login) แต่ test อยู่ package นี้เพราะสร้างสายผ่าน API หลังบ้าน (helper ของ agent_management)
 package backoffice_test
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
+	"sync/atomic"
 	"testing"
+	"time"
 
-	"app/app/models"
+	ptCalculationService "app/app/service/pt_calculation"
 	"app/pkg/configs"
 	"app/pkg/testutil"
+	"app/platform/database"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
-const ptCalculatePath = "/api/v1/bo/pr/dev/pt/calculate"
+const ptCalculatePath = "/api/v1/dev/pt/calculate"
 
 type ptLayer struct {
 	ID         uint     `json:"id"`
@@ -33,12 +40,6 @@ func setupDev(t *testing.T, enabled bool) *fiber.App {
 	return testutil.NewApp(nil)
 }
 
-func adminTokenOf(t *testing.T, app *fiber.App) string {
-	t.Helper()
-	admin := createAccount(t, "support01", models.AgentRoleAdmin, nil)
-	return loginReady(t, app, models.AccountTypeAgent, admin.ID, "support01")
-}
-
 // memberWith — Member ใต้บัญชีของ tok ที่ผู้สร้างถือสู้ pt + commission
 func memberWith(t *testing.T, app *fiber.App, tok, username string, pt, commission float64) created {
 	t.Helper()
@@ -51,9 +52,10 @@ func memberWith(t *testing.T, app *fiber.App, tok, username string, pt, commissi
 	return d
 }
 
-func calcPT(t *testing.T, app *fiber.App, tok string, memberID uint) []ptLayer {
+// calcPT — เรียกเส้น dev โดยไม่มี token (public — PTC-42)
+func calcPT(t *testing.T, app *fiber.App, memberID uint) []ptLayer {
 	t.Helper()
-	r := call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": memberID, "game_code": "coin_toss"}, tok)
+	r := call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": memberID, "game_code": "coin_toss"}, "")
 	expect(t, r, 200, 200)
 	var out []ptLayer
 	if err := json.Unmarshal(r.Data, &out); err != nil {
@@ -73,15 +75,24 @@ func expectLayers(t *testing.T, name string, got, want []ptLayer) {
 	}
 }
 
+// queryCounter — gorm logger ที่นับจำนวน SQL ที่รันจริง (PTC-30)
+type queryCounter struct{ n atomic.Int32 }
+
+func (q *queryCounter) LogMode(gormlogger.LogLevel) gormlogger.Interface { return q }
+func (q *queryCounter) Info(context.Context, string, ...any)             {}
+func (q *queryCounter) Warn(context.Context, string, ...any)             {}
+func (q *queryCounter) Error(context.Context, string, ...any)            {}
+func (q *queryCounter) Trace(context.Context, time.Time, func() (string, int64), error) {
+	q.n.Add(1)
+}
+
 func TestPTCalculateDisabled(t *testing.T) { // PTC-43: ปิด flag = ไม่มีเส้น
 	app := setupDev(t, false)
-	tok := adminTokenOf(t, app)
-	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": 1, "game_code": "coin_toss"}, tok), 404, 404001)
+	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": 1, "game_code": "coin_toss"}, ""), 404, 404001)
 }
 
 func TestPTCalculate(t *testing.T) {
 	app := setupDev(t, true)
-	adminTok := adminTokenOf(t, app)
 
 	// ชุด A (reference ข้อ 3): SA → Company 95 → Share 85 F20 R70 → Agent 70 F30 R40 → Member pt 20
 	sa, saTok := seedSuperadmin(t, app)
@@ -90,10 +101,7 @@ func TestPTCalculate(t *testing.T) {
 	ag, agTok := mustCreate(t, app, shTok, agentBody("AGENT", "ptcag", nil, childPT(70, 30, 40, 0.3)))
 	mem := memberWith(t, app, agTok, "ptcmem", 20, 1)
 
-	// สิทธิ์: ADMIN เท่านั้น (PTC-42)
-	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": mem.ID, "game_code": "coin_toss"}, saTok), 403, 401308)
-
-	expectLayers(t, "ชุด A", calcPT(t, app, adminTok, mem.ID), []ptLayer{
+	expectLayers(t, "ชุด A", calcPT(t, app, mem.ID), []ptLayer{
 		{sa.ID, "superadmin", pt(20), 0}, {co.ID, "company", pt(25), 1}, {sh.ID, "shareholder", pt(25), 0.7},
 		{ag.ID, "agent", pt(30), 0.3}, {mem.ID, "member", nil, 1},
 	})
@@ -101,16 +109,24 @@ func TestPTCalculate(t *testing.T) {
 	// Agent ซ้อน (PTC-22): Agent → Agent2 50 F40 R45 → Member pt 30 → SA 10 · Co 10 · Sh 15 · Ag 25 · Ag2 40
 	ag2, ag2Tok := mustCreate(t, app, agTok, agentBody("AGENT", "ptcag2", nil, childPT(50, 40, 45, 0.2)))
 	mem2 := memberWith(t, app, ag2Tok, "ptcmem2", 30, 0.5)
-	expectLayers(t, "Agent ซ้อน", calcPT(t, app, adminTok, mem2.ID), []ptLayer{
+	expectLayers(t, "Agent ซ้อน", calcPT(t, app, mem2.ID), []ptLayer{
 		{sa.ID, "superadmin", pt(10), 0}, {co.ID, "company", pt(10), 1}, {sh.ID, "shareholder", pt(15), 0.7},
 		{ag.ID, "agent", pt(25), 0.3}, {ag2.ID, "agent", pt(40), 0.2}, {mem2.ID, "member", nil, 0.5},
 	})
 
 	// ชุด E (lead Q2): Share ไม่รับ PT → SA 20 · Co 40 · Sh 10 · Ag 30
 	execSQL(t, "UPDATE agent_game_settings SET status = false WHERE agent_id = ?", sh.ID)
-	expectLayers(t, "ชุด E", calcPT(t, app, adminTok, mem.ID), []ptLayer{
+	expectLayers(t, "ชุด E", calcPT(t, app, mem.ID), []ptLayer{
 		{sa.ID, "superadmin", pt(20), 0}, {co.ID, "company", pt(40), 1}, {sh.ID, "shareholder", pt(10), 0.7},
 		{ag.ID, "agent", pt(30), 0.3}, {mem.ID, "member", nil, 1},
+	})
+
+	// ชุด E2: ผู้สร้าง Member (Agent) ไม่รับ PT → SA 20 · Co 25 · Sh 55 · Ag 0
+	execSQL(t, "UPDATE agent_game_settings SET status = true WHERE agent_id = ?", sh.ID)
+	execSQL(t, "UPDATE agent_game_settings SET status = false WHERE agent_id = ?", ag.ID)
+	expectLayers(t, "ชุด E2", calcPT(t, app, mem.ID), []ptLayer{
+		{sa.ID, "superadmin", pt(20), 0}, {co.ID, "company", pt(25), 1}, {sh.ID, "shareholder", pt(55), 0.7},
+		{ag.ID, "agent", pt(0), 0.3}, {mem.ID, "member", nil, 1},
 	})
 
 	// input (PTC-20 / PTC-21)
@@ -118,26 +134,57 @@ func TestPTCalculate(t *testing.T) {
 		"ไม่ส่ง member_id": {"game_code": "coin_toss"},
 		"game_code ไม่มี":  {"member_id": mem.ID, "game_code": "poker"},
 	} {
-		if r := call(t, app, "POST", ptCalculatePath, body, adminTok); r.Code != 422 {
+		if r := call(t, app, "POST", ptCalculatePath, body, ""); r.Code != 422 {
 			t.Errorf("%s: code %d msg %s", name, r.Code, r.Msg)
 		}
 	}
-	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": 999999, "game_code": "coin_toss"}, adminTok), 200, 408401)
+	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": 999999, "game_code": "coin_toss"}, ""), 200, 408401)
 
 	// ข้อมูลในสายผิด (PTC-09): ขาดแถวของชั้นกลาง · ลูกได้รับเกินผู้สร้าง
 	execSQL(t, "DELETE FROM agent_game_settings WHERE agent_id = ? AND game_code = 'coin_toss'", sh.ID)
-	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": mem.ID, "game_code": "coin_toss"}, adminTok), 500, 508601)
+	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": mem.ID, "game_code": "coin_toss"}, ""), 500, 508601)
 	execSQL(t, "UPDATE agent_game_settings SET pt_from_parent = 99 WHERE agent_id = ?", ag2.ID)
-	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": mem2.ID, "game_code": "scratch_card"}, adminTok), 500, 508601)
+	expect(t, call(t, app, "POST", ptCalculatePath, map[string]any{"member_id": mem2.ID, "game_code": "scratch_card"}, ""), 500, 508601)
+}
+
+func TestPTCalculateChains(t *testing.T) { // ชุด C · D (lead รอบ 2 S2) + นับ query ≤ 3 (PTC-30)
+	app := setupDev(t, true)
+	sa, saTok := seedSuperadmin(t, app)
+
+	// ชุด C: SA → Company 1 to 1 90 F80 → Member pt 60 → SA 20 · Co 80
+	one, oneTok := mustCreate(t, app, saTok, agentBody("COMPANY_SEAMLESS_1TO1", "ptcone", []string{"THB"}, childPT(90, 80, 0, 0.5)))
+	memC := memberWith(t, app, oneTok, "ptcmemc", 60, 0.3)
+	expectLayers(t, "ชุด C", calcPT(t, app, memC.ID), []ptLayer{
+		{sa.ID, "superadmin", pt(20), 0}, {one.ID, "company", pt(80), 0.5}, {memC.ID, "member", nil, 0.3},
+	})
+
+	// ชุด D: SA → Company 90 → Share 70 → Agent 60 → Member pt 40 (ไม่มี Force / Remain) → SA 30 · Co 20 · Sh 10 · Ag 40
+	co, coTok := mustCreate(t, app, saTok, agentBody("COMPANY_TRANSFER", "ptcdco", nil, childPT(90, 0, 0, 0.5)))
+	sh, shTok := mustCreate(t, app, coTok, agentBody("SHARE_B2C", "ptcdsh", []string{"THB"}, childPT(70, 0, 0, 0.4)))
+	ag, agTok := mustCreate(t, app, shTok, agentBody("AGENT", "ptcdag", nil, childPT(60, 0, 0, 0.3)))
+	memD := memberWith(t, app, agTok, "ptcmemd", 40, 0.2)
+	expectLayers(t, "ชุด D", calcPT(t, app, memD.ID), []ptLayer{
+		{sa.ID, "superadmin", pt(30), 0}, {co.ID, "company", pt(20), 0.5}, {sh.ID, "shareholder", pt(10), 0.4},
+		{ag.ID, "agent", pt(40), 0.3}, {memD.ID, "member", nil, 0.2},
+	})
+
+	// PTC-30: สาย 4 ชั้น → 3 query (Member · settings ของ Member · settings ทั้งสาย) ไม่วนทีละชั้น
+	qc := &queryCounter{}
+	db := database.DBConn.Session(&gorm.Session{Logger: qc})
+	if _, err := ptCalculationService.CalculateMemberPT(context.Background(), db, memD.ID, "coin_toss"); err != nil {
+		t.Fatal(err)
+	}
+	if n := qc.n.Load(); n > 3 {
+		t.Fatalf("query %d ครั้ง want ≤ 3", n)
+	}
 }
 
 func TestPTCalculateCSM(t *testing.T) { // ชุด F · PTC-04A: CSM มี force ค้าง (ตั้งผ่าน SQL — API ห้ามแล้ว) → ข้าม · SA 50 · CSM 0 · SM 50
 	app := setupDev(t, true)
-	adminTok := adminTokenOf(t, app)
 	k := buildCSMChain(t, app) // master01 (CSM 80 · commission 0.5) → sharem1 (0.2) → memsm1 pt 50
 	execSQL(t, "UPDATE agent_game_settings SET force = 60 WHERE agent_id = ?", k.csm.ID)
 
-	got := calcPT(t, app, adminTok, k.mem.ID)
+	got := calcPT(t, app, k.mem.ID)
 	if len(got) != 4 || got[0].Position != "superadmin" || *got[0].PT != 50 || got[1].ID != k.csm.ID || *got[1].PT != 0 ||
 		got[1].Commission != 0.5 || got[2].ID != k.sm1.ID || *got[2].PT != 50 || got[2].Commission != 0.2 || got[3].ID != k.mem.ID || got[3].PT != nil {
 		gj, _ := json.Marshal(got)

@@ -25,7 +25,7 @@ go module ชื่อ `app` (import เป็น `app/app/...`, `app/pkg/...`, 
 ## โครงสร้าง (สรุป — รายละเอียดและแม่แบบโค้ดดู `docs/ARCHITECTURE.md`)
 
 ```
-app/internals/{backoffice|frontend|game}/{controllers,dto,middleware}/{module}/ + routes.go
+app/internals/{backoffice|frontend|game|developer}/{controllers,dto,middleware}/{module}/ + routes.go
 app/externals/{partner}/{controllers,dto,middleware}/ + routes.go
 app/service/{module}/     business logic + transaction
 app/core/{topic}/         pure business rule + table test
@@ -104,6 +104,8 @@ database/migrations/      goose .sql
 ### Security
 
 28. endpoint ใหม่ต้องระบุสิทธิ์ไว้บรรทัดเดียวกับ route ใน `routes.go` ห้ามซ่อนการเช็คสิทธิ์ไว้ใน service โดยไม่มีใน route
+    - ยกเว้น context `developer` (`/api/v1/dev/*` เครื่องมือ dev / QA): **public ไม่ต้อง login** และมีอยู่เฉพาะ env ที่ตั้ง
+      `DEV_ROUTES_ENABLED=true` · `APP_ENV=prod` + เปิด flag = boot ไม่ผ่าน · ห้ามใช้ middleware auth ของ context อื่น (lead 2026-10-15)
 29. `app/externals/*` เป็น trust boundary แยก ห้ามใช้ middleware auth ของ internals
 
 ## Workflow

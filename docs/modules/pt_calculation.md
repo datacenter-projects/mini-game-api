@@ -15,7 +15,7 @@
 ใส่ `member_id` + `game_code` แล้วได้ **PT สุดท้าย** (หลังคิด Force → Remain → คืน Superadmin) และ **% Commission** ของทุกชั้นในสายของ Member คนนั้น
 
 - **service** `CalculateMemberPT` (รับ `db` / tx ของผู้เรียก) — ไว้ให้ module เดิมพันเรียกตอนรับ bet (เก็บผลไว้กับ bet — MGMT-23 "มีผลกับ bet ใหม่")
-- **เส้น dev** `POST /api/v1/bo/pr/dev/pt/calculate` — ให้ dev / QA เช็คผลเอง · เปิดเฉพาะ env ที่ตั้ง `DEV_ROUTES_ENABLED=true`
+- **เส้น dev** `POST /api/v1/dev/pt/calculate` (context `developer` · ไม่ต้อง login) — ให้ dev / QA เช็คผลเอง · เปิดเฉพาะ env ที่ตั้ง `DEV_ROUTES_ENABLED=true`
 
 **ไม่อยู่ใน module นี้:** คิดเป็นเงิน (ได้ / เสียตาม PT · ยอด Commission ที่ชั้นบนจ่าย) · กรณี Member ชนะ · เช็คสถานะบัญชี / เปิด-ปิดเกม / `win_limit_per_day` ก่อนรับ bet — ทั้งหมดอยู่ module เดิมพัน / Settle
 
@@ -93,10 +93,15 @@ eff[0] += left                                             // PTC-06
 
 | ID | Rule |
 |---|---|
-| PTC-40 | เส้น dev ลงทะเบียนแยกใน `backoffice.RegisterDevRoutes(api)` (`app/internals/backoffice/dev_routes.go`) · `pkg/routes` เรียก**เฉพาะเมื่อ** `configs.DevRoutesEnabled = true` |
-| PTC-41 | config ใหม่ `DEV_ROUTES_ENABLED` (bool · ค่าเริ่มต้น `false`) · แก้ `config.go` + `.env.example` ใน PR เดียวกัน (กฎข้อ 25) · **prod ห้ามเปิด** — ถ้า `APP_ENV=prod` และ `DEV_ROUTES_ENABLED=true` ให้ boot ไม่ผ่าน |
-| PTC-42 | สิทธิ์: login + `mw.PassedGates()` + `adminMw.RequireAdmin()` (ADMIN เท่านั้น · บรรทัดเดียวกับ route — กฎข้อ 28) · ADMIN เป็นบัญชีระดับระบบจึงเห็นทุกสาย (ไม่ scope ตามเจ้าของ — ข้อยกเว้นกฎข้อ 22 เฉพาะเส้น dev) |
+แก้ตาม lead รอบ 2 (2026-10-15 · แทน Q5 เดิม ADMIN + `/bo/pr/dev`)
+
+| ID | Rule |
+|---|---|
+| PTC-40 | เส้น dev อยู่ **context ใหม่ `app/internals/developer/`** (`routes.go` + `controllers/pt_calculation` + `dto/pt_calculation`) · path `/api/v1/dev/pt/calculate` · `pkg/routes` เรียก `developer.RegisterRoutes(api)` **เฉพาะเมื่อ** `configs.Cfg.DevRoutesEnabled = true` · service / core / repository อยู่ที่เดิม · เครื่องมือ dev อื่นในอนาคตอยู่ context นี้ |
+| PTC-41 | config `DEV_ROUTES_ENABLED` (bool · ค่าเริ่มต้น `false`) · `config.go` + `.env.example` (กฎข้อ 25) · **กันแค่ prod** — `APP_ENV=prod` และ `DEV_ROUTES_ENABLED=true` = boot ไม่ผ่าน |
+| PTC-42 | **ไม่ต้อง login** (public เฉพาะ env ที่เปิด flag — CLAUDE.md กฎข้อ 28 ข้อยกเว้น `developer`) · ไม่ใช้ middleware ของ backoffice · เห็นทุกสาย (ข้อยกเว้นกฎข้อ 22 เฉพาะเส้น dev) |
 | PTC-43 | ปิด flag แล้วเส้นไม่มีอยู่ = `404001` (ไม่บอกว่ามีเส้นนี้) |
+| PTC-44 | `508601` service log เอง (`pt chain invalid`) พร้อม `member_id` · `game_code` · `cnf` · settings ของ Member · settings ทุกชั้นในสาย · สาเหตุ — ผู้เรียก (module เดิมพัน) ห่อ error ต่อแล้ว log ไม่หาย (lead รอบ 2 S1) |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
@@ -106,9 +111,9 @@ eff[0] += left                                             // PTC-06
 
 | Method | Path | สิทธิ์ที่ต้องมี | Contract เทียบของเก่า |
 |---|---|---|---|
-| POST | `/api/v1/bo/pr/dev/pt/calculate` | ADMIN · เปิดเมื่อ `DEV_ROUTES_ENABLED=true` | ใหม่ (เส้น dev ไม่แจ้ง frontend) |
+| POST | `/api/v1/dev/pt/calculate` | ไม่ต้อง login · มีเฉพาะเมื่อ `DEV_ROUTES_ENABLED=true` (prod เปิดไม่ได้) | ใหม่ (เส้น dev ไม่แจ้ง frontend) |
 
-### POST /api/v1/bo/pr/dev/pt/calculate
+### POST /api/v1/dev/pt/calculate
 
 Request:
 ```json
@@ -183,8 +188,9 @@ a1 Remain 60: 25 + 40 = 65 ≥ 60 ไม่ทำงาน → คืน SA 5 �
 | PTC-20 | ไม่ส่ง `member_id` · `game_code` ไม่มีจริง | `422` msg บอก field |
 | PTC-21 | `member_id` ไม่มีจริง | `408401` |
 | PTC-22 | ชุด B | 6 แถว · `agent` 2 แถวเรียงบน → ล่าง |
-| PTC-30 | ชุด B (5 ชั้น) | query ไม่เกิน 3 ครั้ง |
-| PTC-41 – 43 | flag ปิด · flag เปิด + บัญชีไม่ใช่ ADMIN · `APP_ENV=prod` + flag เปิด | `404001` · `401308` · boot ไม่ผ่าน |
+| PTC-30 | ชุด D (4 ชั้น · integration ใช้ gorm logger นับ SQL) | query ไม่เกิน 3 ครั้ง |
+| PTC-41 – 43 | flag ปิด · flag เปิด ไม่ส่ง token · `APP_ENV=prod` + flag เปิด (unit test ของ `configs.Load`) | `404001` · `200` · boot ไม่ผ่าน |
+| PTC-44 | ข้อมูลในสายผิด | `508601` + log `pt chain invalid` ที่ service |
 
 ## 8. Contract changes
 
@@ -205,4 +211,14 @@ a1 Remain 60: 25 + 40 = 65 ≥ 60 ไม่ทำงาน → คืน SA 5 �
 | Q2 | ชั้นที่ `pt.status = false` (ปิด O1 ของ agent_management · lead Q-R3) | **ถือ 0 · ไม่โดน Force ของตัวเอง · ส่วนนั้นไหลตามกฎปกติ · Remain ที่ชั้นนั้นตั้งให้ลูกยังทำงาน** (PTC-02A) · ไม่ใช้ `408301` (ตัดออก) |
 | Q3 | CSM ถือสู้ไม่ได้ แต่เดิมตั้ง `force` ได้ | **ห้ามตั้ง `force` ให้ CSM** — agent_management MGMT-18A (`422`) + migration ตั้ง `force` ของ CSM เดิมเป็น 0 · module นี้ข้าม Force ของ CSM กันพลาด (PTC-04A) |
 | Q4 | ไม่มีกฎ Force ≤ Remain | **รับทราบ — ไม่ validate** |
-| Q5 | เส้น dev ADMIN · `DEV_ROUTES_ENABLED` · prod เปิดไม่ได้ | **อนุมัติ** |
+| Q5 | เส้น dev ADMIN · `DEV_ROUTES_ENABLED` · prod เปิดไม่ได้ | ~~อนุมัติ~~ → **แก้ในรอบ 2:** ย้ายไป context `developer` `/api/v1/dev` ไม่ต้อง login · flag กันแค่ prod (PTC-40 – PTC-43) |
+
+### รอบ 2 (ตรวจโค้ด · lead zerph 2026-10-15)
+
+| # | ผล |
+|---|---|
+| M1 | integration test (pt_calculation · CSM force · migration `20261015150000`) ต้องรันผ่านและแนบผลก่อน lead เริ่ม bet core |
+| S1 | service log `508601` + ค่าทั้งสายเอง → PTC-44 |
+| S2 | เพิ่ม integration ชุด C / D / E2 + นับ query ≤ 3 (หัวข้อ 7.2) |
+| L1 | Member `pt = 0` แต่ผู้สร้างมี Force → ผู้สร้างถือตาม Force — **ตั้งใจ** (Force = บังคับถืออย่างน้อยเท่านี้) |
+| L2 | ปิด `pt.status` ของ CSM → sync ไป Share Master → ทั้งสายถือ 0 คืน Superadmin — **ตั้งใจ** (ตรง Q2) |
