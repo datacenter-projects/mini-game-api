@@ -129,3 +129,20 @@ CREATE TABLE cronjobs (
 2. รื้อโค้ดตาม: `app/cronjob` (+ `cronjobs` + metrics) · `platform/askmelotto` · ตาราง `currency_rates` แทน Redis · `ConvertToTHBService` · คำสั่งมือ · ลบ const ค้างใน `agent_auth/keys.go` · รายการ 27 สกุลที่เดียว
 3. แก้ CLAUDE.md (โครงสร้าง `app/cronjob` + กฎ cronjob เรียกได้แค่ service) · ARCHITECTURE.md · DEPLOYMENT.md · `.env.example`
 4. PR + integration test ผ่าน → แจ้ง lead ก่อน merge
+
+## รอบ 3 — approve spec (`boiledegg/bo/currency-rate` @ `ed3d38c` · lead zerph 2026-10-16)
+**✅ อนุมัติ spec `docs/modules/currency_rate.md`** — ครบตามรอบ 1–2 · ข้อเสนอเพิ่ม 8 ข้อ (spec หัวข้อ 10) **รับทั้งหมด**:
+
+| # | ข้อเสนอ | ผล |
+|---|---|---|
+| 1 | รายการ 27 สกุลใช้ `agentManagementCore.Currencies` ที่เดียว · ลบของ currency_rate (ไม่สร้างแพ็กเกจกลางใหม่) | รับ |
+| 2 | `ErrCurrencyRateUnavailable` = `409401` (module 09 · ชนิด 4 = ไม่พบ) HTTP 200 | รับ |
+| 3 | ปัด `thb_rate` 8 ตำแหน่งแบบครึ่งขึ้น | รับ |
+| 4 | `data.date` ต้องตรง `YYYY-MM-01` ที่ขอเท่านั้น | รับ |
+| 5 | แถวที่ไม่ถูกเขียนใหม่คง `synced_at` เดิม | รับ |
+| 6 | `CHECK (rate_month = date_trunc('month', rate_month)::date)` | รับ |
+| 7 | `amount` ติดลบ / NaN / Inf ใน `ConvertToTHBService` = error ภายใน (ไม่ใช่ `409401`) | รับ |
+| 8 | `IS_CRONJOB=true` deployment เดียวของ dev หลังรื้อโค้ดเสร็จ | รับ |
+
+ขั้นต่อไป: ใส่ "อนุมัติโดย" → รื้อโค้ด → แก้ CLAUDE.md / ARCHITECTURE.md / DEPLOYMENT.md → PR + integration ผ่าน → แจ้ง lead ก่อน merge
+**ระหว่างรื้อ:** deploy dev ก่อนรื้อเสร็จ ต้องตั้ง `IS_CURRENCY_RATE_SYNC=false` (โค้ดเดิมบน dev เปิด worker เป็นค่าเริ่มต้น)
