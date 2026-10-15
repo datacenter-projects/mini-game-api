@@ -154,6 +154,8 @@ func TestLobbyLink(t *testing.T) { // rule: L2 · LQ-c
 		{"https://lobby.example.com/", "https://lobby.example.com/?token=abc.def&lang=th", true},
 		{"https://lobby.example.com/play?x=1", "https://lobby.example.com/play?x=1&token=abc.def&lang=th", true},
 		{"", "", false}, {"lobby.example.com", "", false}, {"/relative", "", false},
+		{"ftp://lobby.example.com/", "", false}, {"https:///path", "", false}, {"javascript:alert(1)", "", false},
+		{"http://localhost:3000/", "http://localhost:3000/?token=abc.def&lang=th", true},
 	}
 	for _, tt := range tests {
 		got, ok := LobbyLink(tt.base, "abc.def", "th")

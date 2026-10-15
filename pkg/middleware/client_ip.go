@@ -15,6 +15,7 @@ import (
 // ทำให้ whitelist อ่านไม่ออก และ client ปลอม "X-Forwarded-For: <ค่าสุ่ม>" เพื่อเปลี่ยน key ของ rate limit ได้ทุก request
 //
 // กติกา (ไล่ XFF จากขวาข้าม proxy ที่เชื่อถือ — ไม่ใช้ IP ซ้ายสุดที่ client ปลอมได้):
+//  0. TRUSTED_PROXIES ถูก validate + parse ครั้งเดียวตอน configs.Load (พิมพ์ผิด = boot ไม่ขึ้น) — ที่นี่อ่านจาก Cfg.TrustedProxyPrefixes
 //  1. ไม่ตั้ง TRUSTED_PROXIES → IP ของ connection ตรงๆ (ไม่เชื่อ header)
 //  2. connection มาจากที่ไม่ใช่ proxy ที่เชื่อถือ → IP ของ connection (ไม่เชื่อ header)
 //  3. มาจาก proxy ที่เชื่อถือ → ไล่ X-Forwarded-For จากขวาไปซ้าย ข้ามทุก IP ที่อยู่ใน TRUSTED_PROXIES แล้วคืน IP แรกที่ไม่ใช่ proxy
@@ -24,23 +25,7 @@ func ClientIP(c *fiber.Ctx) string {
 	for _, v := range c.Request().Header.PeekAll(fiber.HeaderXForwardedFor) { // header หลายบรรทัดต่อกัน
 		xff = append(xff, string(v))
 	}
-	return clientIPFrom(c.Context().RemoteIP().String(), xff, parsePrefixes(configs.Cfg.TrustedProxies))
-}
-
-// parsePrefixes แปลง TRUSTED_PROXIES (IP เดี่ยวหรือ CIDR) · ค่าที่อ่านไม่ได้ถูกข้าม (ไม่เชื่อ = ปลอดภัยกว่า)
-func parsePrefixes(list []string) []netip.Prefix {
-	out := make([]netip.Prefix, 0, len(list))
-	for _, s := range list {
-		s = strings.TrimSpace(s)
-		if p, err := netip.ParsePrefix(s); err == nil {
-			out = append(out, p)
-			continue
-		}
-		if a, err := netip.ParseAddr(s); err == nil {
-			out = append(out, netip.PrefixFrom(a.Unmap(), a.Unmap().BitLen()))
-		}
-	}
-	return out
+	return clientIPFrom(c.Context().RemoteIP().String(), xff, configs.Cfg.TrustedProxyPrefixes)
 }
 
 func inPrefixes(a netip.Addr, ps []netip.Prefix) bool {
