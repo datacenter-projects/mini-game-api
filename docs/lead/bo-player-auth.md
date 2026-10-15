@@ -28,7 +28,7 @@ branch `boiledegg/player/auth` (merge dev ล่าสุดแล้ว · ย�
 - **ผล integration test:** `go test -tags=integration ./...` ทุก package ผ่านบน test env (Postgres 55432 / Redis 56379) หลังแก้ · `go vet` · `gofmt` · `check_structure.sh` ผ่าน · ยังไม่ได้รัน `golangci-lint` (รอ CI)
 - **nit 7 ข้อ:** ทำแล้ว 3 ข้อที่ระบุในรอบ 6 (error list ของ L2 เพิ่ม `407301` / `503` · PA4 รหัสเดิมผิดครบ → `407303` + ตัด session เขียนใน spec PA-41 / PA-50 · `last_login_ip` ของ L2 = IP ของ operator เขียนใน PA-25) · **อีก 4 ข้อยังไม่ได้ทำ — ไฟล์ `reviews/mini-game-api/verify-player-auth.md` ไม่อยู่ใน repo นี้ ขอรายการ**
 - **merge เข้า dev ไปแล้วก่อนได้รับผล verify** (77ba1b7 · ตามคำสั่งผู้ใช้) + migrate RDS dev `20261015140000` แล้ว · **ยังไม่ deploy / ไม่ได้ออก tag** · ส่วนต่างรอบนี้อยู่ใน branch ยังไม่เข้า dev
-- **S1 (งานถัดไป · ทำหลัง merge แต่ก่อนเปิดให้ operator ใช้จริง):** `c.IP()` + `TRUSTED_PROXIES` ได้ XFF ทั้งก้อน · ยังไม่ได้เริ่ม
+- **S1 (แก้โค้ดแล้ว ที่ branch `boiledegg/fix/client-ip` · ยังไม่ merge):** `middleware.ClientIP` ไล่ `X-Forwarded-For` จากขวาข้าม proxy ใน `TRUSTED_PROXIES` (ไม่ใช้ `EnableIPValidation`) · ใช้แทน `c.IP()` ทุกจุด (operator whitelist / rate limit · player login · BO login · last_login_ip · request log) · `FiberConfig` ไม่ตั้ง `ProxyHeader` แล้ว · test: unit ตาราง 19 กรณี + integration (whitelist หลาย proxy · ปลอม IP ที่ whitelist ไม่ผ่าน · สลับ XFF ไม่หลบ rate limit ทั้ง operator / player / BO) — ตรวจแล้วว่า test ตกเมื่อใช้พฤติกรรมเดิม · **ยังไม่ได้ยิงผ่าน ingress จริงบน dev** (ต้อง deploy ก่อน · ต้องรู้ CIDR ของ ingress ทุกชั้นเพื่อตั้ง `TRUSTED_PROXIES`)
 
 ## 3. คำถามที่รอ lead
 
@@ -45,3 +45,4 @@ branch `boiledegg/player/auth` (merge dev ล่าสุดแล้ว · ย�
 - 2026-10-15 · ปิดเรื่อง win limit: ตามรอบ 2.1 ใช้ `DefaultWinLimitPerDay` (บาท ไม่แปลงสกุล) · ตัด TODO / พารามิเตอร์สกุลออกจาก `defaultWinLimit()` · merge dev ล่าสุด
 - 2026-10-15 · lead อนุมัติ migration แก้ CHECK + ยืนยันชื่อเกม · เปิด verify ที่ `0ce5c78` · รอผล verify ก่อน merge / deploy
 - 2026-10-15 · verify ผ่าน (รอบ 6) · แก้ S2 (change log) + S3 (test ไม่ log key / password) + nit 3 ข้อ · integration ทั้งชุดผ่าน · ขอรายการ nit ที่เหลือ 4 ข้อ
+- 2026-10-15 · S1: เพิ่ม `middleware.ClientIP` (ไล่ XFF จากขวาข้าม proxy ที่เชื่อถือ) แทน `c.IP()` ทุกจุด · branch `boiledegg/fix/client-ip` · ยังไม่ merge / ยังไม่ได้ทดสอบผ่าน ingress จริง

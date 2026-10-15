@@ -41,5 +41,5 @@ func GetPlayer(c *fiber.Ctx) playerAuthService.Player {
 
 // RequestMeta — ข้อมูลของ request ที่ service ใช้ (IP)
 func RequestMeta(c *fiber.Ctx) playerAuthService.RequestMeta {
-	return playerAuthService.RequestMeta{IP: c.IP()}
+	return playerAuthService.RequestMeta{IP: pkgMiddleware.ClientIP(c)}
 }

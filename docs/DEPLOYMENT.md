@@ -83,7 +83,7 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 | `APP_ENV` | `dev` / `prod` |
 | `SERVER_ADDR` | `:8181` |
 | `METRICS_ADDR` | `:9090` (default) — ค่าว่าง = ปิด metrics ต้องไม่ซ้ำกับ `SERVER_ADDR` |
-| `TRUSTED_PROXIES` | CIDR ของ ingress/LB คั่นด้วย `,` — ว่าง = ไม่เชื่อ `X-Forwarded-For` (IP ที่ log และ rate limit จะเป็น IP ของ proxy) |
+| `TRUSTED_PROXIES` | CIDR (หรือ IP เดี่ยว) ของ ingress/LB **ทุกชั้นที่อยู่หน้า app** คั่นด้วย `,` — ว่าง = ไม่เชื่อ `X-Forwarded-For` (IP ที่ log / rate limit / whitelist จะเป็น IP ของ proxy) · เมื่อตั้ง ระบบไล่ `X-Forwarded-For` **จากขวาไปซ้าย ข้ามทุก IP ที่อยู่ใน `TRUSTED_PROXIES`** แล้วใช้ IP แรกที่ไม่ใช่ proxy เป็น IP ของ client (`middleware.ClientIP`) — ค่าที่ client ใส่เองจะอยู่ทางซ้ายจึงปลอมไม่ได้ · ถ้าลืมใส่ proxy ชั้นใดชั้นหนึ่ง IP ของ proxy ชั้นนั้นจะถูกนับเป็น client (ทุกคนใช้ IP เดียวกัน) · connection ที่ไม่ได้มาจาก proxy ใน list ไม่เชื่อ header |
 | `CORS_ALLOW_ORIGINS` | domain ของหน้าเว็บ ห้ามใช้ `*` บน prod |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME` | required |
 | `DB_PASSWORD` | Secret |
