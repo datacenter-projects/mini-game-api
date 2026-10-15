@@ -46,7 +46,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 04 | deposit_withdraw (ฝาก / ถอน) | `pkg/apperr/deposit_withdraw_errors.go` | `docs/modules/deposit_withdraw.md` (lead DQ9 2026-10-13) |
 | 05 | asset (หน้าตาเกม / หน้าเว็บ) | `pkg/apperr/asset_errors.go` | `docs/modules/asset.md` · game_rate ใช้ 06 (lead GQ6) |
 | 06 | game_rate (อัตราแพ้ชนะ — ตรงกับเมนู ⑥) | `pkg/apperr/game_rate_errors.go` | `docs/modules/game_rate.md` |
-| 08 | pt_calculation (คิด PT ต่อ Member — DRAFT) | `pkg/apperr/pt_calculation_errors.go` | `docs/modules/pt_calculation.md` (จองช่วง · 07 จองโดย player_auth ใน branch ของ boiledegg) |
+| 08 | pt_calculation (คิด PT ต่อ Member) | `pkg/apperr/pt_calculation_errors.go` | `docs/modules/pt_calculation.md` (lead อนุมัติ 2026-10-15 · 07 จองโดย player_auth) |
 
 ## agent_auth (01)
 
@@ -151,10 +151,10 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 406401 | 200 | ไม่พบเกมนี้ |
 | 406402 | 200 | ไม่พบเวอร์ชันนี้ |
 
-## pt_calculation (08) — DRAFT รอ lead อนุมัติ spec
+## pt_calculation (08)
 
 | Code | HTTP | ความหมาย |
 |---|---|---|
-| 408301 | 200 | บัญชีในสายตั้งไม่รับ PT ของเกมนี้ — ยังคิดไม่ได้ (รอ lead Q2) |
+| 408301 | — | จองถาวร (ตัดก่อนปล่อยใช้ — lead Q2: ชั้นไม่รับ PT ถือ 0 ไม่ error) |
 | 408401 | 200 | ไม่พบ Member |
 | 508601 | 500 | ข้อมูล PT ในสายไม่ถูกต้อง คิด PT ไม่ได้ |
