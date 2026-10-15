@@ -66,7 +66,7 @@
 
 | ID | Rule |
 |---|---|
-| PA-10 | middleware operator (ใช้กับ `transfer/*` ทุกเส้น และ `seamless/*` ภายหลัง): ตรวจ `agent_username` + `key` ใน body → หาเจ้าของ Key → ตรวจ IP ผู้เรียกอยู่ใน `api_allowed_ips` ของเจ้าของ (ACC-07) · ไม่มี `sign` · **whitelist ว่าง = ปฏิเสธทุก IP** (ACC-07) |
+| PA-10 | middleware operator (ใช้กับ `transfer/*` ทุกเส้น และ `seamless/*` ภายหลัง): ตรวจ `agent_username` + `key` ใน body → หาเจ้าของ Key → ตรวจ IP ผู้เรียกอยู่ใน `api_allowed_ips` ของเจ้าของ (ACC-07) · ไม่มี `sign` · **whitelist ว่าง = ปฏิเสธทุก IP** (ACC-07) · **IP ของผู้เรียกอ่านด้วย `middleware.ClientIP`** (lead S1 รอบ 6): เชื่อ `X-Forwarded-For` เฉพาะเมื่อ connection มาจาก proxy ใน `TRUSTED_PROXIES` แล้วไล่จากขวาไปซ้าย ข้ามทุก IP ที่อยู่ใน `TRUSTED_PROXIES` ใช้ IP แรกที่ไม่ใช่ proxy · ค่าอ่านไม่ได้แทรกในสาย = fail-closed (ใช้ IP ของ proxy) · ไม่ตั้ง `TRUSTED_PROXIES` = IP ของ connection · **ไม่ใช้ `c.IP()`** · `TRUSTED_PROXIES` พิมพ์ผิด = boot ไม่ขึ้น (S1-a) |
 | PA-11 | `agent_username` ไม่มี / `key` ไม่ตรงเจ้าของ → `407206` (ข้อความเดียวกันทั้งสองกรณี ไม่บอกว่าผิดที่ไหน) · IP ไม่อยู่ใน whitelist → `407305` |
 | PA-12 | **mask `key` ใน log ทุกจุด** (กฎข้อ 26) รวม request log กลางและ audit · ห้ามใส่ `key` / `password` ใน error message หรือ log |
 | PA-13 | สถานะของ agent เจ้าของ Key (lead รอบ 3): **agent หรือสายบนถูก `LOCKED` → ปฏิเสธทุก `transfer/*` ด้วย `407302`** · agent `SUSPENDED` → **ผู้เล่นเดิม login ได้** (`can_bet = false`) แต่ **สร้างผู้เล่นใหม่ไม่ได้** ทั้ง `register` และ auto-create ใน `login` → `407308` |
@@ -96,7 +96,7 @@
 
 | ID | Rule |
 |---|---|
-| PA-30 | middleware ผู้เล่นเช็คสถานะตัวเอง + สายบน**ทุก request** (ไม่ไล่ลบ Member เมื่อ agent ถูก LOCKED — เช็คตอนใช้งานแทน) · **ไม่ cache** · query เดียว · วัดตอน load test (k6) (lead Q13) |
+| PA-30 | middleware ผู้เล่นเช็คสถานะตัวเอง + สายบน**ทุก request** (ไม่ไล่ลบ Member เมื่อ agent ถูก LOCKED — เช็คตอนใช้งานแทน) · **ไม่ cache** · 2 query (Member + สถานะสายบนทั้งสาย ไม่ N+1 · lead N3) · วัดตอน load test (k6) (lead Q13) |
 | PA-31 | login เช็คสถานะ**หลัง**รหัสผ่านถูก (เหมือน AUTH-04) — รหัสผิดได้ `407201` ไม่บอกว่าบัญชีถูกล็อก · `transfer/login` ไม่มีรหัส จึงเช็คสถานะหลัง Key ผ่าน |
 | PA-32 | LOCKED ระหว่างใช้งาน → request ถัดไป `407301` (หรือ `407302` ถ้าสายบนถูกล็อก) และลบ session |
 | PA-33 | `SUSPENDED` ผ่าน middleware ได้ · `can_bet = false` ใน `me/get` · module เดิมพัน (Bet) ต้องเช็คเอง · SUSPENDED cash-out Streak ที่ค้างได้ (spec Bet) |
@@ -279,7 +279,7 @@ Response `data`:
 |---|---|---|---|
 | `token` | string | JWT ของผู้เล่น (เหมือน PA1) · operator เก็บไว้เรียกต่อเองได้ แต่ผู้เล่นใช้ผ่าน `link` | `eyJhbGciOi…` |
 | `expires_at` | string (RFC 3339 +07:00) | หมดอายุแบบ absolute (login + 4 ชม.) | `2026-10-15T16:00:00+07:00` |
-| `link` | string (URL) | link เข้า lobby ที่ต่อ `?token=<token>&lang=<th/en>` (LQ-c) · operator redirect ผู้เล่นไป link นี้ตรงๆ · ฐาน URL = env `PLAYER_LOBBY_URL` (+ `.env.example` PR เดียวกัน · lead Q12) · query ชื่อ `token` | `https://<lobby>/?token=eyJ…&lang=th` |
+| `link` | string (URL) | link เข้า lobby ที่ต่อ `?token=<token>&lang=<th/en>` (LQ-c) · operator redirect ผู้เล่นไป link นี้ตรงๆ · ฐาน URL = env `PLAYER_LOBBY_URL` (+ `.env.example` PR เดียวกัน · lead Q12) · query ชื่อ `token` · **ต้องเป็น absolute http(s) URL ที่มี host — ตรวจตอน `configs.Load` (ผิด = boot ไม่ขึ้น) และตรวจซ้ำใน `transfer/login` ก่อนสร้างผู้เล่น / ออก session (ค่าผิดต้องไม่ทำให้ผู้เล่นถูกเตะโดยไม่ได้ link — N5)** | `https://<lobby>/?token=eyJ…&lang=th` |
 | (ไม่มี) `created` | — | **ไม่บอกว่าสร้างผู้เล่นใหม่หรือเดิม** — operator ไม่ต้องรู้ (PA-07) | |
 
 - ผู้เล่นมีอยู่แล้วแต่ `currency` ที่ส่งมาไม่ตรง → `422` "สกุลเงินไม่ตรงกับผู้เล่น" (PA-08A)
@@ -316,7 +316,7 @@ Error codes: `422` · `407206` · `407305` · `407302` · `407306` · `407308` �
 
 1. อ่าน Bearer token → ตรวจลายเซ็น / หมดอายุ / `typ = "pl"` → อ่าน `sid`, `member_id`
 2. หา session ใน Redis ด้วย `sid` — ต้องมีและเป็นของ `member_id` เดียวกัน · ไม่ใช่ session ปัจจุบันของ Member (ถูกเตะ) = `407204`
-3. โหลด Member ด้วย primary key (`id, username, agent_id, status, cnf`) + สถานะสายบนจาก `cnf.parent` ด้วย query เดียว (ไม่ N+1) → คำนวณสถานะที่ใช้งานจริง (PA-30 / PA-32)
+3. โหลด Member ด้วย primary key (`id, username, agent_id, status, cnf`) + สถานะสายบนจาก `cnf.parent` ด้วย query แยก 2 ครั้ง (Member 1 + สถานะสายบนทั้งสาย 1 query — ไม่ใช่ N+1 · lead N3 · รวมเป็น JOIN `cnf->'parent'` ถ้า k6 ชี้ว่าเป็นคอขวด) → คำนวณสถานะที่ใช้งานจริง (PA-30 / PA-32)
 4. ต่ออายุ idle (PA-21) แล้ว set `c.Locals("player", Player{...})` (struct เดียว มี `can_bet`)
 
 ### Middleware operator `OperatorAuthenticated` (ใช้กับ `transfer/*`)
@@ -447,7 +447,7 @@ Redis:
 | Q10 | เปลี่ยนรหัสเตะ session | session ปัจจุบันใช้ต่อ | PA-50 |
 | Q11 | `agent@player` ชน `agent@sub` | ไม่ต้องกัน | PA-06 |
 | Q12 | URL lobby | env `PLAYER_LOBBY_URL` · query `token` | L2 |
-| Q13 | เช็คสายบนทุก request | ไม่ cache · query เดียว · วัดด้วย k6 | PA-30 |
+| Q13 | เช็คสายบนทุก request | ไม่ cache · 2 query (Member + สถานะสายบน ไม่ N+1) · วัดด้วย k6 | PA-30 |
 
 รอบ 3 (ทีละ endpoint): เพิ่ม PA6 · เอา `credit` ออกจาก `me/get` · `games/list` เพิ่มชื่อเกม · `register` รับ `password` · L2 รับ `language` และ `currency` ไม่ตรง = `422` · ยิงพร้อมกันไม่ error · agent SUSPENDED สร้างผู้เล่นใหม่ไม่ได้ · LOCKED ปฏิเสธทุก `transfer/*` · PA1 ไม่มีรหัส = `407201` · PA4 นับ PA-41 · field `snake_case` · ย้าย `BearerToken`
 

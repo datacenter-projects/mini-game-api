@@ -104,6 +104,11 @@ func TransferLoginService(ctx context.Context, op Operator, req transferDto.Tran
 		return res, apperr.ErrUnavailable
 	}
 	lang, _ := playerAuthCore.NormalizeLanguage(req.Language) // Validate() ผ่านแล้ว
+	// N5: ตรวจว่าสร้าง link ได้ **ก่อน**สร้างผู้เล่น / ออก session (เตะ session เดิม) — ค่าผิดรูปแบบต้องไม่ทำให้ผู้เล่นโดนเตะโดยไม่ได้ link
+	// (ปกติ configs.Load กันไว้แล้ว ที่นี่กันซ้ำเผื่อค่าถูกแก้หลัง boot)
+	if _, ok := playerAuthCore.LobbyLink(lobbyURL, "check", lang); !ok {
+		return res, apperr.ErrUnavailable.Wrap(fmt.Errorf("PLAYER_LOBBY_URL is not a valid absolute URL"))
+	}
 	player := playerAuthCore.NormalizeUsername(req.PlayerUsername)
 	username := playerAuthCore.ComposeUsername(op.Username, player)
 

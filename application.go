@@ -28,7 +28,10 @@ func main() {
 	}
 	utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
 	logger.InitLogger(configs.Cfg.AppEnv == "local")
-	defer logger.Logger.Sync() //nolint:errcheck
+	defer logger.Logger.Sync()                    //nolint:errcheck
+	if w := configs.Cfg.ProxyWarning(); w != "" { // ไม่ตั้ง TRUSTED_PROXIES นอก local — เตือนตั้งแต่ boot
+		logger.SugarLogger.Warnw(w, "app_env", configs.Cfg.AppEnv)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

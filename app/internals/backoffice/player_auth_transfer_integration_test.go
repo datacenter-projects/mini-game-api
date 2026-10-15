@@ -623,3 +623,23 @@ func TestTransferCreateWritesChangeLog(t *testing.T) { // lead S2: ผู้เ�
 	wg.Wait()
 	check("agent01@racer3", false)
 }
+
+func TestTransferLobbyURLInvalid(t *testing.T) { // N5: PLAYER_LOBBY_URL ผิดรูปแบบ → 503 และผู้เล่นต้องไม่ถูกเตะ session / ไม่ถูกสร้าง
+	e := trSetup(t)
+	good := trLoginOK(t, e, "p001", nil) // ผู้เล่นเดิมมี session ที่ใช้งานอยู่
+	expect(t, call(t, e.app, "POST", plMePath, nil, good.Token), 200, 200)
+
+	for _, bad := range []string{"not a url", "lobby.example.com", "/relative", "ftp://lobby.example.com/", "https:///path"} {
+		configs.Cfg.PlayerLobbyURL = bad
+		expect(t, e.login(t, "p001", nil), 503, 503)   // ผู้เล่นเดิม
+		expect(t, e.login(t, "newbie", nil), 503, 503) // ผู้เล่นใหม่ ต้องไม่ถูกสร้างทั้งที่ออก link ไม่ได้
+		if _, ok := memberByUsername(t, "agent01@newbie"); ok {
+			t.Fatalf("PLAYER_LOBBY_URL=%q: ต้องไม่สร้างผู้เล่นใหม่", bad)
+		}
+		expect(t, call(t, e.app, "POST", plMePath, nil, good.Token), 200, 200) // session เดิมไม่ถูกเตะ
+	}
+
+	configs.Cfg.PlayerLobbyURL = "https://lobby.test/" // ค่าถูกต้องกลับมาใช้ได้ (และเตะ session เดิมตามปกติ PA-22)
+	trLoginOK(t, e, "p001", nil)
+	expect(t, call(t, e.app, "POST", plMePath, nil, good.Token), 401, 407204)
+}

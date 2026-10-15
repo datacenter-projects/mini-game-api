@@ -2,6 +2,7 @@ package configs
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -18,7 +19,9 @@ type Config struct {
 	ServerWriteTimeout time.Duration
 	ShutdownTimeout    time.Duration
 	TrustedProxies     []string
-	CORSAllowOrigins   string
+	// TrustedProxyPrefixes = TrustedProxies ที่ validate + แปลงแล้วตอน Load (parse ครั้งเดียว · ผิด = boot ไม่ขึ้น — S1-a) · middleware.ClientIP อ่านจากนี่
+	TrustedProxyPrefixes []netip.Prefix
+	CORSAllowOrigins     string
 
 	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
 	MetricsAddr string
@@ -34,7 +37,7 @@ type Config struct {
 
 	MigrateOnStart bool
 
-	// DevRoutesEnabled — เปิดเส้น dev (/api/v1/bo/pr/dev/...) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
+	// DevRoutesEnabled — เปิด context developer (/api/v1/dev/... ไม่ต้อง login) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
 	DevRoutesEnabled bool
 }
 
@@ -182,6 +185,14 @@ func Load() error {
 	}
 	if cfg.MetricsAddr != "" && cfg.MetricsAddr == cfg.ServerAddr {
 		return fmt.Errorf("METRICS_ADDR must differ from SERVER_ADDR")
+	}
+	prefixes, err := ParseTrustedProxies(cfg.TrustedProxies)
+	if err != nil {
+		return err
+	}
+	cfg.TrustedProxyPrefixes = prefixes
+	if err := validateLobbyURL(cfg.PlayerLobbyURL); err != nil {
+		return err
 	}
 	if cfg.DevRoutesEnabled && cfg.IsProd() { // PTC-41
 		return fmt.Errorf("DEV_ROUTES_ENABLED must be false when APP_ENV=prod")
