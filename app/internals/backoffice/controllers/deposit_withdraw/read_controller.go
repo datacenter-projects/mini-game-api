@@ -30,6 +30,20 @@ func ListDownlinesController(c *fiber.Ctx) error {
 	return response.OK(c, downlinesData{DownlinesSummary: summary, PageData: response.NewPageData(rows, page, total)})
 }
 
+// ListHistoryController — POST /api/v1/bo/pr/deposit-withdraw/history/list (DW4)
+func ListHistoryController(c *fiber.Ctx) error {
+	var req depositWithdrawDto.HistoryRequest
+	if err := utils.ParseBodyNoNull(c, &req); err != nil {
+		return response.Error(c, err)
+	}
+	page := utils.NewPage(req.Page, req.Limit)
+	rows, total, err := depositWithdrawService.ListHistoryService(c.UserContext(), middleware.GetActor(c), req, page)
+	if err != nil {
+		return response.Error(c, err)
+	}
+	return response.Page(c, rows, page, total)
+}
+
 // ListLogsController — POST /api/v1/bo/pr/deposit-withdraw/logs/list (DW3)
 func ListLogsController(c *fiber.Ctx) error {
 	var req depositWithdrawDto.LogsRequest

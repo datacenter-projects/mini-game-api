@@ -4,6 +4,7 @@ package depositwithdraw
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -181,6 +182,52 @@ func ListAgentBalancesOfRepository(db *gorm.DB, agentIDs []uint) ([]models.Agent
 	}
 	err := db.Select("agent_id", "currency", "amount").Where("agent_id IN ?", agentIDs).Find(&out).Error
 	return out, err
+}
+
+// FindDWDownlineAccountRepository — บัญชี (agent / Member) ที่ username ตรงตัว และอยู่ใต้ ancestorID ทุกชั้น (DW-56 · กฎข้อ 22)
+// cnf ไม่รวมตัวเอง → ค้นตัวเองไม่เจอ · ADMIN ไม่มีสาย → ไม่เจอ · ไม่พบคืน apperr.ErrNotFound
+// index: uq_user_agents_username · uq_members_username (username ไม่ซ้ำข้าม 2 ตาราง — MGMT-05)
+func FindDWDownlineAccountRepository(db *gorm.DB, ancestorID uint, username string) (models.BalanceOwnerType, uint, error) {
+	var rows []struct {
+		Owner models.BalanceOwnerType
+		ID    uint
+	}
+	chain := fmt.Sprintf(`{"parent":[{"id":%d}]}`, ancestorID)
+	// ใช้ CAST(@chain AS jsonb) ห้ามเขียน @chain::jsonb — GORM อ่านชื่อ named param จนเจอช่องว่าง / , / ) จึงได้ชื่อ "chain::jsonb" แล้วไม่แทนค่า
+	err := db.Raw(`
+		SELECT 'AGENT' AS owner, id FROM user_agents WHERE username = @u AND cnf @> CAST(@chain AS jsonb)
+		UNION ALL
+		SELECT 'MEMBER', id FROM user_members WHERE username = @u AND cnf @> CAST(@chain AS jsonb)
+		LIMIT 1`, map[string]any{"u": username, "chain": chain}).Scan(&rows).Error
+	if err != nil {
+		return "", 0, err
+	}
+	if len(rows) == 0 {
+		return "", 0, apperr.ErrNotFound
+	}
+	return rows[0].Owner, rows[0].ID, nil
+}
+
+// ListDWHistoryRepository — log ที่ทำให้บัญชีหนึ่ง ช่วง [start, end] รวมขอบ เรียงใหม่→เก่า แบ่งหน้า (DW-58 – DW-60)
+// index: idx_deposit_withdraw_logs_target (target_type, target_id, created_at DESC)
+func ListDWHistoryRepository(db *gorm.DB, owner models.BalanceOwnerType, id uint, start, end time.Time,
+	offset, limit int) ([]models.DepositWithdrawLog, int64, error) {
+	base := func() *gorm.DB { // สร้างใหม่ทุกครั้ง — Count แก้ statement ของ query ที่ใช้ต่อไม่ได้
+		return db.Model(&models.DepositWithdrawLog{}).
+			Where("target_type = ? AND target_id = ? AND created_at >= ? AND created_at <= ?", owner, id, start, end)
+	}
+	var total int64
+	if err := base().Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []models.DepositWithdrawLog
+	if total == 0 {
+		return rows, 0, nil
+	}
+	err := base().Select("id", "transaction_type", "actor_type", "actor_id", "actor_username", "target_id", "target_role",
+		"target_username", "currency", "amount", "note", "created_at").
+		Order("created_at DESC, id DESC").Offset(offset).Limit(limit).Find(&rows).Error
+	return rows, total, err
 }
 
 // DWLogFilter — ตัวกรองของ DW3 · scope ด้วย ParentID เสมอ (DW-46 · กฎข้อ 22)

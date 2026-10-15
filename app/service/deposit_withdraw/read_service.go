@@ -2,6 +2,7 @@ package depositwithdraw
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	agentManagementCore "app/app/core/agent_management"
@@ -11,6 +12,7 @@ import (
 	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	depositWithdrawPostgres "app/app/repository/postgres/deposit_withdraw"
 	agentAuthService "app/app/service/agent_auth"
+	"app/pkg/apperr"
 	"app/pkg/utils"
 	"app/platform/database"
 )
@@ -131,6 +133,32 @@ func ListLogsService(ctx context.Context, actor agentAuthService.Actor, q deposi
 			Currency: l.Currency, Amount: l.Amount, Note: l.Note, ParentUnlimited: l.ParentUnlimited,
 			ParentBalanceBefore: l.ParentBalanceBefore, ParentBalanceAfter: l.ParentBalanceAfter,
 			TargetBalanceBefore: l.TargetBalanceBefore, TargetBalanceAfter: l.TargetBalanceAfter,
+			CreatedAt: formatTime(l.CreatedAt)})
+	}
+	return out, total, nil
+}
+
+// ListHistoryService — POST /api/v1/bo/pr/deposit-withdraw/history/list (DW4 · DW-55 – DW-60)
+// หา username ใต้ตัวเองทุกชั้น (ไม่เจอ / นอกสาย / ตัวเอง = 404402) → log ที่ทำให้บัญชีนั้น · แสดงคนกดจริง
+func ListHistoryService(ctx context.Context, actor agentAuthService.Actor, q depositWithdrawDto.HistoryRequest,
+	page utils.Page) ([]depositWithdrawDto.HistoryRow, int64, error) {
+	db := database.DBConn.WithContext(ctx)
+	owner, id, err := depositWithdrawPostgres.FindDWDownlineAccountRepository(db, actor.AgentID, q.Username)
+	if errors.Is(err, apperr.ErrNotFound) {
+		return nil, 0, apperr.ErrDWAccountNotFound
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	logs, total, err := depositWithdrawPostgres.ListDWHistoryRepository(db, owner, id, q.Start, q.End, page.Offset(), page.Limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]depositWithdrawDto.HistoryRow, 0, len(logs))
+	for _, l := range logs {
+		out = append(out, depositWithdrawDto.HistoryRow{ID: l.ID, AgentID: l.TargetID, AgentUsername: l.TargetUsername, Role: l.TargetRole,
+			RequestBy: l.ActorID, RequestType: string(l.ActorType), RequestUsername: l.ActorUsername,
+			Currency: l.Currency, TransactionType: string(l.TransactionType), Amount: l.Amount, Remark: l.Note,
 			CreatedAt: formatTime(l.CreatedAt)})
 	}
 	return out, total, nil

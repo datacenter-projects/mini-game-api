@@ -84,6 +84,7 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/deposit-withdraw/downlines/list", mw.PassedGates(), dwMw.RejectAdmin(), paymentView, depositWithdrawController.ListDownlinesController)
 	pr.Post("/deposit-withdraw/create", mw.PassedGates(), dwMw.RejectAdmin(), paymentEdit, mw.RequirePasscode(), depositWithdrawController.CreateDepositWithdrawController)
 	pr.Post("/deposit-withdraw/logs/list", mw.PassedGates(), dwMw.RejectAdmin(), paymentView, depositWithdrawController.ListLogsController)
+	pr.Post("/deposit-withdraw/history/list", mw.PassedGates(), dwMw.RejectAdmin(), paymentView, depositWithdrawController.ListHistoryController) // DW4
 
 	// sub: เฉพาะบัญชีหลัก (sub เรียก = 402311 — MGMT-40) · ไม่ใช้สิทธิ์เมนู
 	pr.Post("/manage/subaccounts/list", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.ListSubaccountsController)
