@@ -46,6 +46,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 04 | deposit_withdraw (ฝาก / ถอน) | `pkg/apperr/deposit_withdraw_errors.go` | `docs/modules/deposit_withdraw.md` (lead DQ9 2026-10-13) |
 | 05 | asset (หน้าตาเกม / หน้าเว็บ) | `pkg/apperr/asset_errors.go` | `docs/modules/asset.md` · game_rate ใช้ 06 (lead GQ6) |
 | 06 | game_rate (อัตราแพ้ชนะ — ตรงกับเมนู ⑥) | `pkg/apperr/game_rate_errors.go` | `docs/modules/game_rate.md` |
+| 07 | player_auth (ผู้เล่นเข้าระบบ — DRAFT) | `pkg/apperr/player_auth_errors.go` | `docs/modules/player_auth.md` (จองช่วง — code จริงปิดตอน lead อนุมัติ spec) |
 
 ## agent_auth (01)
 
