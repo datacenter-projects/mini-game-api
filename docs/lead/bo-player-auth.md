@@ -1,7 +1,7 @@
 # Player Auth (ผู้เล่นเข้าระบบ · สาย Transfer) — ร่าง spec รอ lead review · 2026-10-15
 
 จาก boiledegg · review ที่มาของงาน: [docs/reviews/player-auth.md](../reviews/player-auth.md) · spec: [docs/modules/player_auth.md](../modules/player_auth.md) (**DRAFT**)
-branch `boiledegg/bo/player_auth` (แตกจาก dev @ `f483d43`) · ยังไม่มีโค้ด — ตามลำดับ: game_rate 3 ข้อ (M1 / G-S1 / G-S2) เสร็จแล้ว (`ba3d63f` อยู่บน dev) → ร่าง spec → lead review ทีละ endpoint → implement ผ่าน PR
+branch `boiledegg/player/auth` (แตกจาก dev @ `f483d43`) · ยังไม่มีโค้ด — ตามลำดับ: game_rate 3 ข้อ (M1 / G-S1 / G-S2) เสร็จแล้ว (`ba3d63f` อยู่บน dev) → ร่าง spec → lead review ทีละ endpoint → implement ผ่าน PR
 
 ## 1. เสร็จแล้ว
 

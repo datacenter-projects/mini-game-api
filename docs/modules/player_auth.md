@@ -2,7 +2,7 @@
 
 - สถานะ: **DRAFT** (รอ lead review ทีละ endpoint — หัวข้อ 9 คือคำถามที่ต้องตัดสินก่อน implement)
 - อนุมัติโดย: — · วันที่: —
-- ผู้ทำ: Boiledegg · branch `boiledegg/bo/player_auth`
+- ผู้ทำ: Boiledegg · branch `boiledegg/player/auth`
 - ชื่อ module ในโค้ด: `player_auth` (`app/internals/frontend/{controllers,dto}/player_auth`, `app/externals/transfer/{controllers,dto,middleware}`, `app/service/player_auth`, `app/core/player_auth`)
 - ที่มาของการตัดสิน: [docs/reviews/player-auth.md](../reviews/player-auth.md) (lead zerph 2026-10-14 / 15 · PQ1–PQ14 · LQ-c)
 - โค้ดเก่าที่อ้างอิง (extract พฤติกรรมเท่านั้น): `askmelotto_minigame-api` — `/provider/launch` (สร้างผู้เล่น ไม่ให้ token ไม่มีรหัส **ห้ามลอกแบบ**) ·

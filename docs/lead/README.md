@@ -13,7 +13,7 @@
 | `bo-agent-management-mgmt18a.md` | `boiledegg/bo/agent_management` (MGMT-18A) |
 | `bo-deposit-withdraw.md` | `maofoy/bo/deposit-withdraw` |
 | `bo-asset.md` | `boiledegg/bo/asset` (งาน asset ของ carl + merge dev) |
-| `bo-player-auth.md` | `boiledegg/bo/player_auth` |
+| `bo-player-auth.md` | `boiledegg/player/auth` |
 
 ## โครงของแต่ละไฟล์
 
