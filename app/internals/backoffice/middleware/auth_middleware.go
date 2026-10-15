@@ -20,7 +20,7 @@ func Authenticated() fiber.Handler {
 		if !ok {
 			return response.Error(c, apperr.ErrInvalidToken)
 		}
-		actor, err := agentAuthService.AuthenticateService(c.UserContext(), token, c.IP())
+		actor, err := agentAuthService.AuthenticateService(c.UserContext(), token, pkgMiddleware.ClientIP(c))
 		if err != nil {
 			return response.Error(c, err)
 		}
@@ -40,5 +40,5 @@ func GetActor(c *fiber.Ctx) agentAuthService.Actor {
 
 // RequestMeta — ข้อมูลของ request ที่ service ใช้ (ip, user agent สำหรับ rate limit / audit log)
 func RequestMeta(c *fiber.Ctx) agentAuthService.RequestMeta {
-	return agentAuthService.RequestMeta{IP: c.IP(), UserAgent: c.Get(fiber.HeaderUserAgent)}
+	return agentAuthService.RequestMeta{IP: pkgMiddleware.ClientIP(c), UserAgent: c.Get(fiber.HeaderUserAgent)}
 }

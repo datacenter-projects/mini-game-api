@@ -30,7 +30,13 @@ func FiberMiddleware(a *fiber.App) {
 			},
 		}),
 		fiberlogger.New(fiberlogger.Config{
-			Format: "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | reqid=${locals:requestid}\n",
+			// client_ip = ClientIP(c) (ไล่ XFF จากขวาข้าม proxy ที่เชื่อถือ) — ${ip} ของ fiber คือ IP ของ proxy ที่ต่อมา
+			Format: "${time} | ${status} | ${latency} | ${client_ip} | ${method} | ${path} | reqid=${locals:requestid}\n",
+			CustomTags: map[string]fiberlogger.LogFunc{
+				"client_ip": func(output fiberlogger.Buffer, c *fiber.Ctx, _ *fiberlogger.Data, _ string) (int, error) {
+					return output.WriteString(ClientIP(c))
+				},
+			},
 		}),
 	)
 }

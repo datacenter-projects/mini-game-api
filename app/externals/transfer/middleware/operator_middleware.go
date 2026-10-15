@@ -4,6 +4,7 @@ package middleware
 import (
 	transferDto "app/app/externals/transfer/dto/player_auth"
 	playerAuthService "app/app/service/player_auth"
+	pkgMiddleware "app/pkg/middleware"
 	"app/pkg/response"
 	"app/pkg/utils"
 
@@ -17,14 +18,14 @@ const operatorLocalsKey = "transfer_operator"
 // ห้าม log body ดิบ (มี key / password) — เส้นนี้ไม่ log body เลย
 func OperatorAuthenticated() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if err := playerAuthService.OperatorRateLimitService(c.UserContext(), c.IP()); err != nil {
+		if err := playerAuthService.OperatorRateLimitService(c.UserContext(), pkgMiddleware.ClientIP(c)); err != nil {
 			return response.Error(c, err)
 		}
 		var creds transferDto.OperatorCreds
 		if err := utils.ParseBodyNoNull(c, &creds); err != nil {
 			return response.Error(c, err)
 		}
-		op, err := playerAuthService.OperatorAuthenticateService(c.UserContext(), creds, c.IP())
+		op, err := playerAuthService.OperatorAuthenticateService(c.UserContext(), creds, pkgMiddleware.ClientIP(c))
 		if err != nil {
 			return response.Error(c, err)
 		}
@@ -44,5 +45,5 @@ func GetOperator(c *fiber.Ctx) playerAuthService.Operator {
 
 // RequestMeta — ข้อมูลของ request ที่ service ใช้ (IP)
 func RequestMeta(c *fiber.Ctx) playerAuthService.RequestMeta {
-	return playerAuthService.RequestMeta{IP: c.IP()}
+	return playerAuthService.RequestMeta{IP: pkgMiddleware.ClientIP(c)}
 }
