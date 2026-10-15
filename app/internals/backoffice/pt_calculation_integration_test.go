@@ -174,8 +174,8 @@ func TestPTCalculateChains(t *testing.T) { // ชุด C · D (lead รอบ 2
 	if _, err := ptCalculationService.CalculateMemberPT(context.Background(), db, memD.ID, "coin_toss"); err != nil {
 		t.Fatal(err)
 	}
-	if n := qc.n.Load(); n > 3 {
-		t.Fatalf("query %d ครั้ง want ≤ 3", n)
+	if n := qc.n.Load(); n != 3 { // ต้องเท่ากัน — n = 0 แปลว่า counter ไม่ทำงาน (lead รอบ 2)
+		t.Fatalf("query %d ครั้ง want 3 (Member · settings ของ Member · settings ทั้งสาย)", n)
 	}
 }
 

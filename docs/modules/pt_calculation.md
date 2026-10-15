@@ -188,7 +188,7 @@ a1 Remain 60: 25 + 40 = 65 ≥ 60 ไม่ทำงาน → คืน SA 5 �
 | PTC-20 | ไม่ส่ง `member_id` · `game_code` ไม่มีจริง | `422` msg บอก field |
 | PTC-21 | `member_id` ไม่มีจริง | `408401` |
 | PTC-22 | ชุด B | 6 แถว · `agent` 2 แถวเรียงบน → ล่าง |
-| PTC-30 | ชุด D (4 ชั้น · integration ใช้ gorm logger นับ SQL) | query ไม่เกิน 3 ครั้ง |
+| PTC-30 | ชุด D (4 ชั้น · integration ใช้ gorm logger นับ SQL) | query = 3 ครั้งพอดี (0 = counter ไม่ทำงาน → fail) |
 | PTC-41 – 43 | flag ปิด · flag เปิด ไม่ส่ง token · `APP_ENV=prod` + flag เปิด (unit test ของ `configs.Load`) | `404001` · `200` · boot ไม่ผ่าน |
 | PTC-44 | ข้อมูลในสายผิด | `508601` + log `pt chain invalid` ที่ service |
 
