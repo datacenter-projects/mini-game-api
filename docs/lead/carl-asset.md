@@ -56,4 +56,4 @@ lead รับแล้ว (A4 · 2026-10-14): GE10-1 · ลำดับสิ�
 | 2026-10-12 | `67ee41a` · `efb61f3` | merge `dev` (แก้ conflict `json_null.go` — `FieldLabel` อยู่ใน `utils.CheckNoNull`) · เอา MinIO ออกจาก compose → `scripts/fakes3` · เพิ่ม fakes3 ใน TESTING.md · `migrate up` บน dev DB (index `20261012170000`) |
 | 2026-10-14 | `b29a7ff` | เอกสารหน้าบ้าน `docs/frontend/asset.md` (16 เส้น · request / response / error ไทย-อังกฤษ ยิงจากโค้ดจริง) |
 | 2026-10-14 | `1e5eb36` | แก้ตามผลตรวจโค้ด lead: A1 เพดาน 4096 px · A2 อ่าน header ไม่ได้ = `405102` · AST-17 / AST-43 · test · เอกสารหน้าบ้าน · **spec APPROVED** · ปิดคำถามที่ lead รับแล้ว (A4) |
-| 2026-10-15 | — (รอ commit) | seed รูป GLOBAL ของ `scratch_card` อัตโนมัติตอน deploy: รูป 19 ไฟล์ใน `seed/global-assets` · Dockerfile · `make seed-asset-global` · `TestSeedGlobalRepoImages` · DEPLOYMENT.md · AST-61 |
+| 2026-10-15 | `7dc2882` | seed รูป GLOBAL ของ `scratch_card` อัตโนมัติตอน deploy: รูป 19 ไฟล์ใน `seed/global-assets` · Dockerfile · `make seed-asset-global` · `TestSeedGlobalRepoImages` · DEPLOYMENT.md · AST-61 |
