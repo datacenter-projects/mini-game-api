@@ -193,10 +193,11 @@ func FindDWDownlineAccountRepository(db *gorm.DB, ancestorID uint, username stri
 		ID    uint
 	}
 	chain := fmt.Sprintf(`{"parent":[{"id":%d}]}`, ancestorID)
+	// ใช้ CAST(@chain AS jsonb) ห้ามเขียน @chain::jsonb — GORM อ่านชื่อ named param จนเจอช่องว่าง / , / ) จึงได้ชื่อ "chain::jsonb" แล้วไม่แทนค่า
 	err := db.Raw(`
-		SELECT 'AGENT' AS owner, id FROM user_agents WHERE username = @u AND cnf @> @chain::jsonb
+		SELECT 'AGENT' AS owner, id FROM user_agents WHERE username = @u AND cnf @> CAST(@chain AS jsonb)
 		UNION ALL
-		SELECT 'MEMBER', id FROM user_members WHERE username = @u AND cnf @> @chain::jsonb
+		SELECT 'MEMBER', id FROM user_members WHERE username = @u AND cnf @> CAST(@chain AS jsonb)
 		LIMIT 1`, map[string]any{"u": username, "chain": chain}).Scan(&rows).Error
 	if err != nil {
 		return "", 0, err
