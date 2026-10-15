@@ -4,8 +4,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o /out/apiserver . \
- && CGO_ENABLED=0 go build -ldflags="-w -s" -o /out/migrate ./scripts/migrate \
- && CGO_ENABLED=0 go build -ldflags="-w -s" -o /out/seed_asset_global ./scripts/seed_asset_global
+ && CGO_ENABLED=0 go build -ldflags="-w -s" -o /out/migrate ./scripts/migrate
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata wget \
@@ -13,8 +12,6 @@ RUN apk add --no-cache ca-certificates tzdata wget \
 ENV TZ=Asia/Bangkok
 WORKDIR /app
 COPY --from=builder /out/ /app/
-# รูปค่ากลาง (GLOBAL) ของ asset — Job หลัง migrate รัน `/app/seed_asset_global -dir /app/seed/global-assets` (docs/DEPLOYMENT.md)
-COPY seed/global-assets /app/seed/global-assets
 USER app
 EXPOSE 8181 9090
 HEALTHCHECK --interval=15s --timeout=3s --retries=3 CMD wget -qO- http://127.0.0.1:8181/health/live || exit 1

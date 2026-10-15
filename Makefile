@@ -1,4 +1,4 @@
-.PHONY: run build test test-integration lint check check-structure dev-up dev-down test-env-up test-env-down migrate-up migrate-down migrate-status seed-asset-global migration release
+.PHONY: run build test test-integration lint check check-structure dev-up dev-down test-env-up test-env-down migrate-up migrate-down migrate-status migration release
 
 APP_NAME = apiserver
 BUILD_DIR = ./build
@@ -52,10 +52,6 @@ migrate-down:
 
 migrate-status:
 	go run ./scripts/migrate status
-
-# อัปรูปค่ากลาง (GLOBAL) ของ asset จาก seed/global-assets ขึ้น S3 + DB ตาม .env — เขียนของจริง ขอ lead ก่อนรันบน env ร่วม (docs/DEPLOYMENT.md)
-seed-asset-global:
-	go run ./scripts/seed_asset_global -dir seed/global-assets
 
 # make migration name=agent_create_tables
 migration:
