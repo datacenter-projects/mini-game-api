@@ -170,6 +170,22 @@ metric ที่มี
 - migrate fail = exit code ≠ 0 → ห้าม rollout ต่อ
 - migration ต้องเข้ากันได้กับ pod เวอร์ชันเก่าที่ยังรันอยู่ระหว่าง rolling update (เพิ่มคอลัมน์ก่อน ลบทีหลังในอีก release)
 
+### รัน seed รูปค่ากลางของ asset (GLOBAL — `asset.md` AST-61)
+
+รูปค่ากลางของ asset เก็บใน repo ที่ `seed/global-assets/{game_code}/{asset_type}.{ext}` (ตอนนี้มี `scratch_card` 19 ช่อง) — **ไม่ถูกใส่ใน image และไม่มี Job ตอน deploy**
+คนรันสคริปต์เอง**ทีละ env** หลัง migrate แล้วและ S3 / CloudFront พร้อม:
+
+```
+make seed-asset-global
+# หรือ: go run ./scripts/seed_asset_global -dir seed/global-assets
+```
+
+- **เขียน S3 + DB ของจริงตาม `.env` ของเครื่องที่รัน** → ขอ lead ก่อนรันบน dev / uat / prod ทุกครั้ง · ห้ามรันโดยไม่ได้รับอนุญาต
+- `.env` ต้องมี `DB_*` ของ env เป้าหมาย · `S3_BUCKET` · `S3_REGION` · `S3_CDN_BASE_URL` · credential AWS ที่เขียน bucket ได้ · ไม่ตั้ง `S3_BUCKET` = สคริปต์หยุดตั้งแต่ต้น ไม่เขียนอะไร
+- **รันซ้ำได้:** ช่องที่ GLOBAL มีรูปแล้วถูกข้าม · เติมเฉพาะช่องว่าง · เปลี่ยนรูปที่ใช้อยู่ = ใส่ `-force` (อัปเวอร์ชันใหม่ + ตั้งเป็นรูปที่ใช้ · ไฟล์เดิมยังอยู่ใน bucket / คลัง)
+- ท้ายผลบอกช่องของทุกเกมที่ GLOBAL ยังไม่มีรูป (`coin_toss` / `rock_paper_scissors` จะค้างจนกว่าทีมเกมส่งรูป — ไม่ใช่ error) · ต้องครบทุกช่องของ `scratch_card` ก่อน UAT (AST-24)
+- ตรวจหลังรัน: `used/list` (`scope: GLOBAL`, `game_code: scratch_card`) ทุกช่องต้องมี `url` และเปิดดูรูปได้
+
 ### prod ครั้งแรก (lead 2026-10-11)
 
 prod เริ่มจาก **DB ว่าง** ไม่ย้ายข้อมูลจากระบบเก่า (ถ้าวันหน้าต้องย้ายจะวางแผนเป็นงานแยก)
