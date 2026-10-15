@@ -96,3 +96,8 @@
 | A4 | เอา MinIO ออก ใช้ `scripts/fakes3` · ตรวจสิทธิ์ก่อนอ่าน body · GE10-1 เทียบค่าที่ไล่สายแล้ว | รับทั้งหมด |
 
 nit 7 ข้อใน verify report ทำหรือไม่ก็ได้ · spec เปลี่ยนสถานะจาก DRAFT เป็น APPROVED ได้หลังแก้ A2
+
+## seed รูป GLOBAL — lead 2026-10-15 (เรื่อง `carl/asset` @ `7dc2882` ของ schneider)
+- **คงแบบเดิม (AST-61): คนรัน `scripts/seed_asset_global -dir <โฟลเดอร์>` เองทีละ env** · รูปอยู่นอก repo
+- **ไม่รับแบบ Job ตอน deploy**: ไม่เก็บรูปใน repo (`seed/global-assets/`) · ไม่ COPY เข้า image · ไม่ต้องให้ infra เพิ่ม Job → **ไม่ merge `7dc2882`** (ถ้าจะเก็บ `make seed-asset-global` ไว้ช่วยรันในเครื่อง แยก PR ได้)
+- รันบน env ร่วม (dev / uat / prod) เขียน S3 + DB ของจริง → **ขอ lead ก่อนทุกครั้ง** · ต้องครบทุกช่องของ `scratch_card` ก่อน UAT (AST-24)
