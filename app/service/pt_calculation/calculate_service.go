@@ -31,14 +31,26 @@ type Layer struct {
 	Commission float64
 }
 
-// CalculateMemberPTService — เส้น dev POST /api/v1/bo/pr/dev/pt/calculate (PTC-40)
+// CalculateMemberPTService — เส้น dev POST /api/v1/dev/pt/calculate (PTC-40)
 func CalculateMemberPTService(ctx context.Context, memberID uint, gameCode string) ([]Layer, error) {
 	return CalculateMemberPT(ctx, database.DBConn.WithContext(ctx), memberID, gameCode)
 }
 
 // CalculateMemberPT — คิด PT สุดท้าย (PTC-02 – PTC-08) + Commission (PTC-11) ของ Member ในเกมนี้
 // db = connection หรือ tx ของผู้เรียก · อ่านอย่างเดียว 3 query (PTC-30) · ไม่พบ Member = 408401 · ข้อมูลในสายผิด = 508601
+// 508601 log ที่นี่เองพร้อมค่าทั้งสายที่โหลดได้ (lead รอบ 2 S1 — ผู้เรียกห่อ error ต่อแล้ว log ไม่หาย)
 func CalculateMemberPT(ctx context.Context, db *gorm.DB, memberID uint, gameCode string) ([]Layer, error) {
+	var (
+		cnf       string
+		memberLog map[string]any
+		chainRows []ptCalculationPostgres.ChainSettingRow
+	)
+	fail := func(cause error) error { // PTC-08 / PTC-09
+		logger.Ctx(ctx).Errorw("pt chain invalid", "member_id", memberID, "game_code", gameCode, "cnf", cnf,
+			"member_setting", memberLog, "chain_settings", chainRows, "error", cause)
+		return apperr.ErrPTCInvalidChain.Wrap(cause)
+	}
+
 	m, err := ptCalculationPostgres.GetPTCMemberRepository(db, memberID)
 	if errors.Is(err, apperr.ErrNotFound) {
 		return nil, apperr.ErrPTCMemberNotFound
@@ -46,21 +58,23 @@ func CalculateMemberPT(ctx context.Context, db *gorm.DB, memberID uint, gameCode
 	if err != nil {
 		return nil, err
 	}
+	cnf = m.Cnf
 	var chain agentManagementCore.Chain
 	if err := json.Unmarshal([]byte(m.Cnf), &chain); err != nil {
-		return nil, invalidChain(fmt.Errorf("member %d cnf: %w", m.ID, err))
+		return nil, fail(fmt.Errorf("member %d cnf: %w", m.ID, err))
 	}
 	nodes := chain.Parent
 	if len(nodes) == 0 || nodes[0].Position != strings.ToLower(string(models.AgentRoleSuperAdmin)) || nodes[len(nodes)-1].ID != m.AgentID {
-		return nil, invalidChain(fmt.Errorf("member %d cnf %s does not start at superadmin and end at creator %d", m.ID, m.Cnf, m.AgentID))
+		return nil, fail(fmt.Errorf("member %d cnf does not start at superadmin and end at creator %d", m.ID, m.AgentID))
 	}
 
 	ms, found, err := ptCalculationPostgres.GetPTCMemberSettingRepository(db, m.ID, gameCode)
 	if err != nil {
 		return nil, err
 	}
+	memberLog = map[string]any{"found": found, "parent_id": ms.ParentID, "pt": ms.PT, "commission": ms.Commission}
 	if !found || ms.ParentID != m.AgentID {
-		return nil, invalidChain(fmt.Errorf("member %d game %s setting missing or parent_id mismatch", m.ID, gameCode))
+		return nil, fail(fmt.Errorf("member %d game %s setting missing or parent_id mismatch", m.ID, gameCode))
 	}
 
 	ids := make([]uint, len(nodes))
@@ -71,6 +85,7 @@ func CalculateMemberPT(ctx context.Context, db *gorm.DB, memberID uint, gameCode
 	if err != nil {
 		return nil, err
 	}
+	chainRows = rows
 	byID := make(map[uint]ptCalculationPostgres.ChainSettingRow, len(rows))
 	for _, r := range rows {
 		byID[r.AgentID] = r
@@ -81,7 +96,7 @@ func CalculateMemberPT(ctx context.Context, db *gorm.DB, memberID uint, gameCode
 	for i, n := range nodes {
 		r, ok := byID[n.ID]
 		if !ok || !parentMatches(r.ParentID, nodes, i) || strings.ToLower(string(r.Role)) != n.Position {
-			return nil, invalidChain(fmt.Errorf("member %d game %s layer %d (agent %d) setting missing or not matching cnf", m.ID, gameCode, i, n.ID))
+			return nil, fail(fmt.Errorf("member %d game %s layer %d (agent %d) setting missing or not matching cnf", m.ID, gameCode, i, n.ID))
 		}
 		settings[i] = r
 		layers[i] = ptCalculationCore.Layer{
@@ -92,7 +107,7 @@ func CalculateMemberPT(ctx context.Context, db *gorm.DB, memberID uint, gameCode
 
 	res, err := ptCalculationCore.Calculate(ptCalculationCore.Input{Layers: layers, MemberPT: ms.PT})
 	if err != nil {
-		return nil, invalidChain(fmt.Errorf("member %d game %s: %w", m.ID, gameCode, err))
+		return nil, fail(fmt.Errorf("member %d game %s: %w", m.ID, gameCode, err))
 	}
 	for _, w := range res.Warnings { // PTC-04A / PTC-10 — คิดต่อได้ แต่ log ไว้ตรวจข้อมูล
 		logger.Ctx(ctx).Warnw("pt calculation warning", "member_id", m.ID, "game_code", gameCode, "kind", warningName(w.Kind),
@@ -119,9 +134,6 @@ func parentMatches(parentID *uint, nodes []agentManagementCore.ChainNode, i int)
 	}
 	return parentID != nil && *parentID == nodes[i-1].ID
 }
-
-// invalidChain — 508601 + แนบรายละเอียดไว้ log (client ไม่เห็น — PTC-08 / PTC-09)
-func invalidChain(cause error) error { return apperr.ErrPTCInvalidChain.Wrap(cause) }
 
 func warningName(k ptCalculationCore.WarningKind) string {
 	switch k {

@@ -37,7 +37,7 @@ type Config struct {
 
 	MigrateOnStart bool
 
-	// DevRoutesEnabled — เปิดเส้น dev (/api/v1/bo/pr/dev/...) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
+	// DevRoutesEnabled — เปิด context developer (/api/v1/dev/... ไม่ต้อง login) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
 	DevRoutesEnabled bool
 }
 

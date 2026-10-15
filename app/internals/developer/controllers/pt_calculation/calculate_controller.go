@@ -1,7 +1,7 @@
 package ptcalculation
 
 import (
-	ptCalculationDto "app/app/internals/backoffice/dto/pt_calculation"
+	ptCalculationDto "app/app/internals/developer/dto/pt_calculation"
 	ptCalculationService "app/app/service/pt_calculation"
 	"app/pkg/response"
 	"app/pkg/utils"
@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// CalculateController — POST /api/v1/bo/pr/dev/pt/calculate (เส้น dev · PTC-40 – PTC-43)
+// CalculateController — POST /api/v1/dev/pt/calculate (เส้น dev · PTC-40 – PTC-43)
 func CalculateController(c *fiber.Ctx) error {
 	var req ptCalculationDto.CalculateRequest
 	if err := utils.ParseBodyNoNull(c, &req); err != nil {
