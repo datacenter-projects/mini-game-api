@@ -36,8 +36,8 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | MGMT-08A | migration เบอร์เดิมของ Member (lead B1 · แบบเดียวกับ agent): ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` และยาว 11 หลัก → `66` + ส่วนที่เหลือ · แบบอื่นล้างเป็น `""` · แปลงแล้วซ้ำภายใต้ผู้สร้างเดียวกัน เก็บแถว `id` น้อยสุด แถวอื่นล้าง · ทุกรายการที่ถูกล้างบันทึกใน `migration_phone_cleared` (`table_name = user_members` · `reason` `FORMAT` / `DUPLICATE` · `kept_member_id` = Member ที่ได้เก็บเบอร์ไว้) |
 | MGMT-09A | แก้ได้: ชื่อ · เบอร์ · PT / Commission · วิธีจ่ายเงิน / บัญชีธนาคาร · ลิมิตชนะต่อวัน (เส้นเดียว `members/detail/update` — M3) · สถานะ (`members/status/update` — M4) · แก้ไม่ได้: username · สกุลเงิน · ผู้สร้าง |
 | MGMT-13 | สกุลเงิน = สกุลของผู้สร้าง (1 สกุล) ไม่ต้องส่ง |
-| MGMT-15A | ยอดเงินตั้งต้น `balance` ไม่บังคับ · ฝั่ง Transfer เท่านั้น — **สายที่เป็น Seamless ส่งแล้วได้ `422`** · โอนจากผู้สร้าง (ยอดไม่พอ `402312`) · ต้องมี `request_id` (UUID) กันส่งซ้ำ — `request_id` เดิมของตัวเองที่ใช้สร้าง Member = ได้ `id` เดิม ไม่โอนซ้ำ · ของคนอื่น / ที่เคยใช้สร้างฝั่ง agent = `422` (lead Q-R4) · ยอดของ Member เก็บที่ `user_members.credit` (Member มี 1 สกุล) · ทุกการแก้ `credit` ต้อง lock แถว `user_members` `FOR UPDATE` ก่อน (lead MA5) · `balance_ledger` `owner_type = MEMBER` |
-| MGMT-15B | Member ฝั่ง Seamless ไม่มียอด: `balances` แสดง `amount: 0` เสมอ (ACC-19 · lead MQ6) — หน้าบ้านซ่อนเอง |
+| MGMT-15A | ยอดเงินตั้งต้น `balance` ไม่บังคับ · ส่งได้ทั้งฝั่ง Transfer และ Seamless (MGMT-15 แก้ 2026-10-15 · lead อนุมัติ — เดิม Seamless = `422`) · โอนจากผู้สร้าง (ยอดไม่พอ `402312`) · ต้องมี `request_id` (UUID) กันส่งซ้ำ — `request_id` เดิมของตัวเองที่ใช้สร้าง Member = ได้ `id` เดิม ไม่โอนซ้ำ · ของคนอื่น / ที่เคยใช้สร้างฝั่ง agent = `422` (lead Q-R4) · ยอดของ Member เก็บที่ `user_members.credit` (Member มี 1 สกุล) · ทุกการแก้ `credit` ต้อง lock แถว `user_members` `FOR UPDATE` ก่อน (lead MA5) · `balance_ledger` `owner_type = MEMBER` |
+| MGMT-15B | **แก้ 2026-10-15**: Member ฝั่ง Seamless มียอดได้ (ยอดตั้งต้น / ฝากจากผู้สร้าง) · `balances` แสดงยอดจริง · **ยอดนี้ใช้แทงไม่ได้** (แทงจาก wallet ของ operator) · เดิม: แสดง `0` เสมอ (lead MQ6) |
 | MGMT-61 | `user_members.cnf` = สายชั้นบนของ Member `{"parent": [{"id", "position"}, …]}` เรียงจาก Superadmin ลงมาถึง**ผู้สร้าง** (= `cnf` ของผู้สร้าง + ผู้สร้าง) · ตั้งตอนสร้าง (lead MA4) |
 | MGMT-62 | `user_member_game_settings.parent_id` = id ของ agent ผู้สร้าง Member (ค่าเดียวกับ `user_members.agent_id`) · ตั้งตอนสร้าง · NOT NULL |
 | MGMT-63 | `payment_type` วิธีจ่ายเงิน = `CREDIT` / `CASH` (ส่งตัวเล็กได้ เก็บตัวใหญ่) · **บังคับ**ตอนสร้าง · **ข้อมูลแสดงผลอย่างเดียว** ไม่มีผลกับยอดเงิน การเติม / ถอน หรือการแทง (lead P1) · ผู้สร้างฝั่ง Seamless: ระบบเก็บ `CASH` เสมอ ไม่ว่าส่งค่าอะไรมา (ทั้งตอนสร้างและแก้) · Member ก่อนมี field นี้ = `CASH` (P2) |
@@ -142,7 +142,7 @@ Response:
 | `request_id` | UUID บังคับ (MGMT-15A) |
 | `username` · `password` · `name` | MGMT-05 – MGMT-07 |
 | `phone_country_code` · `phone` | MGMT-08 · ไม่กรอก `""` ทั้งคู่ |
-| `balance` | ไม่บังคับ · key = สกุลของผู้สร้าง · ฝั่ง Seamless ห้ามส่ง (MGMT-15A) |
+| `balance` | ไม่บังคับ · key = สกุลของผู้สร้าง · ฝั่ง Seamless ส่งได้แล้ว (MGMT-15A แก้ 2026-10-15) |
 | `pt.minigame` | `pt` + `commission_percent` บังคับทั้งคู่ · ต้องส่งครบทุกกลุ่ม (MGMT-21) |
 | `payment_type` | บังคับ `CREDIT` / `CASH` · ฝั่ง Seamless เก็บ `CASH` เสมอ (MGMT-63) |
 | `payment_account` | ไม่บังคับ · `bank_code` + `account_number` คู่กัน · ชื่อ 6 field ไม่บังคับ (MGMT-64) |
@@ -302,7 +302,7 @@ test ของเส้น Member อยู่ในชุด integration test �
 | MGMT-08A | migration: `0812345678` ×2 ใต้ผู้สร้างเดียวกัน · `0812345678` ใต้ผู้สร้างอื่น · `12345678` | แถวแรก `66`/`812345678` แถวที่สอง `""` (DUPLICATE · `kept_member_id`) · `66`/`812345678` · `""` (FORMAT) |
 | MGMT-13 | สร้าง Member | `currencies` = สกุลของผู้สร้าง |
 | MGMT-15A | สร้างพร้อม `balance` · ส่งซ้ำด้วย `request_id` เดิม · `request_id` ของคนอื่น / ที่ใช้สร้าง agent | ผู้สร้างยอดลด · Member ได้ยอด · ledger 2 แถว · ได้ `id` เดิม ไม่โอนซ้ำ · `422` |
-| MGMT-15A | ผู้สร้างฝั่ง Seamless ส่ง `balance` · `balance` 25.5 | `422` · `credit` = 25.5 · ledger 25.5 |
+| MGMT-15A | Company Seamless 1 to 1 (JPY 100) สร้าง Member พร้อม `balance` 10 · `balance` 25.5 | สำเร็จ · `credit` 10 · Company 90 · `payment_type` = `CASH` · `credit` = 25.5 · ledger 25.5 |
 | MGMT-15A | log ยอดตั้งต้น | `INITIAL_BALANCE` `new_value` key `amounts` |
 | MGMT-61 | Agent (ใต้ Share ใต้ Company) สร้าง Member | `cnf.parent` = superadmin → company → share → agent |
 | MGMT-21 | Commission 0.3 · 1.1 · 0.15 · ส่ง `pt_from_parent` | สำเร็จ · `402309` · `422` · `422` |

@@ -8,8 +8,6 @@ import (
 	agentManagementCore "app/app/core/agent_management"
 	depositWithdrawCore "app/app/core/deposit_withdraw"
 	depositWithdrawDto "app/app/internals/backoffice/dto/deposit_withdraw"
-	"app/app/models"
-	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	depositWithdrawPostgres "app/app/repository/postgres/deposit_withdraw"
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
@@ -18,7 +16,8 @@ import (
 )
 
 // ListDownlinesService — POST /api/v1/bo/pr/deposit-withdraw/downlines/list (DW1 · DW-40 – DW-45 · DW-44A)
-// 6 query: ลูกตรง (count + page) · Company หัวสายของแม่ · ยอดของแม่ + ลูกฝั่ง agent ในหน้า (IN ครั้งเดียว — ไม่มี N+1) · ยอดรวมแยก role
+// 5 query: ลูกตรง (count + page) · ยอดของแม่ + ลูกฝั่ง agent ในหน้า (IN ครั้งเดียว — ไม่มี N+1) · ยอดรวมแยก role
+// สาย Seamless มียอดแล้ว (DW-06 / MGMT-15 แก้ 2026-10-15) — ทุกแถว has_balance = true · แสดงยอดจริง
 func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q depositWithdrawDto.DownlinesRequest,
 	page utils.Page) ([]depositWithdrawDto.DownlineRow, int64, depositWithdrawDto.DownlinesSummary, error) {
 	db := database.DBConn.WithContext(ctx)
@@ -27,12 +26,6 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q d
 	if err != nil {
 		return nil, 0, summary, err
 	}
-	// ลูกทุกคนอยู่สายเดียวกับแม่ · แม่เป็น Superadmin (ไม่อยู่ใต้ Company) = ดูประเภทของ Company ลูกทีละแถว (DW-44)
-	parentType, err := agentManagementPostgres.GetChainCompanyTypeRepository(db, actor.AgentID)
-	if err != nil {
-		return nil, 0, summary, err
-	}
-	parentSeamless := isSeamless(parentType)
 
 	agentIDs := []uint{actor.AgentID} // แม่ + ลูกฝั่ง agent ในหน้านี้
 	for _, r := range rows {
@@ -51,16 +44,15 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q d
 		}
 		addAmount(amounts[b.AgentID], b.Currency, b.Amount)
 	}
-	// ฝั่ง Seamless ไม่มียอดเงิน ส่ง 0 ทุกสกุล (MGMT-15 · ACC-19)
 	summary.CreditDetail.Currency = newCurrencyAmounts()
-	if !parentSeamless && amounts[actor.AgentID] != nil {
+	if amounts[actor.AgentID] != nil {
 		summary.CreditDetail.Currency = amounts[actor.AgentID]
 	}
 
 	out := make([]depositWithdrawDto.DownlineRow, 0, len(rows))
 	for _, r := range rows {
 		row := depositWithdrawDto.DownlineRow{ID: r.ID, Role: r.Role, Username: r.Username, Status: string(r.Status),
-			HasBalance: !parentSeamless, Currency: newCurrencyAmounts()}
+			HasBalance: true, Currency: newCurrencyAmounts()}
 		if r.Name != nil {
 			row.Name = *r.Name
 		}
@@ -70,11 +62,7 @@ func ListDownlinesService(ctx context.Context, actor agentAuthService.Actor, q d
 		if r.LastLoginAt != nil {
 			row.LastLoginAt = formatTime(*r.LastLoginAt)
 		}
-		if r.Role == string(models.AgentRoleCompany) && isSeamless(r.AgentType) {
-			row.HasBalance = false
-		}
 		switch {
-		case !row.HasBalance: // คง 0 ทุกสกุล
 		case r.Role == depositWithdrawCore.RoleMember:
 			if r.Currency != nil {
 				addAmount(row.Currency, *r.Currency, r.Credit)
@@ -162,9 +150,4 @@ func ListHistoryService(ctx context.Context, actor agentAuthService.Actor, q dep
 			CreatedAt: formatTime(l.CreatedAt)})
 	}
 	return out, total, nil
-}
-
-// isSeamless — Company หัวสายเป็น Seamless (MGMT-15 · DW-06) · nil = ไม่อยู่ใต้ Company
-func isSeamless(agentType *models.AgentType) bool {
-	return agentType != nil && agentManagementCore.IsSeamless(agentManagementCore.UserTypeOf(models.AgentRoleCompany, agentType))
 }

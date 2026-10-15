@@ -244,9 +244,14 @@ func TestDWRules(t *testing.T) { // DW-01 – DW-07 · DW-10 · DW-11 · DW-15
 	database.DBConn.Model(&models.UserAgent{}).Where("id = ?", c.agent.ID).Update("status", models.AgentStatusSuspended)
 	expect(t, call(t, app, "POST", dwCreatePath, dwBody("AGENT", c.agent.ID, "DEPOSIT", 1), c.shareTok), 200, 404301)
 
-	// Seamless (DW-06)
+	// สาย Seamless ฝาก / ถอนได้ (DW-06 แก้ 2026-10-15)
 	reseller, _ := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_RESELLER", "reseller01", nil, childPT(80, 0, 0, 0)))
-	expect(t, call(t, app, "POST", dwCreatePath, dwBody("COMPANY", reseller.ID, "DEPOSIT", 1), c.saTok), 200, 404302)
+	setBalance(t, superadminID(t), "THB", 100)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("COMPANY", reseller.ID, "DEPOSIT", 5), c.saTok), 200, 200)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("COMPANY", reseller.ID, "WITHDRAW", 2), c.saTok), 200, 200)
+	if agentBalance(t, reseller.ID, "THB") != 3 || agentBalance(t, superadminID(t), "THB") != 97 {
+		t.Fatalf("Seamless ฝาก / ถอน: reseller %v · superadmin %v", agentBalance(t, reseller.ID, "THB"), agentBalance(t, superadminID(t), "THB"))
+	}
 
 	// สกุล (DW-11)
 	j := dwBody("SHAREHOLDER", c.share.ID, "DEPOSIT", 1)
@@ -498,12 +503,13 @@ func TestDWDownlinesList(t *testing.T) { // DW-40 – DW-44A
 		t.Fatalf("total_sum shareholder = %v", s)
 	}
 
-	// Seamless: has_balance = false · ยอด 0 ทุกสกุล · credit_detail ของ Superadmin = ยอดจริงใน agent_balances (lead 2026-10-15)
-	mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_RESELLER", "reseller01", nil, childPT(80, 0, 0, 0)))
+	// สาย Seamless มียอดแล้ว (2026-10-15): has_balance = true ทุกแถว · ยอดจริง · credit_detail ของ Superadmin = ยอดจริงใน agent_balances
+	reseller, _ := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_RESELLER", "reseller01", nil, childPT(80, 0, 0, 0)))
 	setBalance(t, superadminID(t), "THB", 100000000)
+	setBalance(t, reseller.ID, "THB", 33)
 	p = list(c.saTok, map[string]any{})
 	for _, r := range p.Data {
-		if (r.Username == "reseller01") == r.HasBalance || (r.Username == "reseller01" && r.Currency["THB"] != 0) {
+		if !r.HasBalance || (r.Username == "reseller01" && r.Currency["THB"] != 33) {
 			t.Fatalf("Seamless %+v", r)
 		}
 	}

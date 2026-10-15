@@ -3,9 +3,9 @@ package apperr
 import "net/http"
 
 // deposit_withdraw (module id 04) — spec: docs/modules/deposit_withdraw.md
+// 404302 จองถาวร (เลิกใช้ 2026-10-15 — สาย Seamless ฝาก / ถอนได้แล้ว · DW-06)
 var (
 	ErrDWTargetInactive     = New(404301, "ฝากให้บัญชีที่ถูกระงับหรือล็อกไม่ได้", "Cannot deposit to a suspended or locked account")
-	ErrDWSeamless           = New(404302, "บัญชีฝั่ง Seamless ไม่มียอดเงิน ฝากหรือถอนไม่ได้", "Seamless accounts have no balance to deposit or withdraw")
 	ErrDWCurrency           = New(404303, "สกุลเงินนี้ไม่มีในบัญชีของคุณหรือบัญชีปลายทาง", "This currency is not available on your account or the target account")
 	ErrDWParentInsufficient = New(404304, "ยอดเงินของคุณไม่พอ", "Your balance is insufficient")
 	ErrDWAdminNotAllowed    = New(404305, "ADMIN ทำรายการฝากหรือถอนไม่ได้", "ADMIN cannot deposit or withdraw")

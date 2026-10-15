@@ -90,7 +90,6 @@ type target struct {
 	role       string
 	username   string
 	status     models.AgentStatus
-	chainID    uint // บัญชีที่ใช้หา Company หัวสาย: agent = ตัวเอง · Member = ผู้สร้าง
 	currencies []string
 }
 
@@ -188,7 +187,7 @@ func loadTarget(tx *gorm.DB, parentID uint, req depositWithdrawDto.CreateRequest
 			return target{}, notFoundAsTarget(err)
 		}
 		return target{owner: models.BalanceOwnerMember, id: m.ID, role: depositWithdrawCore.RoleMember, username: m.Username,
-			status: m.Status, chainID: m.AgentID, currencies: []string{m.Currency}}, nil
+			status: m.Status, currencies: []string{m.Currency}}, nil
 	}
 	a, err := agentManagementPostgres.GetAgentProfileRepository(tx, req.UserID)
 	if err != nil || a.ParentID == nil || *a.ParentID != parentID || string(a.Role) != req.Role {
@@ -199,7 +198,7 @@ func loadTarget(tx *gorm.DB, parentID uint, req depositWithdrawDto.CreateRequest
 		return target{}, err
 	}
 	return target{owner: models.BalanceOwnerAgent, id: a.ID, role: string(a.Role), username: a.Username,
-		status: a.Status, chainID: a.ID, currencies: currencies}, nil
+		status: a.Status, currencies: currencies}, nil
 }
 
 // notFoundAsTarget — ไม่พบ / ไม่ใช่ลูกตรง = 404401 · error อื่นของ DB ส่งต่อ
@@ -210,15 +209,9 @@ func notFoundAsTarget(err error) error {
 	return err
 }
 
-// checkTarget — Seamless (DW-06) → สถานะเฉพาะฝาก (DW-05) → สกุลของลูกและของแม่ (DW-11)
+// checkTarget — สถานะเฉพาะฝาก (DW-05) → สกุลของลูกและของแม่ (DW-11)
+// สาย Seamless ฝาก / ถอนได้แล้ว (DW-06 แก้ 2026-10-15 · lead อนุมัติ) — ยอดนี้ใช้แทงไม่ได้ (wallet ของ operator)
 func checkTarget(tx *gorm.DB, t target, req depositWithdrawDto.CreateRequest, parentID uint) error {
-	agentType, err := agentManagementPostgres.GetChainCompanyTypeRepository(tx, t.chainID)
-	if err != nil {
-		return err
-	}
-	if isSeamless(agentType) {
-		return apperr.ErrDWSeamless
-	}
 	if req.Type == models.DWDeposit && !depositWithdrawCore.CanDeposit(t.status) {
 		return apperr.ErrDWTargetInactive
 	}

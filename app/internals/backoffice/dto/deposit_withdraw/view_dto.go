@@ -27,7 +27,7 @@ type DownlineRow struct {
 	Username    string          `json:"username"`
 	Name        string          `json:"name"`
 	Status      string          `json:"status"`
-	HasBalance  bool            `json:"has_balance"` // false = สาย Seamless (DW-44)
+	HasBalance  bool            `json:"has_balance"` // true เสมอ (สาย Seamless มียอดแล้ว 2026-10-15) · คงไว้ไม่ให้ contract แตก
 	Currency    CurrencyAmounts `json:"currency"`
 	LastLoginIP string          `json:"last_login_ip"` // "" = ยังไม่เคย login (ACC-32)
 	LastLoginAt string          `json:"last_login_at"`
