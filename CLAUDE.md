@@ -28,11 +28,12 @@ go module ชื่อ `app` (import เป็น `app/app/...`, `app/pkg/...`, 
 app/internals/{backoffice|frontend|game|developer}/{controllers,dto,middleware}/{module}/ + routes.go
 app/externals/{partner}/{controllers,dto,middleware}/ + routes.go
 app/service/{module}/     business logic + transaction
+app/cronjob/             งานตามเวลา (IS_CRONJOB) — เรียกได้แค่ service
 app/core/{topic}/         pure business rule + table test
 app/repository/{postgres|redis}/
 app/models/
 pkg/{apperr,response,configs,middleware,routes,utils}
-platform/{database,logger}
+platform/{database,logger,metrics,askmelotto}   (askmelotto = client เดียวของเส้นที่เรียกระบบ askmelotto)
 database/migrations/      goose .sql
 ```
 
@@ -107,6 +108,14 @@ database/migrations/      goose .sql
     - ยกเว้น context `developer` (`/api/v1/dev/*` เครื่องมือ dev / QA): **public ไม่ต้อง login** และมีอยู่เฉพาะ env ที่ตั้ง
       `DEV_ROUTES_ENABLED=true` · `APP_ENV=prod` + เปิด flag = boot ไม่ผ่าน · ห้ามใช้ middleware auth ของ context อื่น (lead 2026-10-15)
 29. `app/externals/*` เป็น trust boundary แยก ห้ามใช้ middleware auth ของ internals
+
+### งานตามเวลา (cronjob)
+
+30. งานตามเวลาอยู่ที่ `app/cronjob/` ที่เดียว: `cronjob.go` (`Start(ctx)` เป็นจุดเดียวที่ `application.go` เรียก) + `{job}_job.go` (ตารางเวลา → เรียก service)
+    - **เรียกได้แค่ service** ห้ามเรียก repository / DB / Redis เอง และห้ามมี business logic (`scripts/check_structure.sh` ตรวจ)
+    - ยิง HTTP ไประบบภายนอกผ่าน `platform/{ระบบ}` เท่านั้น (เช่น `platform/askmelotto`) — service เรียก client นั้น ไม่ยิงเอง
+31. รันเฉพาะ pod ที่ `IS_CRONJOB=true` (เปิด deployment เดียว) · เปิด / ปิดแต่ละ job ที่ตาราง `cronjobs` (ทุกรอบอ่าน `enabled` ก่อน) · แต่ละ job ต้องมี Redis lock กันซ้ำและ goroutine ที่รับ ctx (ข้อ 27)
+    - ค่าเริ่มต้นเปิด / ปิดกำหนดต่อ job ในโค้ด · เปิด / ปิดบน env ร่วมด้วย SQL ใน `docs/DEPLOYMENT.md` และต้องขอ lead ก่อน
 
 ## Workflow
 

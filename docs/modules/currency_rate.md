@@ -1,14 +1,14 @@
 # อัตราแลกเปลี่ยน (`currency_rate`) — Spec (ฉบับใหม่ · แทนฉบับ 2026-10-07 ทั้งหมด)
 
-- สถานะ: **DRAFT** (เขียนตาม lead review รอบ 1 + รอบ 2 — รอ lead review ก่อนรื้อโค้ด)
-- อนุมัติโดย: — · วันที่: —
+- สถานะ: **APPROVED** (เขียนตาม lead review รอบ 1 + รอบ 2 · lead อนุมัติ spec ที่ `ed3d38c` พร้อมข้อเสนอ 8 ข้อในหัวข้อ 10 ทั้งหมด)
+- อนุมัติโดย: zerph · วันที่: 2026-10-16
 - ผู้ทำ: Boiledegg · branch `boiledegg/bo/currency-rate`
 - ที่มาของการตัดสิน: [docs/reviews/currency-rate.md](../reviews/currency-rate.md) (lead zerph 2026-10-16 · รอบ 1 โครงสร้าง + การใช้กับเงิน · รอบ 2 business logic) — **รอบ 2 แทน spec เดิมทั้งหมด**
 - ชื่อ module ในโค้ด: `currency_rate` (`app/core/currency_rate` · `app/service/currency_rate` · `app/repository/postgres/currency_rate` · `app/cronjob` · `platform/askmelotto`)
 - ที่มาของ rule: คำตัดสินของ lead + พฤติกรรมของระบบแม่ askmelotto-api ที่ lead สรุปไว้ (ดึงต้นทางวันละครั้งตี 1 · ใช้เรทของวันที่ 1 ของเดือนทั้งเดือน) + ผลยิงเส้นจริงบน `https://dev-api.amblotto.net` (2026-10-07) · ไม่ได้ extract จากโค้ดเก่าของโปรเจกต์ minigame เดิม
 
 > เอกสารนี้คือ source of truth ของ module — โค้ดและ test ต้องตรงกับเอกสารนี้ ถ้าไม่ตรงให้แก้โค้ด
-> หรือแก้เอกสารผ่านการอนุมัติใหม่ · ข้อที่ผู้ร่างเสนอเองมีเครื่องหมาย **[เสนอ]** รอ lead ยืนยัน (รวมไว้ในหัวข้อ 10)
+> หรือแก้เอกสารผ่านการอนุมัติใหม่ · ข้อที่ผู้ร่างเสนอเองมีเครื่องหมาย **[เสนอ]** — lead รับครบทั้ง 8 ข้อแล้ว (2026-10-16 · หัวข้อ 10) เครื่องหมายคงไว้เพื่อบอกที่มา
 
 ## 1. หน้าที่ของ module
 
@@ -245,7 +245,7 @@ error ที่เรา (ผู้เรียกฟังก์ชันแป
 
 ต้องมี table test ของ `core/currency_rate` (คิด `thb_rate` · ตรวจ response · เดือนไทยของ `at` · ปัด) · integration test ของ job (ใช้ fake askmelotto server — `httptest`) · cronjobs · คำสั่งมือ · `ConvertToTHBService`
 
-## 10. จุดที่ผู้ร่างเสนอเพิ่ม — รอ lead ยืนยันตอน review
+## 10. จุดที่ผู้ร่างเสนอเพิ่ม — **lead รับทั้ง 8 ข้อ (2026-10-16)**
 
 | # | เรื่อง | ข้อเสนอ |
 |---|---|---|
@@ -267,7 +267,7 @@ error ที่เรา (ผู้เรียกฟังก์ชันแป
 
 ## 12. Checklist ก่อนเปิด PR (ลำดับตามที่ lead กำหนด)
 
-1. lead review spec นี้ → ปิดหัวข้อ 10 → เปลี่ยนสถานะเป็น APPROVED
+1. lead review spec นี้ → ปิดหัวข้อ 10 → เปลี่ยนสถานะเป็น APPROVED (✅ 2026-10-16)
 2. รื้อโค้ด: `app/cronjob` (+ `cronjobs` + metrics) · `platform/askmelotto` · ตาราง `currency_rates` แทน Redis · `ConvertToTHBService` · คำสั่งมือ `scripts/currency_rate_sync` · ลบ const ค้างใน `agent_auth/keys.go` · รายการ 27 สกุลที่เดียว · error module 09
 3. แก้ CLAUDE.md · ARCHITECTURE.md · DEPLOYMENT.md · `.env.example`
 4. migration `currency_rates` + `cronjobs` (up / down / up) · `make check` + integration test ผ่าน (แนบผล)

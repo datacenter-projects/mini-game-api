@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	currencyRateService "app/app/service/currency_rate"
+	"app/app/cronjob"
 	"app/pkg/configs"
 	"app/pkg/middleware"
 	"app/pkg/routes"
@@ -79,8 +79,8 @@ func main() {
 		}()
 	}
 
-	// ดึงอัตราแลกเปลี่ยนทุก 15 นาที — docs/modules/currency_rate.md (หยุดเมื่อ ctx ถูกยกเลิกตอน shutdown)
-	currencyRateService.StartSyncWorker(ctx)
+	// งานตามเวลา (เรทรายเดือน ฯลฯ) — เฉพาะ pod ที่ IS_CRONJOB=true · เปิด / ปิดแต่ละ job ที่ตาราง cronjobs · หยุดเมื่อ ctx ถูกยกเลิกตอน shutdown
+	cronjob.Start(ctx)
 
 	app := fiber.New(configs.FiberConfig())
 	middleware.FiberMiddleware(app)

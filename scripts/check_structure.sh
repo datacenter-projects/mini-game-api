@@ -57,6 +57,10 @@ for ctl in app/internals/*/controllers/*/ app/externals/*/controllers/*/; do
   [ -d "app/service/$mod" ] || violation "ไม่มี service คู่กับ controller" "$ctl → ต้องมี app/service/$mod/"
 done
 
+# 9.1 cronjob (app/cronjob) เรียกได้แค่ service — ห้ามเรียก repository / ต่อ DB / Redis เอง (currency_rate J1 · CLAUDE.md)
+out=$(g '"(app/app/repository|app/platform/database|gorm.io|github.com/redis)' app/cronjob)
+[ -n "$out" ] && violation "app/cronjob import repository / database / gorm / redis — cronjob เรียกได้แค่ service (ไม่มี business logic)" "$out"
+
 # 10. ทุก migration ต้องมี Up และ Down
 for f in database/migrations/*.sql; do
   grep -q -- '-- +goose Up' "$f" && grep -q -- '-- +goose Down' "$f" || violation "migration ไม่ครบ Up/Down" "$f"
