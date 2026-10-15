@@ -97,7 +97,8 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			req.StatusGame = statusGameOf(c.Settings)
 		}
 		for _, g := range SortedGroups(req.PT) {
-			is := agentManagementCore.CheckChildPT(pts[g], c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster, c.Agent.Role == models.AgentRoleSuperAdmin)
+			is := agentManagementCore.CheckChildPT(pts[g], c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster, c.Agent.Role == models.AgentRoleSuperAdmin,
+				newAcc.UserType == agentManagementCore.UserTypeCompanySeamlessMaster)
 			if err := ChildPTError(g, is); err != nil {
 				return err
 			}

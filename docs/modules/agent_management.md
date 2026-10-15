@@ -5,6 +5,7 @@
   โครงเส้นใหม่ E1–E6 (หัวข้อ 5) · Share Reseller / Share Master สร้างได้แค่ Member · Company Seamless Master ถือสู้ไม่ได้ ระบบปรับ Share Master ตาม ·
   เบอร์โทรแยก `phone_country_code` + `phone` · ลบเมนูสิทธิ์ `pt` (ทุกเส้นใช้ `member`) · เมนู `api_credential` · `status_game_effective` ·
   lead อนุมัติงานก่อนหน้า: ลบค่าถือ `pt` ค่าเดียวของ agent + `update-hold` (U1) · MGMT-24 R1–R3 (U2) · ลำดับเช็ค 7.1 + ข้อความ error (U3) · เปลี่ยนชื่อตาราง Member (U4)
+- **2026-10-15 (lead pt_calculation Q2 / Q3 · [docs/reviews/pt-calculation.md](../reviews/pt-calculation.md)):** ห้ามตั้ง `force` ให้ CSM (MGMT-18A) · `pt.status = false` ถือ 0 (MGMT-20 · ปิด O1) — แก้โดย maofoy ตามที่ lead สั่ง
 - การแก้ก่อนหน้า (สรุป): 2026-10-08 ชื่อเป็นภาษาไทยได้ · เบอร์ของ sub ซ้ำได้ · ยอดเงินตั้งต้นอยู่ใน module นี้ · `pt` ชุดเดียวต่อระบบ (`minigame`) · `pt.status` = รับ PT ไหม ·
   2026-10-09 เงินและ % เป็น float ปัด 4 ตำแหน่ง (CLAUDE.md กฎข้อ 9 — lead อนุมัติ) · `user_agents.cnf` + `agent_game_settings.parent_id` (MGMT-61 / 62 — lead อนุมัติ) · แถวรายชื่อมี `last_login_*` + `created_at`
 - **sub แก้ตาม lead review 2026-10-11** ([docs/reviews/subaccount.md](../reviews/subaccount.md) — SA1–SA2 · SN · SN4 · SQ1–SQ8): อนุมัติสถานะเดิม = 200 ไม่เขียน log (SA1) และ `keyword` 4–32 (SA2) ·
@@ -109,9 +110,10 @@
 | | • เกมใหม่ที่เพิ่มเข้ากลุ่มภายหลัง: ทุกบัญชีได้ค่าของกลุ่มนั้น และ `status_game = true` อัตโนมัติ |
 | MGMT-17 | ค่า % ใน API เป็น JSON number ทศนิยมไม่เกิน 4 ตำแหน่ง · ภายในเป็น `float64` ปัด 4 ตำแหน่ง (กฎข้อ 9) · **ห้าม `null`** · ไม่ตั้ง Force / Remain = `0` |
 | MGMT-18 | ค่าที่ให้ลูก (`pt_from_parent`): 0 ถึง**ค่าที่ตัวเองได้รับ** ทีละ 0.5% (เกิน = `402305`) · Force / Remain: 0 ถึงค่าที่ให้ลูกคนนั้น ทีละ 0.5% (`402308`) · Commission: 0–1% ทีละ 0.1% (`402309`) · Commission ของลูกตั้ง**เกินของผู้สร้างได้** แต่ไม่เกิน 1% |
-| MGMT-18A | **Superadmin ไม่ตั้ง Remain ให้ลูก** (Company ทุกประเภท รวม CSM — ตัดสิน 2026-10-14): ส่วนที่ไม่มีใครถือคืน Superadmin อยู่แล้ว (MGMT-22) · `remain_quota` ที่ Superadmin (และ sub ของ Superadmin) ส่งตอนสร้าง / แก้ต้องเป็น `0` · ไม่ใช่ 0 = `422` "Superadmin ตั้งเอาส่วนที่เหลือไม่ได้ (ส่วนที่เหลือคืน Superadmin อยู่แล้ว)" · **การคิดตอน settle เหมือนเดิม** · `force` ตั้งได้ตามเดิม (MGMT-18) · migration ปรับ `remain` ของแถวที่ `parent_id` เป็น Superadmin เป็น `0` |
+| MGMT-18A | **Superadmin ไม่ตั้ง Remain ให้ลูก** (Company ทุกประเภท รวม CSM — ตัดสิน 2026-10-14): ส่วนที่ไม่มีใครถือคืน Superadmin อยู่แล้ว (MGMT-22) · `remain_quota` ที่ Superadmin (และ sub ของ Superadmin) ส่งตอนสร้าง / แก้ต้องเป็น `0` · ไม่ใช่ 0 = `422` "Superadmin ตั้งเอาส่วนที่เหลือไม่ได้ (ส่วนที่เหลือคืน Superadmin อยู่แล้ว)" · **การคิดตอน settle เหมือนเดิม** · `force` ตั้งได้ตามเดิม (MGMT-18) **ยกเว้น CSM** · migration ปรับ `remain` ของแถวที่ `parent_id` เป็น Superadmin เป็น `0` |
+| | • **ห้ามตั้ง `force` ให้ CSM** (lead pt_calculation Q3 · 2026-10-15): CSM ถือสู้ไม่ได้ (MGMT-19) · `force` ≠ 0 ตอนสร้าง / แก้ CSM = `422` "Company Seamless Master ถือสู้ไม่ได้ ตั้ง Force ไม่ได้ ต้องเป็น 0" (เช็คหลัง step ของ `force` ก่อนเพดาน `402308`) · migration ใหม่ตั้ง `force` ของ CSM เดิมเป็น `0` · Company ประเภทอื่นตั้งได้ตามเดิม · การคิดข้าม Force ของ CSM ไว้กันพลาด (pt_calculation PTC-04A) |
 | MGMT-19 | **Company Seamless Master (CSM) — lead H2 / H3 / Q-R1 / E1-1 / B2:** |
-| | • CSM **ถือสู้ไม่ได้** · ได้รับจาก Superadmin เท่าไรต้องส่งให้ Share Master ทั้งหมด · Share Master มีได้ไม่จำกัด |
+| | • CSM **ถือสู้ไม่ได้** · ได้รับจาก Superadmin เท่าไรต้องส่งให้ Share Master ทั้งหมด · Share Master มีได้ไม่จำกัด · Superadmin ตั้ง `force` / `remain_quota` ให้ CSM ไม่ได้ (ต้องเป็น `0` — MGMT-18A) |
 | | • Share Master ใช้ค่าตาม CSM อัตโนมัติ: `pt_from_parent` = ค่าที่ CSM ได้รับ · `force` = `remain_quota` = 0 · `status` = ของ CSM · `status_game` = ของ CSM |
 | | • **Commission** CSM ตั้งให้ Share Master แต่ละคนแยกกันได้ |
 | | • สร้าง Share Master: `pt.minigame` ส่งแค่ `commission_percent` · `status_game` ห้ามส่ง · ส่ง field ที่ระบบตั้งเอง = `422` "Share Master ใช้ค่าตาม Company Seamless Master" |
@@ -120,7 +122,7 @@
 | | • `pt` ที่ Share Master ถือสู้กับ Member: Share Master ตั้งเองต่อ Member (member_management MGMT-21 — lead H4) |
 | MGMT-19A | Company Seamless Reseller **ถือสู้ได้** และตั้งค่าให้ Share Reseller แต่ละคนแยกกันได้ตามกฎทั่วไป (MGMT-22 — lead H5) |
 | MGMT-20 | **`pt.status` กับ `status_game` แยกหน้าที่กัน**: |
-| | • `pt` → ระบบ → `status` (bool) = รับ PT ในระบบนั้นไหม · `false` = เกมยังเปิด แต่บัญชีนี้ไม่รับ PT · PT ส่วนนั้นไปอยู่กับใคร: **open item ต้องตัดสินก่อนเริ่ม module settle** (lead Q-R3) |
+| | • `pt` → ระบบ → `status` (bool) = รับ PT ในระบบนั้นไหม · `false` = เกมยังเปิด แต่บัญชีนี้ไม่รับ PT · PT ส่วนนั้นไปอยู่กับใคร (lead pt_calculation Q2 · 2026-10-15 · ปิด O1 / Q-R3): **บัญชีนั้นถือ 0 และไม่โดน Force ของตัวเอง** · ส่วนนั้นไหลตามกฎปกติ (Force / Remain ของชั้นอื่นรับก่อน ไม่มีก็คืน Superadmin — MGMT-22) · Remain ที่บัญชีนั้นตั้งให้ลูกยังทำงาน · รายละเอียดการคิด pt_calculation PTC-02A |
 | | • `status_game` → รหัสเกม (bool) = เปิด / ปิดเกมรายบัญชี · ผู้สร้างตั้งให้ · ชั้นบนปิดแล้วสายล่างเปิดเองไม่ได้ — เกมเปิดจริง (`status_game_effective`) เมื่อบัญชีและหัวสายทุกชั้นเปิด · `false` = Member ในสายเล่นเกมนั้นไม่ได้ (บังคับใน module เดิมพัน) |
 | MGMT-21 | สร้างบัญชีฝั่ง agent ต้องส่งครบทุกกลุ่มที่มี · Member: ผู้สร้างตั้ง `pt` (ถือสู้กับ Member คนนี้) + `commission_percent` · `remain_quota` ระบบคิด — รายละเอียดใน member_management MGMT-21 |
 | MGMT-22 | **ผู้สร้างกำหนดค่าที่ให้ลูกแต่ละคนแยกกัน** (ทุกชั้น รวม Superadmin → Company ยกเว้น CSM → Share Master): ลูกแต่ละคนได้รับไม่เท่ากันได้ · ห้ามเกินค่าที่ผู้สร้างได้รับ · Superadmin ได้รับ 100% · ผู้สร้างถือในสายของลูกคนนั้น = ค่าที่ได้รับ − ค่าที่ให้ลูก (ระบบคำนวณ) · ถือสู้กับ Member ตั้งต่อ Member · ส่วนที่ไม่มีใครถือผ่าน Force / Remain ตอนคิดเงินก่อน ถ้าไม่มีก็**คืน Superadmin** |
@@ -598,6 +600,7 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 | MGMT-15A | sub มี `member` edit ไม่มี `payment` ส่ง `balance` | `402303` |
 | MGMT-17 / 18 | `"force": null` · `pt_from_parent` `30.25` · commission `1.01` · `30.12345` · ให้ลูกเกินที่ได้รับ | `422` · `422` · `422` · `422` · `402305` ("ค่าที่ให้ลูกเกินกว่าที่ได้รับ") |
 | MGMT-18A | Superadmin สร้าง Company `remain_quota` 10 · สร้าง CSM `remain_quota` 5 · `remain_quota` 0 + `force` 10 · แก้ Company (`detail/update`) `remain_quota` 10 · Company สร้าง Share `remain_quota` 10 · migration: Company เดิม `remain` 20 | `422` · `422` · สำเร็จ · `422` · สำเร็จ (ชั้นอื่นตั้งได้ตามเดิม) · `remain` = 0 (ค่าอื่นไม่แตะ) |
+| MGMT-18A | Superadmin สร้าง CSM `force` 10 · สร้าง CSM `force` 10.3 · สร้าง Company Transfer `force` 10 · แก้ CSM `force` 5 · migration: CSM เดิม `force` 20 / Company Transfer `force` 20 | `422` "Company Seamless Master ถือสู้ไม่ได้" · `422` (step) · สำเร็จ · `422` ไม่บันทึก (Share Master ไม่ถูก sync) · CSM `force` = 0 · Transfer ไม่แตะ (ค่าอื่นไม่แตะ) |
 | MGMT-19 | CSM สร้าง Share Master ส่งแค่ `commission_percent` | สำเร็จ · `pt_from_parent` = ค่าที่ CSM ได้รับ · force / remain 0 · `status_game` = ของ CSM |
 | MGMT-19 | CSM สร้าง Share Master ส่ง `pt_from_parent` · ส่ง `status_game` | `422` "Share Master ใช้ค่าตาม Company Seamless Master" |
 | MGMT-19 | CSM `detail/update` Share Master: `commission_percent` · `pt_from_parent` · `status_game` · `info` | สำเร็จ · `422` · `422` · สำเร็จ |
@@ -655,6 +658,8 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 
 ## 8. Contract changes (แจ้ง frontend)
 
+**เปลี่ยน 2026-10-15 (lead pt_calculation Q3):** ฟอร์มสร้าง / แก้ **Company Seamless Master** — `force` ต้องเป็น `0` (ส่งค่าอื่น = `422`) · ควรล็อกช่อง Force เป็น 0 เหมือนช่อง Remain ของ Company (MGMT-18A)
+
 **เปลี่ยน 2026-10-09 (lead review):**
 - path ใหม่ทั้งหมดตามหัวข้อ 5 · เส้นเดิมถูกลบ (ได้ `404`) · `downlines/search` รวมเข้า `downlines/list` ด้วย `keyword` (แทน `q`) · `subaccounts/list` ใช้ `keyword` แทน `q` ด้วย (4–32 ตัว)
 - แก้บัญชีเหลือเส้นเดียว `agents/detail/update` (`info` / `pt` / `status_game`) · สถานะแยกที่ `agents/status/update` · dropdown ใช้ `agents/list` แทน `copy-sources`
@@ -690,4 +695,4 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 
 | # | เรื่อง | ตัดสินเมื่อ |
 |---|---|---|
-| O1 | PT ของบัญชีที่ `pt.status = false` ไปอยู่กับใคร (lead Q-R3) | ก่อนเริ่ม module Bet / Settle |
+| O1 | ~~PT ของบัญชีที่ `pt.status = false` ไปอยู่กับใคร (lead Q-R3)~~ | ✅ ตัดสิน 2026-10-15 (lead pt_calculation Q2) — MGMT-20 · pt_calculation PTC-02A |
