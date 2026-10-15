@@ -175,3 +175,19 @@ Boiledegg: แก้ PA-09 + ใส่ "อนุมัติโดย: zerph ·
 
 **เงื่อนไข merge:** แก้ S2 + S3 · แนบผล integration test (หรือ CI เขียว) · nit 7 ข้อใน `reviews/mini-game-api/verify-player-auth.md` (error list ของ L2 ขาด `407301` / `503` · PA4 ผิดครบแล้วตัด session ให้เขียนใน spec · `last_login_ip` ของ L2 = IP ของ operator ฯลฯ) ทำได้ใน PR เดียวกัน
 **ก่อน deploy dev:** migrate `20261015140000` + ตั้ง `PLAYER_LOBBY_URL` (`TRUSTED_PROXIES` หลังแก้ S1)
+
+## รอบ 7 — verify รอบ 2–3 + S1 (dev @ `3c42948` · lead 2026-10-15)
+- S2 / S3 ✅ · **S1 client IP (`308f76d`) ✅ ออกแบบถูก ไม่มีทางปลอม IP** (peer ที่ไม่ใช่ proxy ที่เชื่อถือ = socket IP · ไล่ XFF จากขวา · fail-closed · ไม่อ่าน X-Real-IP / Forwarded · ไม่เหลือ `c.IP()` ใน request path)
+- integration test: รับผลที่ Boiledegg รันเอง (`go test -count=1 -tags=integration ./...` 27 package ok · test งานนี้ 35 ตัว) · **ก่อน deploy dev ออก tag `dev-*` ให้ CI รันซ้ำ** (รวม golangci-lint)
+
+| # | เรื่อง | ต้องทำ | เมื่อไร |
+|---|---|---|---|
+| S1-a | `TRUSTED_PROXIES` ที่พิมพ์ผิดถูกข้ามเงียบ → ทุกคนได้ IP ของ proxy → rate limit ใช้ร่วมกันทั้งระบบ (BO / player login ล่ม) + operator `407305` | validate ใน `configs.Load` (ผิด = boot ไม่ผ่าน) แล้ว parse ครั้งเดียว | ก่อน deploy dev |
+| S1-b | ยังไม่ได้ยิงผ่าน ingress จริง | หลัง deploy dev: ยืนยันว่า ingress **ต่อท้าย** XFF (ไม่เขียนทับ) + ใส่ CIDR ทุกชั้น (ALB / nginx pod / CDN ถ้ามี) — CIDR ได้จาก lead / infra | ก่อนเปิด `transfer/*` ให้ operator |
+| N5 | `operator_service.go:136-143` ออก session (เตะ session เดิม) ก่อนตรวจ `PLAYER_LOBBY_URL` → ค่าผิดรูปแบบ ผู้เล่นโดนเตะแต่ไม่ได้ link | ตรวจ `PLAYER_LOBBY_URL` ตอน `configs.Load()` (ถ้าตั้งต้องเป็น absolute URL) หรือเรียก `LobbyLink` ก่อน `issueSession` | ก่อนเปิดให้ใช้จริง |
+| N3 | `session_service.go:226-237` middleware ใช้ 2 query (Member + สถานะสายบน) แต่ spec เขียน "query เดียว" (ไม่ใช่ N+1) | ปล่อยได้ (แก้ spec ให้ตรง) หรือรวมเป็น JOIN `cnf->'parent'` ถ้า k6 ชี้ว่าเป็นคอขวด | ตอนว่าง |
+| N4 | `catalog_service.go` `GameCoversOfAgentService` · `player_service.go:323-346` — `chainOf` query สายซ้ำทั้งที่ `Player.UplineIDs` มีแล้ว · การคิด `open` เขียนซ้ำกับ `agent_management.effectiveStatusGame` | ส่ง chain เข้า wrapper / export helper `open` ตัวเดียว | ตอนว่าง |
+| N7 | `app/internals/backoffice/player_auth*_integration_test.go` — test ของ frontend / transfer อยู่ใน package backoffice | ย้ายไป package กลาง (เช่น `app/integration`) | ตอนว่าง |
+| nit | spec PA-10 ยังไม่ถูกแก้ทั้งที่ commit S1 บอกว่าแก้ · `docs/lead/bo-player-auth.md` ยังเขียน "ยังไม่ merge" | แก้ doc | ก่อน deploy dev |
+
+**ก่อน deploy dev:** S1-a + nit doc · migrate RDS dev `20261015150000` (Maofoy) · ตั้ง `PLAYER_LOBBY_URL` + `TRUSTED_PROXIES` · tag `dev-*` ให้ CI เขียว
