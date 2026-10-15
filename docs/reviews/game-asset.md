@@ -101,3 +101,12 @@ nit 7 ข้อใน verify report ทำหรือไม่ก็ได้ �
 - **คงแบบเดิม (AST-61): คนรัน `scripts/seed_asset_global -dir <โฟลเดอร์>` เองทีละ env** · รูปอยู่นอก repo
 - **ไม่รับแบบ Job ตอน deploy**: ไม่เก็บรูปใน repo (`seed/global-assets/`) · ไม่ COPY เข้า image · ไม่ต้องให้ infra เพิ่ม Job → **ไม่ merge `7dc2882`** (ถ้าจะเก็บ `make seed-asset-global` ไว้ช่วยรันในเครื่อง แยก PR ได้)
 - รันบน env ร่วม (dev / uat / prod) เขียน S3 + DB ของจริง → **ขอ lead ก่อนทุกครั้ง** · ต้องครบทุกช่องของ `scratch_card` ก่อน UAT (AST-24)
+
+### แก้ (lead 2026-10-15 ค่ำ) — เก็บรูป GLOBAL ไว้ใน repo · ยังรันสคริปต์เอง
+- `7dc2882` ถูก revert ออกจาก dev แล้ว (`23e4ce7`) · **เอากลับเข้ามาบางส่วนเป็น PR ใหม่ (schneider)**:
+  - ✅ `seed/global-assets/` (รูป `scratch_card` 19 ไฟล์ + README) — รูปชุดจริงอยู่ใน repo ที่เดียว
+  - ✅ `TestSeedGlobalRepoImages` — CI ตรวจชื่อ / ขนาด / ชนิดรูปทุกไฟล์
+  - ✅ `make seed-asset-global`
+  - ❌ Dockerfile (ไม่ build `seed_asset_global` / ไม่ COPY รูปเข้า image) · ❌ Job หลัง `migrate up` · ❌ หัวข้อ Job ใน DEPLOYMENT.md
+- **การรันยังเป็นแบบเดิม (AST-61)**: คนรันสคริปต์เองทีละ env ชี้ไปที่ `seed/global-assets` · DEPLOYMENT.md เขียนวิธีรันเอง + **ขอ lead ก่อนรันบน dev / uat / prod**
+- ยังไม่รันบน env ใด — รอ S3 / CloudFront ของ dev พร้อม
