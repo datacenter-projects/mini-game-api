@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http/httptest"
+	"net/netip"
 	"testing"
 
 	"app/pkg/configs"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestClientIPFrom(t *testing.T) {
-	trusted := parsePrefixes([]string{"10.0.0.0/8", "172.16.5.4", "fd00::/8"})
+	trusted := mustParse(t, "10.0.0.0/8", "172.16.5.4", "fd00::/8")
 	tests := []struct {
 		name  string
 		peer  string
@@ -36,7 +37,6 @@ func TestClientIPFrom(t *testing.T) {
 		{"connection ไม่ใช่ proxy ที่เชื่อถือ ไม่เชื่อ XFF", "198.51.100.7", []string{"1.2.3.4"}, nil, "198.51.100.7"},
 		{"ไม่ตั้ง TRUSTED_PROXIES ไม่เชื่อ XFF", "10.0.0.5", []string{"1.2.3.4"}, []string{"none"}, "10.0.0.5"},
 		{"peer ที่อ่านไม่ได้ คืนตามเดิม", "not-an-ip", []string{"1.2.3.4"}, nil, "not-an-ip"},
-		{"TRUSTED_PROXIES ที่เสียถูกข้าม (ไม่เชื่อ)", "10.0.0.5", []string{"1.2.3.4"}, []string{"bogus", "999.1.1.1/8"}, "10.0.0.5"},
 	}
 	for _, tt := range tests {
 		ts := trusted
@@ -44,7 +44,7 @@ func TestClientIPFrom(t *testing.T) {
 		case len(tt.trust) == 1 && tt.trust[0] == "none":
 			ts = nil
 		case tt.trust != nil:
-			ts = parsePrefixes(tt.trust)
+			ts = mustParse(t, tt.trust...)
 		}
 		if got := clientIPFrom(tt.peer, tt.xff, ts); got != tt.want {
 			t.Errorf("%s: clientIPFrom(%q, %v) = %q want %q", tt.name, tt.peer, tt.xff, got, tt.want)
@@ -78,15 +78,25 @@ func TestClientIPHandler(t *testing.T) {
 	if got := get("1.2.3.4"); got != "0.0.0.0" { // ไม่ตั้ง TRUSTED_PROXIES: ไม่เชื่อ header
 		t.Errorf("ไม่ตั้ง TRUSTED_PROXIES: %q", got)
 	}
-	configs.Cfg.TrustedProxies = []string{"0.0.0.0/32"}
+	configs.Cfg.TrustedProxyPrefixes = mustParse(t, "0.0.0.0/32")
 	if got := get("66.66.66.66, 203.0.113.9, 0.0.0.0"); got != "203.0.113.9" {
 		t.Errorf("ผ่าน proxy ที่เชื่อถือ: %q", got)
 	}
 	if got := get("66.66.66.66", "203.0.113.9"); got != "203.0.113.9" { // header หลายบรรทัด
 		t.Errorf("header หลายบรรทัด: %q", got)
 	}
-	configs.Cfg.TrustedProxies = []string{"10.0.0.0/8"} // connection (0.0.0.0) ไม่ใช่ proxy ที่เชื่อถือ
+	configs.Cfg.TrustedProxyPrefixes = mustParse(t, "10.0.0.0/8") // connection (0.0.0.0) ไม่ใช่ proxy ที่เชื่อถือ
 	if got := get("203.0.113.9"); got != "0.0.0.0" {
 		t.Errorf("connection ไม่ใช่ proxy ที่เชื่อถือ: %q", got)
 	}
+}
+
+// mustParse แปลงรายการ TRUSTED_PROXIES แบบเดียวกับตอน configs.Load (ผิด = test พัง)
+func mustParse(t *testing.T, list ...string) []netip.Prefix {
+	t.Helper()
+	ps, err := configs.ParseTrustedProxies(list)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ps
 }

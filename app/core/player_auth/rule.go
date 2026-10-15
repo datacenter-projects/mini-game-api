@@ -112,10 +112,10 @@ func NormalizeLanguage(s string) (string, bool) {
 }
 
 // LobbyLink — link เข้า lobby: base + ?token=<token>&lang=<lang> (LQ-c · lead Q12)
-// base ที่มี query อยู่แล้วต่อ & ให้ · base ที่อ่านไม่ได้ ok false
+// base ที่มี query อยู่แล้วต่อ & ให้ · base ที่ไม่ใช่ absolute http(s) URL ที่มี host ok false
 func LobbyLink(base, token, lang string) (string, bool) {
 	u, err := url.Parse(strings.TrimSpace(base))
-	if err != nil || u.Scheme == "" || u.Host == "" {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" { // ตรงกับ configs.validateLobbyURL
 		return "", false
 	}
 	extra := "token=" + url.QueryEscape(token) + "&lang=" + url.QueryEscape(lang) // เรียง token ก่อน lang ตาม spec

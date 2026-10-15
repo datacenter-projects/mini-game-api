@@ -53,7 +53,7 @@ func ipEnv(t *testing.T) trEnv {
 	e := plSetup(t)
 	opSeed(t, e.c.agent.ID, clientIP+"/32")
 	opSeed(t, e.c.share.ID, clientIP+"/32")
-	configs.Cfg.TrustedProxies = []string{"0.0.0.0/32"}
+	setTrustedProxies(t, "0.0.0.0/32")
 	return trEnv{e}
 }
 
@@ -91,10 +91,10 @@ func TestClientIPUntrustedPeerIgnoresXFF(t *testing.T) { // S1: ไม่ตั�
 	e := ipEnv(t)
 	body := e.body("p001", nil)
 
-	configs.Cfg.TrustedProxies = nil // ไม่ตั้ง: IP ของ connection ตรงๆ (0.0.0.0) ไม่อยู่ใน whitelist
+	setTrustedProxies(t) // ไม่ตั้ง: IP ของ connection ตรงๆ (0.0.0.0) ไม่อยู่ใน whitelist
 	expect(t, callXFF(t, e.app, trLoginPath, body, clientIP), 403, 407305)
 
-	configs.Cfg.TrustedProxies = []string{"10.0.0.0/8"} // ตั้ง แต่ connection (0.0.0.0) ไม่ใช่ proxy ที่เชื่อถือ
+	setTrustedProxies(t, "10.0.0.0/8") // ตั้ง แต่ connection (0.0.0.0) ไม่ใช่ proxy ที่เชื่อถือ
 	expect(t, callXFF(t, e.app, trLoginPath, body, clientIP), 403, 407305)
 
 	// ตรงข้าม: whitelist = IP ของ connection จริง · XFF ปลอมเป็นอย่างอื่นก็ไม่กระทบ
@@ -102,7 +102,7 @@ func TestClientIPUntrustedPeerIgnoresXFF(t *testing.T) { // S1: ไม่ตั�
 		t.Fatal(err)
 	}
 	opSeedIPs(t, e.c.agent.ID, trTestIP)
-	configs.Cfg.TrustedProxies = nil
+	setTrustedProxies(t)
 	expect(t, callXFF(t, e.app, trLoginPath, body, "1.2.3.4"), 200, 200)
 }
 
@@ -150,4 +150,15 @@ func TestClientIPRateLimitNotBypassedByForgedXFF(t *testing.T) { // S1: client �
 		}
 		expect(t, callXFF(t, e.app, boLoginPath, map[string]any{"username": "ghost9", "password": "x"}, "10.9.9.99, "+clientIP), 429, 429)
 	})
+}
+
+// setTrustedProxies ตั้ง TRUSTED_PROXIES แบบเดียวกับ configs.Load (validate + parse) — ClientIP อ่านจาก Cfg.TrustedProxyPrefixes
+func setTrustedProxies(t *testing.T, list ...string) {
+	t.Helper()
+	ps, err := configs.ParseTrustedProxies(list)
+	if err != nil {
+		t.Fatal(err)
+	}
+	configs.Cfg.TrustedProxies = list
+	configs.Cfg.TrustedProxyPrefixes = ps
 }
