@@ -114,7 +114,7 @@
 | PA-52 | เปลี่ยนรหัสสำเร็จ "เตะ session อื่น" (PQ8–PQ14) — ดูหัวข้อ 9 ข้อ 10 เรื่องความหมายเมื่อมี 1 session ต่อคน |
 | PA-53 | BO reset รหัสผู้เล่น **ยังไม่ทำ** |
 | PA-54 | `me/get` คืนโปรไฟล์ + ยอด + สถานะ · ยอดอ่านจาก `user_members.credit` (ไม่ใช้ cache — กฎข้อ 14) |
-| PA-55 | `games/list` ต้อง login (GQ9) · แสดงเกมทั้งหมดของ lobby พร้อมสถานะ เปิด / ปิด · เกมปิดแสดงเป็นเกมปิด ไม่ซ่อน |
+| PA-55 | `games/list` ต้อง login (GQ9) · แสดงเกมทั้งหมดของ lobby พร้อมสถานะ เปิด / ปิด และ**รูปปก** (`game_cover` — อ่านจาก asset ตาม AST-51) · เกมปิดแสดงเป็นเกมปิด ไม่ซ่อน · ไม่มีปก = `game_cover = ""` |
 
 ### 3.7 เกมปิด
 
@@ -160,6 +160,16 @@ Response `data` **[ร่าง — field ของ `member` รอ lead]**:
   "member": { "username": "mem01", "name": "mem01", "currency": "THB", "status": "ACTIVE", "can_bet": true }
 }
 ```
+
+| Field | Type | ความหมาย | ตัวอย่าง |
+|---|---|---|---|
+| `token` | string | JWT `typ = "pl"` ใส่ `Authorization: Bearer <token>` ทุกเส้น `pr/*` | `eyJhbGciOi…` |
+| `expires_at` | string (RFC 3339 +07:00) | เวลาหมดอายุ**แบบ absolute** (login + 4 ชม. — PA-21) · idle 30 นาทีไม่รวมในค่านี้ ใช้งานแล้วต่ออายุเอง ไม่เกินค่านี้ | `2026-10-15T16:00:00+07:00` |
+| `member.username` | string | username ที่ใช้ login (Member จาก BO = ชื่อเดิม) | `mem01` |
+| `member.name` | string | ชื่อที่แสดง | `mem01` |
+| `member.currency` | string | สกุลเงินของผู้เล่น (ISO) | `THB` |
+| `member.status` | string `ACTIVE` / `SUSPENDED` | สถานะที่ใช้งานจริง (แย่สุดของ Member + สายบน — หัวข้อ 3.4) · `LOCKED` ไม่มีในนี้เพราะ login ไม่ผ่าน | `ACTIVE` |
+| `member.can_bet` | bool | เดิมพันได้ไหม (PA-35) · `false` เมื่อ `SUSPENDED` | `true` |
 Error codes: `422` · `407201` · `407301` · `407302` · `407303` · `429` · `500`
 
 ### PA3 · POST /api/v1/player/pr/auth/logout
@@ -177,15 +187,37 @@ Request: `{}` · Response `data` **[ร่าง]**:
 ```json
 { "username": "agent01@p001", "name": "p001", "currency": "THB", "credit": 1250.5, "status": "SUSPENDED", "can_bet": false }
 ```
-- `credit` ส่งค่าที่เก็บตามจริง ไม่ปัดเพิ่ม (กฎข้อ 9) · `status` = สถานะที่ใช้งานจริง
+| Field | Type | ความหมาย | ตัวอย่าง |
+|---|---|---|---|
+| `username` | string | username ผู้เล่น (ผู้เล่นจาก operator = `agent@player`) | `agent01@p001` |
+| `name` | string | ชื่อที่แสดง | `p001` |
+| `currency` | string | สกุลเงิน (ISO) | `THB` |
+| `credit` | number | ยอดเงินคงเหลือ หน่วยสกุล ส่งค่าที่เก็บตามจริง ไม่ปัดเพิ่ม (กฎข้อ 9) · หน้าบ้านปัด 3 ตำแหน่งตอนแสดงเอง | `1250.5` |
+| `status` | string `ACTIVE` / `SUSPENDED` | สถานะที่ใช้งานจริง (หัวข้อ 3.4) | `SUSPENDED` |
+| `can_bet` | bool | เดิมพันได้ไหม (PA-35) | `false` |
 Error codes: `407202` · `407203` · `407204` · `407301` · `407302`
 
 ### PA7 · POST /api/v1/player/pr/games/list
 
 Request: `{}` · Response `data` **[ร่าง — แหล่งข้อมูลและ field รอ lead]**:
 ```json
-{ "items": [ { "game_code": "scratch_card", "open": true }, { "game_code": "coin_toss", "open": false } ] }
+{
+  "items": [
+    { "game_code": "scratch_card", "open": true,  "game_cover": "https://cdn.example.com/assets/scratch_card/game_cover/3f9a….png" },
+    { "game_code": "coin_toss",    "open": false, "game_cover": "" }
+  ]
+}
 ```
+
+| Field | Type | ความหมาย | ตัวอย่าง |
+|---|---|---|---|
+| `items` | array | เกมทั้งหมดของ lobby เรียงตามลำดับที่หน้าเกมแสดง (เกมปิดไม่ซ่อน — PA-55) · ไม่มีเกม = `[]` | |
+| `items[].game_code` | string | รหัสเกม ตรงกับ `game_code` ของ game_rate | `scratch_card` |
+| `items[].open` | bool | เปิดให้เล่นไหม (เปิดจริงตามสายบนของผู้สร้าง) · `false` = แสดงเป็นเกมปิด เดิมพันไม่ได้ (PA-60) | `true` |
+| `items[].game_cover` | string (URL) | **รูปปกเกม** = ช่อง `game_cover` ของเกมนั้น ไล่สายจากผู้สร้างตรงของผู้เล่นขึ้นไปทีละช่อง (ตัวเอง → ชั้นบนที่ใกล้สุด → GLOBAL — asset AST-25 / AST-51 / AST-57) · ผู้เล่นเห็นแบบเดียวกับที่ BO preview เห็น · URL = `S3_CDN_BASE_URL` + storage key (AST-49) · เกมที่ยังไม่มีปก หรืออ่านปกไม่สำเร็จ = `""` ตอบสำเร็จ ไม่ใช่ error (AST-46 / ACC-32) + log warn | `https://cdn.example.com/…/game_cover/3f9a….png` |
+| ชื่อเกม / อัตรา / รูปช่องอื่น | — | **ยังไม่อยู่ใน response** — รูปช่องอื่นเป็นของ bundle (`/player/asset/bundle` — GN23 · asset AST-48 · Schneider ทำหลัง middleware ผู้เล่น merge) |  |
+- ปกอ่านจาก **service ตัวเดียวกับ `games/list` ของ BO / `used/list`** (asset AST-51 — ห้ามเขียน query คู่ขนาน) โดยเป้าหมายมาจาก session ของผู้เล่นเท่านั้น (PA-01 / asset AST-52) · ทุกเกมใน query เดียว ไม่ N+1 (กฎข้อ 23)
+- รูปปกขนาดตาม catalog ของช่อง `game_cover` (เช่น scratch_card 608×1080) — ขนาดตัดสินที่ asset ไม่ใช่ที่นี่
 Error codes: `407202` · `407203` · `407204` · `407301` · `407302`
 
 ### L2 · POST /api/v1/transfer/login
@@ -198,6 +230,13 @@ Response `data` **[ร่าง]**:
 ```json
 { "token": "<jwt>", "expires_at": "2026-10-15T16:00:00+07:00", "link": "https://<lobby>/?token=<jwt>" }
 ```
+
+| Field | Type | ความหมาย | ตัวอย่าง |
+|---|---|---|---|
+| `token` | string | JWT ของผู้เล่น (เหมือน PA1) · operator เก็บไว้เรียกต่อเองได้ แต่ผู้เล่นใช้ผ่าน `link` | `eyJhbGciOi…` |
+| `expires_at` | string (RFC 3339 +07:00) | หมดอายุแบบ absolute (login + 4 ชม.) | `2026-10-15T16:00:00+07:00` |
+| `link` | string (URL) | link เข้า lobby ที่ต่อ `?token=<token>` ท้าย URL (LQ-c) · operator redirect ผู้เล่นไป link นี้ตรงๆ · ฐาน URL มาจาก env (ข้อ 9 ข้อ 12) | `https://<lobby>/?token=eyJ…` |
+| (ไม่มี) `created` | — | **ไม่บอกว่าสร้างผู้เล่นใหม่หรือเดิม** — operator ไม่ต้องรู้ (PA-07) | |
 - ชื่อ field ของ request ใช้ camelCase ตามแบบ askmelotto / sportbook ที่ operator คุ้น (`agentUsername`, `key`, `playerUsername`) — **[ร่าง]** ยืนยันกับ lead (ข้อ 9 ข้อ 9) เพราะส่วนอื่นของระบบใช้ snake_case
 - มาตรการลดความเสี่ยง token อยู่ใน URL (LQ-c): หน้าเกมลบ token ออกจาก URL ทันทีหลังอ่าน (`history.replaceState`) · หน้าเกมตั้ง `Referrer-Policy: no-referrer` · **ห้าม log query string ของ URL หน้าเกมฝั่งเรา** (รวม access log ของ proxy ที่เราคุมได้) · token อายุตาม session และ login ใหม่เตะอันเก่า (PA-21 / PA-22)
 Error codes: `422` · `407206` · `407305` · `407301` · `407302` · `407306` · `429` · `500`
@@ -205,6 +244,11 @@ Error codes: `422` · `407206` · `407305` · `407301` · `407302` · `407306` �
 ### TR · POST /api/v1/transfer/register
 
 Request: `{ "agentUsername": "agent01", "key": "<64 hex>", "playerUsername": "p001" }` · Response **[ร่าง]**: `{"code":200,"msg":"สำเร็จ","data":{"username":"agent01@p001"}}`
+
+| Field | Type | ความหมาย | ตัวอย่าง |
+|---|---|---|---|
+| `username` | string | username ที่ระบบเก็บ = `{agentUsername}@{playerUsername}` (ตัวเล็กทั้งหมด) — operator เก็บไว้เทียบกับผู้เล่นฝั่งตัวเอง | `agent01@p001` |
+| token / link | — | **ไม่ออก** — ได้ token ต้องเรียก `transfer/login` |  |
 Error codes: `422` · `407206` · `407305` · `407301` · `407302` · `407306` · `407401` · `429`
 
 ### Middleware ผู้เล่น `PlayerAuthenticated` (ใช้กับทุก route ใต้ `/player/pr`)
@@ -309,7 +353,7 @@ Redis:
 | 4 | **ยอดตั้งต้นและ `payment_type`** ของผู้เล่นที่ระบบสร้าง | `credit = 0` · `payment_type` ค่า default ของ DB (`CASH`) · ผู้สร้างฝากให้ทีหลังผ่าน spec Transfer API |
 | 5 | **ค่าตั้งต้นของ PT / commission** "แบบที่ BO สร้างโดยไม่กรอกค่า" — `members/create` บังคับส่ง `pt` ทุกกลุ่ม (MGMT-21) ไม่มีโหมดไม่กรอก | ขอ lead ยืนยันค่า: `pt = 0` · `commission = 0` · `win_limit_per_day` = default DB 10,000,000 หรือคัดลอกจากผู้เล่นคนล่าสุดของ agent |
 | 6 | **`can_bet`** (PA-35) — นับ `win_limit_per_day = 0` (เล่นไม่ได้ — MGMT-65) และเกมปิดด้วยไหม | `can_bet` = ACTIVE + `win_limit_per_day > 0` · เกมปิดดูที่ `games/list` รายเกม |
-| 7 | **`games/list`**: แหล่งรายการเกม (`gameRateCore` specs / `agent_game_settings.status_game_effective` ของผู้สร้าง?) · field ที่ต้องส่ง (ชื่อ, asset, rate?) | รายการจาก catalog เกมในระบบ · `open` = เปิดจริงของ**ผู้สร้าง**ตามสายบน (`status_game_effective`) · asset รอ Schneider |
+| 7 | **`games/list`**: แหล่งรายการเกม (`gameRateCore` specs / `agent_game_settings.status_game_effective` ของผู้สร้าง?) · field ที่ต้องส่งนอกจาก `game_code` / `open` / `game_cover` (ชื่อเกม? rate?) | รายการจาก catalog เกมในระบบ · `open` = เปิดจริงของ**ผู้สร้าง**ตามสายบน (`status_game_effective`) · `game_cover` ตาม asset AST-51 (ตัดสินแล้วในฝั่ง asset) · ชื่อเกมที่แสดง: ขอ lead ยืนยันว่าหน้าเกมใช้ชื่อจากไหน |
 | 8 | **rate limit ของ `transfer/*`** (PA-42) | IP 20/นาทีต่อ IP (key `pl:op:ip:*`) · whitelist ว่าง = ปฏิเสธทุก IP (`407305`) ตาม ACC-07 ("ไม่มีเลย = ลูกค้าเรียก API ไม่ได้") ซึ่งไม่ต้องตัดสินใหม่ |
 | 9 | **รูปแบบ field ของ operator**: camelCase (`agentUsername` / `playerUsername`) ตาม askmelotto หรือ snake_case ตามระบบนี้ | camelCase ตามที่ review เขียนไว้ (`agentUsername` / `playerUsername`) เพื่อให้ operator เก่าย้ายง่าย |
 | 10 | **"เปลี่ยนรหัสเตะ session อื่น"** (PQ8–PQ14) — มี 1 session ต่อคน จึงไม่มี session อื่น | session ปัจจุบันอยู่ต่อ · ไม่ต้องทำอะไรเพิ่ม (หรือบังคับ login ใหม่ถ้า lead ต้องการ) |
