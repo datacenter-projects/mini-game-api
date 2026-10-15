@@ -13,6 +13,9 @@ const (
 	NoteMaxRunes = 200           // DW-15
 	LogsMaxDays  = 31            // DW-47 ช่วงวันของ DW3 รวมทั้ง 2 วัน
 
+	// SuperadminSeedAmount — ยอดตั้งต้นของ Superadmin ต่อสกุล (lead 2026-10-15 · migration 20261015100000 · script create_superadmin)
+	SuperadminSeedAmount = 100_000_000
+
 	// RoleMember — role ของ Member ในรายชื่อ DW1 และ request DW2 (ไม่มีใน models.AgentRole)
 	RoleMember = "MEMBER"
 )
@@ -43,52 +46,38 @@ const (
 	TargetInsufficient           // DW-13 → 404306
 )
 
-// Balances — ยอดก่อน / หลังของทั้ง 2 ฝั่ง · แม่ไม่จำกัด (Superadmin) = ฝั่งแม่เป็น 0 ทั้งคู่
+// Balances — ยอดก่อน / หลังของทั้ง 2 ฝั่ง
 type Balances struct {
 	ParentBefore, ParentAfter float64
 	TargetBefore, TargetAfter float64
 }
 
 // Settle — ยอดหลังทำรายการ (DW-12 – DW-14) · ปัด 4 ตำแหน่งหลังบวก / ลบ แล้วจึงเทียบกับ 0 (กฎข้อ 9)
-// unlimited = แม่เป็น Superadmin: ฝากไม่หักแม่ · ถอนไม่เพิ่มแม่
-func Settle(t models.DWTransactionType, unlimited bool, parentBefore, targetBefore, amount float64) (Balances, Violation) {
-	b := Balances{TargetBefore: targetBefore}
-	if !unlimited {
-		b.ParentBefore = parentBefore
-	}
-	switch t {
-	case models.DWDeposit:
-		if !unlimited {
-			b.ParentAfter = round4(parentBefore - amount)
-			if b.ParentAfter < 0 {
-				return b, ParentInsufficient
-			}
+// แม่ทุกประเภทรวม Superadmin มียอดจริง (lead 2026-10-15) — ฝากหักแม่ · ถอนเพิ่มแม่
+func Settle(t models.DWTransactionType, parentBefore, targetBefore, amount float64) (Balances, Violation) {
+	b := Balances{ParentBefore: parentBefore, TargetBefore: targetBefore}
+	if t == models.DWDeposit {
+		b.ParentAfter = round4(parentBefore - amount)
+		if b.ParentAfter < 0 {
+			return b, ParentInsufficient
 		}
 		b.TargetAfter = round4(targetBefore + amount)
-	default: // DWWithdraw
-		b.TargetAfter = round4(targetBefore - amount)
-		if b.TargetAfter < 0 {
-			return b, TargetInsufficient
-		}
-		if !unlimited {
-			b.ParentAfter = round4(parentBefore + amount)
-		}
+		return b, OK
 	}
+	b.TargetAfter = round4(targetBefore - amount)
+	if b.TargetAfter < 0 {
+		return b, TargetInsufficient
+	}
+	b.ParentAfter = round4(parentBefore + amount)
 	return b, OK
 }
 
-// LedgerReasons — reason ของ balance_ledger ฝั่งแม่ / ฝั่งลูก (DW-33 · lead DQ5) · withParent = false เมื่อแม่เป็น Superadmin
-func LedgerReasons(t models.DWTransactionType, unlimited bool) (parent, target models.LedgerReason, withParent bool) {
+// LedgerReasons — reason ของ balance_ledger ฝั่งแม่ / ฝั่งลูก (DW-33)
+func LedgerReasons(t models.DWTransactionType) (parent, target models.LedgerReason) {
 	if t == models.DWDeposit {
-		if unlimited {
-			return "", models.LedgerDepositFromSuperadmin, false
-		}
-		return models.LedgerDepositOut, models.LedgerDepositIn, true
+		return models.LedgerDepositOut, models.LedgerDepositIn
 	}
-	if unlimited {
-		return "", models.LedgerWithdrawToSuperadmin, false
-	}
-	return models.LedgerWithdrawIn, models.LedgerWithdrawOut, true
+	return models.LedgerWithdrawIn, models.LedgerWithdrawOut
 }
 
 // SignedAmounts — amount ใน ledger ของฝั่งแม่ / ลูก (+ เข้า · − ออก)

@@ -1,7 +1,10 @@
 # API หลังบ้าน — ฝาก / ถอนเงินให้ลูกตรง (สำหรับหน้าบ้าน) — 14 ต.ค. 2026
 
-เอกสารนี้ตรงกับโค้ดบน `dev` (deploy แล้ว `dev-202610140819`) · spec เต็ม: `docs/modules/deposit_withdraw.md` · ผู้ดูแล module: maofoy
+เอกสารนี้ตรงกับโค้ดบน `dev` (deploy แล้ว `dev-202610141120` — รวม `downlines/list` แบบใหม่ · เรื่อง Superadmin มียอด 15 ต.ค. ยังไม่ deploy) · spec เต็ม: `docs/modules/deposit_withdraw.md` · ผู้ดูแล module: maofoy
 
+> **เปลี่ยนจากเดิม (15 ต.ค. — มีผลหลัง deploy รอบถัดไป)** — **Superadmin มียอดของตัวเองแล้ว** (สกุลละ 100,000,000): ฝาก = หักยอด Superadmin · ฝากเกินยอดที่มี = `404304` ·
+> ถอน = ยอด Superadmin เพิ่ม · `credit_detail` (2.1) ของ Superadmin เป็นยอดจริง · `parent_unlimited` (2.2 / 2.3) = `false` เสมอสำหรับรายการใหม่
+>
 > **เปลี่ยนจากเดิม (14 ต.ค. — มีผลหลัง deploy รอบถัดจาก `dev-202610140819`)** — `downlines/list` (2.1): แถวเปลี่ยน `balances` (array) เป็น
 > **`currency` (map ครบ 27 สกุล · key ตัวใหญ่)** · เพิ่ม `last_login_ip` / `last_login_at` · `data` เพิ่ม **`credit_detail`** (ยอดของคนที่ login) และ
 > **`total_sum`** (ยอดรวมของลูกตรงทั้งหมดแยกตาม role · key ตัวเล็ก เช่น `agent` / `member`) · field แบ่งหน้าอยู่ที่เดิม · 2.2 / 2.3 ไม่เปลี่ยน
@@ -20,7 +23,7 @@
 ทุกเส้นเป็น `POST`
 
 - **ทำกับใครได้:** ลูกตรงชั้นเดียว (agent หรือ Member) · หลานทำไม่ได้ · **ADMIN ใช้ไม่ได้ทุกเส้น** (`404305`)
-- **ฝาก** = ยอดของคุณลด · ลูกเพิ่ม · **ถอน** = ลูกลด · ยอดของคุณเพิ่ม · Superadmin วงเงินไม่จำกัด (ไม่มียอดของตัวเอง)
+- **ฝาก** = ยอดของคุณลด · ลูกเพิ่ม · **ถอน** = ลูกลด · ยอดของคุณเพิ่ม · **Superadmin มียอดของตัวเองเหมือนบัญชีอื่น** (ยอดตั้งต้นสกุลละ 100,000,000 · ฝากเกินยอดที่มี = `404304`)
 - **ปุ่มฝาก:** เปิดเมื่อ `has_balance = true` **และ** `status = ACTIVE`
 - **ปุ่มถอน:** เปิดเมื่อ `has_balance = true` — **ลูกที่ถูกระงับ / ล็อกยังถอนได้** (ดึงเงินคืนจากบัญชีที่ถูกล็อก)
 - **`has_balance = false`** = บัญชีฝั่ง Seamless ไม่มียอดเงิน — ปิดทั้ง 2 ปุ่ม
@@ -61,7 +64,7 @@ Response `data` (ตัวอย่างย่อ map สกุลเหลื�
   ]
 }
 ```
-- **`credit_detail.currency`** = ยอดของคุณ (คนที่ login · sub = ยอดของเจ้าของ) · Superadmin ไม่มียอดของตัวเอง = `0` ทุกสกุล
+- **`credit_detail.currency`** = ยอดของคุณ (คนที่ login · sub = ยอดของเจ้าของ) · Superadmin = ยอดจริงของ Superadmin
 - **`total_sum`** = ยอดรวมของลูกตรง**ทั้งหมด** (ทุกหน้า · ตาม `keyword` ที่ส่ง) แยกตาม `role` — key เป็น**ตัวเล็ก** (`agent` · `member` · `shareholder` · `company`) ต่างจาก field `role` ในแถวที่เป็นตัวใหญ่ · มีเฉพาะ role ที่มีลูก · ไม่มีลูก = `{}`
 - **`currency`** (ทุก map) = ครบ 27 สกุลที่ระบบรองรับ · key ตัวใหญ่ · สกุลที่บัญชีไม่มี / ยังไม่มียอด = `0` · บัญชี Seamless = `0` ทุกสกุล
 - เรียง username A→Z · ไม่มีลูก = `"data": []` (`credit_detail` ยังมีเสมอ)
@@ -117,7 +120,7 @@ Response `data`:
 }
 ```
 - `parent_balance_after` = ยอดของคุณหลังทำรายการ · `target_balance_after` = ยอดของลูกหลังทำรายการ
-- `parent_unlimited = true` เมื่อคุณเป็น Superadmin (หรือ sub ของ Superadmin) — `parent_balance_after` = `0` **ไม่ต้องแสดง**
+- `parent_unlimited` = `false` เสมอ (รวม Superadmin) · แสดง `parent_balance_after` ได้ทุกบัญชี
 - ส่ง `request_id` เดิมพร้อมค่าเดิมทุก field = ได้ `data` เดิม (ไม่ใช่ error) · ค่าใดต่างจากเดิม = `422` "request_id นี้ถูกใช้แล้ว"
 - **ได้ `404307`** = มีรายการของลูกคนนี้กำลังทำอยู่ (เช่น กดซ้ำเร็ว ๆ หรือมีคนอื่นทำพร้อมกัน) — รอสักครู่แล้วส่งใหม่ด้วย **`request_id` เดิม**
 
@@ -165,7 +168,7 @@ Response `data` (เรียงใหม่ → เก่า):
 ```
 - เห็นเฉพาะรายการที่บัญชีของคุณ (หรือ sub ของคุณ) เป็นคนทำ — ลูกไม่เห็นรายการที่แม่ทำกับตัวเองในเส้นนี้
 - `actor_username` = คนที่กดจริง (sub เช่น `share01@staff`) · `username` / `role` = ค่าตอนทำรายการ
-- `parent_unlimited = true` → `parent_balance_before` / `after` = `0` ไม่ต้องแสดง
+- `parent_unlimited = true` มีเฉพาะรายการเก่าก่อน 15 ต.ค. ที่ Superadmin ยังไม่มียอด → `parent_balance_before` / `after` = `0` ไม่ต้องแสดง
 
 ## 3. Error codes
 

@@ -81,7 +81,7 @@ type CreateResponse struct {
 	Currency           string  `json:"currency"`
 	Amount             float64 `json:"amount"`
 	Note               string  `json:"note"`
-	ParentUnlimited    bool    `json:"parent_unlimited"` // แม่เป็น Superadmin · parent_balance_after = 0 (DQ7)
+	ParentUnlimited    bool    `json:"parent_unlimited"` // true = รายการก่อน 2026-10-15 ที่ Superadmin ไม่มียอด · รายการใหม่ = false เสมอ (DQ7)
 	ParentBalanceAfter float64 `json:"parent_balance_after"`
 	TargetBalanceAfter float64 `json:"target_balance_after"`
 	CreatedAt          string  `json:"created_at"`

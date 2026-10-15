@@ -400,18 +400,25 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 		t.Fatal("ยอดไม่พอต้องไม่สร้างบัญชีและไม่แตะยอด")
 	}
 
-	// Superadmin วงเงินไม่จำกัด · ledger ฝั่งที่ได้รับแถวเดียว
+	// Superadmin มียอดจริง (deposit_withdraw · lead 2026-10-15): หักยอดเหมือนผู้สร้างคนอื่น · ledger OUT + IN · ไม่พอ = 402312
+	var sa models.UserAgent
+	database.DBConn.Select("id").Where("username = ?", "superadmin").Take(&sa)
+	setBalance(t, sa.ID, "THB", 1500000)
 	b = agentBody("COMPANY_TRANSFER", "comrich", nil, childPT(90, 0, 0, 0))
 	b["balance"] = map[string]any{"THB": 1000000}
 	r = call(t, app, "POST", createAgentPath, b, c.saTok)
 	expect(t, r, 200, 200)
 	_ = json.Unmarshal(r.Data, &d)
-	if agentBalance(t, d.ID, "THB") != 1000000 || countRows(t, &models.BalanceLedger{}, "request_id = ?", b["request_id"]) != 1 {
-		t.Fatal("superadmin initial balance")
+	if agentBalance(t, d.ID, "THB") != 1000000 || agentBalance(t, sa.ID, "THB") != 500000 {
+		t.Fatalf("superadmin initial balance: company %v · superadmin %v", agentBalance(t, d.ID, "THB"), agentBalance(t, sa.ID, "THB"))
 	}
-	if countRows(t, &models.BalanceLedger{}, "request_id = ? AND reason = ?", b["request_id"], models.LedgerInitialFromSuperadmin) != 1 {
-		t.Fatal("reason ต้องเป็น INITIAL_FROM_SUPERADMIN")
+	if countRows(t, &models.BalanceLedger{}, "request_id = ? AND reason = ? AND owner_id = ? AND amount = -1000000", b["request_id"], models.LedgerInitialTransferOut, sa.ID) != 1 ||
+		countRows(t, &models.BalanceLedger{}, "request_id = ? AND reason = ? AND owner_id = ?", b["request_id"], models.LedgerInitialTransferIn, d.ID) != 1 {
+		t.Fatal("ledger ต้องเป็น INITIAL_TRANSFER_OUT (Superadmin) + INITIAL_TRANSFER_IN (Company)")
 	}
+	b = agentBody("COMPANY_TRANSFER", "compoor", nil, childPT(90, 0, 0, 0))
+	b["balance"] = map[string]any{"THB": 500000.0001}
+	expect(t, call(t, app, "POST", createAgentPath, b, c.saTok), 200, 402312)
 
 	// 422: Seamless · สกุลที่บัญชีใหม่ไม่มี · 0 · ติดลบ
 	bad := []map[string]any{{"THB": 0}, {"THB": -5}, {"USD": 10}, {"THB": 1.00001}}

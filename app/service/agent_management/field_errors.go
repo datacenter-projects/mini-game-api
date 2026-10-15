@@ -134,7 +134,7 @@ func MemberPTError(group string, v agentManagementCore.PTViolation, received flo
 // CheckCreatorBalance — ยอดของผู้สร้างพอสำหรับยอดเงินตั้งต้นไหม (MGMT-15A) · เช็คก่อนค่าหุ้นส่วนตามลำดับ field
 // lock แถวยอดของผู้สร้างใน tx เดียวกัน · TransferInitialBalance เช็คซ้ำตอนโอนจริง · Superadmin ไม่จำกัด
 func CheckCreatorBalance(tx *gorm.DB, c Creator, amounts map[string]float64) error {
-	if len(amounts) == 0 || c.UserType == agentManagementCore.UserTypeSuperadmin {
+	if len(amounts) == 0 { // Superadmin มียอดจริงแล้ว เช็คเหมือนผู้สร้างคนอื่น (deposit_withdraw · lead 2026-10-15)
 		return nil
 	}
 	currencies := SortedGroups(amounts) // เรียงชื่อ — lock ตามลำดับเดียวกันทุกครั้ง

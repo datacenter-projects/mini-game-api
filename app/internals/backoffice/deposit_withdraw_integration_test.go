@@ -147,24 +147,38 @@ func TestDWDepositWithdraw(t *testing.T) { // DW-12 · DW-13 · DW-23 · DW-25 �
 	}
 }
 
-func TestDWSuperadmin(t *testing.T) { // DW-12 · DW-14 · DW-33 (DQ5) · DW-04 sub ของ Superadmin
+func superadminID(t *testing.T) uint {
+	t.Helper()
+	var a models.UserAgent
+	if err := database.DBConn.Select("id").Where("username = ?", "superadmin").Take(&a).Error; err != nil {
+		t.Fatal(err)
+	}
+	return a.ID
+}
+
+func TestDWSuperadmin(t *testing.T) { // DW-12 · DW-14 · DW-33 · DW-04 sub ของ Superadmin — Superadmin มียอดจริง (lead 2026-10-15)
 	app := setup2(t)
 	c := buildChain(t, app)
+	sa := superadminID(t)
+	setBalance(t, sa, "THB", 100000000) // เท่ายอดที่ migration 20261015100000 seed
 
 	r := call(t, app, "POST", dwCreatePath, dwBody("COMPANY", c.com.ID, "DEPOSIT", 1000000), c.saTok)
 	expect(t, r, 200, 200)
 	d := decodeDW(t, r.Data)
-	if !d.ParentUnlimited || d.ParentBalanceAfter != 0 || agentBalance(t, c.com.ID, "THB") != 1000000 {
+	if d.ParentUnlimited || d.ParentBalanceAfter != 99000000 || agentBalance(t, sa, "THB") != 99000000 || agentBalance(t, c.com.ID, "THB") != 1000000 {
 		t.Fatalf("Superadmin ฝาก %+v", d)
 	}
-	if got := ledgerReasons(t, d.RequestID); fmt.Sprint(got) != "[DEPOSIT_FROM_SUPERADMIN]" {
+	if got := ledgerReasons(t, d.RequestID); fmt.Sprint(got) != "[DEPOSIT_OUT DEPOSIT_IN]" {
 		t.Fatalf("ledger %v", got)
 	}
 	w := dwBody("COMPANY", c.com.ID, "WITHDRAW", 500)
 	expect(t, call(t, app, "POST", dwCreatePath, w, c.saTok), 200, 200)
-	if got := ledgerReasons(t, w["request_id"].(string)); fmt.Sprint(got) != "[WITHDRAW_TO_SUPERADMIN]" || agentBalance(t, c.com.ID, "THB") != 999500 {
-		t.Fatalf("Superadmin ถอน %v", got)
+	if got := ledgerReasons(t, w["request_id"].(string)); fmt.Sprint(got) != "[WITHDRAW_IN WITHDRAW_OUT]" ||
+		agentBalance(t, sa, "THB") != 99000500 || agentBalance(t, c.com.ID, "THB") != 999500 {
+		t.Fatalf("Superadmin ถอน %v · sa %v", got, agentBalance(t, sa, "THB"))
 	}
+	// ยอดไม่พอ = 404304 เหมือนบัญชีอื่น
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("COMPANY", c.com.ID, "DEPOSIT", 99000500.0001), c.saTok), 200, 404304)
 
 	sub := createSubAPI(t, app, c.saTok, "Pay", map[string]string{"payment": "edit"})
 	subTok := readyToken(t, app, models.AccountTypeSub, sub.ID, sub.Username)
@@ -172,8 +186,36 @@ func TestDWSuperadmin(t *testing.T) { // DW-12 · DW-14 · DW-33 (DQ5) · DW-04 
 	expect(t, r, 200, 200)
 	var l models.DepositWithdrawLog
 	database.DBConn.Where("id = ?", decodeDW(t, r.Data).ID).Take(&l)
-	if l.ActorType != models.AccountTypeSub || l.ActorUsername != sub.Username || !l.ParentUnlimited {
-		t.Fatalf("sub ของ Superadmin %+v", l)
+	if l.ActorType != models.AccountTypeSub || l.ActorUsername != sub.Username || l.ParentUnlimited || l.ParentID != sa ||
+		agentBalance(t, sa, "THB") != 98999500 {
+		t.Fatalf("sub ของ Superadmin %+v · sa %v", l, agentBalance(t, sa, "THB"))
+	}
+}
+
+func TestMigrationSuperadminBalances(t *testing.T) { // migration 20261015100000 (lead 2026-10-15)
+	app := setup2(t)
+	migrateDownTo(t, 20261014160000)
+	_, _ = seedSuperadmin(t, app) // มีครบ 27 สกุลใน agent_currencies · ยังไม่มียอด
+	sa := superadminID(t)
+	execSQL(t, "DELETE FROM agent_currencies WHERE agent_id = ? AND currency IN ('USDT', 'VND')", sa) // ขาด 2 สกุล → migration เติมให้
+	execSQL(t, "INSERT INTO agent_balances (agent_id, currency, amount) VALUES (?, 'JPY', 5)", sa)    // มีแถวอยู่แล้ว → ไม่แก้
+	gooseUpTo(t, 20261015100000)
+
+	if n := countRows(t, &models.AgentCurrency{}, "agent_id = ?", sa); n != 27 {
+		t.Fatalf("agent_currencies %d สกุล", n)
+	}
+	if n := countRows(t, &models.AgentBalance{}, "agent_id = ? AND amount = 100000000", sa); n != 26 {
+		t.Fatalf("agent_balances 100,000,000 = %d แถว (ต้อง 26 · JPY คงเดิม)", n)
+	}
+	if agentBalance(t, sa, "JPY") != 5 || agentBalance(t, sa, "USDT") != 100000000 {
+		t.Fatalf("JPY %v · USDT %v", agentBalance(t, sa, "JPY"), agentBalance(t, sa, "USDT"))
+	}
+	if n := countRows(t, &models.BalanceLedger{}, "owner_id = ? AND reason = ? AND request_id = ? AND amount = 100000000 AND balance_after = 100000000",
+		sa, models.LedgerSeedSuperadmin, models.SeedSuperadminRequestID); n != 26 {
+		t.Fatalf("ledger SEED_SUPERADMIN %d แถว", n)
+	}
+	if n := countRows(t, &models.AgentBalance{}, "agent_id <> ?", sa); n != 0 {
+		t.Fatalf("migration แตะบัญชีอื่น %d แถว", n)
 	}
 }
 
@@ -456,15 +498,16 @@ func TestDWDownlinesList(t *testing.T) { // DW-40 – DW-44A
 		t.Fatalf("total_sum shareholder = %v", s)
 	}
 
-	// Seamless: has_balance = false · ยอด 0 ทุกสกุล · Superadmin ไม่มียอดของตัวเอง
+	// Seamless: has_balance = false · ยอด 0 ทุกสกุล · credit_detail ของ Superadmin = ยอดจริงใน agent_balances (lead 2026-10-15)
 	mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_RESELLER", "reseller01", nil, childPT(80, 0, 0, 0)))
+	setBalance(t, superadminID(t), "THB", 100000000)
 	p = list(c.saTok, map[string]any{})
 	for _, r := range p.Data {
 		if (r.Username == "reseller01") == r.HasBalance || (r.Username == "reseller01" && r.Currency["THB"] != 0) {
 			t.Fatalf("Seamless %+v", r)
 		}
 	}
-	if len(p.CreditDetail.Currency) != all || p.CreditDetail.Currency["THB"] != 0 {
+	if len(p.CreditDetail.Currency) != all || p.CreditDetail.Currency["THB"] != 100000000 || p.CreditDetail.Currency["USD"] != 0 {
 		t.Fatalf("credit_detail ของ Superadmin = %v", p.CreditDetail.Currency)
 	}
 }

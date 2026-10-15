@@ -8,6 +8,7 @@
 - **lead ยืนยันเพิ่ม 2026-10-14** (ข้อที่ maofoy กำหนดตอนแก้ spec): DW3 ≤ 31 วัน + เห็นเฉพาะรายการที่ตัวเองเป็นแม่ (DW-46 / 47) · DW1 `keyword` เฉพาะลูกตรง (DW-41) ·
   `create_requests` เป็นทะเบียน `request_id` กลาง (DW-26) · Redis ล่ม `504801` · tx timeout 8 วินาที (DW-23) · ลำดับ lock ใน ARCHITECTURE.md ใช้ทุก module รวม bet / settle (DW-51)
 - **แก้ DW1 response 2026-10-14 (lead อนุมัติ)**: `currency` map 27 สกุล · `last_login_*` · `credit_detail` · `total_sum` แยก role (DW-42 – DW-44A · ยกเว้นกฎข้อ 19)
+- **Superadmin มียอดจริง 2026-10-15 (lead อนุมัติ · seed เต็มใน migration)**: DW-12 / DW-14 / DW-33 / DW-44A · migration `20261015100000` · `parent_unlimited` = `false` เสมอสำหรับรายการใหม่ · MGMT-15A (Superadmin สร้าง Company Transfer พร้อมยอดตั้งต้น) หักยอด Superadmin ด้วย — ledger `INITIAL_TRANSFER_OUT` / `IN` (`agent_management/creator.go` · `field_errors.go`)
 - ผู้ดูแล: maofoy · PR review: boiledegg
 - ชื่อ module ในโค้ด: `deposit_withdraw` (`controllers/deposit_withdraw` · `dto/deposit_withdraw` · `service/deposit_withdraw` ·
   `repository/postgres/deposit_withdraw` · `repository/redis/deposit_withdraw`)
@@ -21,7 +22,7 @@
 
 ย้ายเครดิตภายในสายกับ**ลูกตรงชั้นเดียว** (agent หรือ Member): บัญชีหลังบ้าน (Superadmin · Company · Share · Agent และ sub ของบัญชีเหล่านี้)
 ฝาก / ถอนเงินให้ลูกตรงของตัวเอง · ดูรายชื่อลูกตรงพร้อมยอด · ดูประวัติรายการที่ตัวเองทำ · **สาย Transfer เท่านั้น** ·
-Superadmin เป็นแหล่งเงินเดียวของระบบ (วงเงินไม่จำกัด)
+Superadmin มียอดจริงใน `agent_balances` (seed สกุลละ 100,000,000 — lead 2026-10-15 · เดิม "วงเงินไม่จำกัด")
 
 **ไม่อยู่ใน module นี้:** ยอดเงินตั้งต้นตอนสร้างบัญชี (agent_management MGMT-15A) · การหัก / คืนเงินจากการเล่นเกม (module เดิมพัน) ·
 `payment_type` ของ Member (MGMT-63 — แสดงผลอย่างเดียว ไม่มีผลกับ module นี้ · lead P1)
@@ -58,9 +59,9 @@ Superadmin เป็นแหล่งเงินเดียวของระ
 |---|---|---|
 | DW-10 | `amount` มากกว่า 0 · **ไม่เกิน 1,000,000,000 ต่อรายการ** (DQ6) · ทศนิยมไม่เกิน 4 ตำแหน่ง · ปัด `utils.Round4` ก่อนบันทึกและหลังบวก / ลบ (กฎข้อ 9) · เทียบยอด / เพดานด้วยค่าที่ปัดแล้ว | `0` / `-1` / `1.00001` / `1000000001` = `422` · `1000000000` = ผ่าน |
 | DW-11 | `currency` บังคับ · ต้องเป็นสกุลของลูก (agent = `agent_currencies` · Member = `user_members.currency`) **และ**ของแม่ (Superadmin ไม่ต้องเช็คฝั่งแม่) · ไม่ตรง = `404303` | Share B2B (THB, USD) ฝาก JPY ให้ Agent THB = `404303` |
-| DW-12 | ฝาก: ยอดแม่ในสกุลนั้นต้อง ≥ `amount` (`404304`) · **Superadmin วงเงินไม่จำกัด** ไม่มีแถวยอดให้หัก | Company 50,000 ฝาก 60,000 = `404304` |
+| DW-12 | ฝาก: ยอดแม่ในสกุลนั้นต้อง ≥ `amount` (`404304`) · **แม่ทุกประเภทรวม Superadmin หักจาก `agent_balances`** (แก้ 2026-10-15 · lead — เดิม Superadmin วงเงินไม่จำกัด) | Company 50,000 ฝาก 60,000 = `404304` |
 | DW-13 | ถอน: ยอดลูกต้อง ≥ `amount` (`404306`) · ถอนได้หมดเท่าที่มีในกระเป๋าตอนนั้น (ไม่กระทบรอบเกมค้าง — DW-50) | Member 100 ถอน 100 = สำเร็จ เหลือ 0 |
-| DW-14 | ถอนจากลูกของ Superadmin: ลูกลดอย่างเดียว ไม่มียอดฝั่ง Superadmin ให้เพิ่ม | |
+| DW-14 | **Superadmin มียอดจริง** (lead 2026-10-15): migration `20261015100000` seed ทุกบัญชี `SUPERADMIN` ครบ 27 สกุลใน `agent_currencies` + `agent_balances` สกุลละ 100,000,000 (seed เต็ม ไม่หักยอดที่เคยปล่อยไปแล้ว) + ledger `SEED_SUPERADMIN` · script `create_superadmin` ทำแบบเดียวกัน · ถอนจากลูกของ Superadmin = ยอด Superadmin เพิ่ม | |
 | DW-15 | `note` ไม่บังคับ · ≤ 200 ตัวอักษร (นับ rune) · ตัดช่องว่างหัวท้าย · ไม่ส่ง / `""` = `""` · `null` = `422` (ACC-32) | |
 
 ### กันกดซ้ำ / ยิงพร้อมกัน (DQ2 · DQ10)
@@ -84,8 +85,8 @@ Superadmin เป็นแหล่งเงินเดียวของระ
 | DW-31 | **upsert ก่อน lock:** แถว `agent_balances (agent_id, currency)` ของทุกฝ่ายที่เป็น agent (ไม่รวม Superadmin) ที่ยังไม่มี → `INSERT … ON CONFLICT DO NOTHING` ยอด 0 · เรียง `agent_id` น้อย→มาก |
 | DW-32 | **ลำดับ lock ตายตัว** (กฎกลาง — [ARCHITECTURE.md](../ARCHITECTURE.md) หัวข้อ "ลำดับ lock ของยอดเงิน"): `agent_balances` `FOR UPDATE` เรียง `agent_id` น้อย→มาก **ก่อน** → `user_members` `FOR NO KEY UPDATE` (ถ้าลูกเป็น Member) |
 | DW-33 | `balance_ledger` (กฎข้อ 11) — `ref_type = 'DW'` · `ref_id = deposit_withdraw_logs.id` · `request_id` เดียวกับคำขอ · `actor_*` = คนกดจริง: |
-| | • ฝาก: แม่ `DEPOSIT_OUT` (−) + ลูก `DEPOSIT_IN` (+) · แม่เป็น Superadmin = ลูก `DEPOSIT_FROM_SUPERADMIN` (+) แถวเดียว |
-| | • ถอน: ลูก `WITHDRAW_OUT` (−) + แม่ `WITHDRAW_IN` (+) · แม่เป็น Superadmin = ลูก `WITHDRAW_TO_SUPERADMIN` (−) แถวเดียว |
+| | • ฝาก: แม่ `DEPOSIT_OUT` (−) + ลูก `DEPOSIT_IN` (+) |
+| | • ถอน: ลูก `WITHDRAW_OUT` (−) + แม่ `WITHDRAW_IN` (+) · `DEPOSIT_FROM_SUPERADMIN` / `WITHDRAW_TO_SUPERADMIN` เลิกใช้ 2026-10-15 (มีเฉพาะแถวเก่า) |
 | DW-34 | **CHECK ยอดติดลบ** (ชั้นกันพลาด — ปกติเช็คยอดในข้อ DW-30 (5) ก่อนแล้ว): repository แยกด้วย `errors.As(err, &*pgconn.PgError)` · `Code = "23514"` · `ConstraintName` = `agent_balances_amount_check` / `user_members_credit_check` → คืน sentinel `ErrBalanceNegative` ของ package repository · service แปลงตามทิศ: ฝาก = `404304` · ถอน = `404306` (รายการเดียวมีฝั่งที่ยอดลดฝั่งเดียว) · **ห้ามเทียบข้อความ error** (กฎข้อ 16) · ชื่อ constraint ยืนยันด้วย integration test (อ่าน `pg_constraint`) |
 
 ### รายชื่อลูกตรง (DW1)
@@ -97,7 +98,7 @@ Superadmin เป็นแหล่งเงินเดียวของระ
 | DW-42 | แต่ละแถว: `id` · `role` · `username` · `name` · `status` · `has_balance` · `currency` · `last_login_ip` · `last_login_at` (ยังไม่เคย login = `""`) · `role` ส่งกลับในเส้น DW2 ได้ทันที (DW-02) — **แก้ 2026-10-14 (lead อนุมัติ): `balances` (array) → `currency` (map) + last login** |
 | DW-43 | `currency` = map **ครบ 27 สกุลที่ระบบรองรับ** (`agentManagementCore.Currencies`) · key ตัวใหญ่ · สกุลที่ไม่มียอด / บัญชีไม่มี = `0` · agent = `agent_balances` · Member = `credit` ที่สกุลของตัวเอง · ยอดของแม่ + ลูกฝั่ง agent ในหน้าดึงด้วย `agent_id IN (...)` ครั้งเดียว (กฎข้อ 23 ห้าม N+1) |
 | DW-44 | `has_balance = false` = สาย Seamless (DW-06) · ยอด `0` ทุกสกุล · `status` = สถานะของลูกเอง (แม่ผ่าน `PassedGates()` แล้ว สายด้านบนจึงไม่ถูกระงับ) · หน้าบ้าน: ปุ่มฝากเปิดเมื่อ `has_balance` และ `ACTIVE` · **ปุ่มถอนเปิดเมื่อ `has_balance` (ลูกไม่ ACTIVE ก็ถอนได้ — DW-05)** |
-| DW-44A | **นอก PageData (lead อนุมัติยกเว้นกฎข้อ 19 · 2026-10-14)**: `credit_detail.currency` = ยอดของคนที่ login (แม่ · sub = เจ้าของ) map 27 สกุล (ซ้ำกับ profile `balances` — ACC-19 · แม่เป็น Superadmin / สาย Seamless = `0` ทุกสกุล) · `total_sum` = ยอดรวมของ**ลูกตรงทั้งหมด** (ทุกหน้า · ตาม `keyword` เดียวกับรายชื่อ) แยกตาม `role` **key ตัวเล็ก** (`agent` · `member` · `shareholder` · `company` — แก้ 2026-10-14 จากตัวใหญ่ · field `role` ในแถวยังตัวใหญ่) → map 27 สกุล · ใส่เฉพาะ role ที่มีลูก · ไม่มีลูก = `{}` · รวมด้วย query SUM 1 ครั้ง (`GROUP BY role, currency`) · controller ประกอบกับ `response.PageData` (dto / service ไม่ import `pkg/response`) |
+| DW-44A | **นอก PageData (lead อนุมัติยกเว้นกฎข้อ 19 · 2026-10-14)**: `credit_detail.currency` = ยอดของคนที่ login (แม่ · sub = เจ้าของ) map 27 สกุล (ซ้ำกับ profile `balances` — ACC-19 · สาย Seamless = `0` ทุกสกุล · Superadmin = ยอดจริง) · `total_sum` = ยอดรวมของ**ลูกตรงทั้งหมด** (ทุกหน้า · ตาม `keyword` เดียวกับรายชื่อ) แยกตาม `role` **key ตัวเล็ก** (`agent` · `member` · `shareholder` · `company` — แก้ 2026-10-14 จากตัวใหญ่ · field `role` ในแถวยังตัวใหญ่) → map 27 สกุล · ใส่เฉพาะ role ที่มีลูก · ไม่มีลูก = `{}` · รวมด้วย query SUM 1 ครั้ง (`GROUP BY role, currency`) · controller ประกอบกับ `response.PageData` (dto / service ไม่ import `pkg/response`) |
 | DW-45 | API ส่งยอดตามที่เก็บ ไม่ปัดเพิ่ม (กฎข้อ 9) |
 
 ### ประวัติ (DW3)
@@ -218,7 +219,7 @@ Response `data` (share01 ฝาก 100 ให้ mem01):
   "created_at": "2026-10-14T10:00:00+07:00"
 }
 ```
-- `parent_unlimited = true` เมื่อแม่เป็น Superadmin — `parent_balance_after` = `0` (ไม่มีความหมาย ไม่ต้องแสดง · ACC-32 ไม่มี `null`)
+- `parent_unlimited` = `false` เสมอสำหรับรายการใหม่ (Superadmin มียอดจริงตั้งแต่ 2026-10-15) · `true` เฉพาะรายการเก่าที่ Superadmin ยังไม่มียอด — `parent_balance_*` = `0`
 - ส่งซ้ำด้วย `request_id` เดิม + ค่าเดิม = `data` เดิม (DW-25)
 
 Error codes: `422`, `404301`, `404302`, `404303`, `404304`, `404306`, `404307`, `404401`, `504801` + error ของ passcode (`401204`, `401205`, `401304`)
@@ -340,9 +341,10 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 - ไม่เก็บ passcode หรือข้อมูลลับ
 - ไม่แก้ตารางเดิม:
   - `balance_ledger.reason` (VARCHAR(30)) / `ref_type` (VARCHAR(10)) รองรับค่าใหม่อยู่แล้ว · เพิ่ม enum ใน `app/models`:
-    `DEPOSIT_OUT` · `DEPOSIT_IN` · `DEPOSIT_FROM_SUPERADMIN` · `WITHDRAW_OUT` · `WITHDRAW_IN` · `WITHDRAW_TO_SUPERADMIN`
+    `DEPOSIT_OUT` · `DEPOSIT_IN` · `WITHDRAW_OUT` · `WITHDRAW_IN` · `SEED_SUPERADMIN` (migration `20261015100000`) · `DEPOSIT_FROM_SUPERADMIN` / `WITHDRAW_TO_SUPERADMIN` เลิกใช้ 2026-10-15
   - `create_requests.target_type` (VARCHAR(10) · ไม่มี CHECK) รองรับ `'DW'` อยู่แล้ว (DW-26)
 - index ของ DW1 มีแล้ว: `idx_user_agents_parent_username` · `idx_user_members_agent_username`
+- migration `20261015100000_deposit_withdraw_superadmin_balances` (lead 2026-10-15): seed ยอด Superadmin ตาม DW-14 · ไม่แก้ schema · `parent_unlimited` ยังอยู่เพื่อแถวเก่า
 - Redis: key `dw:lock:{AGENT|MEMBER}:{id}` · TTL 10 วินาที · ไม่ใช่ source of truth ของยอด (กฎข้อ 14)
 
 ## 7. Test cases
@@ -353,7 +355,7 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 | DW-02 | `role: "MEMBER", user_id: 15` (id 15 เป็น agent) · `role: "COMPANY"` กับ agent01 · `role: "member"` | `404401` · `404401` · `422` |
 | DW-03 | ADMIN เรียก DW1 / DW2 / DW3 | `404305` |
 | DW-04 | sub มี `payment` view เรียก DW1 / DW3 · เรียก DW2 · sub มีแค่ `member` edit | สำเร็จ · `402303` · `402303` |
-| DW-04 | sub ของ Superadmin (`payment` edit) ฝาก 1,000 ให้ Company | สำเร็จ · log `actor_type = SUB` · `parent_unlimited = true` · ledger `DEPOSIT_FROM_SUPERADMIN` |
+| DW-04 | sub ของ Superadmin (`payment` edit) ฝาก 1,000 ให้ Company | สำเร็จ · log `actor_type = SUB` · `parent_id` = Superadmin · ยอด Superadmin ลด 1,000 |
 | DW-05 | ฝากให้ลูก `SUSPENDED` · `LOCKED` | `404301` ทั้งคู่ · ยอดไม่เปลี่ยน |
 | DW-05 | ถอน 100 จากลูก `LOCKED` ที่มี 300 | สำเร็จ · ลูก 200 · แม่ +100 |
 | DW-06 | Superadmin ฝากให้ Company Seamless · Share Master ฝากให้ Agent · Company Seamless Reseller ฝากให้ Share | `404302` ทั้งหมด |
@@ -363,9 +365,9 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 | DW-11 | Share B2B (THB, USD) ฝาก USD ให้ Agent THB · ฝาก JPY | `404303` · `404303` |
 | DW-12 | Company THB 50,000 ฝาก 10,000 ให้ Share | Company 40,000 · Share +10,000 · ledger 2 แถว · log 1 แถว · `create_requests` 1 แถว (`DW`) |
 | DW-12 | Company THB 50,000 ฝาก 60,000 | `404304` · ไม่มี log / ledger / `create_requests` |
-| DW-12 | Superadmin ฝาก 1,000,000 ให้ Company | Company +1,000,000 · ledger 1 แถว `DEPOSIT_FROM_SUPERADMIN` · log `parent_unlimited = true` · `parent_balance_*` = 0 |
+| DW-12 | Superadmin (THB 100,000,000) ฝาก 1,000,000 ให้ Company · ฝากเกินยอดที่เหลือ | Superadmin 99,000,000 · Company +1,000,000 · ledger `DEPOSIT_OUT` + `DEPOSIT_IN` · `parent_unlimited = false` · `404304` |
 | DW-13 | Member 100 ถอน 100 · ถอน 100.0001 | สำเร็จ `credit` = 0 · `404306` |
-| DW-14 | Superadmin ถอน 500 จาก Company | Company −500 · ledger 1 แถว `WITHDRAW_TO_SUPERADMIN` |
+| DW-14 | Superadmin ถอน 500 จาก Company · migration: Superadmin ขาด 2 สกุล + มีแถวยอด JPY อยู่แล้ว | Company −500 · Superadmin +500 · ledger `WITHDRAW_IN` + `WITHDRAW_OUT` · ครบ 27 สกุล · ยอด 100,000,000 26 แถว (JPY คงเดิม) · ledger `SEED_SUPERADMIN` 26 แถว |
 | DW-15 | `note` 200 ตัว · 201 ตัว · `null` · `"  ทดสอบ  "` | สำเร็จ · `422` · `422` · เก็บ `"ทดสอบ"` |
 | DW-20 / 21 | ยิงพร้อมกัน 2 คำขอ (`request_id` ต่างกัน) ที่ลูกเดียวกัน (integration) | ได้ lock 1 คำขอ · อีกอัน `404307` ทันที · ย้ายเงินครั้งเดียว |
 | DW-21 | ปิด Redis แล้วเรียก DW2 | `504801` · ยอดไม่เปลี่ยน |
@@ -391,6 +393,8 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 ## 8. Contract changes (สำหรับแจ้ง frontend)
 
 เส้นใหม่ทั้ง 3 เส้น · เอกสารหน้าบ้าน [docs/frontend/deposit_withdraw.md](../frontend/deposit_withdraw.md)
+
+**เปลี่ยนพฤติกรรม 2026-10-15 (lead อนุมัติ)**: Superadmin ฝากเกินยอดที่มีได้ `404304` · `parent_unlimited` = `false` และ `parent_balance_*` เป็นยอดจริงของ Superadmin · `credit_detail` ของ Superadmin เป็นยอดจริง
 
 **Breaking change ของ DW1 (2026-10-14 · lead อนุมัติ · หลัง deploy `dev-202610140819`)**: แถวเปลี่ยน `balances` (array) → `currency` (map 27 สกุล) ·
 เพิ่ม `last_login_ip` / `last_login_at` · `data` เพิ่ม `credit_detail` และ `total_sum` (field แบ่งหน้าเดิมอยู่ที่เดิม)

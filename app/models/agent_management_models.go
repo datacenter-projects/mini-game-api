@@ -56,7 +56,7 @@ type LedgerReason string
 const (
 	LedgerInitialTransferOut    LedgerReason = "INITIAL_TRANSFER_OUT"
 	LedgerInitialTransferIn     LedgerReason = "INITIAL_TRANSFER_IN"
-	LedgerInitialFromSuperadmin LedgerReason = "INITIAL_FROM_SUPERADMIN"
+	LedgerInitialFromSuperadmin LedgerReason = "INITIAL_FROM_SUPERADMIN" // เลิกใช้ 2026-10-15 (Superadmin ถูกหักยอดแล้ว) · คงไว้เพราะมีแถวเดิม
 )
 
 // BalanceLedger — ทุกการเปลี่ยนยอดมี 1 แถว (กฎข้อ 11)

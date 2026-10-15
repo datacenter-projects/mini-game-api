@@ -14,13 +14,21 @@ const (
 
 // เหตุผลใน balance_ledger ของการฝาก / ถอน (DW-33)
 const (
-	LedgerDepositOut            LedgerReason = "DEPOSIT_OUT"
-	LedgerDepositIn             LedgerReason = "DEPOSIT_IN"
+	LedgerDepositOut  LedgerReason = "DEPOSIT_OUT"
+	LedgerDepositIn   LedgerReason = "DEPOSIT_IN"
+	LedgerWithdrawOut LedgerReason = "WITHDRAW_OUT"
+	LedgerWithdrawIn  LedgerReason = "WITHDRAW_IN"
+
+	// เลิกใช้ 2026-10-15 (Superadmin มียอดจริงแล้ว) · คงไว้เพราะมีแถวเดิมใน balance_ledger
 	LedgerDepositFromSuperadmin LedgerReason = "DEPOSIT_FROM_SUPERADMIN"
-	LedgerWithdrawOut           LedgerReason = "WITHDRAW_OUT"
-	LedgerWithdrawIn            LedgerReason = "WITHDRAW_IN"
 	LedgerWithdrawToSuperadmin  LedgerReason = "WITHDRAW_TO_SUPERADMIN"
+
+	// LedgerSeedSuperadmin — ยอดตั้งต้นของ Superadmin (migration 20261015100000 · script create_superadmin)
+	LedgerSeedSuperadmin LedgerReason = "SEED_SUPERADMIN"
 )
+
+// SeedSuperadminRequestID — balance_ledger.request_id ของ LedgerSeedSuperadmin (ตรงกับใน migration)
+const SeedSuperadminRequestID = "seed-superadmin"
 
 // LedgerRefDW — balance_ledger.ref_type ของการฝาก / ถอน · ref_id = deposit_withdraw_logs.id
 const LedgerRefDW = "DW"
@@ -44,7 +52,7 @@ type DepositWithdrawLog struct {
 	TargetUsername      string            `gorm:"column:target_username"`
 	Currency            string            `gorm:"column:currency"`
 	Amount              float64           `gorm:"column:amount"`
-	ParentUnlimited     bool              `gorm:"column:parent_unlimited"` // แม่เป็น Superadmin · parent_balance_* = 0
+	ParentUnlimited     bool              `gorm:"column:parent_unlimited"` // true = แถวก่อน 2026-10-15 ที่แม่เป็น Superadmin วงเงินไม่จำกัด · รายการใหม่ = false เสมอ
 	ParentBalanceBefore float64           `gorm:"column:parent_balance_before"`
 	ParentBalanceAfter  float64           `gorm:"column:parent_balance_after"`
 	TargetBalanceBefore float64           `gorm:"column:target_balance_before"`

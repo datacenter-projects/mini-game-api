@@ -109,21 +109,18 @@ func createInTx(tx *gorm.DB, actor agentAuthService.Actor, req depositWithdrawDt
 	if err != nil {
 		return res, err
 	}
-	unlimited := parent.Role == models.AgentRoleSuperAdmin // DW-12 / DW-14
 	t, err := loadTarget(tx, parent.ID, req)
 	if err != nil {
 		return res, err
 	}
-	if err := checkTarget(tx, t, req, parent.ID, unlimited); err != nil {
+	if err := checkTarget(tx, t, req, parent.ID); err != nil {
 		return res, err
 	}
 
 	// DW-31 / DW-32: upsert → agent_balances FOR UPDATE เรียง agent_id → user_members FOR NO KEY UPDATE
+	// แม่ทุกประเภทรวม Superadmin มียอดใน agent_balances (DW-12 / DW-14 · lead 2026-10-15)
 	now := time.Now().Truncate(time.Microsecond) // เท่าความละเอียดของ timestamptz — ส่งซ้ำได้ created_at เดิม (DW-25)
-	var agentIDs []uint
-	if !unlimited {
-		agentIDs = append(agentIDs, parent.ID)
-	}
+	agentIDs := []uint{parent.ID}
 	if t.owner == models.BalanceOwnerAgent {
 		agentIDs = append(agentIDs, t.id)
 	}
@@ -151,14 +148,14 @@ func createInTx(tx *gorm.DB, actor agentAuthService.Actor, req depositWithdrawDt
 		targetBefore = m.Credit
 	}
 
-	bal, v := depositWithdrawCore.Settle(req.Type, unlimited, have[parent.ID], targetBefore, req.Amount)
+	bal, v := depositWithdrawCore.Settle(req.Type, have[parent.ID], targetBefore, req.Amount)
 	switch v {
 	case depositWithdrawCore.ParentInsufficient:
 		return res, apperr.ErrDWParentInsufficient
 	case depositWithdrawCore.TargetInsufficient:
 		return res, apperr.ErrDWTargetInsufficient
 	}
-	if err := applyBalances(tx, req, t, parent.ID, unlimited, bal, now); err != nil {
+	if err := applyBalances(tx, req, t, parent.ID, bal, now); err != nil {
 		return res, err
 	}
 
@@ -166,7 +163,7 @@ func createInTx(tx *gorm.DB, actor agentAuthService.Actor, req depositWithdrawDt
 		ActorType: actor.AccountType, ActorID: actor.AccountID(), ActorUsername: actor.Username,
 		ParentID: parent.ID, ParentUsername: parent.Username,
 		TargetType: t.owner, TargetID: t.id, TargetRole: t.role, TargetUsername: t.username,
-		Currency: req.Currency, Amount: req.Amount, ParentUnlimited: unlimited,
+		Currency: req.Currency, Amount: req.Amount, // ParentUnlimited = false เสมอ (เลิกใช้ 2026-10-15)
 		ParentBalanceBefore: bal.ParentBefore, ParentBalanceAfter: bal.ParentAfter,
 		TargetBalanceBefore: bal.TargetBefore, TargetBalanceAfter: bal.TargetAfter,
 		Note: req.Note, IP: meta.IP, CreatedAt: now}
@@ -214,7 +211,7 @@ func notFoundAsTarget(err error) error {
 }
 
 // checkTarget — Seamless (DW-06) → สถานะเฉพาะฝาก (DW-05) → สกุลของลูกและของแม่ (DW-11)
-func checkTarget(tx *gorm.DB, t target, req depositWithdrawDto.CreateRequest, parentID uint, unlimited bool) error {
+func checkTarget(tx *gorm.DB, t target, req depositWithdrawDto.CreateRequest, parentID uint) error {
 	agentType, err := agentManagementPostgres.GetChainCompanyTypeRepository(tx, t.chainID)
 	if err != nil {
 		return err
@@ -228,9 +225,6 @@ func checkTarget(tx *gorm.DB, t target, req depositWithdrawDto.CreateRequest, pa
 	if !slices.Contains(t.currencies, req.Currency) {
 		return apperr.ErrDWCurrency
 	}
-	if unlimited {
-		return nil
-	}
 	parentCurrencies, err := agentManagementPostgres.ListAgentCurrenciesRepository(tx, parentID)
 	if err != nil {
 		return err
@@ -242,12 +236,9 @@ func checkTarget(tx *gorm.DB, t target, req depositWithdrawDto.CreateRequest, pa
 }
 
 // applyBalances — เขียนยอดใหม่ทั้ง 2 ฝั่ง · CHECK ยอดติดลบ (DW-34) แปลงตามทิศ: ฝาก = แม่ไม่พอ · ถอน = ลูกไม่พอ
-func applyBalances(tx *gorm.DB, req depositWithdrawDto.CreateRequest, t target, parentID uint, unlimited bool,
+func applyBalances(tx *gorm.DB, req depositWithdrawDto.CreateRequest, t target, parentID uint,
 	bal depositWithdrawCore.Balances, now time.Time) error {
-	var err error
-	if !unlimited {
-		err = depositWithdrawPostgres.UpdateDWAgentBalanceRepository(tx, parentID, req.Currency, bal.ParentAfter, now)
-	}
+	err := depositWithdrawPostgres.UpdateDWAgentBalanceRepository(tx, parentID, req.Currency, bal.ParentAfter, now)
 	if err == nil {
 		if t.owner == models.BalanceOwnerMember {
 			err = depositWithdrawPostgres.UpdateDWMemberCreditRepository(tx, t.id, bal.TargetAfter, now)
@@ -264,9 +255,9 @@ func applyBalances(tx *gorm.DB, req depositWithdrawDto.CreateRequest, t target, 
 	return err
 }
 
-// ledgerRows — balance_ledger ของรายการ (DW-33) · แม่เป็น Superadmin = แถวของลูกแถวเดียว
+// ledgerRows — balance_ledger ของรายการ (DW-33) · แม่ 1 แถว + ลูก 1 แถว
 func ledgerRows(l models.DepositWithdrawLog, actor agentAuthService.Actor) []models.BalanceLedger {
-	parentReason, targetReason, withParent := depositWithdrawCore.LedgerReasons(l.TransactionType, l.ParentUnlimited)
+	parentReason, targetReason := depositWithdrawCore.LedgerReasons(l.TransactionType)
 	parentAmount, targetAmount := depositWithdrawCore.SignedAmounts(l.TransactionType, l.Amount)
 	refType, refID := models.LedgerRefDW, l.ID
 	row := func(owner models.BalanceOwnerType, id uint, amount, after float64, reason models.LedgerReason) models.BalanceLedger {
@@ -274,11 +265,10 @@ func ledgerRows(l models.DepositWithdrawLog, actor agentAuthService.Actor) []mod
 			Reason: reason, RefType: &refType, RefID: &refID, RequestID: l.RequestID,
 			ActorType: actor.AccountType, ActorID: actor.AccountID(), CreatedAt: l.CreatedAt}
 	}
-	rows := make([]models.BalanceLedger, 0, 2)
-	if withParent {
-		rows = append(rows, row(models.BalanceOwnerAgent, l.ParentID, parentAmount, l.ParentBalanceAfter, parentReason))
+	return []models.BalanceLedger{
+		row(models.BalanceOwnerAgent, l.ParentID, parentAmount, l.ParentBalanceAfter, parentReason),
+		row(l.TargetType, l.TargetID, targetAmount, l.TargetBalanceAfter, targetReason),
 	}
-	return append(rows, row(l.TargetType, l.TargetID, targetAmount, l.TargetBalanceAfter, targetReason))
 }
 
 // findReplay — request_id ที่ลงทะเบียนแล้วใน create_requests (DW-25 / DW-26)

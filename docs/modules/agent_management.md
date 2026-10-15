@@ -93,7 +93,7 @@
 | | • สร้างบัญชี + โอนใน **transaction เดียวกัน** · lock แถวยอดของผู้สร้างก่อนอ่าน (`FOR UPDATE` เรียงสกุล) · ledger ทั้งสองฝั่งใน tx เดียวกัน (กฎข้อ 10–11) |
 | | • กันยิงซ้ำ: `request_id` (UUID · บังคับ) จากหน้าบ้าน · unique ใน DB · ส่งซ้ำด้วยค่าเดิม = ได้บัญชีเดิม ไม่สร้าง / ไม่โอนซ้ำ (กฎข้อ 12) · **`request_id` ที่ผู้อื่นหรือเส้นอื่นใช้แล้ว = `422` "request_id นี้ถูกใช้แล้ว"** (lead Q-R4) |
 | | • ไม่ต้องยืนยัน passcode · ส่ง `balance` ต้องมีสิทธิ์ `payment` = edit ด้วย (MGMT-51 · เช็คใน service หลังตรวจรูปแบบ — 7.1) |
-| | • **Superadmin วงเงินไม่จำกัด**: ไม่มียอดของตัวเองให้หัก · ledger บันทึกเฉพาะฝั่งที่ได้รับ (`reason = INITIAL_FROM_SUPERADMIN`) |
+| | • **Superadmin มียอดจริง** (แก้ 2026-10-15 · lead อนุมัติใน deposit_withdraw DW-14 — เดิม "วงเงินไม่จำกัด"): หักยอดเหมือนผู้สร้างคนอื่น · ไม่พอ = `402312` · ledger `INITIAL_TRANSFER_OUT` / `INITIAL_TRANSFER_IN` · ยอดตั้งต้นของ Superadmin seed สกุลละ 100,000,000 (migration `20261015100000`) · `INITIAL_FROM_SUPERADMIN` เลิกใช้ (มีเฉพาะแถวเก่า) |
 | | • ตารางยอดเงินและ ledger เป็นของ module การชำระเงิน — ออกแบบขั้นต่ำไว้ในหัวข้อ 6 |
 
 ### ค่าหุ้นส่วน (PT · Force · Remain · Commission)
@@ -592,7 +592,7 @@ CREATE TABLE account_change_logs (                -- MGMT-60 · action: CREATE /
 | MGMT-41 | sub 2 บัญชีเบอร์เดียวกัน | สำเร็จทั้งคู่ |
 | MGMT-12 | Share B2B ไม่ส่งสกุล · Share B2C ส่ง 2 สกุล | `422` |
 | MGMT-14 | Agent ใต้ Share B2B (THB, USD) เลือก JPY | `402310` |
-| MGMT-15A | Company THB 50,000 สร้าง Share พร้อม THB 10,000 · ยอดไม่พอ · Superadmin ให้ 1,000,000 | Company 40,000 · Share 10,000 · ledger 2 แถว · `402312` · สำเร็จ ไม่มีแถวยอด Superadmin |
+| MGMT-15A | Company THB 50,000 สร้าง Share พร้อม THB 10,000 · ยอดไม่พอ · Superadmin (THB 1,500,000) ให้ 1,000,000 · Superadmin ให้เกินที่เหลือ | Company 40,000 · Share 10,000 · ledger 2 แถว · `402312` · Superadmin 500,000 + ledger OUT / IN · `402312` |
 | MGMT-15A | `request_id` เดิมของตัวเอง · ของคนอื่น · ที่เคยใช้สร้าง Member | ได้ `id` เดิม ไม่โอนซ้ำ · `422` · `422` |
 | MGMT-15A | สร้างพร้อมกัน 2 คำขอ ยอดพอแค่คำขอเดียว | สำเร็จ 1 · อีกอัน `402312` |
 | MGMT-15A | sub มี `member` edit ไม่มี `payment` ส่ง `balance` | `402303` |

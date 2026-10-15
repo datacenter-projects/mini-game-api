@@ -33,7 +33,7 @@ type DownlineRow struct {
 	LastLoginAt string          `json:"last_login_at"`
 }
 
-// CreditDetail — ยอดของคนที่ login (แม่ · sub = เจ้าของ) (DW-44A) · Superadmin ไม่มียอดของตัวเอง = 0 ทุกสกุล
+// CreditDetail — ยอดของคนที่ login (แม่ · sub = เจ้าของ) (DW-44A) · Superadmin มียอดจริงแล้ว (lead 2026-10-15) · สาย Seamless = 0 ทุกสกุล
 type CreditDetail struct {
 	Currency CurrencyAmounts `json:"currency"`
 }
@@ -113,7 +113,7 @@ type LogRow struct {
 	Currency            string  `json:"currency"`
 	Amount              float64 `json:"amount"`
 	Note                string  `json:"note"`
-	ParentUnlimited     bool    `json:"parent_unlimited"`
+	ParentUnlimited     bool    `json:"parent_unlimited"` // true = รายการก่อน 2026-10-15 (Superadmin ไม่มียอด)
 	ParentBalanceBefore float64 `json:"parent_balance_before"`
 	ParentBalanceAfter  float64 `json:"parent_balance_after"`
 	TargetBalanceBefore float64 `json:"target_balance_before"`

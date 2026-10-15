@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	agentAuthCore "app/app/core/agent_auth"
 	agentManagementCore "app/app/core/agent_management"
+	depositWithdrawCore "app/app/core/deposit_withdraw"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
 	"app/app/models"
 	agentAuthPostgres "app/app/repository/postgres/agent_auth"
@@ -109,6 +111,23 @@ func seedSuperadmin(tx *gorm.DB, agentID uint, username string) error {
 		currencies = append(currencies, models.AgentCurrency{AgentID: agentID, Currency: c})
 	}
 	if err := agentManagementPostgres.CreateAgentCurrenciesRepository(tx, currencies); err != nil {
+		return err
+	}
+	// ยอดตั้งต้นสกุลละ 100,000,000 + ledger (deposit_withdraw · lead 2026-10-15 · แบบเดียวกับ migration 20261015100000)
+	now := time.Now()
+	balances := make([]models.AgentBalance, 0, len(currencies))
+	ledger := make([]models.BalanceLedger, 0, len(currencies))
+	for _, c := range currencies {
+		balances = append(balances, models.AgentBalance{AgentID: agentID, Currency: c.Currency, Amount: depositWithdrawCore.SuperadminSeedAmount, UpdatedAt: now})
+		ledger = append(ledger, models.BalanceLedger{OwnerType: models.BalanceOwnerAgent, OwnerID: agentID, Currency: c.Currency,
+			Amount: depositWithdrawCore.SuperadminSeedAmount, BalanceAfter: depositWithdrawCore.SuperadminSeedAmount,
+			Reason: models.LedgerSeedSuperadmin, RequestID: models.SeedSuperadminRequestID,
+			ActorType: models.AccountTypeAgent, ActorID: agentID, CreatedAt: now})
+	}
+	if err := agentManagementPostgres.CreateAgentBalancesRepository(tx, balances); err != nil {
+		return err
+	}
+	if err := agentManagementPostgres.CreateBalanceLedgerRepository(tx, ledger); err != nil {
 		return err
 	}
 	var settings []models.AgentGameSetting

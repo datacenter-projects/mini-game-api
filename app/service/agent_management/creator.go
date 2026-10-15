@@ -99,7 +99,7 @@ func CheckInitialBalance(amounts map[string]float64, seamless bool, accountCurre
 }
 
 // TransferInitialBalance — โอนยอดเงินตั้งต้นจากผู้สร้างให้บัญชีใหม่ใน tx เดียวกับการสร้าง (MGMT-15A · กฎข้อ 10–12)
-// Superadmin วงเงินไม่จำกัด: ไม่หักยอด · ledger เฉพาะฝั่งที่ได้รับ
+// ผู้สร้างทุกประเภทรวม Superadmin ถูกหักยอด · ledger OUT + IN (Superadmin มียอดจริง — deposit_withdraw · lead 2026-10-15)
 func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerType, ownerID uint, amounts map[string]float64,
 	requestID string, actor agentAuthService.Actor, now time.Time) error {
 	if len(amounts) == 0 {
@@ -118,27 +118,23 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 			ActorType: actor.AccountType, ActorID: actor.AccountID(), CreatedAt: now})
 	}
 
-	inReason := models.LedgerInitialFromSuperadmin
-	if c.UserType != agentManagementCore.UserTypeSuperadmin {
-		inReason = models.LedgerInitialTransferIn
-		locked, err := agentManagementPostgres.LockAgentBalancesRepository(tx, c.Agent.ID, currencies)
-		if err != nil {
+	locked, err := agentManagementPostgres.LockAgentBalancesRepository(tx, c.Agent.ID, currencies)
+	if err != nil {
+		return err
+	}
+	have := map[string]float64{}
+	for _, b := range locked {
+		have[b.Currency] = b.Amount
+	}
+	for _, cur := range currencies {
+		after := utils.Round4(have[cur] - amounts[cur])
+		if after < 0 {
+			return apperr.ErrInsufficientInitial
+		}
+		if err := agentManagementPostgres.UpdateAgentBalanceRepository(tx, c.Agent.ID, cur, after, now); err != nil {
 			return err
 		}
-		have := map[string]float64{}
-		for _, b := range locked {
-			have[b.Currency] = b.Amount
-		}
-		for _, cur := range currencies {
-			after := utils.Round4(have[cur] - amounts[cur])
-			if after < 0 {
-				return apperr.ErrInsufficientInitial
-			}
-			if err := agentManagementPostgres.UpdateAgentBalanceRepository(tx, c.Agent.ID, cur, after, now); err != nil {
-				return err
-			}
-			entry(models.BalanceOwnerAgent, c.Agent.ID, cur, -amounts[cur], after, models.LedgerInitialTransferOut, string(owner), ownerID)
-		}
+		entry(models.BalanceOwnerAgent, c.Agent.ID, cur, -amounts[cur], after, models.LedgerInitialTransferOut, string(owner), ownerID)
 	}
 
 	switch owner {
@@ -158,7 +154,7 @@ func TransferInitialBalance(tx *gorm.DB, c Creator, owner models.BalanceOwnerTyp
 		}
 	}
 	for _, cur := range currencies {
-		entry(owner, ownerID, cur, amounts[cur], amounts[cur], inReason, string(models.BalanceOwnerAgent), c.Agent.ID)
+		entry(owner, ownerID, cur, amounts[cur], amounts[cur], models.LedgerInitialTransferIn, string(models.BalanceOwnerAgent), c.Agent.ID)
 	}
 	return agentManagementPostgres.CreateBalanceLedgerRepository(tx, ledger)
 }
