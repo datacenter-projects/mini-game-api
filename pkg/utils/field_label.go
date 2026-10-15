@@ -96,6 +96,8 @@ var topLabels = map[string]label{
 	"note":             {"หมายเหตุ", "Note"},
 	"date_from":        {"วันที่เริ่มต้น", "Start date"},
 	"date_to":          {"วันที่สิ้นสุด", "End date"},
+	"starttime":        {"เวลาเริ่มต้น", "Start time"},
+	"endtime":          {"เวลาสิ้นสุด", "End time"},
 	// game_rate (lead Q9 2026-10-14)
 	"game_code":    {"เกม", "Game"},
 	"base_version": {"เวอร์ชันที่โหลดมา", "Loaded version"},

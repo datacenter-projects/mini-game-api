@@ -12,5 +12,6 @@ var (
 	ErrDWTargetInsufficient = New(404306, "ยอดเงินของบัญชีปลายทางไม่พอ", "The target account balance is insufficient")
 	ErrDWInProgress         = New(404307, "มีรายการของบัญชีนี้กำลังทำอยู่ กรุณาลองใหม่", "Another transaction for this account is in progress, please try again")
 	ErrDWTargetNotFound     = New(404401, "ไม่พบบัญชีลูกตรงของคุณ", "Direct downline account not found")
+	ErrDWAccountNotFound    = New(404402, "ไม่พบข้อมูลบัญชี", "Account not found") // DW4 — ไม่มี / นอกสาย / ตัวเอง (DW-56)
 	ErrDWLockUnavailable    = NewWithStatus(http.StatusServiceUnavailable, 504801, "ระบบไม่พร้อมทำรายการ กรุณาลองใหม่", "The system is not ready, please try again")
 )
