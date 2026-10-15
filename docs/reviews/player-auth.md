@@ -80,3 +80,98 @@
 | — | `members/status/update` LOCKED ลบ session ผู้เล่น | แก้ member_management |
 
 นอกขอบเขต: `transfer/launch` (L3 — lead 2026-10-15) · `player/pb/launch/exchange` (ยกเลิก — LQ-c ใหม่) · `seamless/*` · GetMember · balance / deposit / withdraw ของ operator (spec "Transfer API" แยก) · BO reset รหัส · เปลี่ยน username ของ Member จาก BO
+
+## รอบ 2 — คำถามจากร่าง spec (Boiledegg `docs/lead/bo-player-auth.md` · lead 2026-10-15)
+| # | เรื่อง | ผล |
+|---|---|---|
+| Q1 | ใครเรียก `transfer/*` ได้ | เฉพาะ `SHARE_B2C` และ `AGENT` · ประเภทอื่น = error |
+| Q2 | สกุลเงินของผู้เล่นที่ระบบสร้าง | `currency` **ไม่บังคับ**: agent มีสกุลเดียว → ใช้สกุลนั้น · หลายสกุลแล้วไม่ส่ง = `422` · ส่งมาต้องอยู่ในสกุลของ agent |
+| Q3 | `name` | = `player_username` |
+| Q4 | ยอดตั้งต้น | `credit = 0` · `payment_type = CASH` · ผู้สร้างฝากให้ทีหลัง (spec Transfer API) |
+| Q5 | PT / commission ของผู้เล่นที่ระบบสร้าง | **`pt` = ค่าเต็มที่ agent ได้รับ (agent ถือสู้เองทั้งหมด · `remain_quota` = 0) · `commission_percent` = 0** · `win_limit_per_day` = ค่า default ของ DB |
+| Q6 | `can_bet` | ACTIVE + `win_limit_per_day > 0` · เกมปิดดูที่ `games/list` รายเกม |
+| Q7 | `games/list` | ใช้ `GamesListService` ของ asset ซ้ำ (`app/service/asset/catalog_service.go`) · ส่ง `game_code` · `name` (จาก catalog) · `open` (เปิดจริงตามสายบน) · `game_cover` · **ไม่ส่งค่า rate** |
+| Q8 | rate limit `transfer/*` | IP 20/นาที (`pl:op:ip:*`) · whitelist ว่าง = ปฏิเสธทุก IP (ACC-07) |
+| Q9 | ชื่อ field ของ operator | **`snake_case`** (`agent_username` · `player_username` · `key`) เหมือน API ทั้งระบบ — แทนชื่อ camelCase ในหัวข้อการตัดสินด้านบน |
+| Q10 | เปลี่ยนรหัส | 1 session ต่อคน → session ปัจจุบันใช้ต่อ ไม่ต้องทำอะไรเพิ่ม |
+| Q11 | `agent@player` ชนรูปแบบ `agent@sub` | ไม่ต้องกัน — คนละตาราง + login คนละเส้น |
+| Q12 | URL lobby | env `PLAYER_LOBBY_URL` (+ `.env.example`) · query ชื่อ `token` |
+| Q13 | เช็คสายบนทุก request | ไม่ cache · query เดียว · วัดตอน load test (k6) |
+
+## รอบ 3 — review ร่าง spec ทีละ endpoint (`boiledegg/player/auth` @ `013e748` · lead 2026-10-15)
+**ขอบเขตรอบนี้ 8 เส้น:** PA1 `player/pb/login` · PA3 `pr/auth/logout` · PA4 `pr/auth/password/update` · PA5 `pr/me/get` · **PA6 `pr/balance/get` (ใหม่)** · PA7 `pr/games/list` · L2 `transfer/login` · TR `transfer/register`
+
+### middleware
+- แยก 3 ตัว: BO `Authenticated` (typ `bo`) · ผู้เล่น `PlayerAuthenticated` (typ `pl` · `app/internals/frontend/middleware`) · operator `OperatorAuthenticated` (`app/externals/transfer`) · ใช้ร่วมแค่ `pkg/utils/jwt.go` + secret
+- ย้าย `BearerToken` จาก backoffice middleware ไป `pkg/middleware` (frontend ห้าม import backoffice)
+- รายการ error ของ middleware ผู้เล่นเขียนที่เดียว (`407202` / `203` / `204` / `301` / `302`) ทุกเส้น `pr/*` อ้างถึง
+
+### PA1 · login
+- ผู้เล่นที่ไม่มีรหัส login เส้นนี้ → `407201` ข้อความเดียวกับรหัสผิด (กันเดา username) · ไม่ใช้ `407307` ในเส้นนี้
+- username ไม่สนตัวพิมพ์ (แปลงตัวเล็กก่อนค้น)
+- `member` = `username` · `name` · `currency` · `status` · `can_bet` (ไม่ใส่ credit / id)
+- HTTP status ของ error ทั้ง module ให้ตรงแบบ BO auth (module 01)
+
+### PA3 · logout — ตามร่าง
+
+### PA4 · password/update
+- `407307` (ไม่มีรหัส) ใช้ในเส้นนี้ได้
+- รหัสเดิมผิดนับรวมตัวนับ PA-41 · ผิด 5 ครั้ง / 15 นาที → `407303` 15 นาที
+- ใช้ได้กับผู้เล่นจาก operator ที่ตั้งรหัสไว้ (TR)
+
+### PA5 · me/get
+- **เอา `credit` ออก** → `username` · `name` · `currency` · `status` · `can_bet`
+- ยังไม่ใส่ win limit / ยอดที่เหลือวันนี้ (→ spec Bet)
+
+### PA6 · `POST /api/v1/player/pr/balance/get` (ใหม่)
+- response `{currency, credit}` · อ่าน `user_members.credit` ตรง ไม่ cache · SUSPENDED เรียกได้
+- **ใช้เป็น ping กันหลุด idle** (หน้าเกมรีเฟรชยอดทุก 5–10 นาที) ไม่มีเส้น ping แยก
+- Seamless (รอบหน้า) เปลี่ยนเฉพาะเส้นนี้ไปเรียก GetBalance โดย contract เดิม
+
+### PA7 · games/list
+- **เพิ่มชื่อเกม `name_th` / `name_en` ใน catalog ฝั่ง backend** แล้วส่งใน `items[]` (catalog ของ asset ตอนนี้มีแค่ `game_code` + `game_cover`) — แทน Q7 รอบ 2 ที่เขียนว่าชื่อมาจาก catalog
+- เรียงตาม catalog คงที่ในโค้ด · `open` ดูจาก agent + สายบนเท่านั้น (Member ไม่มีสวิตช์เกมรายคน)
+
+### L2 · transfer/login — request `agent_username` · `key` · `player_username` · `currency` (ไม่บังคับ) · `language` (ไม่บังคับ)
+- ผู้เล่นมีแล้วแต่ `currency` ไม่ตรง → `422` "สกุลเงินไม่ตรงกับผู้เล่น"
+- agent (หรือสายบน) LOCKED → ปฏิเสธทุก `transfer/*` (`407302`) · SUSPENDED → ผู้เล่นเดิม login ได้ `can_bet = false`
+- `language` `th` / `en` default `th` → ต่อ `&lang=` ท้าย link
+- login ผู้เล่นใหม่พร้อมกัน → unique constraint กัน · insert ชน = อ่านผู้เล่นที่สร้างแล้วทำต่อ ไม่ error · มี test ยิงพร้อมกัน
+- ผู้เล่นที่สร้างอัตโนมัติไม่มีรหัส
+
+### TR · transfer/register — request + **`password` (ไม่บังคับ — lead เพิ่ม)**
+- ส่ง `password` = ผู้เล่น login ตรง (PA1) ได้ด้วยชื่อเต็ม `agent01@p001` · ไม่ส่ง = เข้าทาง operator อย่างเดียว — **แทน PQ9-a เดิม**
+- กติการหัส = AUTH-36 (ฟังก์ชันเดียวกับ BO ใน `app/core`) · ไม่ผ่าน `422` · ห้าม log · ไม่คืนรหัส
+- response `{username, currency}`
+- register ซ้ำ = `407401` · spec เขียนว่า operator ถือเป็น "สร้างไว้แล้ว"
+- agent SUSPENDED **สร้างผู้เล่นใหม่ไม่ได้** (ทั้ง register และ auto-create ใน L2) · ผู้เล่นเดิม login ได้
+- operator reset / เปลี่ยนรหัสให้ผู้เล่น — ยังไม่ทำ
+
+## รอบ 4 — approve spec (`boiledegg/player/auth` @ `f50a8b8` · lead zerph 2026-10-15)
+**✅ อนุมัติ spec `docs/modules/player_auth.md`** โดยมีเงื่อนไข 1 ข้อ — แก้แล้วเริ่ม implement ผ่าน PR ได้ทันที (commit แรก: ย้าย `BearerToken` ไป `pkg/middleware`)
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| R4-1 | error ตอน agent SUSPENDED สร้างผู้เล่นใหม่ (register / auto-create ใน `transfer/login`) | **รับ `407308` (HTTP 403) "บัญชีผู้สร้างถูกระงับ สร้างผู้เล่นใหม่ไม่ได้"** |
+| R4-2 | PA-09 `win_limit_per_day` ของผู้เล่นที่ระบบสร้าง = "ค่า default ของ DB" | **แก้**: ใช้ค่าตั้งต้นตาม MGMT-65 ล่าสุด (เพดาน 1,000,000 บาท แปลงเป็นสกุลของผู้เล่น — member-payment รอบ 2) ผ่านฟังก์ชันเดียวกับ `members/create` · ห้ามพึ่งค่า default ของคอลัมน์ใน DB |
+
+Boiledegg: แก้ PA-09 + ใส่ "อนุมัติโดย: zerph · 2026-10-15" ในหัว spec · เอา **[เสนอ]** ออกจาก `407308`
+
+## รอบ 5 — ระหว่าง implement (`boiledegg/player/auth` @ `0ce5c78` · lead 2026-10-15)
+| # | เรื่อง | ผล |
+|---|---|---|
+| R5-1 | migration `20261015140000` แก้ CHECK `ck_user_members_username` เป็น `^[a-z0-9]{3,32}(@[a-z0-9]{3,32})?$` + `VARCHAR(65)` | **อนุมัติ** (CHECK เดิมรับ `agent@player` ไม่ได้) · down ย้อนไม่ได้เมื่อมีผู้เล่นแบบ `@` — ตามหมายเหตุใน migration |
+| R5-2 | ชื่อเกมใน catalog (`app/core/game/game.go`) | **ยืนยันตามที่ตั้ง**: `scratch_card` สแครชการ์ด / Scratch Card · `coin_toss` โยนเหรียญ / Coin Toss · `rock_paper_scissors` เป่ายิ้งฉุบ / Rock Paper Scissors |
+| R5-3 | verify โค้ด | เปิด verify ที่ `0ce5c78` ทันที ไม่รอ PR |
+
+## รอบ 6 — ผล verify โค้ด (`0ce5c78` + `a529bcd` · lead 2026-10-15 · รายงาน verify-player-auth)
+การตัดสินของ lead ตรงครบ · `key` ไม่อยู่ใน log ใด · must-fix 0 · should-fix 3 · nit 7 → **merge ได้เมื่อครบเงื่อนไขด้านล่าง**
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| S1 | `c.IP()` เมื่อตั้ง `TRUSTED_PROXIES` ได้ `X-Forwarded-For` ทั้งก้อน (`"a, b"`) → operator โดน `407305` เมื่อมี proxy หลายชั้น · client ปลอม XFF หลบ rate limit ได้ (ของเดิม — กระทบ BO login ด้วย) | **แยกเป็นงานแก้ ทำหลัง merge แต่ก่อนเปิดให้ operator ใช้จริง** · อ่าน IP จาก header ที่ ingress ของเราตั้ง หรือไล่ XFF จากขวาข้าม proxy ที่เชื่อถือ · **ห้ามแก้ด้วยเปิด `EnableIPValidation` อย่างเดียว** (ได้ IP ซ้ายสุดที่ client ปลอมได้ → หลบ whitelist) · ทดสอบยิงผ่าน ingress จริงบน dev |
+| S2 | ผู้เล่นที่สร้างผ่าน `transfer/register` / สร้างอัตโนมัติ ไม่มี `account_change_logs` `CREATE` | **เขียน log** · ผู้ทำ = agent เจ้าของ `key` (เหมือน `members/create`) |
+| S3 | test PA-12 เช็คแค่ response | **เพิ่ม test** ว่า `key` / `password` ไม่อยู่ใน log |
+
+**เงื่อนไข merge:** แก้ S2 + S3 · แนบผล integration test (หรือ CI เขียว) · nit 7 ข้อใน `reviews/mini-game-api/verify-player-auth.md` (error list ของ L2 ขาด `407301` / `503` · PA4 ผิดครบแล้วตัด session ให้เขียนใน spec · `last_login_ip` ของ L2 = IP ของ operator ฯลฯ) ทำได้ใน PR เดียวกัน
+**ก่อน deploy dev:** migrate `20261015140000` + ตั้ง `PLAYER_LOBBY_URL` (`TRUSTED_PROXIES` หลังแก้ S1)

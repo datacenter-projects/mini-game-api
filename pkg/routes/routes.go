@@ -2,10 +2,12 @@ package routes
 
 import (
 	"app/app/externals/provider"
+	"app/app/externals/transfer"
 	"app/app/health"
 	"app/app/internals/backoffice"
 	"app/app/internals/frontend"
 	"app/app/internals/game"
+	"app/pkg/configs"
 	"app/pkg/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,9 +24,14 @@ func SetupRoutes(a *fiber.App) {
 
 	api := a.Group("/api/v1")
 	backoffice.RegisterRoutes(api) // /api/v1/bo/...
-	frontend.RegisterRoutes(api)   // /api/v1/player/...
-	game.RegisterRoutes(api)       // /api/v1/{scratch,cointoss,rockpaperscissors}/...
-	provider.RegisterRoutes(api)   // /api/v1/provider/...
+	// Cfg nil = ไม่ได้โหลด config (unit test ของ routes) — ถือว่าปิด
+	if configs.Cfg != nil && configs.Cfg.DevRoutesEnabled {
+		backoffice.RegisterDevRoutes(api) // /api/v1/bo/pr/dev/... (ต้องอยู่หลัง RegisterRoutes · prod เปิดไม่ได้ — docs/modules/pt_calculation.md PTC-40)
+	}
+	frontend.RegisterRoutes(api) // /api/v1/player/...
+	game.RegisterRoutes(api)     // /api/v1/{scratch,cointoss,rockpaperscissors}/...
+	provider.RegisterRoutes(api) // /api/v1/provider/...
+	transfer.RegisterRoutes(api) // /api/v1/transfer/...
 
 	middleware.NotFoundRoute(a)
 }

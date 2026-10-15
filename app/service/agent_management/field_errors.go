@@ -104,6 +104,9 @@ func ChildPTError(group string, is agentManagementCore.PTIssue) error {
 	case agentManagementCore.PTSuperadminRemain: // MGMT-18A
 		return apperr.ErrValidation.WithMessage(th+" Superadmin ตั้งไม่ได้ (ส่วนที่เหลือคืน Superadmin อยู่แล้ว) ต้องเป็น 0",
 			en+" cannot be set by Superadmin (the remainder returns to Superadmin anyway), must be 0")
+	case agentManagementCore.PTSeamlessMasterForce: // MGMT-18A · lead pt_calculation Q3
+		return apperr.ErrValidation.WithMessage(th+": Company Seamless Master ถือสู้ไม่ได้ ตั้ง Force ไม่ได้ ต้องเป็น 0",
+			en+": Company Seamless Master cannot hold PT, Force must be 0")
 	default:
 		return commissionRangeError(th, en)
 	}

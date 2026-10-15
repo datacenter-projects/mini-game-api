@@ -106,6 +106,8 @@ var topLabels = map[string]label{
 	"prizes":       {"ตารางรางวัล", "Prizes"},
 	"win_percent":  {"อัตราชนะ", "Win rate"},
 	"status_game":  {"สถานะเกม", "Game status"},
+	// pt_calculation (เส้น dev — docs/modules/pt_calculation.md)
+	"member_id": {"รหัส Member", "Member ID"},
 }
 
 // rowLabels — array ที่แต่ละแถวมีเลขในข้อความ (เลขเริ่ม 1) · field ในแถวอยู่ sectionLabels ชื่อเดียวกัน

@@ -109,7 +109,6 @@ func GetDWLogRepository(db *gorm.DB, id uint) (models.DepositWithdrawLog, error)
 type DWDownlineRow struct {
 	ID          uint
 	Role        string // role ของ agent · Member = "MEMBER"
-	AgentType   *models.AgentType
 	Username    string
 	Name        *string
 	Status      models.AgentStatus
@@ -121,10 +120,10 @@ type DWDownlineRow struct {
 
 // dwDownlineSQL — ลูกตรงของ parent ทั้งฝั่ง agent (ไม่รวม ADMIN — AUTH-43) และ Member · กรอง username บางส่วน (DW-40 / DW-41)
 const dwDownlineSQL = `
-	SELECT id, role, agent_type, username, name, status, NULL AS currency, 0::double precision AS credit, last_login_at, last_login_ip
+	SELECT id, role, username, name, status, NULL AS currency, 0::double precision AS credit, last_login_at, last_login_ip
 	FROM user_agents WHERE parent_id = @parent AND role <> 'ADMIN' AND (@q = '' OR username LIKE @like ESCAPE '\')
 	UNION ALL
-	SELECT id, 'MEMBER', NULL, username, name, status, currency, credit, last_login_at, last_login_ip
+	SELECT id, 'MEMBER', username, name, status, currency, credit, last_login_at, last_login_ip
 	FROM user_members WHERE agent_id = @parent AND (@q = '' OR username LIKE @like ESCAPE '\')`
 
 // likeEscaper — ให้ \ % _ ใน keyword เป็นตัวอักษรธรรมดา (ESCAPE '\')

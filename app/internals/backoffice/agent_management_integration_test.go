@@ -420,16 +420,22 @@ func TestCreateInitialBalance(t *testing.T) { // MGMT-15, MGMT-15A
 	b["balance"] = map[string]any{"THB": 500000.0001}
 	expect(t, call(t, app, "POST", createAgentPath, b, c.saTok), 200, 402312)
 
-	// 422: Seamless · สกุลที่บัญชีใหม่ไม่มี · 0 · ติดลบ
+	// 422: สกุลที่บัญชีใหม่ไม่มี · 0 · ติดลบ
 	bad := []map[string]any{{"THB": 0}, {"THB": -5}, {"USD": 10}, {"THB": 1.00001}}
 	for _, bal := range bad {
 		b = agentBody("SHARE_B2C", "sharebad", []string{"THB"}, childPT(50, 0, 0, 0))
 		b["balance"] = bal
 		expect(t, call(t, app, "POST", createAgentPath, b, c.comTok), 200, 422)
 	}
+	// สาย Seamless ส่ง balance ได้ (MGMT-15 แก้ 2026-10-15) · หักจาก Superadmin
 	b = agentBody("COMPANY_SEAMLESS_RESELLER", "resbal", nil, childPT(50, 0, 0, 0))
 	b["balance"] = map[string]any{"THB": 10}
-	expect(t, call(t, app, "POST", createAgentPath, b, c.saTok), 200, 422)
+	r = call(t, app, "POST", createAgentPath, b, c.saTok)
+	expect(t, r, 200, 200)
+	_ = json.Unmarshal(r.Data, &d)
+	if agentBalance(t, d.ID, "THB") != 10 || agentBalance(t, sa.ID, "THB") != 499990 {
+		t.Fatalf("Seamless initial balance: reseller %v · superadmin %v", agentBalance(t, d.ID, "THB"), agentBalance(t, sa.ID, "THB"))
+	}
 
 	// Member ได้ยอดเงินตั้งต้นจาก Agent
 	setBalance(t, c.agent.ID, "THB", 100)

@@ -23,12 +23,19 @@ type Config struct {
 	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
 	MetricsAddr string
 
-	DB      DBConfig
-	Redis   RedisConfig
-	Auth    AuthConfig
+	DB    DBConfig
+	Redis RedisConfig
+	Auth  AuthConfig
+
 	Storage StorageConfig
 
+	// PlayerLobbyURL คือ URL หน้า lobby ที่ transfer/login ต่อ ?token= ท้าย (player_auth L2 · lead Q12) · ไม่ตั้ง = transfer/login ตอบ 503
+	PlayerLobbyURL string
+
 	MigrateOnStart bool
+
+	// DevRoutesEnabled — เปิดเส้น dev (/api/v1/bo/pr/dev/...) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
+	DevRoutesEnabled bool
 }
 
 // AuthConfig — ค่าตาม spec docs/modules/agent_auth.md (AUTH-07, AUTH-10, AUTH-11)
@@ -41,6 +48,11 @@ type AuthConfig struct {
 
 	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
+
+	// ผู้เล่น (docs/modules/player_auth.md PA-21 / PA-42) — idle 30 นาที · absolute 4 ชม. · transfer/* ต่อ IP ต่อนาที
+	PlayerSessionIdleTimeout     time.Duration
+	PlayerSessionAbsoluteTimeout time.Duration
+	OperatorIPLimit              int
 
 	LoginFailLimit     int
 	LoginFailWindow    time.Duration
@@ -128,19 +140,23 @@ func Load() error {
 			DB:       getEnvInt("REDIS_DB", 0),
 		},
 
+		PlayerLobbyURL: os.Getenv("PLAYER_LOBBY_URL"),
 		Auth: AuthConfig{
-			JWTSecret:              required("JWT_SECRET"),
-			PasswordCost:           getEnvInt("PASSWORD_COST", 12),
-			SessionIdleTimeout:     getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
-			SessionAbsoluteTimeout: getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
-			LoginFailLimit:         getEnvInt("LOGIN_FAIL_LIMIT", 5),
-			LoginFailWindow:        getEnvDuration("LOGIN_FAIL_WINDOW", 15*time.Minute),
-			LoginBlockDuration:     getEnvDuration("LOGIN_BLOCK_DURATION", 15*time.Minute),
-			LoginIPLimit:           getEnvInt("LOGIN_IP_LIMIT_PER_MINUTE", 20),
-			PasscodeFailLimit:      getEnvInt("PASSCODE_FAIL_LIMIT", 5),
-			PasscodeFailWindow:     getEnvDuration("PASSCODE_FAIL_WINDOW", 24*time.Hour),
-			PasscodeBlockDuration:  getEnvDuration("PASSCODE_BLOCK_DURATION", time.Hour),
-			TempCredentialTTL:      getEnvDuration("TEMP_CREDENTIAL_TTL", 24*time.Hour),
+			JWTSecret:                    required("JWT_SECRET"),
+			PasswordCost:                 getEnvInt("PASSWORD_COST", 12),
+			SessionIdleTimeout:           getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
+			SessionAbsoluteTimeout:       getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
+			PlayerSessionIdleTimeout:     getEnvDuration("PLAYER_SESSION_IDLE_TIMEOUT", 30*time.Minute),
+			PlayerSessionAbsoluteTimeout: getEnvDuration("PLAYER_SESSION_ABSOLUTE_TIMEOUT", 4*time.Hour),
+			OperatorIPLimit:              getEnvInt("OPERATOR_IP_LIMIT_PER_MINUTE", 20),
+			LoginFailLimit:               getEnvInt("LOGIN_FAIL_LIMIT", 5),
+			LoginFailWindow:              getEnvDuration("LOGIN_FAIL_WINDOW", 15*time.Minute),
+			LoginBlockDuration:           getEnvDuration("LOGIN_BLOCK_DURATION", 15*time.Minute),
+			LoginIPLimit:                 getEnvInt("LOGIN_IP_LIMIT_PER_MINUTE", 20),
+			PasscodeFailLimit:            getEnvInt("PASSCODE_FAIL_LIMIT", 5),
+			PasscodeFailWindow:           getEnvDuration("PASSCODE_FAIL_WINDOW", 24*time.Hour),
+			PasscodeBlockDuration:        getEnvDuration("PASSCODE_BLOCK_DURATION", time.Hour),
+			TempCredentialTTL:            getEnvDuration("TEMP_CREDENTIAL_TTL", 24*time.Hour),
 		},
 
 		Storage: StorageConfig{
@@ -151,7 +167,8 @@ func Load() error {
 			Endpoint:      os.Getenv("S3_ENDPOINT"),
 		},
 
-		MigrateOnStart: getEnvBool("MIGRATE_ON_START", false),
+		MigrateOnStart:   getEnvBool("MIGRATE_ON_START", false),
+		DevRoutesEnabled: getEnvBool("DEV_ROUTES_ENABLED", false),
 	}
 
 	if len(missing) > 0 {
@@ -165,6 +182,12 @@ func Load() error {
 	}
 	if cfg.MetricsAddr != "" && cfg.MetricsAddr == cfg.ServerAddr {
 		return fmt.Errorf("METRICS_ADDR must differ from SERVER_ADDR")
+	}
+	if cfg.DevRoutesEnabled && cfg.IsProd() { // PTC-41
+		return fmt.Errorf("DEV_ROUTES_ENABLED must be false when APP_ENV=prod")
+	}
+	if cfg.Auth.PlayerSessionIdleTimeout > cfg.Auth.PlayerSessionAbsoluteTimeout {
+		return fmt.Errorf("PLAYER_SESSION_IDLE_TIMEOUT must not exceed PLAYER_SESSION_ABSOLUTE_TIMEOUT")
 	}
 	if cfg.Auth.SessionIdleTimeout > cfg.Auth.SessionAbsoluteTimeout {
 		return fmt.Errorf("SESSION_IDLE_TIMEOUT must not exceed SESSION_ABSOLUTE_TIMEOUT")

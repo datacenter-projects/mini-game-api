@@ -2,10 +2,9 @@
 package middleware
 
 import (
-	"strings"
-
 	agentAuthService "app/app/service/agent_auth"
 	"app/pkg/apperr"
+	pkgMiddleware "app/pkg/middleware"
 	"app/pkg/response"
 
 	"github.com/gofiber/fiber/v2"
@@ -17,11 +16,11 @@ const actorLocalsKey = "bo_actor"
 // ไม่ได้เช็คด่านหลัง login — route ต้องใส่ PassedGates เองบรรทัดเดียวกับ route
 func Authenticated() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		token, ok := BearerToken(c)
+		token, ok := pkgMiddleware.BearerToken(c)
 		if !ok {
 			return response.Error(c, apperr.ErrInvalidToken)
 		}
-		actor, err := agentAuthService.AuthenticateService(c.UserContext(), token, c.IP())
+		actor, err := agentAuthService.AuthenticateService(c.UserContext(), token, pkgMiddleware.ClientIP(c))
 		if err != nil {
 			return response.Error(c, err)
 		}
@@ -41,15 +40,5 @@ func GetActor(c *fiber.Ctx) agentAuthService.Actor {
 
 // RequestMeta — ข้อมูลของ request ที่ service ใช้ (ip, user agent สำหรับ rate limit / audit log)
 func RequestMeta(c *fiber.Ctx) agentAuthService.RequestMeta {
-	return agentAuthService.RequestMeta{IP: c.IP(), UserAgent: c.Get(fiber.HeaderUserAgent)}
-}
-
-// BearerToken อ่าน token จาก header "Authorization: Bearer <token>"
-func BearerToken(c *fiber.Ctx) (string, bool) {
-	scheme, token, found := strings.Cut(c.Get(fiber.HeaderAuthorization), " ")
-	if !found || !strings.EqualFold(scheme, "Bearer") {
-		return "", false
-	}
-	token = strings.TrimSpace(token)
-	return token, token != ""
+	return agentAuthService.RequestMeta{IP: pkgMiddleware.ClientIP(c), UserAgent: c.Get(fiber.HeaderUserAgent)}
 }
