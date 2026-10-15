@@ -3,7 +3,7 @@ package agentauth
 import (
 	"context"
 
-	redisRepo "app/app/repository/redis"
+	agentAuthRedis "app/app/repository/redis/agent_auth"
 )
 
 // LogoutService — POST /api/v1/bo/pr/auth/logout · rule: AUTH-09, AUTH-23
@@ -16,5 +16,5 @@ func LogoutService(ctx context.Context, rawToken string) error {
 	if err != nil {
 		return err
 	}
-	return redisRepo.DeleteBOSessionRepository(ctx, claims.SessionID, accountType, claims.AccountID)
+	return agentAuthRedis.DeleteBOSessionRepository(ctx, claims.SessionID, accountType, claims.AccountID)
 }

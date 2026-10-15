@@ -7,7 +7,7 @@ import (
 
 	agentAuthCore "app/app/core/agent_auth"
 	"app/app/models"
-	redisRepo "app/app/repository/redis"
+	agentAuthRedis "app/app/repository/redis/agent_auth"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -37,13 +37,13 @@ func VerifyPasscodeService(ctx context.Context, actor Actor, passcode string, me
 func checkPasscode(ctx context.Context, acc account, passcode string, meta RequestMeta) error {
 	cfg := configs.Cfg.Auth
 	if utils.CheckPassword(*acc.PasscodeHash, passcode) {
-		if err := redisRepo.ClearBOPasscodeFailRepository(ctx, acc.Type, acc.ID); err != nil {
+		if err := agentAuthRedis.ClearBOPasscodeFailRepository(ctx, acc.Type, acc.ID); err != nil {
 			logger.Ctx(ctx).Warnw("clear passcode fail counter failed", "account_type", acc.Type, "account_id", acc.ID, "error", err)
 		}
 		return nil
 	}
 
-	fails, err := redisRepo.IncrBOPasscodeFailRepository(ctx, acc.Type, acc.ID, cfg.PasscodeFailWindow)
+	fails, err := agentAuthRedis.IncrBOPasscodeFailRepository(ctx, acc.Type, acc.ID, cfg.PasscodeFailWindow)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func checkPasscode(ctx context.Context, acc account, passcode string, meta Reque
 			fmt.Sprintf("Incorrect passcode (%d attempts left)", left))
 	}
 
-	if err := redisRepo.BlockBOPasscodeRepository(ctx, acc.Type, acc.ID, cfg.PasscodeBlockDuration); err != nil {
+	if err := agentAuthRedis.BlockBOPasscodeRepository(ctx, acc.Type, acc.ID, cfg.PasscodeBlockDuration); err != nil {
 		return err
 	}
 	endAllSessions(ctx, acc)

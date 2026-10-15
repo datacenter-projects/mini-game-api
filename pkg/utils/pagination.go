@@ -17,7 +17,13 @@ type Page struct {
 
 // ParsePage อ่าน ?page=&limit= — ค่าผิด/เกินขอบเขตถูกปรับให้อยู่ในช่วงที่รับได้ (ไม่ error)
 func ParsePage(c *fiber.Ctx) Page {
-	p := Page{Page: c.QueryInt("page", 1), Limit: c.QueryInt("limit", DefaultPageLimit)}
+	return NewPage(c.QueryInt("page", 1), c.QueryInt("limit", DefaultPageLimit))
+}
+
+// NewPage — ปรับ page / limit ให้อยู่ในช่วงที่รับได้แบบเดียวกับ ParsePage · ใช้กับ list ที่รับ page / limit ใน body
+// ไม่ส่ง (0) = page 1 · limit ค่าเริ่มต้น
+func NewPage(page, limit int) Page {
+	p := Page{Page: page, Limit: limit}
 	if p.Page < 1 {
 		p.Page = 1
 	}

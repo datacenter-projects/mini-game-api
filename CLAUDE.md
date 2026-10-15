@@ -25,7 +25,7 @@ go module ชื่อ `app` (import เป็น `app/app/...`, `app/pkg/...`, 
 ## โครงสร้าง (สรุป — รายละเอียดและแม่แบบโค้ดดู `docs/ARCHITECTURE.md`)
 
 ```
-app/internals/{backoffice|frontend|game}/{controllers,dto,middleware}/{module}/ + routes.go
+app/internals/{backoffice|frontend|game|developer}/{controllers,dto,middleware}/{module}/ + routes.go
 app/externals/{partner}/{controllers,dto,middleware}/ + routes.go
 app/service/{module}/     business logic + transaction
 app/core/{topic}/         pure business rule + table test
@@ -58,7 +58,10 @@ database/migrations/      goose .sql
 
 ### เงินและ transaction
 
-9. เงินเป็น `int64` หน่วยย่อยที่สุด (ทั้ง DB และ Go) ห้ามใช้ float กับเงินในทุกจุด
+9. เงินและเปอร์เซ็นต์เป็นทศนิยม `float64` (Go) / `DOUBLE PRECISION` (DB) — ทีมตกลง · lead อนุมัติ 2026-10-09 (แทนกฎ int64 หน่วยย่อยเดิม)
+   - request รับทศนิยมไม่เกิน 4 ตำแหน่ง · ปัดเป็น 4 ตำแหน่ง (`utils.Round4`) ทุกครั้งก่อนบันทึกและหลังบวก / ลบ
+   - เทียบยอด / เพดานด้วยค่าที่ปัด 4 ตำแหน่งแล้วเท่านั้น (ห้ามเทียบค่าที่ยังมีเศษ float เช่น 0.1 + 0.2)
+   - API ส่งค่าที่เก็บไว้ตามจริง ไม่ปัดเพิ่ม · หน้าบ้านปัดเป็น 3 ตำแหน่งตอนแสดงเอง
 10. การเขียนเงินทุกครั้งต้อง
     - อยู่ใน transaction ที่ service เปิด
     - lock row ก่อนอ่านยอด (`clause.Locking{Strength: "UPDATE"}`)
@@ -74,8 +77,8 @@ database/migrations/      goose .sql
 16. แยก error ด้วย `errors.Is(err, apperr.ErrX)` เท่านั้น **ห้ามเทียบข้อความ error** (`strings.Contains(err.Error(), ...)`)
 17. service คืน `(result, error)` ห้ามคืน code เป็นค่าแยก
 18. ทุก response ต้องผ่าน `pkg/response` ห้ามเรียก `c.JSON` เองใน controller
-19. list ต้องใช้ `utils.ParsePage` + `response.Page`
-    - request body/query ต้องผ่าน `utils.ParseBody` / `utils.ParseQuery` และ DTO ต้องมี method `Validate()`
+19. list ต้องตอบด้วย `response.Page` · page / limit มาจาก query (`utils.ParsePage`) หรือจาก body ของเส้น `POST` (`utils.NewPage`)
+    - request body/query ต้องผ่าน `utils.ParseBody` / `utils.ParseBodyNoNull` / `utils.ParseQuery` และ DTO ต้องมี method `Validate()`
       ที่เขียนเป็น `if` ธรรมดา **ห้ามใช้ struct tag ของ validator**
     - ข้อความ error ต้องบอกว่าผิดที่ field ไหน (`apperr.ErrValidation.WithMessage(th, en)`)
 
@@ -83,6 +86,8 @@ database/migrations/      goose .sql
 
 20. schema มาจาก goose migration เท่านั้น (`make migration name=...`) ห้าม AutoMigrate
     - migration ที่ merge แล้วห้ามแก้ ต้องสร้างไฟล์ใหม่
+    - หลัง prod มีข้อมูลจริง: migration ที่แปลง / ล้างข้อมูลในตารางเกิน 100,000 แถว (หรือ lock เกิน 5 วินาที) ต้องแยก 3 ขั้น
+      schema → script batch 10,000 แถว → constraint `NOT VALID` / index `CONCURRENTLY` (`docs/DEPLOYMENT.md` · lead 2026-10-11)
 21. query ต้องเป็น parameterized เสมอ ห้ามต่อ string ด้วยค่าจาก user
 22. query ของหลังบ้านต้อง scope ด้วยเจ้าของข้อมูล (agent/สายงาน) ทุกครั้ง
 23. Select เฉพาะคอลัมน์ที่ใช้ ห้าม N+1 และการเขียนหลายแถวใช้ batch
@@ -99,6 +104,8 @@ database/migrations/      goose .sql
 ### Security
 
 28. endpoint ใหม่ต้องระบุสิทธิ์ไว้บรรทัดเดียวกับ route ใน `routes.go` ห้ามซ่อนการเช็คสิทธิ์ไว้ใน service โดยไม่มีใน route
+    - ยกเว้น context `developer` (`/api/v1/dev/*` เครื่องมือ dev / QA): **public ไม่ต้อง login** และมีอยู่เฉพาะ env ที่ตั้ง
+      `DEV_ROUTES_ENABLED=true` · `APP_ENV=prod` + เปิด flag = boot ไม่ผ่าน · ห้ามใช้ middleware auth ของ context อื่น (lead 2026-10-15)
 29. `app/externals/*` เป็น trust boundary แยก ห้ามใช้ middleware auth ของ internals
 
 ## Workflow
@@ -115,7 +122,7 @@ cp .env.example .env
 make dev-up          # postgres + redis
 make run             # MIGRATE_ON_START=true จะรัน migration ให้
 make test            # unit
-make test-integration
+make test-integration   # ต้องเปิด test env ก่อน (make test-env-up หรือ scripts/testenv.ps1 up) — docs/TESTING.md
 ```
 
 ## Index เอกสาร
@@ -125,5 +132,7 @@ make test-integration
 | `docs/ARCHITECTURE.md` | โครงสร้าง, กฎตั้งชื่อ, แม่แบบโค้ดทุก layer, response contract, test, ส่วนที่ต่างจาก askmelotto-api |
 | `docs/MIGRATION_STATUS.md` | ขั้นตอนการ port และสถานะของแต่ละ module |
 | `docs/ERROR_CODES.md` | error code ทั้งหมดและช่วงที่จองไว้ |
+| `docs/TESTING.md` | test env (Docker / Windows), integration test, load test (k6) |
+| `docs/DEPLOYMENT.md` | ออก tag → image GHCR, สิ่งที่ k8s ต้องเตรียม (env, probe, migration job) |
 | `docs/modules/_TEMPLATE.md` | แม่แบบ spec ของ module |
 | `docs/modules/{module}.md` | spec ที่อนุมัติแล้ว (source of truth ของ business) |

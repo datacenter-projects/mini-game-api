@@ -1,0 +1,159 @@
+package agentmanagement
+
+import (
+	"strings"
+
+	agentManagementCore "app/app/core/agent_management"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
+	"app/pkg/apperr"
+	"app/pkg/utils"
+
+	"gorm.io/gorm"
+)
+
+// error ที่บอกชื่อ field และค่าที่ตั้งได้ (แก้ 2026-10-09) — code เดิม เปลี่ยนแค่ msg
+
+// pct — ค่า % สำหรับข้อความ error เช่น 90 → "90%"
+func pct(v float64) string { return utils.FormatNum(v) + "%" }
+
+func joinTypes(ts []agentManagementCore.UserType) string {
+	s := make([]string, len(ts))
+	for i, t := range ts {
+		s[i] = string(t)
+	}
+	return strings.Join(s, ", ")
+}
+
+// CannotCreateTypeError — 402301 บอกค่าที่ส่งมา · เหตุผลที่ส่งไม่ได้ · รายการ user_type ที่ผู้สร้างส่งได้ (MGMT-02)
+func CannotCreateTypeError(creator agentManagementCore.UserType, sent string) error {
+	whyTH, whyEN := cannotCreateReason(creator, agentManagementCore.UserType(sent))
+	c := string(creator)
+	allowedTH, allowedEN := c+" สร้างบัญชีฝั่ง agent ไม่ได้", c+" cannot create agent-side accounts"
+	if agentManagementCore.CanCreateMember(creator) {
+		allowedTH, allowedEN = c+" สร้างได้แค่ MEMBER (เส้น /api/v1/bo/pr/manage/members/create)", c+" can only create MEMBER (via /api/v1/bo/pr/manage/members/create)"
+	}
+	if allowed := agentManagementCore.CreatableTypes(creator); len(allowed) > 0 {
+		allowedTH, allowedEN = c+" สร้างได้เฉพาะ "+joinTypes(allowed), c+" can only create "+joinTypes(allowed)
+	}
+	th, en := utils.FieldLabel("user_type")
+	return apperr.ErrCannotCreateType.WithMessage(
+		th+": ส่ง "+sent+" ไม่ได้ · "+whyTH+" · "+allowedTH,
+		en+": "+sent+" is not allowed · "+whyEN+" · "+allowedEN)
+}
+
+func cannotCreateReason(creator, sent agentManagementCore.UserType) (string, string) {
+	s := string(sent)
+	if creators := agentManagementCore.CreatorsOf(sent); len(creators) > 0 {
+		return s + " สร้างได้โดย " + joinTypes(creators) + " เท่านั้น แต่คุณเป็น " + string(creator),
+			s + " can only be created by " + joinTypes(creators) + ", you are " + string(creator)
+	}
+	switch sent {
+	case agentManagementCore.UserTypeMember:
+		return "สร้าง MEMBER ใช้เส้น /api/v1/bo/pr/manage/members/create", "create MEMBER via /api/v1/bo/pr/manage/members/create"
+	case agentManagementCore.UserTypeShareReseller, agentManagementCore.UserTypeShareMaster:
+		return "ให้ส่ง SHARE_B2C ระบบตั้งเป็น " + s + " เองตามประเภท Company ที่สร้าง",
+			"send SHARE_B2C, the system sets " + s + " from the creating Company type"
+	case agentManagementCore.UserTypeSuperadmin, agentManagementCore.UserTypeAdmin:
+		return s + " สร้างผ่าน API ไม่ได้", s + " cannot be created via the API"
+	}
+	return "ไม่มีประเภท " + s, s + " is not a user type"
+}
+
+// CurrencyError — 422 / 402310 พร้อมกฎ currencies ของประเภทบัญชีใหม่ (MGMT-10 – MGMT-14)
+func CurrencyError(creator, newType agentManagementCore.UserType, cv agentManagementCore.CurrencyViolation, creatorCurrencies []string) error {
+	th, en := utils.FieldLabel("currencies")
+	if cv == agentManagementCore.CurrencyNotInCreators {
+		return apperr.ErrCurrencyNotInCreator.WithMessage(
+			th+": เลือกได้เฉพาะสกุลของคุณ ("+strings.Join(creatorCurrencies, ", ")+")",
+			en+": choose only from your currencies ("+strings.Join(creatorCurrencies, ", ")+")")
+	}
+	t := string(newType)
+	switch agentManagementCore.CurrencyRequirementOf(creator, newType) {
+	case agentManagementCore.CurrencyAllNoSend:
+		return apperr.ErrValidation.WithMessage(th+": "+t+" ได้ครบทุกสกุล ไม่ต้องเลือก",
+			en+": "+t+" gets every currency, do not choose any")
+	case agentManagementCore.CurrencyFromCreatorNoSend:
+		return apperr.ErrValidation.WithMessage(th+": "+t+" ใช้สกุลของผู้สร้าง ไม่ต้องเลือก",
+			en+": "+t+" uses the creator's currency, do not choose any")
+	case agentManagementCore.CurrencyPickOne:
+		return apperr.ErrValidation.WithMessage(th+": "+t+" ต้องเลือก 1 สกุล (ไม่ซ้ำ)",
+			en+": "+t+" needs exactly 1 currency")
+	}
+	return apperr.ErrValidation.WithMessage(th+": "+t+" ต้องเลือกอย่างน้อย 1 สกุล (ไม่ซ้ำ)",
+		en+": "+t+" needs at least 1 currency (no duplicates)")
+}
+
+// ChildPTError — ผลตรวจค่าที่ผู้สร้างตั้งให้ลูก → error ที่บอก field และค่าที่ตั้งได้ (MGMT-18, MGMT-19, MGMT-25)
+func ChildPTError(group string, is agentManagementCore.PTIssue) error {
+	th, en := utils.FieldLabel("pt." + group + "." + is.Field)
+	switch is.Violation {
+	case agentManagementCore.PTOK:
+		return nil
+	case agentManagementCore.PTInvalidStep:
+		if is.Field == "commission_percent" {
+			return commissionStepError(th, en)
+		}
+		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 100% ทีละ 0.5%", en+" must be 0 – 100% in steps of 0.5%")
+	case agentManagementCore.PTExceedsReceived:
+		return apperr.ErrPTExceedsReceived.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit), en+" must not exceed "+pct(is.Limit))
+	case agentManagementCore.PTSeamlessMasterLock: // Share Master ใช้ค่าตาม CSM (MGMT-19 · lead E1-2)
+		return apperr.ErrSeamlessMasterPTLocked.WithMessage(th+": Share Master ใช้ค่า PT ตาม Company Seamless Master (ต้องเป็น "+pct(is.Limit)+")",
+			en+": Share Master uses the PT of its Company Seamless Master (must be "+pct(is.Limit)+")")
+	case agentManagementCore.PTForceRemainExceeded:
+		return apperr.ErrForceRemainExceeded.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(is.Limit), en+" must not exceed "+pct(is.Limit))
+	case agentManagementCore.PTSuperadminRemain: // MGMT-18A
+		return apperr.ErrValidation.WithMessage(th+" Superadmin ตั้งไม่ได้ (ส่วนที่เหลือคืน Superadmin อยู่แล้ว) ต้องเป็น 0",
+			en+" cannot be set by Superadmin (the remainder returns to Superadmin anyway), must be 0")
+	case agentManagementCore.PTSeamlessMasterForce: // MGMT-18A · lead pt_calculation Q3
+		return apperr.ErrValidation.WithMessage(th+": Company Seamless Master ถือสู้ไม่ได้ ตั้ง Force ไม่ได้ ต้องเป็น 0",
+			en+": Company Seamless Master cannot hold PT, Force must be 0")
+	default:
+		return commissionRangeError(th, en)
+	}
+}
+
+// commissionStepError / commissionRangeError — Commission 0 – 1% ทีละ 0.1% (MGMT-18) · ใช้ร่วมกับ PTError ของ Member
+func commissionStepError(th, en string) error {
+	return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – 1% ทีละ 0.1%", en+" must be 0 – 1% in steps of 0.1%")
+}
+
+func commissionRangeError(th, en string) error {
+	return apperr.ErrCommissionExceeded.WithMessage(th+" ตั้งได้ 0 – 1%", en+" must be 0 – 1%")
+}
+
+// MemberPTError — ค่าที่ผู้สร้างถือสู้กับ Member (member_management MGMT-21) · ไม่เกินค่าที่ผู้สร้างได้รับ ทีละ 0.5
+func MemberPTError(group string, v agentManagementCore.PTViolation, received float64) error {
+	th, en := utils.FieldLabel("pt." + group + ".pt")
+	switch v {
+	case agentManagementCore.PTOK:
+		return nil
+	case agentManagementCore.PTInvalidStep:
+		return apperr.ErrValidation.WithMessage(th+" ตั้งได้ 0 – "+pct(received)+" ทีละ 0.5%", en+" must be 0 – "+pct(received)+" in steps of 0.5%")
+	default:
+		return apperr.ErrPTExceedsReceived.WithMessage(th+" ตั้งได้ไม่เกิน "+pct(received), en+" must not exceed "+pct(received))
+	}
+}
+
+// CheckCreatorBalance — ยอดของผู้สร้างพอสำหรับยอดเงินตั้งต้นไหม (MGMT-15A) · เช็คก่อนค่าหุ้นส่วนตามลำดับ field
+// lock แถวยอดของผู้สร้างใน tx เดียวกัน · TransferInitialBalance เช็คซ้ำตอนโอนจริง · Superadmin ไม่จำกัด
+func CheckCreatorBalance(tx *gorm.DB, c Creator, amounts map[string]float64) error {
+	if len(amounts) == 0 { // Superadmin มียอดจริงแล้ว เช็คเหมือนผู้สร้างคนอื่น (deposit_withdraw · lead 2026-10-15)
+		return nil
+	}
+	currencies := SortedGroups(amounts) // เรียงชื่อ — lock ตามลำดับเดียวกันทุกครั้ง
+	locked, err := agentManagementPostgres.LockAgentBalancesRepository(tx, c.Agent.ID, currencies)
+	if err != nil {
+		return err
+	}
+	have := map[string]float64{}
+	for _, b := range locked {
+		have[b.Currency] = b.Amount
+	}
+	for _, cur := range currencies {
+		if have[cur] < amounts[cur] {
+			th, en := utils.FieldLabel("balance." + cur)
+			return apperr.ErrInsufficientInitial.WithMessage(th+" เกินยอดเงินของคุณ", en+" exceeds your balance")
+		}
+	}
+	return nil
+}

@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
 	"os/signal"
 	"syscall"
 
@@ -10,8 +12,11 @@ import (
 	"app/pkg/configs"
 	"app/pkg/middleware"
 	"app/pkg/routes"
+	"app/pkg/utils"
 	"app/platform/database"
 	"app/platform/logger"
+	"app/platform/metrics"
+	"app/platform/storage"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -22,8 +27,12 @@ func main() {
 	if err := configs.Load(); err != nil {
 		log.Fatalf("config: %v", err)
 	}
+	utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
 	logger.InitLogger(configs.Cfg.AppEnv == "local")
-	defer logger.Logger.Sync() //nolint:errcheck
+	defer logger.Logger.Sync()                    //nolint:errcheck
+	if w := configs.Cfg.ProxyWarning(); w != "" { // ไม่ตั้ง TRUSTED_PROXIES นอก local — เตือนตั้งแต่ boot
+		logger.SugarLogger.Warnw(w, "app_env", configs.Cfg.AppEnv)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -44,6 +53,32 @@ func main() {
 	}
 	defer database.CloseRedis() //nolint:errcheck
 
+	// storage ไม่พร้อมต้อง boot ได้ (asset AST-30) — เส้นที่แตะ storage ตอบ 505801 เอง
+	if err := storage.Init(ctx, configs.Cfg.Storage); err != nil {
+		logger.SugarLogger.Warnw("storage init failed — uploads disabled", "error", err)
+	} else if !storage.Available() {
+		logger.SugarLogger.Warnw("storage not configured (S3_BUCKET empty) — uploads disabled")
+	}
+
+	var metricsSrv *http.Server
+	if configs.Cfg.MetricsAddr != "" {
+		pools, err := database.SQLPools()
+		if err != nil {
+			logger.SugarLogger.Fatalw("metrics: sql pools", "error", err)
+		}
+		metrics.RegisterDB(pools)
+		metrics.RegisterRedis(database.DBRedis)
+
+		metricsSrv = metrics.NewServer(configs.Cfg.MetricsAddr)
+		go func() {
+			logger.SugarLogger.Infow("metrics server starting", "addr", configs.Cfg.MetricsAddr)
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.SugarLogger.Errorw("metrics server stopped", "error", err)
+				stop()
+			}
+		}()
+	}
+
 	// ดึงอัตราแลกเปลี่ยนทุก 15 นาที — docs/modules/currency_rate.md (หยุดเมื่อ ctx ถูกยกเลิกตอน shutdown)
 	currencyRateService.StartSyncWorker(ctx)
 
@@ -63,5 +98,13 @@ func main() {
 	logger.SugarLogger.Info("shutting down")
 	if err := app.ShutdownWithTimeout(configs.Cfg.ShutdownTimeout); err != nil {
 		logger.SugarLogger.Errorw("shutdown", "error", err)
+	}
+	// ปิด metrics หลัง API เพื่อให้ scrape ได้ระหว่าง drain request
+	if metricsSrv != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), configs.Cfg.ShutdownTimeout)
+		defer cancel()
+		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+			logger.SugarLogger.Errorw("metrics shutdown", "error", err)
+		}
 	}
 }

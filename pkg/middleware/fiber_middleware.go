@@ -16,6 +16,9 @@ import (
 // FiberMiddleware คือ middleware ระดับทั้งระบบ — middleware ของแต่ละ context (auth/สิทธิ์)
 // อยู่ที่ app/internals/{context}/middleware
 func FiberMiddleware(a *fiber.App) {
+	if configs.Cfg.MetricsAddr != "" {
+		a.Use(HTTPMetrics) // ตัวแรกเสมอ (ดู HTTPMetrics)
+	}
 	a.Use(
 		cors.New(cors.Config{AllowOrigins: configs.Cfg.CORSAllowOrigins}),
 		requestid.New(),
@@ -27,7 +30,13 @@ func FiberMiddleware(a *fiber.App) {
 			},
 		}),
 		fiberlogger.New(fiberlogger.Config{
-			Format: "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | reqid=${locals:requestid}\n",
+			// client_ip = ClientIP(c) (ไล่ XFF จากขวาข้าม proxy ที่เชื่อถือ) — ${ip} ของ fiber คือ IP ของ proxy ที่ต่อมา
+			Format: "${time} | ${status} | ${latency} | ${client_ip} | ${method} | ${path} | reqid=${locals:requestid}\n",
+			CustomTags: map[string]fiberlogger.LogFunc{
+				"client_ip": func(output fiberlogger.Buffer, c *fiber.Ctx, _ *fiberlogger.Data, _ string) (int, error) {
+					return output.WriteString(ClientIP(c))
+				},
+			},
 		}),
 	)
 }
@@ -43,6 +52,7 @@ func requestContext(c *fiber.Ctx) error {
 // NotFoundRoute ลงทะเบียนเป็นตัวสุดท้ายเสมอ
 func NotFoundRoute(a *fiber.App) {
 	a.Use(func(c *fiber.Ctx) error {
+		c.Locals(localsUnmatched, true) // ให้ HTTPMetrics ใช้ label path = "unmatched"
 		return response.Error(c, apperr.ErrRouteNotFound)
 	})
 }

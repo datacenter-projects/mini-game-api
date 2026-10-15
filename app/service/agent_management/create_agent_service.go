@@ -1,0 +1,186 @@
+package agentmanagement
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	accountCore "app/app/core/account"
+	agentManagementCore "app/app/core/agent_management"
+	agentManagementDto "app/app/internals/backoffice/dto/agent_management"
+	"app/app/models"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
+	agentAuthService "app/app/service/agent_auth"
+	"app/pkg/utils"
+	"app/platform/database"
+
+	"gorm.io/gorm"
+)
+
+const (
+	TargetAgent  = "AGENT"
+	TargetMember = "MEMBER"
+)
+
+// CreateAgentService — POST /api/v1/bo/pr/manage/agents/create (MGMT-02 – MGMT-25, MGMT-60)
+// สิทธิ์ member / pt = edit ตรวจที่ route · payment = edit ตรวจที่นี่เมื่อส่ง balance (MGMT-51)
+// เจ้าของ Key ของ account 1.3 ได้ Key พร้อมบัญชี (MGMT-04)
+func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req agentManagementDto.CreateAgentRequest,
+	meta agentAuthService.RequestMeta) (agentManagementDto.CreateAgentResponse, error) {
+	var res agentManagementDto.CreateAgentResponse
+	if len(req.BalanceAmounts) > 0 {
+		if err := CheckPermissionService(ctx, actor, agentManagementCore.MenuPayment, agentManagementCore.LevelEdit); err != nil {
+			return res, err
+		}
+	}
+	hash, err := utils.HashPassword(req.Password)
+	if err != nil {
+		return res, err
+	}
+
+	err = database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if id, replay, err := FindReplay(tx, req.RequestID, actor, TargetAgent); err != nil || replay {
+			if err != nil {
+				return err
+			}
+			a, err := agentManagementPostgres.GetAgentProfileRepository(tx, id)
+			if err != nil {
+				return err
+			}
+			res = agentManagementDto.CreateAgentResponse{ID: a.ID, Username: a.Username, UserType: string(agentManagementCore.UserTypeOf(a.Role, a.AgentType))}
+			return nil
+		}
+
+		c, err := LoadCreator(tx, actor)
+		if err != nil {
+			return err
+		}
+		creatorIsMaster := c.UserType == agentManagementCore.UserTypeCompanySeamlessMaster
+		// Share Master ใต้ CSM: ส่งได้แค่ commission · บัญชีอื่นต้องครบ 5 ค่า — เช็คก่อนกฎที่ดู DB (เดิมเป็นรูปแบบใน DTO · 7.1 ข้อ 4 · MGMT-19)
+		if err := checkPTShape(req.PT, creatorIsMaster); err != nil {
+			return err
+		}
+		// กฎที่ต้องดู DB ไล่ตามลำดับ field ใน body (รูปแบบเช็คครบแล้วใน DTO) — หัวข้อ 7.1
+		newAcc, ok := agentManagementCore.ResolveNewAgent(c.UserType, agentManagementCore.UserType(req.UserType))
+		if !ok {
+			return CannotCreateTypeError(c.UserType, req.UserType)
+		}
+		if err := LockAndCheckAgentIdentity(tx, req.Username, req.PhoneCountryCode, req.Phone); err != nil {
+			return err
+		}
+		currencies, cv := agentManagementCore.ResolveCurrencies(c.UserType, newAcc.UserType, req.Currencies, c.Currencies)
+		if cv != agentManagementCore.CurrencyOK {
+			return CurrencyError(c.UserType, newAcc.UserType, cv, c.Currencies)
+		}
+		if err := CheckInitialBalance(req.BalanceAmounts, currencies); err != nil {
+			return err
+		}
+		if err := CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {
+			return err
+		}
+		pts := make(map[string]agentManagementCore.ChildPT, len(req.PT)) // ค่าที่ตั้งให้ลูกต่อกลุ่ม (MGMT-16)
+		for g, v := range req.PT {
+			pts[g] = v.Values()
+		}
+		if creatorIsMaster { // ค่าอื่นและ status_game ตาม CSM (MGMT-19)
+			if req.StatusGame != nil {
+				return shareMasterFieldError("status_game")
+			}
+			for _, g := range SortedGroups(req.PT) {
+				v := req.PT[g]
+				var status bool
+				pts[g], status = followCSM(c.Settings, agentManagementCore.PTGroup(g), pts[g].Commission)
+				v.Status = &status
+				req.PT[g] = v
+			}
+			req.StatusGame = statusGameOf(c.Settings)
+		}
+		for _, g := range SortedGroups(req.PT) {
+			is := agentManagementCore.CheckChildPT(pts[g], c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster, c.Agent.Role == models.AgentRoleSuperAdmin,
+				newAcc.UserType == agentManagementCore.UserTypeCompanySeamlessMaster)
+			if err := ChildPTError(g, is); err != nil {
+				return err
+			}
+		}
+
+		cnf, err := json.Marshal(agentManagementCore.ChildChain(c.Chain, c.Agent.ID, c.Agent.Role)) // MGMT-61
+		if err != nil {
+			return err
+		}
+		now := time.Now()
+		name := req.Name
+		a := models.UserAgent{ParentID: &c.Agent.ID, Username: req.Username, PasswordHash: hash, Name: &name,
+			PhoneCountryCode: OptionalString(req.PhoneCountryCode), Phone: OptionalString(req.Phone), AgentType: newAcc.AgentType, Role: newAcc.Role, Status: models.AgentStatusActive,
+			Cnf: string(cnf), CreatedAt: now, UpdatedAt: now}
+		if err := agentAuthPostgres.CreateUserAgentRepository(tx, &a); err != nil {
+			return err
+		}
+
+		curRows := make([]models.AgentCurrency, 0, len(currencies))
+		for _, cur := range currencies {
+			curRows = append(curRows, models.AgentCurrency{AgentID: a.ID, Currency: cur})
+		}
+		if err := agentManagementPostgres.CreateAgentCurrenciesRepository(tx, curRows); err != nil {
+			return err
+		}
+
+		statusGame := map[string]bool{}
+		var settings []models.AgentGameSetting
+		for _, g := range agentManagementCore.Groups() {
+			v := pts[string(g)]
+			groupOn := *req.PT[string(g)].Status
+			for _, game := range agentManagementCore.GamesOf(g) {
+				on, sent := req.StatusGame[game.GameCode]
+				if !sent {
+					on = true // ไม่ส่ง = เปิด
+				}
+				statusGame[game.GameCode] = on
+				settings = append(settings, models.AgentGameSetting{AgentID: a.ID, ParentID: &c.Agent.ID, GameCode: game.GameCode, Category: game.Category,
+					PTFromParent: v.PTFromParent,
+					Force:        v.Force, Remain: v.Remain, Commission: v.Commission,
+					Status: groupOn, StatusGame: on, CreatedBy: actor.Username, CreatedAt: now, UpdatedBy: actor.Username, UpdatedAt: now})
+			}
+		}
+		if err := agentManagementPostgres.CreateAgentGameSettingsRepository(tx, settings); err != nil {
+			return err
+		}
+
+		if err := TransferInitialBalance(tx, c, models.BalanceOwnerAgent, a.ID, req.BalanceAmounts, req.RequestID, actor, now); err != nil {
+			return err
+		}
+		// MGMT-04: เจ้าของ Key ของ account 1.3 ได้ Key ใน tx เดียวกัน
+		if accountCore.IsAPIKeyOwner(newAcc.UserType) {
+			if err := CreateAPICredentialIfAbsent(tx, a.ID); err != nil {
+				return err
+			}
+		}
+		if err := agentManagementPostgres.CreateCreateRequestRepository(tx, &models.CreateRequest{RequestID: req.RequestID, CreatorType: actor.AccountType,
+			CreatorID: actor.AccountID(), TargetType: TargetAgent, TargetID: a.ID, CreatedAt: now}); err != nil {
+			return err
+		}
+
+		created, err := ChangeLog(actor, meta, req.RequestID, TargetAgent, a.ID, a.Username, models.ChangeCreate, nil,
+			map[string]any{"user_type": newAcc.UserType, "username": a.Username, "name": req.Name, "phone_country_code": req.PhoneCountryCode, "phone": req.Phone,
+				"parent_id": c.Agent.ID, "currencies": currencies, "pt": pts, "status_game": statusGame}, now)
+		if err != nil {
+			return err
+		}
+		rows := []models.AccountChangeLog{created}
+		if len(req.BalanceAmounts) > 0 {
+			row, err := ChangeLog(actor, meta, req.RequestID, TargetAgent, a.ID, a.Username, models.ChangeInitialBalance, nil,
+				map[string]any{"amounts": req.BalanceAmounts}, now)
+			if err != nil {
+				return err
+			}
+			rows = append(rows, row)
+		}
+		if err := agentManagementPostgres.CreateAccountChangeLogsRepository(tx, rows); err != nil {
+			return err
+		}
+
+		res = agentManagementDto.CreateAgentResponse{ID: a.ID, Username: a.Username, UserType: string(newAcc.UserType)}
+		return nil
+	})
+	return res, err
+}

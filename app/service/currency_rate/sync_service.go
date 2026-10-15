@@ -13,7 +13,7 @@ import (
 	"time"
 
 	currencyRateCore "app/app/core/currency_rate"
-	redisRepo "app/app/repository/redis"
+	currencyRateRedis "app/app/repository/redis/currency_rate"
 	"app/pkg/configs"
 	"app/pkg/utils"
 	"app/platform/logger"
@@ -56,7 +56,7 @@ func SyncCurrencyRateService(ctx context.Context, now time.Time) (SyncResult, er
 	if err != nil {
 		return SyncResult{}, err
 	}
-	ok, err := redisRepo.AcquireCurrencyRateLockRepository(ctx, token, lockTTL)
+	ok, err := currencyRateRedis.AcquireCurrencyRateLockRepository(ctx, token, lockTTL)
 	if err != nil {
 		return SyncResult{}, fmt.Errorf("acquire lock: %w", err)
 	}
@@ -65,7 +65,7 @@ func SyncCurrencyRateService(ctx context.Context, now time.Time) (SyncResult, er
 	}
 	defer func() {
 		// ปล่อย lock แม้ ctx ของรอบนี้ถูกยกเลิกแล้ว
-		if err := redisRepo.ReleaseCurrencyRateLockRepository(context.WithoutCancel(ctx), token); err != nil {
+		if err := currencyRateRedis.ReleaseCurrencyRateLockRepository(context.WithoutCancel(ctx), token); err != nil {
 			logger.Ctx(ctx).Warnw("release currency rate lock failed", "error", err)
 		}
 	}()
@@ -89,8 +89,8 @@ func SyncCurrencyRateService(ctx context.Context, now time.Time) (SyncResult, er
 			result.Missing = append(result.Missing, c)
 		}
 	}
-	meta := redisRepo.CurrencyRateMeta{Date: res.Data.Date, SyncedAt: now}
-	if err := redisRepo.SaveCurrencyRatesRepository(ctx, rates, meta); err != nil {
+	meta := currencyRateRedis.CurrencyRateMeta{Date: res.Data.Date, SyncedAt: now}
+	if err := currencyRateRedis.SaveCurrencyRatesRepository(ctx, rates, meta); err != nil {
 		return SyncResult{}, fmt.Errorf("save rates: %w", err)
 	}
 	return result, nil

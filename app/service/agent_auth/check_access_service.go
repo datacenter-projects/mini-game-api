@@ -6,6 +6,15 @@ import (
 	"app/pkg/apperr"
 )
 
+// CheckNotSuspendedService — AUTH-54: บัญชีที่ EffectiveStatus = SUSPENDED (ตัวเอง ผู้สร้าง หรือ upline ถูกระงับ)
+// ใช้ได้เฉพาะ route ที่ประกาศ PassedGatesAllowSuspended · LOCKED ถูกปฏิเสธตั้งแต่ Authenticated แล้ว (AUTH-27)
+func CheckNotSuspendedService(actor Actor) error {
+	if actor.EffectiveStatus == models.AgentStatusSuspended {
+		return apperr.ErrAccountSuspended
+	}
+	return nil
+}
+
 // CheckGateService — ด่านหลัง login (AUTH-29) ใช้โดย middleware PassedGates
 // allow = ด่านที่ route นี้เป็นทางผ่าน (เช่น route เปลี่ยนรหัสผ่านเรียกได้ระหว่างติดด่านเปลี่ยนรหัสผ่าน)
 func CheckGateService(actor Actor, allow ...agentAuthCore.Gate) error {
@@ -26,16 +35,4 @@ func CheckGateService(actor Actor, allow ...agentAuthCore.Gate) error {
 	default:
 		return apperr.ErrPasscodeNotSet
 	}
-}
-
-// CheckRoleService — route ที่จำกัด role ของบัญชี agent (sub ไม่ผ่านเสมอ เพราะ Role ของ sub คือของผู้สร้าง)
-// รอบนี้ใช้กับ ADMIN (AUTH-44) — role/permission guard เต็มรูปแบบอยู่ในงานอื่น
-func CheckRoleService(actor Actor, role models.AgentRole) error {
-	if actor.AccountType == models.AccountTypeAgent && actor.Role == role {
-		return nil
-	}
-	if role == models.AgentRoleAdmin {
-		return apperr.ErrAdminOnly
-	}
-	return apperr.ErrForbidden
 }

@@ -1,4 +1,4 @@
-.PHONY: run build test test-integration lint check check-structure dev-up dev-down migrate-up migrate-down migrate-status migration
+.PHONY: run build test test-integration lint check check-structure dev-up dev-down test-env-up test-env-down migrate-up migrate-down migrate-status seed-asset-global migration release
 
 APP_NAME = apiserver
 BUILD_DIR = ./build
@@ -13,7 +13,7 @@ build:
 test:
 	go test -race -count=1 ./...
 
-# integration test — ต้อง make dev-up ก่อน (ใช้ Postgres/Redis จาก docker-compose)
+# integration test — ต้องเปิด test env ก่อน (make test-env-up หรือ scripts/testenv.ps1 up — docs/TESTING.md)
 test-integration:
 	go test -race -count=1 -tags=integration ./...
 
@@ -36,6 +36,13 @@ dev-up:
 dev-down:
 	docker compose down
 
+# ---- test env (integration / load test — docs/TESTING.md) ----
+test-env-up:
+	docker compose -f docker-compose.test.yml up -d --wait
+
+test-env-down:
+	docker compose -f docker-compose.test.yml down
+
 # ---- migration (goose) ----
 migrate-up:
 	go run ./scripts/migrate up
@@ -45,6 +52,10 @@ migrate-down:
 
 migrate-status:
 	go run ./scripts/migrate status
+
+# อัปรูปค่ากลาง (GLOBAL) ของ asset จาก seed/global-assets ขึ้น S3 + DB ตาม .env — เขียนของจริง ขอ lead ก่อนรันบน env ร่วม (docs/DEPLOYMENT.md)
+seed-asset-global:
+	go run ./scripts/seed_asset_global -dir seed/global-assets
 
 # make migration name=agent_create_tables
 migration:
@@ -57,3 +68,8 @@ superadmin:
 # make admin username=support01  (พิมพ์รหัสผ่านตอนรัน)
 admin:
 	go run ./scripts/create_admin -username $(username)
+
+# ---- release ----
+# make release env=dev | make release env=prod — tag ที่ origin/<branch> แล้ว push ให้ CI build image (docs/DEPLOYMENT.md)
+release:
+	bash scripts/release_tag.sh $(env)

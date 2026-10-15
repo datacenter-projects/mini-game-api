@@ -8,7 +8,12 @@
 | `bo-account.md` | `boiledegg/bo/account` |
 | `bo-management.md` | `boiledegg/bo/management` |
 | `bo-currency-rate.md` | `boiledegg/bo/currency-rate` |
-| `test-infra.md` | `boiledegg/test-infra` |
+| `carl-asset.md` | `carl/asset` |
+| `bo-game-rate.md` | `boiledegg/bo/game_rate-settings` |
+| `bo-agent-management-mgmt18a.md` | `boiledegg/bo/agent_management` (MGMT-18A) |
+| `bo-deposit-withdraw.md` | `maofoy/bo/deposit-withdraw` |
+| `bo-asset.md` | `boiledegg/bo/asset` (งาน asset ของ carl + merge dev) |
+| `bo-player-auth.md` | `boiledegg/player/auth` |
 
 ## โครงของแต่ละไฟล์
 

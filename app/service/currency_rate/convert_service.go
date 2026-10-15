@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	currencyRateCore "app/app/core/currency_rate"
-	redisRepo "app/app/repository/redis"
+	currencyRateRedis "app/app/repository/redis/currency_rate"
 )
 
 // ErrRateUnavailable — ยังไม่มีเรทของสกุลที่ต้องใช้ (CR-14) · หน้าที่เรียกตัดสินเองว่าจะแสดงอย่างไร
@@ -17,7 +17,7 @@ func ConvertAmountService(ctx context.Context, amount int64, from, to string) (i
 	if from == to {
 		return amount, nil
 	}
-	rates, err := redisRepo.GetCurrencyRatesRepository(ctx)
+	rates, err := currencyRateRedis.GetCurrencyRatesRepository(ctx)
 	if err != nil {
 		return 0, err
 	}

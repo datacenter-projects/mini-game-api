@@ -2,6 +2,7 @@ package configs
 
 import (
 	"fmt"
+	"net/netip"
 	"net/url"
 	"os"
 	"strconv"
@@ -19,14 +20,27 @@ type Config struct {
 	ServerWriteTimeout time.Duration
 	ShutdownTimeout    time.Duration
 	TrustedProxies     []string
-	CORSAllowOrigins   string
+	// TrustedProxyPrefixes = TrustedProxies ที่ validate + แปลงแล้วตอน Load (parse ครั้งเดียว · ผิด = boot ไม่ขึ้น — S1-a) · middleware.ClientIP อ่านจากนี่
+	TrustedProxyPrefixes []netip.Prefix
+	CORSAllowOrigins     string
+
+	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
+	MetricsAddr string
 
 	DB           DBConfig
 	Redis        RedisConfig
 	Auth         AuthConfig
 	CurrencyRate CurrencyRateConfig
 
+	Storage StorageConfig
+
+	// PlayerLobbyURL คือ URL หน้า lobby ที่ transfer/login ต่อ ?token= ท้าย (player_auth L2 · lead Q12) · ไม่ตั้ง = transfer/login ตอบ 503
+	PlayerLobbyURL string
+
 	MigrateOnStart bool
+
+	// DevRoutesEnabled — เปิด context developer (/api/v1/dev/... ไม่ต้อง login) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
+	DevRoutesEnabled bool
 }
 
 // CurrencyRateConfig — docs/modules/currency_rate.md (CR-02, หัวข้อ 6)
@@ -43,8 +57,16 @@ const defaultCurrencyRateBaseURL = "https://dev-api.amblotto.net"
 type AuthConfig struct {
 	JWTSecret string
 
+	// PasswordCost คือ bcrypt cost ของ password/passcode — prod 12, CI/test 4 (ช่วงที่รับ 4–14)
+	PasswordCost int
+
 	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
+
+	// ผู้เล่น (docs/modules/player_auth.md PA-21 / PA-42) — idle 30 นาที · absolute 4 ชม. · transfer/* ต่อ IP ต่อนาที
+	PlayerSessionIdleTimeout     time.Duration
+	PlayerSessionAbsoluteTimeout time.Duration
+	OperatorIPLimit              int
 
 	LoginFailLimit     int
 	LoginFailWindow    time.Duration
@@ -79,6 +101,17 @@ type RedisConfig struct {
 	DB       int
 }
 
+// StorageConfig — object storage (S3) ของไฟล์ asset (docs/modules/asset.md AST-30, AST-49)
+// ไม่ตั้ง Bucket = storage ไม่พร้อม แต่ระบบต้อง boot ได้ (เส้นอัปโหลดตอบ 505801 · เส้นอ่านทำงานปกติ)
+// credential ใช้ default chain ของ AWS SDK (IRSA / env ของ SDK) — ห้ามเก็บ key ใน config ของเรา
+type StorageConfig struct {
+	Region        string
+	Bucket        string
+	CDNBaseURL    string        // base ของ URL ที่ตอบ client · ว่าง = ตอบ key ตรงๆ
+	UploadTimeout time.Duration // timeout ต่อการอัป / ลบ 1 object
+	Endpoint      string        // ว่าง = AWS จริง · ตั้งเมื่อใช้ MinIO ใน local / test
+}
+
 // Cfg เป็น global ให้ทุก layer อ่านได้ (แบบเดียวกับ database.DBConn)
 var Cfg *Config
 
@@ -101,6 +134,7 @@ func Load() error {
 		ShutdownTimeout:    getEnvDuration("SHUTDOWN_TIMEOUT", 30*time.Second),
 		TrustedProxies:     getEnvList("TRUSTED_PROXIES"),
 		CORSAllowOrigins:   getEnv("CORS_ALLOW_ORIGINS", "*"),
+		MetricsAddr:        getEnvOrEmpty("METRICS_ADDR", ":9090"),
 
 		DB: DBConfig{
 			Host:            required("DB_HOST"),
@@ -120,21 +154,35 @@ func Load() error {
 			DB:       getEnvInt("REDIS_DB", 0),
 		},
 
+		PlayerLobbyURL: os.Getenv("PLAYER_LOBBY_URL"),
 		Auth: AuthConfig{
-			JWTSecret:              required("JWT_SECRET"),
-			SessionIdleTimeout:     getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
-			SessionAbsoluteTimeout: getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
-			LoginFailLimit:         getEnvInt("LOGIN_FAIL_LIMIT", 5),
-			LoginFailWindow:        getEnvDuration("LOGIN_FAIL_WINDOW", 15*time.Minute),
-			LoginBlockDuration:     getEnvDuration("LOGIN_BLOCK_DURATION", 15*time.Minute),
-			LoginIPLimit:           getEnvInt("LOGIN_IP_LIMIT_PER_MINUTE", 20),
-			PasscodeFailLimit:      getEnvInt("PASSCODE_FAIL_LIMIT", 5),
-			PasscodeFailWindow:     getEnvDuration("PASSCODE_FAIL_WINDOW", 24*time.Hour),
-			PasscodeBlockDuration:  getEnvDuration("PASSCODE_BLOCK_DURATION", time.Hour),
-			TempCredentialTTL:      getEnvDuration("TEMP_CREDENTIAL_TTL", 24*time.Hour),
+			JWTSecret:                    required("JWT_SECRET"),
+			PasswordCost:                 getEnvInt("PASSWORD_COST", 12),
+			SessionIdleTimeout:           getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
+			SessionAbsoluteTimeout:       getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
+			PlayerSessionIdleTimeout:     getEnvDuration("PLAYER_SESSION_IDLE_TIMEOUT", 30*time.Minute),
+			PlayerSessionAbsoluteTimeout: getEnvDuration("PLAYER_SESSION_ABSOLUTE_TIMEOUT", 4*time.Hour),
+			OperatorIPLimit:              getEnvInt("OPERATOR_IP_LIMIT_PER_MINUTE", 20),
+			LoginFailLimit:               getEnvInt("LOGIN_FAIL_LIMIT", 5),
+			LoginFailWindow:              getEnvDuration("LOGIN_FAIL_WINDOW", 15*time.Minute),
+			LoginBlockDuration:           getEnvDuration("LOGIN_BLOCK_DURATION", 15*time.Minute),
+			LoginIPLimit:                 getEnvInt("LOGIN_IP_LIMIT_PER_MINUTE", 20),
+			PasscodeFailLimit:            getEnvInt("PASSCODE_FAIL_LIMIT", 5),
+			PasscodeFailWindow:           getEnvDuration("PASSCODE_FAIL_WINDOW", 24*time.Hour),
+			PasscodeBlockDuration:        getEnvDuration("PASSCODE_BLOCK_DURATION", time.Hour),
+			TempCredentialTTL:            getEnvDuration("TEMP_CREDENTIAL_TTL", 24*time.Hour),
 		},
 
-		MigrateOnStart: getEnvBool("MIGRATE_ON_START", false),
+		Storage: StorageConfig{
+			Region:        getEnv("S3_REGION", "ap-southeast-1"),
+			Bucket:        os.Getenv("S3_BUCKET"),
+			CDNBaseURL:    os.Getenv("S3_CDN_BASE_URL"),
+			UploadTimeout: getEnvDuration("S3_UPLOAD_TIMEOUT", 30*time.Second),
+			Endpoint:      os.Getenv("S3_ENDPOINT"),
+		},
+
+		MigrateOnStart:   getEnvBool("MIGRATE_ON_START", false),
+		DevRoutesEnabled: getEnvBool("DEV_ROUTES_ENABLED", false),
 	}
 
 	if err := loadCurrencyRate(cfg, required); err != nil {
@@ -147,6 +195,26 @@ func Load() error {
 	if len(cfg.Auth.JWTSecret) < 32 {
 		return fmt.Errorf("JWT_SECRET must be at least 32 characters")
 	}
+	if cfg.Auth.PasswordCost < 4 || cfg.Auth.PasswordCost > 14 {
+		return fmt.Errorf("PASSWORD_COST must be between 4 and 14")
+	}
+	if cfg.MetricsAddr != "" && cfg.MetricsAddr == cfg.ServerAddr {
+		return fmt.Errorf("METRICS_ADDR must differ from SERVER_ADDR")
+	}
+	prefixes, err := ParseTrustedProxies(cfg.TrustedProxies)
+	if err != nil {
+		return err
+	}
+	cfg.TrustedProxyPrefixes = prefixes
+	if err := validateLobbyURL(cfg.PlayerLobbyURL); err != nil {
+		return err
+	}
+	if cfg.DevRoutesEnabled && cfg.IsProd() { // PTC-41
+		return fmt.Errorf("DEV_ROUTES_ENABLED must be false when APP_ENV=prod")
+	}
+	if cfg.Auth.PlayerSessionIdleTimeout > cfg.Auth.PlayerSessionAbsoluteTimeout {
+		return fmt.Errorf("PLAYER_SESSION_IDLE_TIMEOUT must not exceed PLAYER_SESSION_ABSOLUTE_TIMEOUT")
+	}
 	if cfg.Auth.SessionIdleTimeout > cfg.Auth.SessionAbsoluteTimeout {
 		return fmt.Errorf("SESSION_IDLE_TIMEOUT must not exceed SESSION_ABSOLUTE_TIMEOUT")
 	}
@@ -158,6 +226,14 @@ func (c *Config) IsProd() bool { return c.AppEnv == "prod" }
 
 func getEnv(key, def string) string {
 	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// ต่างจาก getEnv ตรงที่ตั้งเป็นค่าว่างได้ (ไม่ตั้ง key = default, ตั้งเป็นว่าง = ว่าง)
+func getEnvOrEmpty(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
 	return def

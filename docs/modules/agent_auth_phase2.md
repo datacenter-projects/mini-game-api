@@ -1,7 +1,8 @@
 # Backoffice Auth (`agent_auth`) ระยะ 2 — Subaccount login · Passcode · Password · Admin reset — Spec
 
-- สถานะ: **APPROVED** (ยกเว้น `scripts/reset_credentials` ที่ยังคุยอยู่)
+- สถานะ: **APPROVED** · `scripts/reset_credentials` อนุมัติ 2026-10-08 (lead — actor = `SCRIPT`) · AUTH-54 อนุมัติ 2026-10-06
 - อนุมัติโดย: lead (zerph) · วันที่: 2026-10-05
+- แก้หลังอนุมัติ (2026-10-09 · lead review BO Account A5): AUTH-26 ระบุเส้น auth ของตัวเองที่ sub ใช้ได้โดยไม่ต้องมีสิทธิ์เมนู
 - ชื่อ module ในโค้ด: `agent_auth` (ต่อจาก [agent_auth.md](agent_auth.md) — rule `AUTH-01`–`AUTH-16` ยังใช้ทั้งหมด)
 - ที่มาของ rule: คำตอบของ boiledegg ในการวางแผน (2026-10-02 / 03) + feedback ของ lead (zerph) 2026-10-05 ·
   ไม่ได้ extract จากโค้ดเก่า
@@ -15,14 +16,14 @@
 - subaccount login (เส้น login เดิม)
 - passcode: ตั้งครั้งแรก, เปลี่ยนเอง, middleware `RequirePasscode`, ตัวนับผิดระดับบัญชี
 - เปลี่ยนรหัสผ่านเอง
-- role `ADMIN`: รีเซ็ต passcode / รหัสผ่านให้ COMPANY / SHAREHOLDER / AGENT / sub ที่จำไม่ได้ + `RequireRole`
+- role `ADMIN`: รีเซ็ต passcode / รหัสผ่านให้ COMPANY / SHAREHOLDER / AGENT / sub ที่จำไม่ได้ (เส้นอยู่ module `admin_management` · middleware `adminMw.RequireAdmin` — แยก 2026-10-09)
 - บังคับเปลี่ยนรหัสผ่าน / passcode หลังถูกรีเซ็ต (ค่าชั่วคราวหมดอายุ 24 ชม.)
 - ตาราง `auth_audit_logs` (เหตุการณ์ที่เปลี่ยนข้อมูลบัญชี — AUTH-49)
 - scripts: `create_admin`, `reset_credentials` (สำหรับ SUPERADMIN / ADMIN) และแก้ `create_superadmin` ให้ใช้กติการหัสผ่านกลาง
 - ปรับของ Phase 1 ที่กระทบ: JWT claims, session JSON, logout, middleware `Authenticated`, `Actor`
 
 **แยกออกไปเป็นงานอื่น:** quick-start, การเข้าถึง agent ในสาย (`/agents/:agent_id`), role/permission guard
-(รอบนี้มีแค่ `RequireRole(ADMIN)`), สร้าง/จัดการ subaccount
+(รอบนี้มีแค่ `adminMw.RequireAdmin()` (module admin_management)), สร้าง/จัดการ subaccount
 
 ## 2. คำศัพท์
 
@@ -51,7 +52,7 @@
 | AUTH-23 | session แยกต่อคน — AUTH-06/07/08/09 ใช้กับ sub แต่ละตัว · sub login ไม่ทำให้ผู้สร้างหลุด และผู้สร้าง login ไม่ทำให้ sub หลุด |
 | AUTH-24 | AUTH-10/11 ใช้กติกาเดียวกับ agent · ตัวนับคิดตาม username เต็มของ sub |
 | AUTH-25 | response login เหมือน agent · `role` = role ของผู้สร้าง · `is_subaccount = true` · ไม่มี field ข้อมูลผู้สร้าง (frontend ตัดจาก `@` เอง) |
-| AUTH-26 | sub ใช้งานในนามของผู้สร้าง — ขอบเขตข้อมูลเป็นของผู้สร้าง (การจำกัดสิทธิ์อยู่ในงาน permission) |
+| AUTH-26 | sub ใช้งานในนามของผู้สร้าง — ขอบเขตข้อมูลเป็นของผู้สร้าง (การจำกัดสิทธิ์อยู่ในงาน permission) · **sub ต้องมีสิทธิ์เมนูทุกเส้น BO ยกเว้นเส้น auth ของบัญชีตัวเอง** (`passcode/setup` · `passcode/change` · `password/change` · `logout`) และ Profile — lead A5 2026-10-09 (agent_management MGMT-50) |
 | AUTH-27 | middleware (ทุก request ทั้ง agent และ sub): บัญชีเป็น `LOCKED` → `401301` · ผู้สร้าง (กรณี sub) หรือ upline คนใดเป็น `LOCKED` → `401302` · ทั้งสองกรณีลบ session · **แทน Phase 1 หัวข้อ 9 ข้อ 2** (เดิม middleware เช็คแค่สถานะตัวเอง) |
 | AUTH-28 | login (หลังเทียบรหัสผ่านถูกแล้วเท่านั้น): ถูกบล็อกเพราะ passcode ผิด (AUTH-35) → `401309` · รหัสผ่านชั่วคราว **หรือ** passcode ชั่วคราวหมดอายุ → `401310` · ลำดับเช็ค `401301` → `401302` → `401309` → `401310` |
 
@@ -97,7 +98,7 @@
 | ID | Rule |
 |---|---|
 | AUTH-43 | admin เป็นบัญชีใน `user_agents` role `ADMIN` · **ไม่มี parent** · **สร้าง sub ไม่ได้** · **ถูกกรองออกจาก query สายงาน, รายงาน และ list agent ทุกที่** · สร้างด้วย `scripts/create_admin` เท่านั้น (รหัสผ่านอ่านจาก stdin ตรวจตาม AUTH-36) · login และด่าน AUTH-29 เหมือนบัญชีอื่น |
-| AUTH-44 | route ของ admin ใช้ได้เฉพาะ role `ADMIN` (`RequireRole(ADMIN)`) — role อื่นรวม SUPERADMIN ตอบ `401308` · ต้องส่ง `passcode` ของ admin เองใน body (`RequirePasscode`) |
+| AUTH-44 | route ของ admin ใช้ได้เฉพาะ role `ADMIN` (`adminMw.RequireAdmin()` — module admin_management) — role อื่นรวม SUPERADMIN ตอบ `401308` · ต้องส่ง `passcode` ของ admin เองใน body (`RequirePasscode`) |
 | AUTH-45 | ระบุเป้าหมายด้วย `username` (ตาม AUTH-18 · ผ่าน AUTH-01) · ไม่พบ → `401404` · เป้าหมายได้เฉพาะ COMPANY / SHAREHOLDER / AGENT และ sub · SUPERADMIN, ADMIN และตัวเอง → `401406` · เป้าหมาย `LOCKED` (รวม sub ที่ผู้สร้างหรือ upline ล็อก) → `401407` |
 | AUTH-46 | ระบบสุ่มค่าชั่วคราวด้วย `crypto/rand` (admin ไม่ได้กรอกเอง) · แสดงใน response ครั้งเดียว เก็บแค่ hash · หมดอายุใน 24 ชม. · response ใส่ `Cache-Control: no-store` · ห้าม log response body · รหัสผ่านชั่วคราว: 12 ตัว ตัวอักษรกับตัวเลขเท่านั้น ไม่ใช้ `0 O o 1 l I` และต้องผ่าน AUTH-36 · passcode ชั่วคราว: ตัวเลข 6 หลัก |
 | AUTH-47 | รีเซ็ต passcode: เป้าหมายที่ยังไม่เคยตั้ง passcode → `401405` · บันทึกค่าชั่วคราว (ถ้าสุ่มได้ซ้ำกับ passcode ปัจจุบันให้สุ่มใหม่ภายใน) · `must_change_passcode = true` · ล้างตัวนับและบล็อก passcode (AUTH-35) ของเป้าหมาย · session ของเป้าหมายถูกลบทันที |
@@ -108,14 +109,15 @@
 | | • ระบบบล็อก (actor = `SYSTEM`): `PASSCODE_BLOCKED` (AUTH-35), `LOGIN_BLOCKED` (AUTH-10/39 · username ที่ไม่มีจริงเก็บแค่ `target_username`) — บันทึกไม่ได้ไม่ทำให้ request ล้ม |
 | | • เก็บ actor, target (type + id + username ณ เวลานั้น), ip, user agent, request_id · ห้ามเก็บรหัสผ่าน, passcode, token หรือค่าชั่วคราว |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → ใช้งานได้ (ไม่ต้อง login ใหม่ระหว่างทาง) |
-| AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ · script ใช้ได้กับ SUPERADMIN / ADMIN **เท่านั้น** · สุ่มค่าชั่วคราว + บังคับเปลี่ยน + หมดอายุ 24 ชม. แบบเดียวกับ AUTH-46–48 · บันทึก `auth_audit_logs` |
+| AUTH-51 | SUPERADMIN และ ADMIN รีเซ็ตผ่าน API ไม่ได้ ต้องใช้ `scripts/reset_credentials` บนเซิร์ฟเวอร์ (กู้บัญชีที่ลืมรหัส) · script ใช้ได้กับ SUPERADMIN / ADMIN **เท่านั้น** · `-password` / `-passcode` เลือกอย่างใดอย่างหนึ่งหรือทั้งคู่ (ทั้งคู่ = transaction เดียว) · สุ่มค่าชั่วคราว + บังคับเปลี่ยน + หมดอายุ 24 ชม. แบบเดียวกับ AUTH-46–48 · แสดงค่าบนจอครั้งเดียว · บันทึก `auth_audit_logs` actor = `SCRIPT` · `actor_username` = user ของเครื่องที่รัน · ไม่มี `actor_id` |
 | AUTH-52 | ผู้สร้างรีเซ็ตให้ sub ของตัวเอง **ไม่ได้** (กำหนดทิศทางไว้สำหรับ module subaccount) |
 
 ### Effective status
 
 | ID | Rule |
 |---|---|
-| AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) |
+| AUTH-53 | upline ถูก LOCK หรือ SUSPEND คนข้างล่างโดนไปด้วย · effective status ของบัญชี = สถานะที่เข้มที่สุด (`LOCKED` > `SUSPENDED` > `ACTIVE`) ของตัวเอง, ผู้สร้าง (กรณี sub) และ upline ทั้งสาย · คำนวณใน middleware ทุก request ใส่ไว้ใน `Actor.EffectiveStatus` · module อื่นตัดสินว่าทำรายการได้ไหมจากค่านี้ (ความหมายของ SUSPENDED กำหนดใน module สายงาน) · **ยกเว้น sub ที่สถานะของตัวเองเป็น SUSPENDED (= `INACTIVE` ที่เจ้าของตั้ง): login ไม่ได้ และ middleware ปฏิเสธพร้อมลบ session (`401312` — agent_management MGMT-43 · lead SQ1 2026-10-11)** — ลำดับเช็ค login 401301 → 401302 → 401312 → 401309 → 401310 |
+| AUTH-54 | **SUSPENDED เข้าได้เฉพาะหน้า Profile และ Report ดูได้อย่างเดียว** · **เพิ่ม 2026-10-08 (lead อนุมัติ): ดูข้อมูลรับรอง API (`GET /account/api-credential`) ได้ด้วย** (review account 2026-10-05 — อนุมัติ 2026-10-06): ตัดสินจาก `EffectiveStatus` (ตัวเอง, ผู้สร้างกรณี sub หรือ upline ถูกระงับ — **ไม่รวม sub `INACTIVE` ซึ่งใช้งานไม่ได้เลยตาม AUTH-53**) · ทุก route ใต้ `/pr` ใช้ `mw.PassedGates(...)` ซึ่ง**ปฏิเสธ SUSPENDED** (`401311`) · route ดูข้อมูลของ Profile / Report ใช้ `mw.PassedGatesAllowSuspended(...)` บรรทัดเดียวกับ route · ด่านหลัง login (AUTH-29) ยังใช้กับทุก route · **เปลี่ยน passcode / รหัสผ่านของตัวเองก็ไม่ได้** (setup, change — ตัดสิน 2026-10-06) · logout ได้เสมอ · ACTIVE ใช้งานปกติ · LOCKED ถูกเตะตาม AUTH-27 |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
@@ -130,14 +132,14 @@
 | POST | `/api/v1/bo/pr/auth/passcode/setup` | ข้อ 3 | — | **ใหม่** |
 | POST | `/api/v1/bo/pr/auth/passcode/change` | ผ่านครบ หรือข้อ 2 | — | **ใหม่** |
 | POST | `/api/v1/bo/pr/auth/password/change` | ผ่านครบ (+ `RequirePasscode`) หรือข้อ 1 | — | **ใหม่** |
-| POST | `/api/v1/bo/pr/admin/passcode/reset` | ผ่านครบ | `RequireRole(ADMIN)` + `RequirePasscode` | **ใหม่** |
-| POST | `/api/v1/bo/pr/admin/password/reset` | ผ่านครบ | `RequireRole(ADMIN)` + `RequirePasscode` | **ใหม่** |
 
-ลำดับ middleware ใน `routes.go`: `Authenticated` → ด่าน AUTH-29 → `RequireRole` (ถ้ามี) → `RequirePasscode` (ถ้ามี)
+ลำดับ middleware ใน `routes.go`: `Authenticated` → ด่าน AUTH-29 → `RequirePasscode` (ถ้ามี)
+
+เส้นของ ADMIN (`/admin/passcode/reset` · `/admin/password/reset`) ย้ายไป [admin_management.md](admin_management.md) (แยก module 2026-10-09) — กฎ AUTH-43 – AUTH-52 ยังอยู่ในเอกสารนี้
 — เขียนไว้บรรทัดเดียวกับ route ทุกเส้น
 
 **error ของทุก route ใต้ `/bo/pr` ที่ผ่าน `Authenticated`** (ไม่เขียนซ้ำในแต่ละเส้นด้านล่าง):
-`401202`, `401203`, `401301`, `401302` · logout ไม่ผ่าน `Authenticated` (AUTH-09) จึงตอบแค่ `401202`
+`401202`, `401203`, `401301`, `401302`, `401312` (sub `INACTIVE`) · route ที่ใช้ `PassedGates` เพิ่ม `401311` (AUTH-54) · logout ไม่ผ่าน `Authenticated` (AUTH-09) จึงตอบแค่ `401202`
 
 ### POST /api/v1/bo/pb/auth/login (เส้นเดิม — รับ sub + field ใหม่)
 
@@ -162,7 +164,7 @@ Response `data`:
 - `passcode_set` เป็นค่าจริงแล้ว (เดิมส่ง `false` เสมอ)
 - `must_change_password` / `must_change_passcode` — **ใหม่** frontend ใช้เลือกหน้าถัดไปตาม AUTH-29
 
-Error codes: `422`, `401201`, `401301`, `401302`, `401303`, `401309`, `401310`, `429`, `500`
+Error codes: `422`, `401201`, `401301`, `401302`, `401303`, `401309`, `401310`, `401312`, `429`, `500`
 
 ### POST /api/v1/bo/pr/auth/logout (path/body เดิม — ข้างในเปลี่ยน)
 
@@ -230,49 +232,6 @@ Response:
 
 Error codes: `422` (ไม่กรอก / `confirm_password` ไม่ตรง / ผิดกติกา AUTH-36 — msg บอกว่าผิดกฎข้อไหน), `401204`,
 `401205`, `401206`, `401303`, `401402`, `401310`, `401304`, `401307`
-
-### POST /api/v1/bo/pr/admin/passcode/reset (ใหม่ — admin รีเซ็ต passcode)
-
-Header `Authorization: Bearer <token ของ admin>`
-
-Request:
-```json
-{ "username": "agent01@staff", "passcode": "123456" }
-```
-`passcode` = passcode ของ admin เอง
-
-Response `data` (แสดงครั้งเดียว · header `Cache-Control: no-store`):
-```json
-{
-  "username": "agent01@staff",
-  "temp_passcode": "482913",
-  "temp_expires_at": "2026-10-06T10:00:00+07:00"
-}
-```
-
-Error codes: `422`, `401308`, `401404`, `401405`, `401406`, `401407`, `401204`, `401205`, `401304`, `401306`,
-`401307`
-
-### POST /api/v1/bo/pr/admin/password/reset (ใหม่ — admin รีเซ็ตรหัสผ่าน)
-
-Header `Authorization: Bearer <token ของ admin>`
-
-Request:
-```json
-{ "username": "agent01", "passcode": "123456" }
-```
-`passcode` = passcode ของ admin เอง
-
-Response `data` (แสดงครั้งเดียว · header `Cache-Control: no-store`):
-```json
-{
-  "username": "agent01",
-  "temp_password": "Xk7mPq4RtW9z",
-  "temp_expires_at": "2026-10-06T10:00:00+07:00"
-}
-```
-
-Error codes: `422`, `401308`, `401404`, `401406`, `401407`, `401204`, `401205`, `401304`, `401306`, `401307`
 
 ## 6. Schema
 
@@ -389,7 +348,11 @@ Redis:
 | AUTH-27 | ผู้สร้างถูก LOCK ระหว่างที่ sub ใช้งาน | request ถัดไปของ sub `401302` และ session ถูกลบ |
 | AUTH-27 | upline ของ agent (เช่น Company) ถูก LOCK ระหว่างใช้งาน | request ถัดไปของ agent `401302` และ session ถูกลบ |
 | AUTH-53 | upline ของผู้สร้าง SUSPENDED | `EffectiveStatus` ของ agent และ sub = `SUSPENDED` |
-| AUTH-53 | sub SUSPENDED · ผู้สร้าง ACTIVE | sub = `SUSPENDED` · ผู้สร้าง = `ACTIVE` |
+| AUTH-53 | sub ตัวเอง SUSPENDED (`INACTIVE`) · ผู้สร้าง ACTIVE | sub ถูกปฏิเสธ `401312` (ไม่ได้ effective status แบบดูได้) · ผู้สร้าง = `ACTIVE` |
+| AUTH-54 | บัญชีที่ `EffectiveStatus = SUSPENDED` (upline ถูกระงับ หรือตัวเอง) เรียก route ที่ใช้ `PassedGatesAllowSuspended` | สำเร็จ |
+| AUTH-54 | บัญชีที่ `EffectiveStatus = SUSPENDED` เรียก route อื่น · `RequirePasscode` · passcode setup / change · password change | `401311` (HTTP 403) |
+| AUTH-53 / 54 | sub ตัวเอง SUSPENDED (`INACTIVE`) · ผู้สร้าง ACTIVE | sub `401312` (session ถูกลบ · request ถัดไป `401203`) · login ได้ `401312` · ผู้สร้างใช้งานได้ปกติ |
+| AUTH-54 | ยังไม่ตั้ง passcode และถูกระงับ | passcode setup `401311` · route ดูข้อมูลติดด่าน `401304` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสถูก | `401309` |
 | AUTH-28 | ถูกบล็อก passcode แล้ว login + รหัสผิด | `401201` |
 | AUTH-28 | รหัสชั่วคราวเกิน 24 ชม. แล้ว login ด้วยรหัสนั้น | `401310` |
@@ -440,6 +403,8 @@ Redis:
 | AUTH-49 | รีเซ็ตไม่สำเร็จ | ไม่มีแถว |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เรียก `passcode/change` ก่อน | `401306` |
 | AUTH-50 | ถูกรีเซ็ตทั้งสองอย่าง → login → เปลี่ยนรหัสผ่าน → เปลี่ยน passcode → เรียก route อื่น | ผ่าน ด้วย token เดิม |
+| AUTH-51 | `reset_credentials -username <superadmin> -password -passcode` | ค่าชั่วคราว 12 ตัว / 6 หลัก · session เดิมหลุด · login แล้ว `must_change_password` และ `must_change_passcode = true` · audit 2 แถว actor `SCRIPT` |
+| AUTH-51 | script กับ Agent / sub · username ที่ไม่มี · ไม่เลือก `-password` หรือ `-passcode` | `401406` · `401404` · error |
 
 ## 8. Contract changes (แจ้ง frontend)
 
@@ -475,6 +440,8 @@ Redis:
 | 401308 | 403 | ไม่มีสิทธิ์ใช้งานส่วนของ admin |
 | 401309 | 403 | ระงับ login เพราะ passcode ผิดหลายครั้ง |
 | 401310 | 403 | ค่าชั่วคราวหมดอายุ กรุณาติดต่อ admin |
+| 401311 | 403 | บัญชีถูกระงับ ใช้งานได้เฉพาะหน้าประวัติของฉันและรายงาน (AUTH-54) |
+| 401312 | 403 | บัญชีย่อยถูกปิดใช้งาน (`INACTIVE`) — login ไม่ได้ · session ถูกตัด (AUTH-53 · agent_management MGMT-43) |
 | 401401 | 200 | ตั้ง passcode ไว้แล้ว |
 | 401402 | 200 | รหัสผ่านใหม่ซ้ำกับรหัสที่เคยใช้ |
 | 401403 | 200 | passcode ใหม่ซ้ำกับตัวเดิม |
@@ -487,5 +454,5 @@ Redis:
 เมื่อได้ 401 — ใส่ผิดครั้งเดียวไม่ควรถูกเด้งออก
 
 4. **บัญชีทดสอบ sub** — integration test insert ลง DB เอง ไม่ทำ script
-5. **role/permission guard เต็มรูปแบบ** แยกเป็นงานอื่น — รอบนี้มีแค่ `RequireRole(ADMIN)` เพื่อให้ route admin
+5. **role/permission guard เต็มรูปแบบ** แยกเป็นงานอื่น — รอบนี้มีแค่ `adminMw.RequireAdmin()` (module admin_management) เพื่อให้ route admin
    ระบุสิทธิ์บรรทัดเดียวกับ route ได้ตามกฎข้อ 28

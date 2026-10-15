@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	redisRepo "app/app/repository/redis"
+	currencyRateRedis "app/app/repository/redis/currency_rate"
 	"app/pkg/configs"
 	"app/platform/database"
 	"app/platform/logger"
@@ -66,7 +66,7 @@ func TestSyncSuccess(t *testing.T) { // CR-04, CR-06, CR-08, CR-10
 	if res.Updated != 3 || res.Date != "2026-10-08" || len(res.Missing) != 24 {
 		t.Fatalf("ผลไม่ถูก %+v", res)
 	}
-	rates, _ := redisRepo.GetCurrencyRatesRepository(context.Background())
+	rates, _ := currencyRateRedis.GetCurrencyRatesRepository(context.Background())
 	if rates["THB"] != 3362000000 || rates["USDT"] != 100000000 {
 		t.Fatalf("เรทไม่ถูก %v", rates)
 	}
@@ -96,11 +96,11 @@ func TestSyncFailureKeepsPreviousRates(t *testing.T) { // CR-05, CR-07
 				_, _ = io.WriteString(w, tt.body)
 			})
 			ctx := context.Background()
-			_ = redisRepo.SaveCurrencyRatesRepository(ctx, map[string]int64{"THB": 3300000000}, redisRepo.CurrencyRateMeta{Date: "2026-10-06"})
+			_ = currencyRateRedis.SaveCurrencyRatesRepository(ctx, map[string]int64{"THB": 3300000000}, currencyRateRedis.CurrencyRateMeta{Date: "2026-10-06"})
 			if _, err := SyncCurrencyRateService(ctx, time.Now()); err == nil {
 				t.Fatal("ต้อง error")
 			}
-			rates, _ := redisRepo.GetCurrencyRatesRepository(ctx)
+			rates, _ := currencyRateRedis.GetCurrencyRatesRepository(ctx)
 			if rates["THB"] != 3300000000 {
 				t.Fatalf("เรทเดิมต้องไม่เปลี่ยน %v", rates)
 			}
@@ -131,7 +131,7 @@ func TestConvertAmount(t *testing.T) { // CR-13, CR-14
 	if _, err := ConvertAmountService(ctx, 10000, "THB", "USD"); !errors.Is(err, ErrRateUnavailable) {
 		t.Fatalf("ยังไม่มีเรทต้อง ErrRateUnavailable ได้ %v", err)
 	}
-	_ = redisRepo.SaveCurrencyRatesRepository(ctx, map[string]int64{"THB": 3362000000, "USD": 99000000}, redisRepo.CurrencyRateMeta{Date: "2026-10-07"})
+	_ = currencyRateRedis.SaveCurrencyRatesRepository(ctx, map[string]int64{"THB": 3362000000, "USD": 99000000}, currencyRateRedis.CurrencyRateMeta{Date: "2026-10-07"})
 	got, err := ConvertAmountService(ctx, 10000, "THB", "USD")
 	if err != nil || got != 294 {
 		t.Fatalf("100.00 THB → USD ต้องได้ 294 ได้ %d %v", got, err)

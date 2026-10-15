@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/platform/database"
 	"app/platform/logger"
 
@@ -61,7 +61,7 @@ func writeAudit(ctx context.Context, db *gorm.DB, e auditEntry, meta RequestMeta
 	} else {
 		l.TargetUsername = e.TargetName
 	}
-	return postgres.CreateAuthAuditLogRepository(db, &l)
+	return agentAuthPostgres.CreateAuthAuditLogRepository(db, &l)
 }
 
 // writeAuditOutsideTx — เหตุการณ์ที่ไม่ได้อยู่ใน transaction (บล็อก) · บันทึกไม่ได้ไม่ทำให้ request ล้ม

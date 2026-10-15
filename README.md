@@ -25,3 +25,4 @@ make run         # http://localhost:8181/health/ready
 - [CLAUDE.md](CLAUDE.md) — กฎบังคับของโปรเจกต์
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — โครงสร้างและแม่แบบโค้ด **อ่านก่อนเขียนโค้ด**
 - [docs/MIGRATION_STATUS.md](docs/MIGRATION_STATUS.md) — สถานะการย้ายจากระบบเก่า
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — ออก tag เพื่อ build image และสิ่งที่ k8s ต้องเตรียม

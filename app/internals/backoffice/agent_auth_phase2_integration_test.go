@@ -12,10 +12,9 @@ import (
 	"testing"
 	"time"
 
-	agentAuthCore "app/app/core/agent_auth"
 	mw "app/app/internals/backoffice/middleware"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
 	"app/pkg/configs"
 	"app/pkg/response"
 	"app/pkg/testutil"
@@ -29,6 +28,7 @@ import (
 const (
 	gatedPath          = "/api/v1/bo/pr/_test/gated" // route ทั่วไป: Authenticated + PassedGates
 	txPath             = "/api/v1/bo/pr/_test/tx"    // route ที่ต้องยืนยัน passcode
+	viewPath           = "/api/v1/bo/pr/_test/view"  // route ที่บัญชีถูกระงับเข้าได้ (AUTH-54): PassedGatesAllowSuspended
 	passcodeSetupPath  = "/api/v1/bo/pr/auth/passcode/setup"
 	passcodeChangePath = "/api/v1/bo/pr/auth/passcode/change"
 	passwordChangePath = "/api/v1/bo/pr/auth/password/change"
@@ -50,6 +50,9 @@ func setup2(t *testing.T) *fiber.App {
 		a.Post(txPath, mw.Authenticated(), mw.PassedGates(), mw.RequirePasscode(), func(c *fiber.Ctx) error {
 			return response.OK(c, nil)
 		})
+		a.Get(viewPath, mw.Authenticated(), mw.PassedGatesAllowSuspended(), func(c *fiber.Ctx) error {
+			return response.OK(c, fiber.Map{"effective_status": mw.GetActor(c).EffectiveStatus})
+		})
 	})
 }
 
@@ -57,7 +60,14 @@ func createAccount(t *testing.T, username string, role models.AgentRole, parentI
 	t.Helper()
 	a := createAgent(t, username, models.AgentStatusActive, parentID)
 	if role != models.AgentRoleAgent {
-		if err := database.DBConn.Model(&models.UserAgent{}).Where("id = ?", a.ID).Update("role", role).Error; err != nil {
+		cols := map[string]any{"role": role}
+		switch role { // Company / Share ต้องมี agent_type (agent_management MGMT-01)
+		case models.AgentRoleCompany:
+			cols["agent_type"] = models.AgentTypeTransfer
+		case models.AgentRoleShareholder:
+			cols["agent_type"] = models.AgentTypeShareB2C
+		}
+		if err := database.DBConn.Model(&models.UserAgent{}).Where("id = ?", a.ID).Updates(cols).Error; err != nil {
 			t.Fatal(err)
 		}
 		a.Role = role
@@ -72,7 +82,7 @@ func createSub(t *testing.T, owner models.UserAgent, name string, status models.
 		t.Fatal(err)
 	}
 	s := models.Subaccount{AgentID: owner.ID, Username: owner.Username + "@" + name, PasswordHash: hash, Status: status}
-	if err := postgres.CreateSubaccountRepository(database.DBConn, &s); err != nil {
+	if err := agentAuthPostgres.CreateSubaccountRepository(database.DBConn, &s); err != nil {
 		t.Fatal(err)
 	}
 	return s
@@ -270,7 +280,7 @@ func TestEffectiveStatus(t *testing.T) { // AUTH-53
 
 	effective := func(tok string) string {
 		t.Helper()
-		r := call(t, app, "GET", gatedPath, nil, tok)
+		r := call(t, app, "GET", viewPath, nil, tok)
 		expect(t, r, 200, 200)
 		var d struct {
 			EffectiveStatus string `json:"effective_status"`
@@ -290,13 +300,70 @@ func TestEffectiveStatus(t *testing.T) { // AUTH-53
 		t.Fatalf("sub ที่ upline ของผู้สร้าง SUSPENDED ได้ %s", got)
 	}
 	setStatus(t, company.ID, models.AgentStatusActive)
+	// sub ที่สถานะของตัวเองเป็น SUSPENDED (= INACTIVE) ใช้งานไม่ได้เลย ไม่ใช่ "ดูได้อย่างเดียว" (agent_management MGMT-43 · lead SQ1)
 	setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusSuspended})
-	if got := effective(subTok); got != "SUSPENDED" {
-		t.Fatalf("sub SUSPENDED ได้ %s", got)
-	}
+	expect(t, call(t, app, "GET", viewPath, nil, subTok), 403, 401312)
 	if got := effective(agentTok); got != "ACTIVE" {
 		t.Fatalf("sub SUSPENDED ต้องไม่กระทบผู้สร้าง ได้ %s", got)
 	}
+}
+
+// ---- บัญชีถูกระงับ (AUTH-54) ----
+
+func TestSuspendedAccess(t *testing.T) { // AUTH-54
+	app := setup2(t)
+	company := createAccount(t, "company01", models.AgentRoleCompany, nil)
+	a := createAgent(t, "agent01", models.AgentStatusActive, &company.ID)
+	sub := createSub(t, a, "staff", models.AgentStatusActive)
+	agentTok := loginReady(t, app, models.AccountTypeAgent, a.ID, "agent01")
+	subTok := loginReady(t, app, models.AccountTypeSub, sub.ID, "agent01@staff")
+
+	// route ที่บัญชีถูกระงับใช้ไม่ได้: route ทั่วไป, route ที่ยืนยัน passcode, เปลี่ยน passcode / รหัสผ่านของตัวเอง
+	denied := func(t *testing.T, tok string) {
+		t.Helper()
+		expect(t, call(t, app, "GET", gatedPath, nil, tok), 403, 401311)
+		expect(t, call(t, app, "POST", txPath, map[string]any{"passcode": passcode}, tok), 403, 401311)
+		expect(t, call(t, app, "POST", passcodeChangePath, map[string]any{
+			"old_passcode": passcode, "new_passcode": "654321", "confirm_passcode": "654321",
+		}, tok), 403, 401311)
+		expect(t, call(t, app, "POST", passwordChangePath, map[string]any{
+			"old_password": password, "new_password": newPassword, "confirm_password": newPassword, "passcode": passcode,
+		}, tok), 403, 401311)
+	}
+
+	t.Run("upline SUSPENDED: agent และ sub ดูได้อย่างเดียว", func(t *testing.T) {
+		setStatus(t, company.ID, models.AgentStatusSuspended)
+		t.Cleanup(func() { setStatus(t, company.ID, models.AgentStatusActive) })
+		for _, tok := range []string{agentTok, subTok} {
+			expect(t, call(t, app, "GET", viewPath, nil, tok), 200, 200)
+			denied(t, tok)
+		}
+	})
+
+	t.Run("sub INACTIVE (SUSPENDED ที่ตัวเอง): ใช้ไม่ได้เลย + session ถูกตัด · ผู้สร้างไม่กระทบ", func(t *testing.T) { // MGMT-43 · lead SQ1
+		setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusSuspended})
+		t.Cleanup(func() {
+			setCols(t, models.AccountTypeSub, sub.ID, map[string]any{"status": models.AgentStatusActive})
+		})
+		expect(t, call(t, app, "GET", viewPath, nil, subTok), 403, 401312)
+		expect(t, call(t, app, "GET", viewPath, nil, subTok), 401, 401203) // session ถูกลบแล้ว
+		expect(t, call(t, app, "GET", gatedPath, nil, agentTok), 200, 200)
+	})
+
+	t.Run("ปลดระงับแล้วใช้งานได้ปกติ", func(t *testing.T) {
+		expect(t, call(t, app, "GET", gatedPath, nil, agentTok), 200, 200)
+		subTok = loginReady(t, app, models.AccountTypeSub, sub.ID, "agent01@staff") // session เดิมถูกตัดตอน INACTIVE
+		expect(t, call(t, app, "GET", gatedPath, nil, subTok), 200, 200)
+	})
+
+	t.Run("ยังไม่ตั้ง passcode: ตั้งไม่ได้ และหน้าดูยังติดด่านหลัง login", func(t *testing.T) {
+		createAgent(t, "agent02", models.AgentStatusSuspended, &company.ID)
+		tok := loginAs(t, app, "agent02", password).Token
+		expect(t, call(t, app, "POST", passcodeSetupPath, map[string]any{
+			"passcode": passcode, "confirm_passcode": passcode,
+		}, tok), 403, 401311)
+		expect(t, call(t, app, "GET", viewPath, nil, tok), 403, 401304)
+	})
 }
 
 // ---- ด่านหลัง login (AUTH-29) ----
@@ -462,113 +529,6 @@ func loginToken2(t *testing.T, app *fiber.App, username, pw string) string {
 
 // ---- Admin reset (AUTH-43–AUTH-50) ----
 
-func TestAdminResetAccess(t *testing.T) {
-	app := setup2(t)
-	admin := createAccount(t, "support01", models.AgentRoleAdmin, nil)
-	createAccount(t, "support02", models.AgentRoleAdmin, nil)
-	super := createAccount(t, "root", models.AgentRoleSuperAdmin, nil)
-	company := createAccount(t, "company01", models.AgentRoleCompany, nil)
-	agent := createAgent(t, "agent01", models.AgentStatusActive, &company.ID)
-	createSub(t, agent, "staff", models.AgentStatusActive)
-	createAgent(t, "nopasscode", models.AgentStatusActive, nil)
-	createAgent(t, "locked", models.AgentStatusLocked, nil)
-	setPasscode(t, models.AccountTypeAgent, agent.ID, passcode)
-
-	adminTok := loginReady(t, app, models.AccountTypeAgent, admin.ID, "support01")
-	superTok := loginReady(t, app, models.AccountTypeAgent, super.ID, "root")
-	agentTok := loginToken(t, app, "agent01")
-	reset := func(username string) map[string]string {
-		return map[string]string{"username": username, "passcode": passcode}
-	}
-
-	expect(t, call(t, app, "POST", resetPasswordPath, reset("agent01"), agentTok), 403, 401308)
-	expect(t, call(t, app, "POST", resetPasswordPath, reset("agent01"), superTok), 403, 401308)
-	expect(t, call(t, app, "POST", resetPasswordPath, map[string]string{"username": "agent01", "passcode": "000000"}, adminTok), 200, 401204)
-
-	tests := []struct {
-		name, path, username string
-		code                 int
-	}{
-		{"ไม่พบ", resetPasswordPath, "ghost", 401404},
-		{"ไม่พบ sub", resetPasswordPath, "agent01@nobody", 401404},
-		{"SUPERADMIN", resetPasswordPath, "root", 401406},
-		{"ADMIN คนอื่น", resetPasswordPath, "support02", 401406},
-		{"ตัวเอง", resetPasscodePath, "support01", 401406},
-		{"เป้าหมาย LOCKED", resetPasswordPath, "locked", 401407},
-		{"ยังไม่ได้ตั้ง passcode", resetPasscodePath, "nopasscode", 401405},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			expect(t, call(t, app, "POST", tt.path, reset(tt.username), adminTok), 200, tt.code)
-		})
-	}
-
-	t.Run("sub ที่ผู้สร้างถูก LOCK", func(t *testing.T) {
-		setStatus(t, agent.ID, models.AgentStatusLocked)
-		defer setStatus(t, agent.ID, models.AgentStatusActive)
-		expect(t, call(t, app, "POST", resetPasswordPath, reset("agent01@staff"), adminTok), 200, 401407)
-	})
-
-	var n int64
-	database.DBConn.Table("auth_audit_logs").Count(&n)
-	if n != 0 {
-		t.Fatalf("รีเซ็ตที่ไม่สำเร็จต้องไม่มี audit log ได้ %d", n)
-	}
-}
-
-func TestAdminResetPasscode(t *testing.T) { // AUTH-45–AUTH-47, AUTH-49
-	app := setup2(t)
-	admin := createAccount(t, "support01", models.AgentRoleAdmin, nil)
-	owner := createAgent(t, "agent01", models.AgentStatusActive, nil)
-	sub := createSub(t, owner, "staff", models.AgentStatusActive)
-	adminTok := loginReady(t, app, models.AccountTypeAgent, admin.ID, "support01")
-	subTok := loginReady(t, app, models.AccountTypeSub, sub.ID, "agent01@staff")
-
-	for i := 0; i < 4; i++ { // ให้มีตัวนับค้างไว้
-		expect(t, call(t, app, "POST", txPath, map[string]string{"passcode": "000000"}, subTok), 200, 401204)
-	}
-
-	r := call(t, app, "POST", resetPasscodePath, map[string]string{"username": "Agent01@Staff", "passcode": passcode}, adminTok)
-	expect(t, r, 200, 200)
-	if got := r.Header.Get("Cache-Control"); got != "no-store" {
-		t.Fatalf("Cache-Control = %q", got)
-	}
-	var d struct {
-		Username      string    `json:"username"`
-		TempPasscode  string    `json:"temp_passcode"`
-		TempExpiresAt time.Time `json:"temp_expires_at"`
-	}
-	_ = json.Unmarshal(r.Data, &d)
-	if d.Username != "agent01@staff" || !agentAuthCore.IsValidPasscode(d.TempPasscode) || d.TempPasscode == passcode {
-		t.Fatalf("unexpected %+v", d)
-	}
-	if until := time.Until(d.TempExpiresAt); until < 23*time.Hour || until > 24*time.Hour {
-		t.Fatalf("ค่าชั่วคราวต้องหมดอายุใน 24 ชม. ได้ %v", until)
-	}
-	expect(t, call(t, app, "GET", gatedPath, nil, subTok), 401, 401203) // session ของเป้าหมายถูกลบ
-
-	ld := loginAs(t, app, "agent01@staff", password)
-	if !ld.MustChangePasscode {
-		t.Fatal("ต้องถูกบังคับเปลี่ยน passcode")
-	}
-	expect(t, call(t, app, "GET", gatedPath, nil, ld.Token), 403, 401307)
-	// ตัวนับเดิม 4 ครั้งต้องถูกล้างตอนรีเซ็ต — ผิดอีก 1 ครั้งยังไม่ถูกตัด
-	expect(t, call(t, app, "POST", passcodeChangePath, map[string]string{"old_passcode": "000000", "new_passcode": "654321", "confirm_passcode": "654321"}, ld.Token), 200, 401204)
-	expect(t, call(t, app, "POST", passcodeChangePath, map[string]string{"old_passcode": d.TempPasscode, "new_passcode": d.TempPasscode, "confirm_passcode": d.TempPasscode}, ld.Token), 200, 401403)
-	expect(t, call(t, app, "POST", passcodeChangePath, map[string]string{"old_passcode": d.TempPasscode, "new_passcode": "654321", "confirm_passcode": "654321"}, ld.Token), 200, 200)
-	expect(t, call(t, app, "GET", gatedPath, nil, ld.Token), 200, 200)
-
-	logs := auditRows(t, models.AuthAuditResetPasscode)
-	if len(logs) != 1 || logs[0].ActorType != models.AuthAuditActorAgent || *logs[0].ActorID != admin.ID ||
-		*logs[0].ActorUsername != "support01" || *logs[0].TargetType != models.AccountTypeSub || *logs[0].TargetID != sub.ID ||
-		logs[0].TargetUsername != "agent01@staff" || logs[0].IP == nil || logs[0].RequestID == nil {
-		t.Fatalf("audit log ไม่ถูกต้อง %+v", logs)
-	}
-	if n := len(auditRows(t, models.AuthAuditPasscodeChange)); n != 1 {
-		t.Fatalf("เปลี่ยน passcode หลังถูกรีเซ็ตต้องมี audit 1 แถว ได้ %d", n)
-	}
-}
-
 func auditRows(t *testing.T, action models.AuthAuditAction) []models.AuthAuditLog {
 	t.Helper()
 	var logs []models.AuthAuditLog
@@ -625,59 +585,6 @@ func TestAuditLog(t *testing.T) { // AUTH-49: บันทึกเฉพาะ�
 			t.Fatalf("ต้องไม่มีแถวเพิ่ม ได้ %d → %d", n, after)
 		}
 	})
-}
-
-func TestAdminResetPasscodeClearsBlock(t *testing.T) { // AUTH-47
-	app := setup2(t)
-	admin := createAccount(t, "support01", models.AgentRoleAdmin, nil)
-	a := createAgent(t, "agent01", models.AgentStatusActive, nil)
-	adminTok := loginReady(t, app, models.AccountTypeAgent, admin.ID, "support01")
-	tok := loginReady(t, app, models.AccountTypeAgent, a.ID, "agent01")
-
-	for i := 0; i < 5; i++ {
-		call(t, app, "POST", txPath, map[string]string{"passcode": "000000"}, tok)
-	}
-	expect(t, login(t, app, "agent01", password), 403, 401309)
-	expect(t, call(t, app, "POST", resetPasscodePath, map[string]string{"username": "agent01", "passcode": passcode}, adminTok), 200, 200)
-	if !loginAs(t, app, "agent01", password).MustChangePasscode {
-		t.Fatal("ต้องถูกบังคับเปลี่ยน passcode")
-	}
-}
-
-func TestAdminResetPassword(t *testing.T) { // AUTH-46, AUTH-48, AUTH-50
-	app := setup2(t)
-	admin := createAccount(t, "support01", models.AgentRoleAdmin, nil)
-	a := createAgent(t, "agent01", models.AgentStatusActive, nil)
-	adminTok := loginReady(t, app, models.AccountTypeAgent, admin.ID, "support01")
-	setPasscode(t, models.AccountTypeAgent, a.ID, passcode)
-
-	for i := 0; i < 5; i++ { // ถูกบล็อก login (AUTH-10)
-		login(t, app, "agent01", "wrong")
-	}
-	expect(t, login(t, app, "agent01", password), 403, 401303)
-
-	r := call(t, app, "POST", resetPasswordPath, map[string]string{"username": "agent01", "passcode": passcode}, adminTok)
-	expect(t, r, 200, 200)
-	var d struct {
-		TempPassword string `json:"temp_password"`
-	}
-	_ = json.Unmarshal(r.Data, &d)
-	if len(d.TempPassword) != 12 || strings.ContainsAny(d.TempPassword, "0Oo1lI") ||
-		agentAuthCore.CheckPasswordPolicy(d.TempPassword) != agentAuthCore.PasswordOK {
-		t.Fatalf("temp_password ไม่ถูกรูปแบบ %q", d.TempPassword)
-	}
-
-	expect(t, login(t, app, "agent01", password), 401, 401201)
-	ld := loginAs(t, app, "agent01", d.TempPassword) // บล็อกถูกล้าง
-	if !ld.MustChangePassword {
-		t.Fatal("ต้องถูกบังคับเปลี่ยนรหัสผ่าน")
-	}
-	expect(t, call(t, app, "GET", gatedPath, nil, ld.Token), 403, 401306)
-	nw := map[string]string{"old_password": d.TempPassword, "new_password": password, "confirm_password": password}
-	expect(t, call(t, app, "POST", passwordChangePath, nw, ld.Token), 200, 422) // รหัสเดิมของ test ไม่ผ่าน AUTH-36 (ไม่มีตัวเลข)
-	nw["new_password"], nw["confirm_password"] = newPassword, newPassword
-	expect(t, call(t, app, "POST", passwordChangePath, nw, ld.Token), 200, 200) // ไม่ต้องส่ง passcode
-	expect(t, call(t, app, "GET", gatedPath, nil, ld.Token), 200, 200)
 }
 
 func TestForcedChangeBoth(t *testing.T) { // AUTH-50

@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	agentAuthCore "app/app/core/agent_auth"
+	agentManagementCore "app/app/core/agent_management"
+	depositWithdrawCore "app/app/core/deposit_withdraw"
 	agentAuthDto "app/app/internals/backoffice/dto/agent_auth"
 	"app/app/models"
-	"app/app/repository/postgres"
+	agentAuthPostgres "app/app/repository/postgres/agent_auth"
+	agentManagementPostgres "app/app/repository/postgres/agent_management"
 	"app/pkg/apperr"
 	"app/pkg/configs"
 	"app/pkg/utils"
@@ -18,6 +22,7 @@ import (
 	"app/platform/logger"
 
 	"golang.org/x/term"
+	"gorm.io/gorm"
 )
 
 // Create สร้างบัญชี role ที่กำหนด (ไม่มี parent) — รหัสผ่านอ่านจาก stdin และตรวจตาม AUTH-36
@@ -34,12 +39,13 @@ func Create(rawUsername string, role models.AgentRole) error {
 	if err := agentAuthDto.PasswordPolicyError("password", agentAuthCore.CheckPasswordPolicy(password)); err != nil {
 		return fmt.Errorf("%s", apperr.From(err).MsgTH)
 	}
-	hash, err := utils.HashPassword(password)
-	if err != nil {
-		return err
-	}
 
 	if err := configs.Load(); err != nil {
+		return err
+	}
+	utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
+	hash, err := utils.HashPassword(password)
+	if err != nil {
 		return err
 	}
 	logger.InitLogger(true)
@@ -53,7 +59,16 @@ func Create(rawUsername string, role models.AgentRole) error {
 		Role:         role,
 		Status:       models.AgentStatusActive,
 	}
-	if err := postgres.CreateUserAgentRepository(database.DBConn, &agent); err != nil {
+	err = database.DBConn.Transaction(func(tx *gorm.DB) error {
+		if err := agentAuthPostgres.CreateUserAgentRepository(tx, &agent); err != nil {
+			return err
+		}
+		if role != models.AgentRoleSuperAdmin {
+			return nil
+		}
+		return seedSuperadmin(tx, agent.ID, agent.Username)
+	})
+	if err != nil {
 		return err
 	}
 	fmt.Printf("สร้าง %s %q สำเร็จ (id=%d)\n", role, agent.Username, agent.ID)
@@ -86,4 +101,41 @@ func readPassword() (string, error) {
 		return "", fmt.Errorf("รหัสผ่านไม่ตรงกัน")
 	}
 	return string(p1), nil
+}
+
+// seedSuperadmin — Superadmin ได้รับ 100% ทุกเกม · ครบทุกสกุล · ผู้สร้าง / ผู้แก้ค่า PT = ตัวเอง (agent_management MGMT-10, MGMT-16, MGMT-22)
+// แบบเดียวกับ backfill ใน migration agent_management สำหรับ Superadmin ที่มีอยู่ก่อน
+func seedSuperadmin(tx *gorm.DB, agentID uint, username string) error {
+	currencies := make([]models.AgentCurrency, 0, len(agentManagementCore.Currencies))
+	for _, c := range agentManagementCore.Currencies {
+		currencies = append(currencies, models.AgentCurrency{AgentID: agentID, Currency: c})
+	}
+	if err := agentManagementPostgres.CreateAgentCurrenciesRepository(tx, currencies); err != nil {
+		return err
+	}
+	// ยอดตั้งต้นสกุลละ 100,000,000 + ledger (deposit_withdraw · lead 2026-10-15 · แบบเดียวกับ migration 20261015100000)
+	now := time.Now()
+	balances := make([]models.AgentBalance, 0, len(currencies))
+	ledger := make([]models.BalanceLedger, 0, len(currencies))
+	for _, c := range currencies {
+		balances = append(balances, models.AgentBalance{AgentID: agentID, Currency: c.Currency, Amount: depositWithdrawCore.SuperadminSeedAmount, UpdatedAt: now})
+		ledger = append(ledger, models.BalanceLedger{OwnerType: models.BalanceOwnerAgent, OwnerID: agentID, Currency: c.Currency,
+			Amount: depositWithdrawCore.SuperadminSeedAmount, BalanceAfter: depositWithdrawCore.SuperadminSeedAmount,
+			Reason: models.LedgerSeedSuperadmin, RequestID: models.SeedSuperadminRequestID,
+			ActorType: models.AccountTypeAgent, ActorID: agentID, CreatedAt: now})
+	}
+	if err := agentManagementPostgres.CreateAgentBalancesRepository(tx, balances); err != nil {
+		return err
+	}
+	if err := agentManagementPostgres.CreateBalanceLedgerRepository(tx, ledger); err != nil {
+		return err
+	}
+	var settings []models.AgentGameSetting
+	for _, g := range agentManagementCore.Groups() {
+		for _, game := range agentManagementCore.GamesOf(g) {
+			settings = append(settings, models.AgentGameSetting{AgentID: agentID, GameCode: game.GameCode, Category: game.Category,
+				PTFromParent: agentManagementCore.FullPT, Status: true, StatusGame: true, CreatedBy: username, UpdatedBy: username})
+		}
+	}
+	return agentManagementPostgres.CreateAgentGameSettingsRepository(tx, settings)
 }

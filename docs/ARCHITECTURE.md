@@ -9,12 +9,12 @@
 
 ```
 HTTP request
-  → pkg/middleware (global: cors, requestid, recover, logger)
+  → pkg/middleware (global: metrics, cors, requestid, recover, logger)
   → app/internals/{context}/routes.go  (group + middleware ต่อ route)
   → app/internals/{context}/controllers/{module}/xxx_controller.go
   → app/service/{module}/xxx_service.go        ← business logic + transaction
        ├→ app/core/{topic}                      ← pure rule (คำนวณ ไม่มี side effect)
-       └→ app/repository/{postgres|redis}       ← query เท่านั้น
+       └→ app/repository/{postgres|redis}/{module} ← query เท่านั้น
             → app/models                        ← GORM struct
 ```
 
@@ -32,13 +32,14 @@ app/
 │   │   ├── middleware/
 │   │   └── routes.go
 │   ├── frontend/                      # ผู้เล่น                     → /api/v1/player
-│   └── game/                          # เอนจิ้นเกม                  → /api/v1/{scratch,cointoss,rockpaperscissors}
+│   ├── game/                          # เอนจิ้นเกม                  → /api/v1/{scratch,cointoss,rockpaperscissors}
+│   └── developer/                     # เครื่องมือ dev / QA (public) → /api/v1/dev · เปิดเฉพาะ DEV_ROUTES_ENABLED=true · prod เปิดไม่ได้ (CLAUDE.md กฎข้อ 28)
 ├── externals/                         # API ที่ partner ภายนอกเรียก (trust boundary แยก)
 │   └── provider/                      #                             → /api/v1/provider
 ├── service/{module}/                  # business logic — ใช้ร่วมทุก context
 ├── core/{topic}/                      # pure business rule + table test
-├── repository/postgres/               # query PostgreSQL
-├── repository/redis/                  # cache / session / lock
+├── repository/postgres/{module}/      # query PostgreSQL — แยกตาม module เจ้าของตาราง
+├── repository/redis/{module}/         # cache / session / lock — แยกตาม module
 ├── models/                            # GORM struct
 └── health/                            # /health/live, /health/ready
 pkg/
@@ -50,7 +51,8 @@ pkg/
 └── utils/                             # ParseBody, ParsePage, ...
 platform/
 ├── database/                          # DBConn (postgres), DBRedis, Migrate
-└── logger/                            # zap + logger.Ctx(ctx)
+├── logger/                            # zap + logger.Ctx(ctx)
+└── metrics/                           # Prometheus registry + server /metrics (METRICS_ADDR) — metric ทุกตัวลงทะเบียนที่นี่
 database/migrations/                   # goose .sql
 scripts/                               # migrate, check_structure.sh, งาน ops
 docs/                                  # เอกสารที่อนุมัติแล้วเท่านั้น
@@ -63,12 +65,19 @@ docs/                                  # เอกสารที่อนุม
 | โฟลเดอร์ module | snake_case, **ชื่อเดียวกันทุก layer** | `controllers/agent_wallet`, `dto/agent_wallet`, `service/agent_wallet` |
 | package | ชื่อโฟลเดอร์ตัด `_` | `package agentwallet` |
 | ไฟล์ | `{operation}_{layer}.go` | `adjust_balance_controller.go`, `adjust_balance_service.go`, `adjust_balance_dto.go` |
-| repository | `{table}_repository.go` | `agent_balance_repository.go` |
+| repository | `repository/{postgres,redis}/{module}/{table}_repository.go` | `repository/postgres/agent_wallet/agent_balance_repository.go` |
 | model | `{table}_models.go` | `agent_balance_models.go` |
 | ฟังก์ชัน | ลงท้ายด้วยชื่อ layer | `AdjustBalanceController`, `AdjustBalanceService`, `LockAgentBalanceRepository` |
-| import alias | `{module}Service`, `{module}Dto` | `agentWalletService "app/app/service/agent_wallet"` |
+| import alias | `{module}Service`, `{module}Dto`, `{module}Postgres`, `{module}Redis` | `agentWalletService "app/app/service/agent_wallet"`, `agentWalletPostgres "app/app/repository/postgres/agent_wallet"` |
 
 `scripts/check_structure.sh` บังคับว่า `controllers/{x}` ต้องมี `dto/{x}` และ `app/service/{x}` คู่กันเสมอ
+
+### Repository แยกตาม module
+
+- ฟังก์ชันอยู่ใน module **เจ้าของตาราง** คือ module ที่สร้างและเขียนตารางนั้นเป็นหลัก เช่น `user_agents` → `postgres/agent_auth`, `user_members` → `postgres/member_management`
+- service ของ module อื่น import repository ของ module เจ้าของมาใช้ได้ ห้าม copy ฟังก์ชันไปไว้อีกที่ (import ไม่วนแน่นอน เพราะ repository import แค่ `models`)
+- root ของ `repository/postgres/` และ `repository/redis/` มีแค่ `doc.go` (กฎของ layer) ห้ามวางไฟล์ query ไว้ตรงนั้น
+- redis: key ของ module ประกาศใน `keys.go` ของ folder นั้นที่เดียว และ prefix ของ key ห้ามซ้ำกับ module อื่น (เช่น `agent_auth` ใช้ `bo:sess:` `bo:login:` `bo:passcode:`)
 
 ## 3. แม่แบบต่อ layer
 
@@ -81,7 +90,7 @@ package note
 
 type CreateNoteRequest struct {
 	Title  string `json:"title"`
-	Amount int64  `json:"amount"` // เงิน = int64 หน่วยย่อยที่สุด
+	Amount float64 `json:"amount"` // เงิน = float64 ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9)
 }
 
 // Validate ตรวจรูปแบบของ request — utils.ParseBody เรียกให้อัตโนมัติ
@@ -97,13 +106,18 @@ func (r *CreateNoteRequest) Validate() error {
 	if r.Amount < 0 {
 		return apperr.ErrValidation.WithMessage("จำนวนเงินต้องไม่ติดลบ", "Amount must not be negative")
 	}
+	if !utils.IsDecimal4(r.Amount) { // ทศนิยมไม่เกิน 4 ตำแหน่ง + ส่วนจำนวนเต็มไม่เกิน 11 หลัก
+		return apperr.ErrValidation.WithMessage("amount ทศนิยมไม่เกิน 4 ตำแหน่ง", "amount must have at most 4 decimals")
+	}
 	return nil
 }
+// เงิน / % ใน request เป็น float64 ทั้งหมด (ทีมตกลง 2026-10-12 · เลิกใช้ utils.Decimal) · ต้องแยก "ไม่ส่ง" กับ 0 ให้ใช้ *float64
+// ส่งตัวเลขเป็นข้อความ (เช่น "100") body parse ไม่ผ่าน = code 400 ไม่บอก field
 
 type NoteResponse struct {
-	ID     uint   `json:"id"`
-	Title  string `json:"title"`
-	Amount int64  `json:"amount"`
+	ID     uint    `json:"id"`
+	Title  string  `json:"title"`
+	Amount float64 `json:"amount"`
 }
 ```
 
@@ -149,7 +163,7 @@ func CreateNoteService(ctx context.Context, agentID uint, req noteDto.CreateNote
 	var res noteDto.NoteResponse
 
 	err := database.DBConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		agent, err := postgres.LockAgentRepository(tx, agentID)       // SELECT ... FOR UPDATE
+		agent, err := agentWalletPostgres.LockAgentRepository(tx, agentID) // SELECT ... FOR UPDATE · repository ของ module เจ้าของตาราง
 		if err != nil {
 			return err
 		}
@@ -157,7 +171,7 @@ func CreateNoteService(ctx context.Context, agentID uint, req noteDto.CreateNote
 			return apperr.ErrNoteNotAllowed
 		}
 		n := models.Note{AgentID: agentID, Title: req.Title, Amount: req.Amount}
-		if err := postgres.CreateNoteRepository(tx, &n); err != nil {
+		if err := notePostgres.CreateNoteRepository(tx, &n); err != nil {
 			return err
 		}
 		res = noteDto.NoteResponse{ID: n.ID, Title: n.Title, Amount: n.Amount}
@@ -171,13 +185,25 @@ func CreateNoteService(ctx context.Context, agentID uint, req noteDto.CreateNote
 }
 ```
 
-- อ่านอย่างเดียว ไม่ต้องมี tx: `postgres.GetNoteRepository(database.DBConn.WithContext(ctx), id)`
+- อ่านอย่างเดียว ไม่ต้องมี tx: `notePostgres.GetNoteRepository(database.DBConn.WithContext(ctx), id)`
 - service ของ module อื่นเรียกกันได้ ถ้าต้องอยู่ใน tx เดียวกัน ให้ทำฟังก์ชันที่รับ `tx *gorm.DB` เพิ่ม (เช่น `DebitWalletTx(tx, ...)`)
 
-### 3.4 Repository — `app/repository/postgres/note_repository.go`
+#### ลำดับ lock ของยอดเงิน (ทุก module — CLAUDE.md กฎข้อ 10 · lead 2026-10-13 deposit_withdraw DQ3)
+
+tx ที่แตะยอดเงินหลายแถว / หลายตาราง ต้อง lock ตามลำดับนี้เสมอ เพื่อกัน deadlock ข้าม module (สร้างบัญชี · ฝากถอน · เดิมพัน):
+
+1. แถว `agent_balances` ที่ยังไม่มี → `INSERT … ON CONFLICT DO NOTHING` (ยอด 0) เรียง `agent_id` น้อย→มาก ก่อน lock
+2. `agent_balances` `FOR UPDATE` เรียง `agent_id` น้อย→มาก (agent เดียวหลายสกุลเรียง `currency`)
+3. `user_members` `FOR NO KEY UPDATE` เรียง `id` น้อย→มาก (ไม่บล็อก FK ของตารางอื่นที่อ้าง `user_members`)
+
+- ห้าม lock `user_members` ก่อน `agent_balances` ใน tx เดียวกัน
+- lock แถวของ Superadmin ไม่ได้ (ไม่มีแถวยอด — วงเงินไม่จำกัด)
+- ตัวอย่างและเหตุผล: `docs/modules/deposit_withdraw.md` DW-30 – DW-32
+
+### 3.4 Repository — `app/repository/postgres/note/note_repository.go`
 
 ```go
-package postgres
+package note // import ด้วย alias notePostgres
 
 func CreateNoteRepository(db *gorm.DB, n *models.Note) error {
 	return db.Create(n).Error
@@ -192,12 +218,6 @@ func GetNoteRepository(db *gorm.DB, agentID, id uint) (models.Note, error) {
 		return n, apperr.ErrNotFound
 	}
 	return n, err
-}
-
-func LockAgentRepository(db *gorm.DB, id uint) (models.Agent, error) {
-	var a models.Agent
-	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).First(&a, id).Error
-	return a, err
 }
 ```
 
@@ -267,7 +287,7 @@ DROP TABLE notes;
 | ชนิด | ที่อยู่ | แตะ DB | รัน |
 |---|---|---|---|
 | unit | `app/core/**`, `pkg/**` | ไม่ | `make test` |
-| integration | `app/service/**`, `app/repository/**` ใส่ `//go:build integration` | Postgres/Redis จริงจาก docker-compose | `make dev-up && make test-integration` |
+| integration | `app/service/**`, `app/repository/**` ใส่ `//go:build integration` | Postgres/Redis ของ test env (`docs/TESTING.md`) | `make test-env-up && make test-integration` |
 
 - ไม่ใช้ mock — logic ที่อยากเทสแบบไม่มี DB ให้ย้ายไป `app/core`
 - test case ของ business ต้องมาจาก spec ที่อนุมัติแล้ว (`docs/modules/{module}.md`) ไม่ใช่จากพฤติกรรมของโค้ดเก่า
