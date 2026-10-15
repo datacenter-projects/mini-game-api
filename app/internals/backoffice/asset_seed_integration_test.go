@@ -136,3 +136,45 @@ func TestSeedCreatedBy(t *testing.T) {
 		t.Errorf("ต้องไม่เกิน 71 ตัวอักษร (VARCHAR(71)): %d", len([]rune(got)))
 	}
 }
+
+// TestSeedGlobalRepoImages — รูปจริงใน seed/global-assets (ที่ถูก COPY เข้า image) ต้องผ่านการตรวจเดียวกับ API ทุกไฟล์
+// ถ้ามีรูปผิดขนาด / ชื่อไม่ตรงช่อง / ชนิดไม่ถูก CI แดงที่นี่ ไม่ใช่ตอน deploy · AST-61
+func TestSeedGlobalRepoImages(t *testing.T) {
+	setup2(t)
+	fake := testutil.NewFakeS3(t)
+	dir := filepath.Join("..", "..", "..", "seed", "global-assets")
+
+	var out bytes.Buffer
+	by := assetService.SeedCreatedBy("tester")
+	res, err := assetService.SeedGlobalService(context.Background(), dir, false, by, &out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Failed != 0 || res.Skipped != 0 || res.Uploaded != 19 {
+		t.Fatalf("รูปใน seed/global-assets ต้องอัปได้ครบ 19 ไฟล์: %+v\n%s", res, out.String())
+	}
+	if fake.Count() != 19 {
+		t.Errorf("ต้องมี object ใน bucket 19 ไฟล์: %d", fake.Count())
+	}
+	for _, g := range res.Gaps {
+		if g.GameCode == "scratch_card" {
+			t.Errorf("scratch_card ต้องไม่มีช่องว่าง: %+v", g)
+		}
+	}
+	if n := countRows(t, &models.AssetUsed{}, "agent_id IS NULL"); n != 19 {
+		t.Errorf("GLOBAL used ต้องมี 19 แถว: %d", n)
+	}
+
+	// รันซ้ำ (เหมือน Job ทุกครั้งที่ deploy) = ข้ามทุกช่อง ไม่มีอะไรเพิ่ม
+	out.Reset()
+	res, err = assetService.SeedGlobalService(context.Background(), dir, false, by, &out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Uploaded != 0 || res.Skipped != 19 || res.Failed != 0 {
+		t.Fatalf("รันซ้ำต้องข้ามครบ: %+v\n%s", res, out.String())
+	}
+	if n := countRows(t, &models.AssetConfig{}, "1 = 1"); n != 19 {
+		t.Errorf("config ต้องยัง 19 แถว: %d", n)
+	}
+}

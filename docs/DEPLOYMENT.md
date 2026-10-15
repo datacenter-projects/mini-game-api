@@ -166,6 +166,25 @@ metric ที่มี
 - migrate fail = exit code ≠ 0 → ห้าม rollout ต่อ
 - migration ต้องเข้ากันได้กับ pod เวอร์ชันเก่าที่ยังรันอยู่ระหว่าง rolling update (เพิ่มคอลัมน์ก่อน ลบทีหลังในอีก release)
 
+### Seed รูปค่ากลางของ asset (GLOBAL — `asset.md` AST-61)
+
+รูปค่ากลางของ asset อยู่ใน repo ที่ `seed/global-assets/{game_code}/{asset_type}.{ext}` และถูก COPY เข้า image ที่ `/app/seed/global-assets`
+(ตอนนี้มี `scratch_card` 19 ช่อง · เกมอื่นเพิ่มโฟลเดอร์ตามรหัสเกม) · image มีคำสั่ง `/app/seed_asset_global` ให้ใช้
+
+รันเป็น **Job หลัง `migrate up`** ทุก release (ใช้ image tag เดียวกับที่ deploy · Argo CD PostSync / Helm post-install, post-upgrade hook ได้):
+
+```
+command: ["/app/seed_asset_global", "-dir", "/app/seed/global-assets"]
+```
+
+- ได้ env ชุดเดียวกับ Deployment (`DB_*` · `S3_BUCKET` · `S3_REGION` · `S3_CDN_BASE_URL` + สิทธิ์เขียน bucket ผ่าน IRSA) — **ไม่ตั้ง `S3_BUCKET` / อ่าน storage ไม่ได้ = Job จบ exit ≠ 0 และไม่เขียนอะไร**
+- **รันซ้ำได้ทุก release:** ช่องที่ GLOBAL มีรูปแล้วถูกข้าม · เติมเฉพาะช่องที่ว่าง · ไม่มี `-force` เป็นค่าเริ่มต้น
+- **ไม่บล็อก rollout:** ให้ Job นี้ล้มได้โดยไม่ยกเลิก deploy (ช่องที่ไม่มีรูปแค่ได้ `url = ""`) — แต่ต้องว่างก่อน UAT (AST-24)
+- สรุปท้าย log บอกช่องของทุกเกมที่ GLOBAL ยังไม่มีรูป · `coin_toss` / `rock_paper_scissors` จะค้างอยู่จนกว่าทีมเกมส่งรูปมา (ไม่ใช่ error)
+- **เปลี่ยนรูปที่ใช้อยู่แล้ว:** แก้ไฟล์ใน `seed/` แล้วรันด้วย `-force` ด้วยมือ (อัปเวอร์ชันใหม่ + ตั้งเป็นรูปที่ใช้ · ไฟล์เดิมยังอยู่ในคลัง) — เขียนข้อมูลบน env ร่วม ขอ lead ก่อน
+- รูปใหม่ต้องผ่าน CI ก่อน merge: `TestSeedGlobalRepoImages` ตรวจชื่อ / ขนาดภาพ / ชนิดไฟล์ของทุกไฟล์ใน `seed/global-assets`
+- รันในเครื่อง: `make seed-asset-global` (อ่านค่าจาก `.env` — เขียน S3 + DB ของจริงตาม `.env`)
+
 ### prod ครั้งแรก (lead 2026-10-11)
 
 prod เริ่มจาก **DB ว่าง** ไม่ย้ายข้อมูลจากระบบเก่า (ถ้าวันหน้าต้องย้ายจะวางแผนเป็นงานแยก)
