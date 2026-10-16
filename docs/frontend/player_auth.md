@@ -30,10 +30,11 @@ spec เต็ม: `docs/modules/player_auth.md` (**APPROVED** · zerph 2026-10-
 | PA6 | `/api/v1/player/pr/balance/get` | ต้อง | ยอดเงิน (และใช้เป็น ping) |
 | PA7 | `/api/v1/player/pr/games/list` | ต้อง | รายชื่อเกมของ lobby |
 
+> ตัวแปรใน curl ทุกตัวอย่าง: `{{MG_URL}}` = base URL ของ API (ตั้งเป็น variable ใน Postman Environment) · `{{TOKEN}}` = token จาก PA1 หรือ L2 · ข้อควรระวังตอน Import curl เข้า Postman: วางผ่าน Import → Raw text ทีละคำสั่ง (ไม่วางในช่อง URL)
 ### PA1 · login
 
 ```bash
-curl -s -X POST $BASE/api/v1/player/pb/login -H 'Content-Type: application/json' \
+curl -s -X POST "{{MG_URL}}/api/v1/player/pb/login" -H 'Content-Type: application/json' \
   -d '{"username":"mem01","password":"aA4b4c4d4e4f"}'
 ```
 ```json
@@ -49,7 +50,7 @@ curl -s -X POST $BASE/api/v1/player/pb/login -H 'Content-Type: application/json'
 ### PA3 · logout
 
 ```bash
-curl -s -X POST $BASE/api/v1/player/pr/auth/logout -H "Authorization: Bearer $TOKEN"
+curl -s -X POST "{{MG_URL}}/api/v1/player/pr/auth/logout" -H "Authorization: Bearer {{TOKEN}}"
 ```
 
 `POST /api/v1/player/pr/auth/logout` · ไม่มี body · สำเร็จ `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`)
@@ -58,7 +59,7 @@ curl -s -X POST $BASE/api/v1/player/pr/auth/logout -H "Authorization: Bearer $TO
 ### PA4 · เปลี่ยนรหัสผ่าน
 
 ```bash
-curl -s -X POST $BASE/api/v1/player/pr/auth/password/update -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+curl -s -X POST "{{MG_URL}}/api/v1/player/pr/auth/password/update" -H "Authorization: Bearer {{TOKEN}}" -H 'Content-Type: application/json' \
   -d '{"old_password":"aA4b4c4d4e4f","new_password":"Zx9!kq2m"}'
 ```
 ```json
@@ -73,7 +74,7 @@ curl -s -X POST $BASE/api/v1/player/pr/auth/password/update -H "Authorization: B
 
 body `{}` (ไม่รับ field)
 ```bash
-curl -s -X POST $BASE/api/v1/player/pr/me/get -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+curl -s -X POST "{{MG_URL}}/api/v1/player/pr/me/get" -H "Authorization: Bearer {{TOKEN}}" -H 'Content-Type: application/json' -d '{}'
 ```
 ```json
 { "code": 200, "msg": "สำเร็จ", "data": { "username": "agent01@p001", "name": "p001", "currency": "THB", "status": "SUSPENDED", "can_bet": false } }
@@ -83,7 +84,7 @@ curl -s -X POST $BASE/api/v1/player/pr/me/get -H "Authorization: Bearer $TOKEN" 
 ### PA6 · balance/get
 
 ```bash
-curl -s -X POST $BASE/api/v1/player/pr/balance/get -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+curl -s -X POST "{{MG_URL}}/api/v1/player/pr/balance/get" -H "Authorization: Bearer {{TOKEN}}" -H 'Content-Type: application/json' -d '{}'
 ```
 ```json
 { "code": 200, "msg": "สำเร็จ", "data": { "currency": "THB", "credit": 1250.5 } }
@@ -93,7 +94,7 @@ curl -s -X POST $BASE/api/v1/player/pr/balance/get -H "Authorization: Bearer $TO
 ### PA7 · games/list
 
 ```bash
-curl -s -X POST $BASE/api/v1/player/pr/games/list -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+curl -s -X POST "{{MG_URL}}/api/v1/player/pr/games/list" -H "Authorization: Bearer {{TOKEN}}" -H 'Content-Type: application/json' -d '{}'
 ```
 ```json
 { "code": 200, "msg": "สำเร็จ", "data": { "items": [
@@ -122,7 +123,7 @@ curl -s -X POST $BASE/api/v1/player/pr/games/list -H "Authorization: Bearer $TOK
 ### L2 · transfer/login
 
 ```bash
-curl -s -X POST $BASE/api/v1/transfer/login -H 'Content-Type: application/json' \
+curl -s -X POST "{{MG_URL}}/api/v1/transfer/login" -H 'Content-Type: application/json' \
   -d '{"agent_username":"agent01","key":"<64 hex>","player_username":"p001","currency":"THB","language":"th"}'
 ```
 ```json
@@ -147,7 +148,7 @@ curl -s -X POST $BASE/api/v1/transfer/login -H 'Content-Type: application/json' 
 ### TR · transfer/register
 
 ```bash
-curl -s -X POST $BASE/api/v1/transfer/register -H 'Content-Type: application/json' \
+curl -s -X POST "{{MG_URL}}/api/v1/transfer/register" -H 'Content-Type: application/json' \
   -d '{"agent_username":"agent01","key":"<64 hex>","player_username":"p001","currency":"THB","password":"aA4b4c4d4e4f"}'
 ```
 ```json
