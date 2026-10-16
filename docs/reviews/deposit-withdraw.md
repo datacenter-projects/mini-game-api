@@ -59,3 +59,9 @@
 | R6 | ลำดับ lock ใน `docs/ARCHITECTURE.md` ใช้กับทุก module | ✅ · bet / settle ต้องทำตามด้วย |
 
 S15 (`docs/frontend/deposit_withdraw.md`) ทำหลังโค้ดผ่าน review · implement ผ่าน PR ให้ Boiledegg review
+
+## รอบ 3 — status SUCCESS / FAILED (`c12bf32` · lead zerph 2026-10-16 · รายงาน verify-dev-1016)
+- **บันทึกการตัดสิน DW-35 (lead อนุมัติ 2026-10-16):** รายการมี `status` `SUCCESS` / `FAILED` · DW3 ส่ง `status` + `ip` · DW4 ส่ง `status` · migration `20261016140000`
+- ผลตรวจ: idempotency + migration OK · แถว FAILED เขียนนอก tx เงิน (หลัง rollback)
+- **C-S1 (maofoy แก้):** COMMIT ได้ผลไม่แน่ชัด (timeout / เน็ตหลุดตอน commit) อาจได้แถว FAILED คู่กับ SUCCESS ที่ย้ายเงินไปแล้ว → ใน `recordFailure` ทำ advisory lock (key เดียวกับ `request_id`) แล้วเช็ค `create_requests` ก่อนเขียน FAILED · มีแล้ว = ไม่เขียน · เพิ่ม test
+- **C-S2 (maofoy แก้):** `docs/frontend/deposit_withdraw.md` เพิ่ม `status` / `ip` / ความหมายของแถว FAILED

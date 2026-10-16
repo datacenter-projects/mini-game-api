@@ -31,3 +31,9 @@ Maofoy: แก้ spec ตาม Q2 / Q3 (รวมแก้ MGMT-18A / MGMT-20 
 - **ไม่ต้อง login** · ไม่ใช้ middleware ของ backoffice · ยังกันด้วย flag: **`APP_ENV=prod` + flag เปิด = boot ไม่ผ่าน (กันแค่ prod)** · ปิด flag = เส้นไม่มี (`404001`)
 - เครื่องมือ dev อื่นในอนาคตอยู่ใน context นี้
 - แก้ CLAUDE.md (โครงสร้าง `app/internals/{backoffice|frontend|game|developer}` + กฎข้อ 28 ระบุว่า context `developer` เป็น public เฉพาะ env ที่เปิด flag) · ARCHITECTURE.md · spec PTC-40 – PTC-43 · `.env.example` — **lead อนุมัติการเปลี่ยนโครงสร้างนี้** · ทำใน PR เดียวกับ M1 / S1 / S2
+
+## รอบ 3 — `commission_net` (PTC-13 แบบ ก · `fd50811` · lead zerph 2026-10-16 · รายงาน verify-dev-1016)
+- **บันทึกการตัดสิน PTC-13 แบบ ก (lead อนุมัติ 2026-10-16):** คืน `commission_net` (commission สุทธิทุกชั้น) แทน `commission` ที่ตั้ง · `t[j] = Round4(%Com[j] × PT รวมเหนือ j ÷ 100)` · Superadmin = −t[1] · ชั้นกลาง = t[i] − t[i+1] · Member = t[Member] · Σ = 0 · เงิน = ยอดแทง × `commission_net` ÷ 100
+- ผลตรวจ: สูตรตรง reference ข้อ 4 + 9 เคสคิดมือ + สุ่ม 200,000 เคส · Σ = 0 · ไม่มี −0 · ตัด `commission` ไม่กระทบ (ใช้แค่เส้น dev)
+- **ชั้นที่ถือ PT 0 (เช่น `pt.status = false` หรือ CSM) ยังได้ / เสีย commission — ตั้งใจ**: commission คือส่วนลดที่ชั้นบนให้ลูกแล้วชั้นนั้นส่งต่อให้ลูกของตัวเอง ไม่ขึ้นกับ PT ที่ชั้นนั้นถือ
+- **A-S1 (ส่งต่อ module เดิมพัน / settle):** ห้ามปัดเงินทีละชั้น (ผลรวม ≠ 0 เช่น ยอดแทง 1.5 เกิน +0.01) → คิดแบบสะสม `T[j] = round(stake × t[j] ÷ 100)` แล้วเงินของแต่ละชั้น = ผลต่างของ T · ทำเป็นฟังก์ชันใน core ให้ settle เรียก
