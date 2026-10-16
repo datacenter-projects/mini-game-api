@@ -67,7 +67,7 @@ func ListStepsByVersionIDsRepository(db *gorm.DB, versionIDs []uint) ([]models.G
 	if len(versionIDs) == 0 {
 		return out, nil
 	}
-	err := db.Select("version_id", "step", "multiplier", "win_percent").Where("version_id IN ?", versionIDs).
+	err := db.Select("version_id", "step", "multiplier", "win_percent", "status").Where("version_id IN ?", versionIDs).
 		Order("version_id, step").Find(&out).Error
 	return out, err
 }
@@ -78,7 +78,7 @@ func ListPrizesByVersionIDsRepository(db *gorm.DB, versionIDs []uint) ([]models.
 	if len(versionIDs) == 0 {
 		return out, nil
 	}
-	err := db.Select("version_id", "row_no", "multiplier", "share_percent").Where("version_id IN ?", versionIDs).
+	err := db.Select("version_id", "row_no", "multiplier", "share_percent", "status").Where("version_id IN ?", versionIDs).
 		Order("version_id, row_no").Find(&out).Error
 	return out, err
 }

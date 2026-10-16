@@ -33,6 +33,7 @@ type StepView struct {
 	PayoutPercent    float64 `json:"payout_percent"`
 	HouseEdgePercent float64 `json:"house_edge_percent"`
 	MaxWinPercent    float64 `json:"max_win_percent"`
+	Status           bool    `json:"status"` // ค่าที่หน้าบ้านเก็บไว้
 }
 
 // StepsCalc — ค่าของรูปแบบ steps + สรุปทั้งเกม
@@ -50,6 +51,7 @@ type PrizeView struct {
 	SharePercent     float64 `json:"share_percent"`
 	PerTicketPercent float64 `json:"per_ticket_percent"`
 	PayoutPercent    float64 `json:"payout_percent"`
+	Status           bool    `json:"status"` // ค่าที่หน้าบ้านเก็บไว้
 }
 
 // PrizesCalc — ค่าของรูปแบบ prizes

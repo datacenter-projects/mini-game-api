@@ -57,6 +57,7 @@
 | RATE-08 | **บันทึก / ย้อนต้องยืนยัน passcode** (`RequirePasscode`) · ทุกเวอร์ชันเก็บ log คนแก้: `created_by` (username ณ เวลานั้น · sub = `owner@name`), `actor_type` / `actor_id`, `ip`, `request_id`, `created_at` · ตารางเวอร์ชันคือ log (ห้ามแก้ / ลบ) ดูได้ที่ `versions/list` |
 | RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · `prizes[].payout_percent` (ปัดทีละแถว — ผลรวมอาจต่างจาก `payout_percent` ของใบได้ไม่เกิน 0.0001 · lead G-S2) · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · **ยกเว้น `max_win_percent` ปัดลง** (ค่าที่แสดงต้องตั้งได้จริง — ปัดขึ้นแล้วกรอกค่านั้น house edge จะต่ำกว่า 1%) · หน้าบ้านปัดแสดงเอง |
 | RATE-09A | **ไม่มีค่าเริ่มต้น**: เกมที่ยังไม่เคยตั้งค่า = `version = 0` · เอนจิ้นต้อง**ไม่รับเดิมพัน**ของเกมนั้นจนกว่าจะบันทึกครั้งแรก (หัวข้อ 5.8 · RH1) · ค่าตัวอย่างสำหรับ tester อยู่ใน `docs/frontend/game_rate.md` |
+| RATE-36 | **`status` ต่อขั้น / ต่อแถวรางวัล** (Q10 · เสนอ — รอ lead): `steps[].status` (Coin / RPS) · `prizes[].status` (Scratch) boolean · ไม่ส่ง = `false` · `null` = `422` · backend เก็บ / คืนค่าเท่านั้น (หน้าบ้านใช้ล็อกตอนเกลี่ย %) ไม่เข้าสูตร / กฎ RATE-07 / engine · เป็นส่วนของค่า: เปลี่ยนอย่างเดียว = เวอร์ชันใหม่ (RATE-05C เทียบรวม `status`) · ย้อนเวอร์ชันคืน `status` · คืนใน RE2 / RE3 / RE6 · RE5 `changes` ไม่แสดง |
 
 ### Coin Flip (`coin_toss`)
 
@@ -375,6 +376,7 @@ CREATE TABLE game_rate_steps (               -- Coin Flip / RPS
     step           SMALLINT         NOT NULL CHECK (step >= 1),         -- จำนวนขั้นตาม gameSpecs (เกมใหม่ไม่ต้องแก้ตาราง)
     multiplier     DOUBLE PRECISION NOT NULL CHECK (multiplier >= 1 AND multiplier <= 1000),
     win_percent    DOUBLE PRECISION NOT NULL CHECK (win_percent > 0 AND win_percent <= 100),
+    status         BOOLEAN          NOT NULL DEFAULT false,            -- Q10 · หน้าบ้านเก็บไว้ (ล็อกขั้น) ไม่กระทบสูตร
     PRIMARY KEY (version_id, step)
 );
 
@@ -383,6 +385,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
     row_no         SMALLINT         NOT NULL CHECK (row_no BETWEEN 1 AND 10),
     multiplier     DOUBLE PRECISION NOT NULL CHECK (multiplier > 0 AND multiplier <= 1000),
     share_percent  DOUBLE PRECISION NOT NULL CHECK (share_percent > 0 AND share_percent <= 100),
+    status         BOOLEAN          NOT NULL DEFAULT false,            -- Q10 · หน้าบ้านเก็บไว้ (ล็อกแถว) ไม่กระทบสูตร
     PRIMARY KEY (version_id, row_no)
 );
 ```
@@ -412,6 +415,9 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RATE-31 | ตัวคูณซ้ำ 2 แถว · 0 แถว · 11 แถว | `422` |
 | RATE-32 | share รวม 99.5 · รวม 100.0001 | `406102` |
 | RATE-33 | W 50 กับตารางตัวอย่าง · W 50 กับตาราง `2×/100` (จ่ายคืน 100%) | `house_edge = 22.75` `max_win = 50` (สูตร 64.0776 เกินเพดาน) · `406101` |
+| RATE-36 | Coin ส่ง `status: true` ขั้น 5, 6, 9, 10 (ที่เหลือไม่ส่ง) → RE3 / RE2 / RE6 | คืน `status` ทุกขั้น (true เฉพาะ 4 ขั้นนั้น) · สูตรเท่าเดิม |
+| RATE-36 | ส่งชุดเดิมรวม `status` ซ้ำ · เปลี่ยน `status` อย่างเดียว · ย้อนเวอร์ชันที่ `status` ต่าง | `created: false` · เวอร์ชันใหม่ · `status` ของเวอร์ชันที่เลือกกลับมา |
+| RATE-36 | RPS ใส่ `status` · Scratch ใส่ `prizes[].status` | เก็บ / คืนเหมือน Coin · payout ของ Scratch เท่าเดิม |
 | RATE-08 | ไม่ส่ง passcode · passcode ผิด | `422` · `401204` |
 | RATE-09A | ระบบใหม่ ยังไม่เคยตั้ง | RE1 ทุกเกม `version = 0` · RE2 `steps = []` · `CurrentVersionService` = error |
 | RN2 | RE3 ค่าผ่าน · ขั้น 3 เกิน · share รวม 99 | `valid: true` · `valid: false` + issue `406101` · issue `406102` · ไม่มีเวอร์ชันใหม่ทุกกรณี |
@@ -448,6 +454,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | Q7 | RPS ไม่มีเสมอ (คำขอหน้าบ้าน) | ✅ **lead ตัดสิน 2026-10-12: ตัดเสมอออก** — แก้หัวข้อ 2, RATE-20 – 23, 5.2, 5.4, 5.5, 6 (ไม่มีคอลัมน์ `draw_percent`), 7 แล้ว · เอนจิ้นต้องไม่มีผลเสมอ (RH5) |
 | Q8 | หน้าบ้านแจ้ง: ดีไซน์ Coin มีช่อง "อัตราชนะรวมของเกม" แต่ spec ตั้งแยกทีละขั้น | ✅ ตัดสิน 2026-10-12: ไม่มีอัตราชนะรวม (ตั้งทีละขั้น) · กล่องสรุปของหน้าบ้านใช้ค่าคำนวณ `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` และ `payout_percent` ต่อขั้น (เพิ่มใน RE2 / RE3) |
 | Q9 | ชื่อ field ในข้อความ error | ✅ lead 2026-10-14 (รีวิวรอบ 3–4): `field` คง path · `msg` / `message` ใช้ `utils.FieldLabel` + "ขั้นที่ i+1" / "รางวัลที่ i+1" (หัวข้อ 5) |
+| Q10 | หน้าบ้านขอ (16 ต.ค.): เก็บ `status` (boolean) ต่อขั้น (Coin / RPS) และต่อแถวรางวัล (Scratch) ใน RE3 / RE4 — ใช้ล็อกขั้น / แถวตอนเกลี่ย % ฝั่งหน้าบ้าน | **[เสนอ — รอ lead]** ทำแล้วบน branch `boiledegg/bo/game_rate-settings` (ยังไม่ merge): backend **เก็บ / คืนค่าเท่านั้น** ไม่กระทบสูตร / กฎ / engine · ไม่ส่ง = `false` · อยู่ใน RE3 (สะท้อนกลับ) · RE4 · RE2 · RE6 · เป็นส่วนของค่า: `status` เปลี่ยนอย่างเดียว = เวอร์ชันใหม่ และย้อนเวอร์ชันคืนค่า `status` ด้วย · RE5 `changes` **ไม่แสดง** `status` · column `status BOOLEAN NOT NULL DEFAULT false` ทั้ง `game_rate_steps` / `game_rate_prizes` (migration `20261016110000`) |
 
 ### สวิตช์ปิดเกม RE8 — ตัดสินแล้ว 2026-10-13
 

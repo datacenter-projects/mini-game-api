@@ -48,12 +48,14 @@ const (
 type Step struct {
 	Multiplier float64
 	WinPercent float64
+	Status     bool // หน้าบ้านเก็บไว้ (เช่น ล็อกขั้น) · ไม่ใช้ในสูตร · เป็นส่วนของค่า: เปลี่ยน = เวอร์ชันใหม่
 }
 
 // Prize — 1 แถวรางวัลของรูปแบบ prizes (Scratch Card)
 type Prize struct {
 	Multiplier   float64
 	SharePercent float64
+	Status       bool // หน้าบ้านเก็บไว้ (เช่น ล็อกแถว) · ไม่ใช้ในสูตร · เป็นส่วนของค่า: เปลี่ยน = เวอร์ชันใหม่
 }
 
 // Scratch — ค่าของรูปแบบ prizes (Scratch Card)
