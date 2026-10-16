@@ -11,6 +11,7 @@
 - **Superadmin มียอดจริง 2026-10-15 (lead อนุมัติ · seed เต็มใน migration)**: DW-12 / DW-14 / DW-33 / DW-44A · migration `20261015100000` · `parent_unlimited` = `false` เสมอสำหรับรายการใหม่ · MGMT-15A (Superadmin สร้าง Company Transfer พร้อมยอดตั้งต้น) หักยอด Superadmin ด้วย — ledger `INITIAL_TRANSFER_OUT` / `IN` (`agent_management/creator.go` · `field_errors.go`)
 - **DW4 `history/list` (lead อนุมัติ 2026-10-15)**: ค้นประวัติที่ทำให้ `username` หนึ่ง (ตรงตัว) ใต้ตัวเองทุกชั้น · ผู้ทำรายการจริง · `starttime` / `endtime` ไม่จำกัดช่วง · `404402` (DW-55 – DW-60)
 - **สาย Seamless มียอด 2026-10-15 (lead อนุมัติ)**: สร้างพร้อม `balance` ได้ (MGMT-15 / 15A) · ฝาก / ถอนได้ (DW-06) · DW1 `has_balance` = `true` เสมอ · `404302` เลิกใช้ · ยอดใช้แทงไม่ได้ (DW-52)
+- **status ของรายการ 2026-10-16 (lead รับทราบ)**: `SUCCESS` / `FAILED` (ไม่มี pending — หัวข้อ 4 ข้อ 10) · บันทึก FAILED เมื่อล้มหลังหาลูกเจอ (DW-35 / DW-36) · DW3 ส่ง `status` + `ip` · DW4 ส่ง `status`
 - ผู้ดูแล: maofoy · PR review: boiledegg
 - ชื่อ module ในโค้ด: `deposit_withdraw` (`controllers/deposit_withdraw` · `dto/deposit_withdraw` · `service/deposit_withdraw` ·
   `repository/postgres/deposit_withdraw` · `repository/redis/deposit_withdraw`)
@@ -90,6 +91,8 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 | | • ฝาก: แม่ `DEPOSIT_OUT` (−) + ลูก `DEPOSIT_IN` (+) |
 | | • ถอน: ลูก `WITHDRAW_OUT` (−) + แม่ `WITHDRAW_IN` (+) · `DEPOSIT_FROM_SUPERADMIN` / `WITHDRAW_TO_SUPERADMIN` เลิกใช้ 2026-10-15 (มีเฉพาะแถวเก่า) |
 | DW-34 | **CHECK ยอดติดลบ** (ชั้นกันพลาด — ปกติเช็คยอดในข้อ DW-30 (5) ก่อนแล้ว): repository แยกด้วย `errors.As(err, &*pgconn.PgError)` · `Code = "23514"` · `ConstraintName` = `agent_balances_amount_check` / `user_members_credit_check` → คืน sentinel `ErrBalanceNegative` ของ package repository · service แปลงตามทิศ: ฝาก = `404304` · ถอน = `404306` (รายการเดียวมีฝั่งที่ยอดลดฝั่งเดียว) · **ห้ามเทียบข้อความ error** (กฎข้อ 16) · ชื่อ constraint ยืนยันด้วย integration test (อ่าน `pg_constraint`) |
+| DW-35 | **status ของรายการ** (maofoy 2026-10-16 · lead รับทราบ): `SUCCESS` / `FAILED` · ไม่มี pending (เหตุผล — หัวข้อ 4 ข้อ 10) · บันทึก `FAILED` เมื่อล้ม**หลังหาลูกเจอแล้ว** (แบบ B): ถูกปฏิเสธ `404301` / `404303` / `404304` / `404306` หรือระบบล้มระหว่างย้ายเงิน (5xx / timeout / error ที่ไม่ได้ประกาศ) · **ไม่บันทึก**: body ผิด · ไม่มีสิทธิ์ · passcode · `request_id` ซ้ำ · ติด lock `404307` / Redis `504801` · ไม่ใช่ลูกตรง `404401` |
+| DW-36 | แถว `FAILED` เขียนใน tx ใหม่หลัง tx หลัก rollback (ไม่ใช้ ctx ของ tx · รอสูงสุด 3 วินาที · บันทึกไม่ได้ = log ไม่เปลี่ยน error ที่ตอบ): ยอดก่อน = ยอดหลัง = ยอด ณ ตอนบันทึก · **ไม่มี ledger · ไม่ลง `create_requests`** (`request_id` เดิมกดซ้ำได้) · `note` = note ที่พิมพ์ + `" · ล้มเหลว: "` + ข้อความภาษาไทยของ error (ระบบล้ม = "เกิดข้อผิดพลาดภายในระบบ") · ยาวเกิน 200 ตัดส่วนที่พิมพ์ก่อน (`core.FailedNote`) · response ของ DW2 ยังเป็น error code เดิม |
 
 ### รายชื่อลูกตรง (DW1)
 
@@ -107,7 +110,7 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 
 | ID | Rule |
 |---|---|
-| DW-46 | เห็นเฉพาะรายการที่ `parent_id = แม่` (รายการที่บัญชีนี้หรือ sub ของบัญชีนี้ทำ — กฎข้อ 22) · ลูกไม่เห็นรายการที่แม่ทำกับตัวเองในเส้นนี้ (ลูกดูได้ที่ Report / statement — module อื่น ทำทีหลัง · lead 2026-10-14) |
+| DW-46 | เห็นเฉพาะรายการที่ `parent_id = แม่` (รายการที่บัญชีนี้หรือ sub ของบัญชีนี้ทำ — กฎข้อ 22) · ลูกไม่เห็นรายการที่แม่ทำกับตัวเองในเส้นนี้ (ลูกดูได้ที่ Report / statement — module อื่น ทำทีหลัง · lead 2026-10-14) · มีทั้งแถว `SUCCESS` และ `FAILED` (DW-35) · แต่ละแถวมี `status` และ `ip` (ip ของคนกด) |
 | DW-47 | `date_from` / `date_to` บังคับ รูปแบบ `YYYY-MM-DD` เวลาไทย (+07:00) รวมทั้ง 2 วัน · `date_from` ≤ `date_to` · ช่วงไม่เกิน 31 วัน (`422`) |
 | DW-48 | ตัวกรองไม่บังคับ: `transaction_type` (`DEPOSIT` / `WITHDRAW` · `""` = ทั้งหมด) · `role` + `user_id` (ลูกคนเดียว · ส่งคู่กัน · `""` / `0` = ทุกคน) · เรียง `created_at` ใหม่→เก่า แล้ว `id` ใหม่→เก่า · `page` / `limit` ใน body |
 | DW-49 | index `idx_deposit_withdraw_logs_parent (parent_id, created_at DESC)` รองรับ query หลัก · กรองลูกใช้ index เดียวกัน + เงื่อนไข `target_*` |
@@ -128,7 +131,7 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 | DW-56 | บัญชีที่ค้นได้: agent หรือ Member ที่อยู่**ใต้ตัวเองทุกชั้น** (`cnf @> {"parent":[{"id": แม่}]}` — MGMT-61 · กฎข้อ 22 · sub = ใต้เจ้าของ) · **ค้นตัวเองไม่ได้** · ไม่มี username นี้ / นอกสาย / ตัวเอง / ADMIN = `404402` "ไม่พบข้อมูลบัญชี" (ข้อความเดียวกันทุกกรณี) |
 | DW-57 | ผลรวมรายการที่ทำโดยใครก็ได้ในสาย (แม่ตรงของบัญชีนั้น หรือ sub ของแม่) · แสดง**คนกดจริง** `request_by` + `request_type` (`AGENT` / `SUB` — id ซ้ำกันได้) + `request_username` (sub = `share01@staff`) |
 | DW-58 | `starttime` / `endtime` บังคับ · RFC3339 มี timezone (เช่น `2026-10-15T00:00:00+07:00`) · `starttime` ≤ `endtime` · รวมทั้ง 2 ขอบ (`created_at >= starttime AND created_at <= endtime`) · **ไม่จำกัดช่วง** (query อยู่ที่บัญชีเดียว — DW-60) |
-| DW-59 | เรียง `created_at` ใหม่→เก่า แล้ว `id` ใหม่→เก่า · `page` / `limit` ใน body (`utils.NewPage` · ค่าเริ่มต้น 20 สูงสุด 100) · response = PageData มาตรฐาน · `currency` / `transaction_type` ตัวใหญ่ · `remark` = `note` · ไม่มี `updated_at` (log แก้ไม่ได้) |
+| DW-59 | เรียง `created_at` ใหม่→เก่า แล้ว `id` ใหม่→เก่า · `page` / `limit` ใน body (`utils.NewPage` · ค่าเริ่มต้น 20 สูงสุด 100) · response = PageData มาตรฐาน · `currency` / `transaction_type` ตัวใหญ่ · `remark` = `note` · ไม่มี `updated_at` (log แก้ไม่ได้) · มีแถว `FAILED` ด้วย + field `status` (DW-35) |
 | DW-60 | หา username 1 query ต่อตาราง (`user_agents` / `user_members` · username ไม่ซ้ำข้าม 2 ตาราง — MGMT-05) แล้วดึง log ด้วย `target_type` + `target_id` + ช่วงเวลา → index `idx_deposit_withdraw_logs_target (target_type, target_id, created_at DESC)` ที่มีอยู่แล้ว · ไม่ต้องทำ migration |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
@@ -146,6 +149,17 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 | 7 | Redis ล่ม | `504801` (HTTP 503) — lead ไม่ได้ระบุ code · maofoy เลือก `c = 8` (storage) |
 | 8 | DW3 ช่วงวัน | lead ไม่ได้ระบุเพดาน · maofoy กำหนด ≤ 31 วัน เพื่อจำกัดขนาด query |
 | 9 | DW4 แยกเส้นจาก DW3 (lead อนุมัติ 2026-10-15) | DW3 = รายการที่ตัวเองเป็นแม่ · DW4 = รายการที่ทำให้บัญชีหนึ่งในสาย (ทุกชั้น · ผู้ทำรายการเป็นใครก็ได้ในสาย) · payload ตามหน้าจอ (`username` · `starttime` / `endtime`) แต่ response ตาม `response.Page` ของทีม (`limit` แทน `perpage`) |
+| 10 | status ของรายการมีแค่ `SUCCESS` / `FAILED` ไม่มี `pending` (DW-35 · 2026-10-16) | ดูเหตุผลด้านล่าง |
+
+**ทำไมไม่มี `pending`** (DW-35 — ใช้ตอบคำถามว่า "ควรเพิ่ม pending ไหม")
+
+1. **ย้ายเงินจบใน transaction เดียว (DW-30):** หักแม่ · เพิ่มลูก · log · ledger · `create_requests` commit พร้อมกันหรือ rollback พร้อมกัน — ไม่มีจังหวะที่เงินขยับไปครึ่งทาง จึงไม่มีสถานะ "กำลังทำ" ให้ใครเห็น
+2. **pending ต้องเขียนแยก tx ก่อนย้ายเงิน:** ถ้า server ล่ม / timeout / deploy ระหว่างนั้น แถวจะค้าง `pending` ตลอดไป ต้องมี job ตามเก็บ (reconcile) เพิ่ม — ซับซ้อนขึ้นแต่ไม่ได้ข้อมูลอะไรเพิ่ม
+3. **pending มีความหมายเฉพาะงานที่รอระบบภายนอก** (เช่น เรียก wallet ของ operator / ธนาคาร แล้วรอผล) — DW ไม่ได้เรียกระบบภายนอก ยอดอยู่ใน DB ของเราทั้งหมด
+4. **กันกดซ้ำ / เน็ตหลุดมีอยู่แล้ว:** Redis lock (DW-20 – 23) กันยิงพร้อมกัน · `request_id` (DW-24 – 27) ทำให้ client ส่งซ้ำแล้วได้ผลเดิม — ไม่ต้องใช้ pending บอกว่ารายการยังไม่จบ
+5. **รายการที่ไม่สำเร็จยังเห็นได้:** บันทึกแถว `FAILED` พร้อมเหตุผลหลัง rollback (DW-36)
+
+**เมื่อไรควรเพิ่ม `pending`:** ถ้าวันหนึ่งการฝาก / ถอนต้องเรียกระบบภายนอกแล้วรอผล (เช่น โอนเข้า wallet ของ operator ฝั่ง Seamless) — ต้องเพิ่มพร้อม job reconcile และกติกา timeout ผ่าน spec ใหม่
 
 ## 5. Endpoints
 
@@ -275,6 +289,7 @@ Response `data`:
       "id": 9002,
       "request_id": "0b7e9d1c-3a2f-4e8b-9c11-5d6e7f8a9b0c",
       "transaction_type": "WITHDRAW",
+      "status": "SUCCESS",
       "actor_username": "share01@staff",
       "role": "MEMBER",
       "user_id": 501,
@@ -282,6 +297,7 @@ Response `data`:
       "currency": "THB",
       "amount": 50,
       "note": "",
+      "ip": "203.0.113.10",
       "parent_unlimited": false,
       "parent_balance_before": 4900,
       "parent_balance_after": 4950,
@@ -293,6 +309,7 @@ Response `data`:
       "id": 9001,
       "request_id": "6f1c2a9e-8b1d-4c1e-9a55-2f0d6b7c1a10",
       "transaction_type": "DEPOSIT",
+      "status": "SUCCESS",
       "actor_username": "share01",
       "role": "MEMBER",
       "user_id": 501,
@@ -300,6 +317,7 @@ Response `data`:
       "currency": "THB",
       "amount": 100,
       "note": "เติมเครดิตรอบแรก",
+      "ip": "203.0.113.10",
       "parent_unlimited": false,
       "parent_balance_before": 5000,
       "parent_balance_after": 4900,
@@ -350,6 +368,7 @@ Response `data` (เรียงใหม่ → เก่า):
       "request_username": "share01@staff",
       "currency": "THB",
       "transaction_type": "DEPOSIT",
+      "status": "SUCCESS",
       "amount": 1000,
       "remark": "",
       "created_at": "2026-10-15T11:58:24.123456+07:00"
@@ -409,6 +428,7 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
   - `create_requests.target_type` (VARCHAR(10) · ไม่มี CHECK) รองรับ `'DW'` อยู่แล้ว (DW-26)
 - index ของ DW1 มีแล้ว: `idx_user_agents_parent_username` · `idx_user_members_agent_username`
 - migration `20261015100000_deposit_withdraw_superadmin_balances` (lead 2026-10-15): seed ยอด Superadmin ตาม DW-14 · ไม่แก้ schema · `parent_unlimited` ยังอยู่เพื่อแถวเก่า
+- migration `20261016140000_deposit_withdraw_logs_status` (DW-35): เพิ่ม `status VARCHAR(10) NOT NULL DEFAULT 'SUCCESS'` + CHECK · unique `request_id` เปลี่ยนเป็น partial unique index `WHERE status = 'SUCCESS'` (แถว FAILED ไม่จอง) · โค้ดต้องตั้ง `status` เอง (GORM ส่ง `""` แทนค่า default)
 - Redis: key `dw:lock:{AGENT|MEMBER}:{id}` · TTL 10 วินาที · ไม่ใช่ source of truth ของยอด (กฎข้อ 14)
 
 ## 7. Test cases
@@ -446,6 +466,7 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 | DW-32 | share01 ฝากให้ agent01 พร้อมกับ comp01 ฝากให้ share01 (lock แถว share01 ร่วมกัน · integration) | ไม่ deadlock · ยอดสุดท้ายถูกต้อง |
 | DW-33 | sub `share01@staff` ฝากให้ agent01 | ledger `actor_type = SUB` · log `actor_username = share01@staff` · `parent_id = 12` |
 | DW-34 | integration: ชื่อ constraint `agent_balances_amount_check` / `user_members_credit_check` มีใน `pg_constraint` · repository UPDATE ยอดติดลบตรงๆ | มีครบ · ได้ `ErrBalanceNegative` |
+| DW-35 / 36 | ฝากเกินยอด (note "ลองฝาก") · กดซ้ำ `request_id` เดิมหลังเติมยอด · ส่งซ้ำอีกครั้ง · ฝากให้ลูกที่ถูกล็อก · body ผิด / ไม่ใช่ลูกตรง / ติด lock | `404304` + แถว FAILED note "ลองฝาก · ล้มเหลว: ยอดเงินของคุณไม่พอ" ยอดก่อน = หลัง ไม่มี ledger / create_requests · สำเร็จ (แถว SUCCESS) · ผลเดิม (ไม่เพิ่มแถว) · `404301` + FAILED · ไม่มีแถวเพิ่ม |
 | DW-40 / 41 | share01 มีลูก agent 1 + Member 1 + ADMIN ในระบบ · `keyword` `"mem0"` · `"ab"` · keyword ของหลาน | 2 แถว A→Z ไม่มี ADMIN · `mem01` · `422` · ไม่พบ |
 | DW-43 | แม่ / ลูก / Member ที่มียอดสกุลเดียว · Share B2B THB 7 + USD 3 | `currency` ครบ 27 key · สกุลอื่น = 0 · THB 7 · USD 3 |
 | DW-44 | Company Seamless (THB 33) ใน list ของ Superadmin | `has_balance = true` · `currency` THB 33 |

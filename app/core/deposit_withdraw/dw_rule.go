@@ -4,6 +4,7 @@ package depositwithdraw
 import (
 	"math"
 	"time"
+	"unicode/utf8"
 
 	"app/app/models"
 )
@@ -86,6 +87,28 @@ func SignedAmounts(t models.DWTransactionType, amount float64) (parent, target f
 		return -amount, amount
 	}
 	return amount, -amount
+}
+
+// FailedNote — note ของแถว FAILED (DW-36): note ที่คนกดพิมพ์ + " · ล้มเหลว: " + เหตุผล · ไม่มี note = "ล้มเหลว: " + เหตุผล
+// ยาวเกิน NoteMaxRunes ตัด note ที่พิมพ์ก่อน (เหตุผลต้องอยู่ครบ) — คอลัมน์ VARCHAR(200)
+func FailedNote(note, reason string) string {
+	suffix := "ล้มเหลว: " + reason
+	if note == "" {
+		return truncateRunes(suffix, NoteMaxRunes)
+	}
+	const sep = " · "
+	room := NoteMaxRunes - utf8.RuneCountInString(suffix) - utf8.RuneCountInString(sep)
+	if room <= 0 {
+		return truncateRunes(suffix, NoteMaxRunes)
+	}
+	return truncateRunes(note, room) + sep + suffix
+}
+
+func truncateRunes(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	return string([]rune(s)[:n])
 }
 
 // DateRangeOK — ช่วงวันของ DW3 (DW-47): from ≤ to และรวมทั้ง 2 วันไม่เกิน LogsMaxDays วัน · from / to = เที่ยงคืนของวันนั้น

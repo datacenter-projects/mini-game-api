@@ -35,6 +35,16 @@ S1–S14 แก้ spec ครบ · S15 (เอกสารหน้าบ้�
 | 3 | สถานะของลูกฝั่ง agent อ่านแบบไม่ lock (ไม่มีกฎ lock `user_agents` ในลำดับ lock) | ถ้า agent ถูกระงับระหว่างเช็คกับ commit การฝากครั้งนั้นยังผ่าน — ช่องแคบมาก · Member เช็คซ้ำหลัง lock แล้ว |
 | 4 | `created_at` ตัดเหลือ microsecond ตอนบันทึก | ส่ง `request_id` ซ้ำได้ `created_at` เดิมทุกตัวอักษร |
 | 5 | regex UUID ของ `request_id` | ประกาศใน dto ของ module เอง (ตัวของ agent_management เป็น private · ไม่แก้ไฟล์ของ boiledegg) |
+| 6 | **status ไม่มี `pending`** (2026-10-16) | มีแค่ `SUCCESS` / `FAILED` — เหตุผลอยู่ด้านล่าง และใน spec หัวข้อ 4 ข้อ 10 |
+
+**ทำไมไม่มี `pending`:**
+1. ย้ายเงินจบใน **transaction เดียว** (หักแม่ · เพิ่มลูก · log · ledger · `create_requests`) — commit พร้อมกันหรือ rollback พร้อมกัน ไม่มีสถานะกลางทางให้ใครเห็น
+2. pending ต้องเขียนแยก tx ก่อนย้ายเงิน — server ล่ม / timeout ระหว่างนั้นจะได้แถว `pending` ค้างถาวร ต้องมี job reconcile เพิ่มโดยไม่ได้ประโยชน์
+3. pending มีความหมายเฉพาะงานที่รอระบบภายนอก (wallet ของ operator / ธนาคาร) — DW ไม่ได้เรียกระบบภายนอก
+4. กดซ้ำ / เน็ตหลุด มี Redis lock + `request_id` จัดการอยู่แล้ว (ส่งซ้ำได้ผลเดิม)
+5. รายการที่ไม่สำเร็จยังเห็นได้จากแถว `FAILED` + เหตุผลใน `note`
+
+ถ้าอนาคตการฝาก / ถอนต้องเรียกระบบภายนอกแล้วรอผล → ค่อยเพิ่ม `pending` พร้อม job reconcile ผ่าน spec ใหม่
 
 ## 3. ผล test
 
@@ -58,3 +68,4 @@ S1–S14 แก้ spec ครบ · S15 (เอกสารหน้าบ้�
 - 2026-10-15 — **DW4 `deposit-withdraw/history/list` (lead อนุมัติ)**: ค้น `username` ตรงตัว ใต้ตัวเองทุกชั้น (`cnf @>`) ทั้ง agent / Member · ค้นตัวเองไม่ได้ · ไม่พบ / นอกสาย / ตัวเอง = `404402` · แสดงคนกดจริง (`request_by` / `request_type` / `request_username`) · `starttime` / `endtime` RFC3339 รวมขอบ ไม่จำกัดช่วง · PageData · ใช้ index `idx_deposit_withdraw_logs_target` · integration test `TestDWHistoryList` · เอกสารหน้าบ้านรอหลัง lead ตรวจโค้ด
 - 2026-10-15 — fix DW4 `500` (`@chain::jsonb` → `CAST(@chain AS jsonb)` · `72d3b57`) · เอกสารหน้าบ้าน `docs/frontend/deposit_withdraw.md` 2.4 `history/list` + `404402` (ทำตามคำขอของ maofoy) · DW4 อยู่บน dev แต่ยังไม่มี release tag ที่รวม
 - 2026-10-15 — **สาย Seamless มียอด (lead อนุมัติ)**: MGMT-15 / 15A / 15B — สร้างบัญชีสาย Seamless ทุกประเภทพร้อม `balance` ได้ (`CheckInitialBalance` ไม่ปฏิเสธแล้ว · ลบ `newAccountSeamless`) · DW-06 — ฝาก / ถอนในสาย Seamless ได้ (ลูกตรงเท่านั้นเหมือนเดิม) · DW1 `has_balance` = true เสมอ + ยอดจริง (ตัด query หา Company หัวสาย) · `404302` เลิกใช้ (จองถาวร) · DW-52 ยอดสาย Seamless ใช้แทงไม่ได้ (wallet ของ operator) · ข้อสมมติ: `payment_type = CASH` ของ Member สาย Seamless (MGMT-63) คงเดิม · แก้ไฟล์ของ agent_management / account spec — ขอ boiledegg review · เอกสารหน้าบ้าน (agent / member / deposit_withdraw) รอหลัง lead ตรวจโค้ด
+- 2026-10-16 — **status ของรายการ (lead รับทราบ)**: migration `20261016140000` เพิ่ม `status` (`SUCCESS` / `FAILED` · แถวเดิม = SUCCESS) + unique `request_id` เฉพาะแถว SUCCESS · DW2 ล้มหลังหาลูกเจอ (ถูกปฏิเสธ 404301 / 404303 / 404304 / 404306 หรือระบบล้ม) = บันทึกแถว FAILED ใน tx ใหม่ (ยอดก่อน = หลัง · ไม่มี ledger · ไม่จอง request_id · note = ที่พิมพ์ + " · ล้มเหลว: เหตุผล") · DW3 ส่ง `status` + `ip` · DW4 ส่ง `status` · ไม่มี pending (เหตุผลในหัวข้อ 2 ข้อ 6) · เอกสาร frontend รอหลัง lead ตรวจโค้ด

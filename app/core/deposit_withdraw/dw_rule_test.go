@@ -1,8 +1,10 @@
 package depositwithdraw
 
 import (
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"app/app/models"
 )
@@ -113,6 +115,23 @@ func TestDateRangeOK(t *testing.T) { // DW-47
 	for _, tt := range tests {
 		if got := DateRangeOK(day(tt.from), day(tt.to)); got != tt.want {
 			t.Errorf("DateRangeOK(%s, %s) = %v · want %v", tt.from, tt.to, got, tt.want)
+		}
+	}
+}
+
+func TestFailedNote(t *testing.T) { // DW-36
+	long := strings.Repeat("ก", 200)
+	tests := []struct {
+		note, reason, want string
+	}{
+		{"", "ยอดเงินของคุณไม่พอ", "ล้มเหลว: ยอดเงินของคุณไม่พอ"},
+		{"เติมรอบแรก", "ยอดเงินของคุณไม่พอ", "เติมรอบแรก · ล้มเหลว: ยอดเงินของคุณไม่พอ"},
+		{long, "ยอดเงินของคุณไม่พอ", strings.Repeat("ก", 200-len([]rune("ล้มเหลว: ยอดเงินของคุณไม่พอ"))-3) + " · ล้มเหลว: ยอดเงินของคุณไม่พอ"},
+	}
+	for _, tt := range tests {
+		got := FailedNote(tt.note, tt.reason)
+		if got != tt.want || utf8.RuneCountInString(got) > NoteMaxRunes {
+			t.Errorf("FailedNote(%d runes, %q) = %q (%d runes) · want %q", utf8.RuneCountInString(tt.note), tt.reason, got, utf8.RuneCountInString(got), tt.want)
 		}
 	}
 }

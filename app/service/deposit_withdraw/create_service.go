@@ -26,6 +26,7 @@ const (
 	lockTTL       = 10 * time.Second // DW-20 · lead DQ2
 	txTimeout     = 8 * time.Second  // DW-23 ต่ำกว่า lockTTL (lead ยืนยัน 2026-10-14)
 	releaseWait   = 2 * time.Second  // เวลารอปลด lock หลัง request จบ
+	failWriteWait = 3 * time.Second  // เวลารอบันทึกแถว FAILED (DW-35) — ไม่ใช้ ctx ของ tx ที่อาจหมดเวลาไปแล้ว
 	tokenAlphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
 	tokenLen      = 32
 )
@@ -63,15 +64,86 @@ func CreateDepositWithdrawService(ctx context.Context, actor agentAuthService.Ac
 
 	txCtx, cancel := context.WithTimeout(ctx, txTimeout)
 	defer cancel()
+	var seen attempt
 	err = database.DBConn.WithContext(txCtx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		res, err = createInTx(tx, actor, req, meta)
+		res, err = createInTx(tx, actor, req, meta, &seen)
 		return err
 	})
 	if errors.Is(err, gorm.ErrDuplicatedKey) { // DW-27: request_id ชนกับรายการที่ commit ไปแล้ว — อ่านผลเดิม
 		return replayAfterConflict(ctx, actor, req)
 	}
+	if err != nil && seen.found {
+		if reason, ok := failReason(err); ok { // DW-35: บันทึกแถว FAILED หลัง tx rollback
+			recordFailure(ctx, seen, actor, req, meta, reason)
+		}
+	}
 	return res, err
+}
+
+// attempt — ข้อมูลที่ tx หาได้ก่อนล้ม (ใช้บันทึกแถว FAILED) · found = หาลูกเจอแล้ว
+type attempt struct {
+	found  bool
+	parent models.UserAgent
+	target target
+}
+
+// failReason — error ที่ต้องบันทึกเป็น FAILED (DW-35 แบบ B) และเหตุผลที่ใส่ใน note
+// ถูกปฏิเสธหลังหาลูกเจอ = ข้อความของ error นั้น · ระบบล้ม (5xx / error ที่ไม่ได้ประกาศ) = ข้อความกลาง ไม่เปิดรายละเอียดภายใน
+func failReason(err error) (string, bool) {
+	for _, e := range []*apperr.Error{apperr.ErrDWTargetInactive, apperr.ErrDWCurrency, apperr.ErrDWParentInsufficient, apperr.ErrDWTargetInsufficient} {
+		if errors.Is(err, e) {
+			return e.MsgTH, true
+		}
+	}
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.HTTPStatus >= 500 {
+		return apperr.ErrInternal.MsgTH, true
+	}
+	return "", false // 4xx อื่น (เช่น ลูกย้ายสายระหว่างทำรายการ = 404401) ไม่บันทึก
+}
+
+// recordFailure — แถว FAILED ใน tx ใหม่ (DW-35 / DW-36): ยอดก่อน = ยอดหลัง = ยอด ณ ตอนบันทึก · ไม่มี ledger · ไม่ลง create_requests
+// บันทึกไม่ได้ (เช่น DB ล่ม) = log แล้วไปต่อ — ไม่เปลี่ยน error ที่ตอบ client
+func recordFailure(ctx context.Context, a attempt, actor agentAuthService.Actor, req depositWithdrawDto.CreateRequest,
+	meta agentAuthService.RequestMeta, reason string) {
+	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), failWriteWait)
+	defer cancel()
+	db := database.DBConn.WithContext(fctx)
+	ids := []uint{a.parent.ID}
+	if a.target.owner == models.BalanceOwnerAgent {
+		ids = append(ids, a.target.id)
+	}
+	balances, err := depositWithdrawPostgres.ListAgentBalancesOfRepository(db, ids)
+	if err == nil {
+		have := map[uint]float64{}
+		for _, b := range balances {
+			if b.Currency == req.Currency {
+				have[b.AgentID] = b.Amount
+			}
+		}
+		targetBal := have[a.target.id]
+		if a.target.owner == models.BalanceOwnerMember {
+			var m models.UserMember
+			if m, err = depositWithdrawPostgres.GetDWMemberRepository(db, a.target.id); err == nil {
+				targetBal = m.Credit
+			}
+		}
+		if err == nil {
+			l := models.DepositWithdrawLog{RequestID: req.RequestID, TransactionType: req.Type, Status: models.DWStatusFailed,
+				ActorType: actor.AccountType, ActorID: actor.AccountID(), ActorUsername: actor.Username,
+				ParentID: a.parent.ID, ParentUsername: a.parent.Username,
+				TargetType: a.target.owner, TargetID: a.target.id, TargetRole: a.target.role, TargetUsername: a.target.username,
+				Currency: req.Currency, Amount: req.Amount,
+				ParentBalanceBefore: have[a.parent.ID], ParentBalanceAfter: have[a.parent.ID],
+				TargetBalanceBefore: targetBal, TargetBalanceAfter: targetBal,
+				Note: depositWithdrawCore.FailedNote(req.Note, reason), IP: meta.IP, CreatedAt: time.Now().Truncate(time.Microsecond)}
+			err = depositWithdrawPostgres.CreateDWLogRepository(db, &l)
+		}
+	}
+	if err != nil {
+		logger.Ctx(ctx).Warnw("record failed deposit_withdraw", "request_id", req.RequestID, "reason", reason, "error", err)
+	}
 }
 
 // releaseLock — compare-and-delete (DW-22) · ปลดไม่ได้ = log แล้วปล่อยให้ TTL หมดเอง ไม่ทำให้ request ล้ม
@@ -94,7 +166,7 @@ type target struct {
 }
 
 func createInTx(tx *gorm.DB, actor agentAuthService.Actor, req depositWithdrawDto.CreateRequest,
-	meta agentAuthService.RequestMeta) (depositWithdrawDto.CreateResponse, error) {
+	meta agentAuthService.RequestMeta, seen *attempt) (depositWithdrawDto.CreateResponse, error) {
 	var res depositWithdrawDto.CreateResponse
 	// DW-24: request_id ก่อนอย่างอื่น · key เดียวกับ FindReplay ของ agents / members create
 	if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "create_request:"+req.RequestID); err != nil {
@@ -112,6 +184,7 @@ func createInTx(tx *gorm.DB, actor agentAuthService.Actor, req depositWithdrawDt
 	if err != nil {
 		return res, err
 	}
+	*seen = attempt{found: true, parent: parent, target: t} // ล้มหลังจากนี้ = บันทึกแถว FAILED (DW-35)
 	if err := checkTarget(tx, t, req, parent.ID); err != nil {
 		return res, err
 	}
@@ -158,7 +231,7 @@ func createInTx(tx *gorm.DB, actor agentAuthService.Actor, req depositWithdrawDt
 		return res, err
 	}
 
-	l := models.DepositWithdrawLog{RequestID: req.RequestID, TransactionType: req.Type,
+	l := models.DepositWithdrawLog{RequestID: req.RequestID, TransactionType: req.Type, Status: models.DWStatusSuccess,
 		ActorType: actor.AccountType, ActorID: actor.AccountID(), ActorUsername: actor.Username,
 		ParentID: parent.ID, ParentUsername: parent.Username,
 		TargetType: t.owner, TargetID: t.id, TargetRole: t.role, TargetUsername: t.username,

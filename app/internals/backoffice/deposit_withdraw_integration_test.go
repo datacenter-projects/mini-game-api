@@ -661,3 +661,92 @@ func TestDWHistoryList(t *testing.T) { // DW-55 – DW-60
 	adminTok := loginReady(t, app, models.AccountTypeAgent, admin.ID, "admin01")
 	expect(t, call(t, app, "POST", dwHistoryPath, body("agent01"), adminTok), 200, 404305)
 }
+
+func TestDWFailedStatus(t *testing.T) { // DW-35 · DW-36
+	app := setup2(t)
+	c := buildChain(t, app)
+	setBalance(t, c.share.ID, "THB", 100)
+	mem := createMemberOf(t, app, c.shareTok, "memfail")
+	today := time.Now().In(time.FixedZone("Asia/Bangkok", 7*3600)).Format("2006-01-02")
+
+	type logRow struct {
+		RequestID           string  `json:"request_id"`
+		Status              string  `json:"status"`
+		Note                string  `json:"note"`
+		IP                  string  `json:"ip"`
+		Amount              float64 `json:"amount"`
+		ParentBalanceBefore float64 `json:"parent_balance_before"`
+		ParentBalanceAfter  float64 `json:"parent_balance_after"`
+		TargetBalanceBefore float64 `json:"target_balance_before"`
+		TargetBalanceAfter  float64 `json:"target_balance_after"`
+	}
+	logs := func() []logRow {
+		r := call(t, app, "POST", dwLogsPath, map[string]any{"date_from": today, "date_to": today}, c.shareTok)
+		expect(t, r, 200, 200)
+		var p struct {
+			Data []logRow `json:"data"`
+		}
+		_ = json.Unmarshal(r.Data, &p)
+		return p.Data
+	}
+
+	// ยอดไม่พอ → แถว FAILED · เงินไม่ขยับ · ไม่มี ledger / create_requests · note = ที่พิมพ์ + เหตุผล
+	b := dwBody("MEMBER", mem.ID, "DEPOSIT", 1000)
+	b["note"] = "ลองฝาก"
+	expect(t, call(t, app, "POST", dwCreatePath, b, c.shareTok), 200, 404304)
+	rows := logs()
+	if len(rows) != 1 || rows[0].Status != "FAILED" || rows[0].Note != "ลองฝาก · ล้มเหลว: ยอดเงินของคุณไม่พอ" || rows[0].Amount != 1000 ||
+		rows[0].ParentBalanceBefore != 100 || rows[0].ParentBalanceAfter != 100 || rows[0].TargetBalanceBefore != 0 || rows[0].TargetBalanceAfter != 0 {
+		t.Fatalf("FAILED row = %+v", rows)
+	}
+	if countRows(t, &models.BalanceLedger{}, "request_id = ?", b["request_id"]) != 0 || countRows(t, &models.CreateRequest{}, "request_id = ?", b["request_id"]) != 0 ||
+		agentBalance(t, c.share.ID, "THB") != 100 {
+		t.Fatal("รายการ FAILED ต้องไม่ย้ายเงิน / ไม่มี ledger / ไม่จอง request_id")
+	}
+
+	// request_id เดิมกดซ้ำหลังเติมยอด = สำเร็จ (แถว FAILED ไม่จอง request_id) · ส่งซ้ำอีกครั้ง = ผลเดิม
+	setBalance(t, c.share.ID, "THB", 2000)
+	expect(t, call(t, app, "POST", dwCreatePath, b, c.shareTok), 200, 200)
+	expect(t, call(t, app, "POST", dwCreatePath, b, c.shareTok), 200, 200)
+	if memberCredit(t, mem.ID) != 1000 || countRows(t, &models.DepositWithdrawLog{}, "request_id = ?", b["request_id"]) != 2 ||
+		countRows(t, &models.DepositWithdrawLog{}, "request_id = ? AND status = 'SUCCESS'", b["request_id"]) != 1 {
+		t.Fatalf("retry: credit %v", memberCredit(t, mem.ID))
+	}
+	if rows = logs(); rows[0].Status != "SUCCESS" || rows[0].Note != "ลองฝาก" {
+		t.Fatalf("SUCCESS row = %+v", rows[0])
+	}
+
+	// ลูกถูกล็อก → FAILED · ไม่มี note ที่พิมพ์
+	database.DBConn.Model(&models.UserMember{}).Where("id = ?", mem.ID).Update("status", models.AgentStatusLocked)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("MEMBER", mem.ID, "DEPOSIT", 1), c.shareTok), 200, 404301)
+	if rows = logs(); rows[0].Status != "FAILED" || rows[0].Note != "ล้มเหลว: ฝากให้บัญชีที่ถูกระงับหรือล็อกไม่ได้" ||
+		rows[0].TargetBalanceBefore != 1000 || rows[0].TargetBalanceAfter != 1000 {
+		t.Fatalf("inactive FAILED = %+v", rows[0])
+	}
+
+	// ไม่บันทึก: body ผิด · ไม่ใช่ลูกตรง · ติด lock
+	before := countRows(t, &models.DepositWithdrawLog{}, "1 = 1")
+	bad := dwBody("MEMBER", mem.ID, "DEPOSIT", 1)
+	bad["amount"] = 0
+	expect(t, call(t, app, "POST", dwCreatePath, bad, c.shareTok), 200, 422)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("MEMBER", 999999, "DEPOSIT", 1), c.shareTok), 200, 404401)
+	database.DBRedis.Set(context.Background(), fmt.Sprintf("dw:lock:MEMBER:%d", mem.ID), "other", 10*time.Second)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("MEMBER", mem.ID, "WITHDRAW", 1), c.shareTok), 200, 404307)
+	if after := countRows(t, &models.DepositWithdrawLog{}, "1 = 1"); after != before {
+		t.Fatalf("บันทึกกรณีที่ไม่ต้องบันทึก %d → %d", before, after)
+	}
+
+	// DW4 เห็น status ด้วย
+	r := call(t, app, "POST", "/api/v1/bo/pr/deposit-withdraw/history/list", map[string]any{"username": "memfail",
+		"starttime": time.Now().Add(-time.Hour).Format(time.RFC3339), "endtime": time.Now().Add(time.Hour).Format(time.RFC3339)}, c.comTok)
+	expect(t, r, 200, 200)
+	var h struct {
+		Data []struct {
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(r.Data, &h)
+	if len(h.Data) != 3 || h.Data[0].Status != "FAILED" || h.Data[1].Status != "SUCCESS" || h.Data[2].Status != "FAILED" {
+		t.Fatalf("DW4 status = %+v", h.Data)
+	}
+}

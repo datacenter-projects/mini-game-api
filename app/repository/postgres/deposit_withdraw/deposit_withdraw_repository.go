@@ -224,7 +224,7 @@ func ListDWHistoryRepository(db *gorm.DB, owner models.BalanceOwnerType, id uint
 		return rows, 0, nil
 	}
 	err := base().Select("id", "transaction_type", "actor_type", "actor_id", "actor_username", "target_id", "target_role",
-		"target_username", "currency", "amount", "note", "created_at").
+		"target_username", "currency", "amount", "note", "status", "created_at").
 		Order("created_at DESC, id DESC").Offset(offset).Limit(limit).Find(&rows).Error
 	return rows, total, err
 }
@@ -260,7 +260,7 @@ func ListDWLogsRepository(db *gorm.DB, f DWLogFilter, offset, limit int) ([]mode
 		return rows, 0, nil
 	}
 	err := base().Select("id", "request_id", "transaction_type", "actor_username", "target_type", "target_id", "target_role", "target_username",
-		"currency", "amount", "note", "parent_unlimited", "parent_balance_before", "parent_balance_after",
+		"currency", "amount", "note", "status", "ip", "parent_unlimited", "parent_balance_before", "parent_balance_after",
 		"target_balance_before", "target_balance_after", "created_at").
 		Order("created_at DESC, id DESC").Offset(offset).Limit(limit).Find(&rows).Error
 	return rows, total, err
