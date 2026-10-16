@@ -32,6 +32,7 @@ func TestLoginRequestValidate(t *testing.T) {
 	}
 }
 
+//nolint:gosec // รหัสผ่านในตารางเป็นค่าทดสอบ ไม่ใช่ credential จริง
 func TestPasswordUpdateRequestValidate(t *testing.T) { // rule: PA-50
 	tests := []struct {
 		name string
