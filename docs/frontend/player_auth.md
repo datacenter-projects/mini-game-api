@@ -48,11 +48,19 @@ curl -s -X POST $BASE/api/v1/player/pb/login -H 'Content-Type: application/json'
 
 ### PA3 · logout
 
+```bash
+curl -s -X POST $BASE/api/v1/player/pr/auth/logout -H "Authorization: Bearer $TOKEN"
+```
+
 `POST /api/v1/player/pr/auth/logout` · ไม่มี body · สำเร็จ `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`)
 เรียกซ้ำ / session หมดไปแล้ว ก็สำเร็จ · token ปลอมหรือหมดอายุ → `407202`
 
 ### PA4 · เปลี่ยนรหัสผ่าน
 
+```bash
+curl -s -X POST $BASE/api/v1/player/pr/auth/password/update -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"old_password":"aA4b4c4d4e4f","new_password":"Zx9!kq2m"}'
+```
 ```json
 { "old_password": "aA4b4c4d4e4f", "new_password": "Zx9!kq2m" }
 ```
@@ -64,6 +72,9 @@ curl -s -X POST $BASE/api/v1/player/pb/login -H 'Content-Type: application/json'
 ### PA5 · me/get
 
 body `{}` (ไม่รับ field)
+```bash
+curl -s -X POST $BASE/api/v1/player/pr/me/get -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+```
 ```json
 { "code": 200, "msg": "สำเร็จ", "data": { "username": "agent01@p001", "name": "p001", "currency": "THB", "status": "SUSPENDED", "can_bet": false } }
 ```
@@ -71,6 +82,9 @@ body `{}` (ไม่รับ field)
 
 ### PA6 · balance/get
 
+```bash
+curl -s -X POST $BASE/api/v1/player/pr/balance/get -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+```
 ```json
 { "code": 200, "msg": "สำเร็จ", "data": { "currency": "THB", "credit": 1250.5 } }
 ```
@@ -78,6 +92,9 @@ body `{}` (ไม่รับ field)
 
 ### PA7 · games/list
 
+```bash
+curl -s -X POST $BASE/api/v1/player/pr/games/list -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+```
 ```json
 { "code": 200, "msg": "สำเร็จ", "data": { "items": [
     { "game_code": "scratch_card", "name_th": "สแครชการ์ด", "name_en": "Scratch Card", "open": true,
@@ -129,6 +146,10 @@ curl -s -X POST $BASE/api/v1/transfer/login -H 'Content-Type: application/json' 
 
 ### TR · transfer/register
 
+```bash
+curl -s -X POST $BASE/api/v1/transfer/register -H 'Content-Type: application/json' \
+  -d '{"agent_username":"agent01","key":"<64 hex>","player_username":"p001","currency":"THB","password":"aA4b4c4d4e4f"}'
+```
 ```json
 { "agent_username": "agent01", "key": "<64 hex>", "player_username": "p001", "currency": "THB", "password": "aA4b4c4d4e4f" }
 ```
