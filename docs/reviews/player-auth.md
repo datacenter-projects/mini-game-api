@@ -191,3 +191,14 @@ Boiledegg: แก้ PA-09 + ใส่ "อนุมัติโดย: zerph ·
 | nit | spec PA-10 ยังไม่ถูกแก้ทั้งที่ commit S1 บอกว่าแก้ · `docs/lead/bo-player-auth.md` ยังเขียน "ยังไม่ merge" | แก้ doc | ก่อน deploy dev |
 
 **ก่อน deploy dev:** S1-a + nit doc · migrate RDS dev `20261015150000` (Maofoy) · ตั้ง `PLAYER_LOBBY_URL` + `TRUSTED_PROXIES` · tag `dev-*` ให้ CI เขียว
+
+## รอบ 8 — S1-b ผลตรวจ network จริงของ dev (infra 2026-10-16 · lead zerph เลือกทาง B)
+**เส้นทาง:** Client → Cloudflare (proxied) → AWS NLB (L4) → NodePort (kube-proxy · `externalTrafficPolicy: Cluster` → SNAT) → ingress-nginx → pod · host `dev-mini-api.pirate168.com` · cluster `thor-kube1`
+**ปัญหา:** ingress-nginx **เขียนทับ** `X-Forwarded-For` ด้วย IP ของ node (`use-forwarded-headers` / `compute-full-forwarded-for` = default false) → app ได้ IP ของ node เสมอ (ทุกคนใช้ IP เดียวกัน) ไม่ว่าตั้ง `TRUSTED_PROXIES` อะไร · IP จริงอยู่ใน `CF-Connecting-IP` / `X-Original-Forwarded-For`
+
+**ตัดสิน: ทาง B — แก้ที่ infra · ไม่แก้โค้ด `ClientIP`** (ไม่เลือกทาง A อ่าน `CF-Connecting-IP` เพราะ NLB เปิด public ยิงตรงแล้วปลอม header ได้ → หลบ whitelist ของ operator)
+1. ingress-nginx (ทั้ง cluster): `use-forwarded-headers: "true"` · `compute-full-forwarded-for: "true"` · `proxy-real-ip-cidr` = CIDR Cloudflare (v4 + v6) · Service `externalTrafficPolicy: Local` · ถ้าทำได้จำกัด NLB / NodePort ให้รับเฉพาะ IP Cloudflare
+   - มีผลทุก app ใน `thor-kube1` → infra แจ้งรายชื่อ app ที่ได้รับผล + นัดเวลา apply
+2. หลัง apply ยิง `/__xff-test` ซ้ำ: คาด `X-Forwarded-For = <ค่าที่ client ใส่>, <IP จริง>, <IP Cloudflare>` → `ClientIP` ไล่จากขวาข้าม IP ที่เชื่อถือ ได้ IP จริง · ยิงตรงเข้า NLB ก็ปลอมไม่ได้ (nginx ต่อท้าย IP จริงของคนยิงเป็นตัวขวาสุด)
+3. `TRUSTED_PROXIES=192.168.0.0/16,<CIDR Cloudflare v4 + v6 ทั้งหมด>` (configmap minigame dev)
+4. **ระหว่างยังไม่ apply ข้อ 1:** `TRUSTED_PROXIES=""` · ทุกคนบน dev ได้ IP ของ nginx pod (rate limit login ใช้ร่วมกัน — รับได้ชั่วคราวบน dev) · **ห้ามเปิด `transfer/*` ให้ operator จริงจนกว่าข้อ 1–3 เสร็จและทดสอบผ่าน**
