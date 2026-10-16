@@ -44,11 +44,12 @@ func parentIDs(cnf string) ([]uint, error) {
 	return ids, nil
 }
 
-// chainOf — สายของบัญชี agentID: ตัวเอง → ชั้นบนจากใกล้ → ไกล (AST-57) · ไม่พบบัญชี = apperr.ErrDownlineNotFound
+// chainOf — สายของบัญชี agentID: ตัวเอง → ชั้นบนจากใกล้ → ไกล (AST-57)
+// ผู้เรียกทุกตัวใช้กับบัญชีของ session (BO = บัญชีที่ login · ผู้เล่น = ผู้สร้างตรง) → ไม่พบบัญชี = apperr.ErrSessionEnded
 func chainOf(db *gorm.DB, agentID uint) ([]uint, error) {
 	cnf, err := agentManagementPostgres.GetAgentChainRepository(db, agentID)
 	if errors.Is(err, apperr.ErrNotFound) {
-		return nil, apperr.ErrDownlineNotFound
+		return nil, apperr.ErrSessionEnded
 	}
 	if err != nil {
 		return nil, err

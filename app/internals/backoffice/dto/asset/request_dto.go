@@ -7,7 +7,7 @@ import (
 	"app/pkg/utils"
 )
 
-// request ของ module asset — scope + agent_id อ่านโดย middleware ResolveAssetTarget (AST-08) ไม่อยู่ใน DTO เหล่านี้
+// request ของ module asset — scope อ่านโดย middleware ResolveAssetTarget (AST-08) ไม่อยู่ใน DTO เหล่านี้ · เป้าหมายคือบัญชีที่ login (ไม่รับ agent_id)
 // ทุกเส้นเป็น POST · ห้ามส่ง null (ใช้ utils.ParseBodyNoNull — ACC-32) · Validate() ตรวจแค่การมีค่าและรูปแบบ
 // การตรวจกับ catalog / สิทธิ์อยู่ที่ service
 
@@ -107,7 +107,7 @@ func (r *BrandingUpdateRequest) Validate() error {
 	return nil // site_name ตรวจด้วย core.NormalizeSiteName ที่ service (ตัดช่องว่างก่อน)
 }
 
-// UploadRequest — field ของ multipart/form-data ของ `files/upload` (AST-21) · scope / agent_id อ่านโดย middleware · ไฟล์อ่านที่ controller
+// UploadRequest — field ของ multipart/form-data ของ `files/upload` (AST-21) · scope อ่านโดย middleware · ไฟล์อ่านที่ controller
 type UploadRequest struct {
 	GameCode  string `json:"game_code" form:"game_code"`
 	AssetType string `json:"asset_type" form:"asset_type"`

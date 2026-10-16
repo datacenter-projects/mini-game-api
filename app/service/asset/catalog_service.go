@@ -2,7 +2,6 @@ package asset
 
 import (
 	"context"
-	"errors"
 
 	assetCore "app/app/core/asset"
 	assetDto "app/app/internals/backoffice/dto/asset"
@@ -20,10 +19,7 @@ import (
 // ไม่กรองเกมที่ status_game ปิด (lead GE1-2) · เกมที่ไม่มีปก / อ่านปกไม่สำเร็จ = "" โดยไม่ทำให้ทั้งเส้นล้ม
 func GamesListService(ctx context.Context, actor agentAuthService.Actor) ([]assetDto.GameItem, error) {
 	db := database.DBConn.WithContext(ctx)
-	chain, err := chainOf(db, actor.AgentID) // บัญชีหลักที่ request ทำงานในนาม (sub = เจ้าของ — AUTH-26)
-	if errors.Is(err, apperr.ErrDownlineNotFound) {
-		return nil, apperr.ErrSessionEnded
-	}
+	chain, err := chainOf(db, actor.AgentID) // บัญชีหลักที่ request ทำงานในนาม (sub = เจ้าของ — AUTH-26) · ไม่พบ = session สิ้นสุด
 	if err != nil {
 		return nil, err
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 // UploadFileController — POST /api/v1/bo/pr/asset/files/upload (GN3) · multipart/form-data
-// scope / agent_id อ่านโดย middleware ResolveAssetTarget · ไฟล์อ่านเกินเพดาน 1 ไบต์ แล้วให้ service ตัดสินขนาดตามลำดับ AST-15
+// scope อ่านโดย middleware ResolveAssetTarget (ส่ง agent_id มา = 422) · ไฟล์อ่านเกินเพดาน 1 ไบต์ แล้วให้ service ตัดสินขนาดตามลำดับ AST-15
 func UploadFileController(c *fiber.Ctx) error {
 	var req assetDto.UploadRequest
 	if err := utils.ParseBody(c, &req); err != nil {

@@ -33,31 +33,39 @@ func TestAssetTargetValidation(t *testing.T) { // AST-08 · AST-09
 	}
 	_ = game
 
-	bad("ไม่ส่ง scope", "used/list", with("agent_id", w.share.ID), w.shareTok)
+	bad("ไม่ส่ง scope", "used/list", with(), w.shareTok)
 	bad("scope ตัวพิมพ์เล็ก", "used/list", with("scope", "global"), tok)
 	bad("scope เป็น null", "used/list", with("scope", nil), tok)
 	bad("scope เป็นตัวเลข", "used/list", with("scope", 1), tok)
-	bad("AGENT ไม่ส่ง agent_id", "used/list", with("scope", "AGENT"), w.shareTok)
+	// ไม่รับ agent_id ทุกเส้น (lead 2026-10-16 — AST-08): ส่งมาค่าใดก็ตาม = 422 (ไม่เมิน)
+	bad("AGENT ส่ง agent_id ของตัวเอง", "used/list", with("scope", "AGENT", "agent_id", w.share.ID), w.shareTok)
+	bad("AGENT ส่ง agent_id ของลูก", "used/list", with("scope", "AGENT", "agent_id", w.agent.ID), w.shareTok)
 	bad("AGENT agent_id = 0", "used/list", with("scope", "AGENT", "agent_id", 0), w.shareTok)
 	bad("AGENT agent_id เป็นข้อความ", "used/list", with("scope", "AGENT", "agent_id", "abc"), w.shareTok)
-	bad("AGENT agent_id เป็นข้อความตัวเลข", "used/list", with("scope", "AGENT", "agent_id", "12"), w.shareTok)
-	bad("AGENT agent_id ติดลบ", "used/list", with("scope", "AGENT", "agent_id", -1), w.shareTok)
-	bad("AGENT agent_id ทศนิยม", "used/list", with("scope", "AGENT", "agent_id", 1.5), w.shareTok)
 	bad("GLOBAL แต่ส่ง agent_id", "used/list", with("scope", "GLOBAL", "agent_id", w.share.ID), tok)
+	bad("GLOBAL agent_id = 0", "used/list", with("scope", "GLOBAL", "agent_id", 0), tok)
 	bad("ไม่มี body", "used/list", nil, tok)
-	bad("branding ส่ง scope GLOBAL", "branding/detail/get", map[string]any{"scope": "GLOBAL", "agent_id": w.share.ID}, w.shareTok)
-	bad("branding ไม่ส่ง agent_id", "branding/detail/get", map[string]any{}, w.shareTok)
-	bad("bundle ไม่ส่ง agent_id", "bundle/detail/get", game, w.shareTok)
+	bad("branding ส่ง scope GLOBAL", "branding/detail/get", map[string]any{"scope": "GLOBAL"}, w.shareTok)
+	bad("branding ส่ง agent_id", "branding/detail/get", map[string]any{"agent_id": w.share.ID}, w.shareTok)
+	bad("bundle ส่ง agent_id", "bundle/detail/get", with("agent_id", w.agent.ID), w.shareTok)
+	// เส้น branding / bundle ไม่ต้องส่งอะไรนอกจาก field ของเส้น (ของตัวเองเสมอ)
+	expect(t, assetCall(t, app, "branding/detail/get", map[string]any{}, w.shareTok), 200, 200)
+	expect(t, assetCall(t, app, "bundle/detail/get", game, w.shareTok), 200, 200)
 
 	// scope = GLOBAL ไม่ถูกตีความเงียบๆ จากค่าว่าง: ไม่ส่ง scope ห้ามกลายเป็นการเขียนค่ากลาง
 	r := postForm(t, app, "files/upload", map[string]string{"game_code": "scratch_card", "asset_type": "icon_button"}, pngOf(t, 32, 32), w.saTok)
 	if r.Code != 422 {
 		t.Errorf("upload ไม่ส่ง scope: want 422 got %d", r.Code)
 	}
-	// multipart ส่ง agent_id ทาง query แทน form field = ไม่ส่ง field
-	r = postForm(t, app, "files/upload?agent_id=12", map[string]string{"scope": "AGENT", "game_code": "scratch_card", "asset_type": "icon_button"}, pngOf(t, 32, 32), w.shareTok)
+	// multipart ส่ง scope ทาง query แทน form field = ไม่ส่ง field (lead GQ4)
+	r = postForm(t, app, "files/upload?scope=AGENT", map[string]string{"game_code": "scratch_card", "asset_type": "icon_button"}, pngOf(t, 32, 32), w.shareTok)
 	if r.Code != 422 {
-		t.Errorf("upload agent_id ใน query: want 422 got %d", r.Code)
+		t.Errorf("upload scope ใน query: want 422 got %d", r.Code)
+	}
+	// multipart ส่ง agent_id เป็น form field = 422
+	r = postForm(t, app, "files/upload", formOwn("agent_id", itoa(w.agent.ID), "game_code", "scratch_card", "asset_type", "icon_button"), pngOf(t, 32, 32), w.shareTok)
+	if r.Code != 422 {
+		t.Errorf("upload ส่ง agent_id: want 422 got %d", r.Code)
 	}
 	if n := countRows(t, &models.AssetConfig{}, "1 = 1"); n != 0 {
 		t.Errorf("คำขอที่ 422 ต้องไม่สร้าง config: %d", n)
@@ -137,7 +145,7 @@ func TestAssetCatalogEndpoints(t *testing.T) { // AST-10 · AST-12 · AST-13 · 
 		t.Fatalf("agent01 ต้องเห็นปก GLOBAL: %s", r.Data)
 	}
 	// share01 ตั้งปกของตัวเอง → agent01 (ลูก) ได้ปกของ share01 (ไล่สายจากผู้เรียก — GE1-1) · เกมอื่นได้ GLOBAL
-	own := uploadScratch(t, app, w.shareTok, formAgent(w.share.ID), "game_cover")
+	own := uploadScratch(t, app, w.shareTok, formOwn(), "game_cover")
 	r = assetCall(t, app, "games/list", nil, w.agentTok)
 	if coverOf(t, r, "scratch_card") != own.URL {
 		t.Fatalf("agent01 ต้องได้ปกของ share01: %s", r.Data)
@@ -184,7 +192,7 @@ func TestAssetUploadChecks(t *testing.T) { // AST-11 · AST-14 – AST-17 · AST
 	fake := testutil.NewFakeS3(t)
 	w := buildAssetWorld(t, app)
 	up := func(fields map[string]string, file []byte) testutil.Response {
-		f := formAgent(w.share.ID, "game_code", "scratch_card", "asset_type", "icon_button")
+		f := formOwn("game_code", "scratch_card", "asset_type", "icon_button")
 		for k, v := range fields {
 			f[k] = v
 		}
@@ -275,9 +283,9 @@ func TestAssetRetiredSlot(t *testing.T) { // AST-13 · AST-15 · AST-23
 	app := setup2(t)
 	fake := testutil.NewFakeS3(t)
 	w := buildAssetWorld(t, app)
-	f := formAgent(w.share.ID, "game_code", "scratch_card", "asset_type", "winner")
+	f := formOwn("game_code", "scratch_card", "asset_type", "winner")
 
-	ok := uploadScratch(t, app, w.shareTok, formAgent(w.share.ID), "winner")
+	ok := uploadScratch(t, app, w.shareTok, formOwn(), "winner")
 	retireSlot(t, "scratch_card", "winner")
 
 	// ช่องที่เลิกใช้: อัปไม่ได้ (ตรวจก่อนขนาดภาพ — AST-15) · เลือกใช้ไม่ได้ · ไม่มีไฟล์ขึ้น bucket
@@ -287,14 +295,14 @@ func TestAssetRetiredSlot(t *testing.T) { // AST-13 · AST-15 · AST-23
 	if fake.Puts() != puts {
 		t.Error("ช่องที่เลิกใช้ต้องไม่มีไฟล์ขึ้น bucket")
 	}
-	expect(t, assetCall(t, app, "used/update", scopeAgent(w.share.ID, "game_code", "scratch_card", "config_id", ok.ConfigID), w.shareTok), 200, codeSlotRetired)
+	expect(t, assetCall(t, app, "used/update", scopeOwn("game_code", "scratch_card", "config_id", ok.ConfigID), w.shareTok), 200, codeSlotRetired)
 
 	// ไฟล์ที่ใช้งานอยู่แล้วยังอยู่ (เกมที่ยังอ้างช่องนี้ต้องไม่พัง)
-	d := usedItems(t, app, w.shareTok, scopeAgent(w.share.ID, "game_code", "scratch_card"))
+	d := usedItems(t, app, w.shareTok, scopeOwn("game_code", "scratch_card"))
 	if it := findItem(t, d, "winner"); it.URL != ok.URL || !it.IsRetired {
 		t.Errorf("ช่องที่เลิกใช้แต่ยังมีไฟล์ ต้องยังแสดง: %+v", it)
 	}
-	r := assetCall(t, app, "bundle/detail/get", byAgent(w.share.ID, "game_code", "scratch_card"), w.shareTok)
+	r := assetCall(t, app, "bundle/detail/get", own("game_code", "scratch_card"), w.shareTok)
 	expect(t, r, 200, 200)
 	if b := decode[bundleData](t, r); b.Assets["winner"] != ok.URL {
 		t.Errorf("bundle ต้องยังมีช่องที่เลิกใช้: %+v", b.Assets)
@@ -302,7 +310,7 @@ func TestAssetRetiredSlot(t *testing.T) { // AST-13 · AST-15 · AST-23
 
 	// ช่องที่เลิกใช้และไม่มีไฟล์: ไม่แสดงใน used/list
 	retireSlot(t, "scratch_card", "you_lose")
-	d = usedItems(t, app, w.agentTok, scopeAgent(w.agent.ID, "game_code", "scratch_card"))
+	d = usedItems(t, app, w.agentTok, scopeOwn("game_code", "scratch_card"))
 	for _, it := range d.Items {
 		if it.AssetType == "you_lose" {
 			t.Error("ช่องที่เลิกใช้และไม่มีไฟล์ต้องไม่อยู่ใน used/list")
@@ -314,7 +322,7 @@ func TestAssetStorageFailures(t *testing.T) { // AST-19 · AST-30
 	app := setup2(t)
 	w := buildAssetWorld(t, app)
 	up := func(tok string) testutil.Response {
-		return postForm(t, app, "files/upload", formAgent(w.share.ID, "game_code", "scratch_card", "asset_type", "icon_button"), pngOf(t, 32, 32), tok)
+		return postForm(t, app, "files/upload", formOwn("game_code", "scratch_card", "asset_type", "icon_button"), pngOf(t, 32, 32), tok)
 	}
 
 	// ไม่ได้ตั้ง storage (S3_BUCKET ว่าง) = ระบบยังทำงาน · อัปได้ 505801 · ไม่มี config
@@ -322,10 +330,10 @@ func TestAssetStorageFailures(t *testing.T) { // AST-19 · AST-30
 	if n := countRows(t, &models.AssetConfig{}, "1 = 1"); n != 0 {
 		t.Errorf("storage ไม่พร้อม ต้องไม่มี config: %d", n)
 	}
-	expect(t, postForm(t, app, "branding/logo/upload", map[string]string{"agent_id": itoa(w.share.ID)}, pngOf(t, 10, 10), w.shareTok), 503, codeStorageDown)
+	expect(t, postForm(t, app, "branding/logo/upload", map[string]string{}, pngOf(t, 10, 10), w.shareTok), 503, codeStorageDown)
 	// เส้นอ่าน / เส้นที่ไม่แตะ storage ทำงานปกติ
-	expect(t, assetCall(t, app, "used/list", scopeAgent(w.share.ID, "game_code", "scratch_card"), w.shareTok), 200, 200)
-	expect(t, assetCall(t, app, "theme/detail/get", scopeAgent(w.share.ID, "game_code", "scratch_card"), w.shareTok), 200, 200)
+	expect(t, assetCall(t, app, "used/list", scopeOwn("game_code", "scratch_card"), w.shareTok), 200, 200)
+	expect(t, assetCall(t, app, "theme/detail/get", scopeOwn("game_code", "scratch_card"), w.shareTok), 200, 200)
 	expect(t, assetCall(t, app, "games/list", nil, w.shareTok), 200, 200)
 
 	// storage พร้อมแต่อัปล้มเหลว = 505802 · ไม่มี config
@@ -346,21 +354,21 @@ func TestAssetUseNow(t *testing.T) { // AST-21 · AST-22
 	sid := w.share.ID
 
 	// ไม่ส่ง use_now = true: config + used ใน tx เดียว
-	first := uploadScratch(t, app, w.shareTok, formAgent(sid), "icon_button")
+	first := uploadScratch(t, app, w.shareTok, formOwn(), "icon_button")
 	if !first.IsUsed || usedCount(t, &sid, "scratch_card", "icon_button") != 1 {
 		t.Fatalf("use_now ค่าเริ่มต้น ต้องตั้ง used: %+v", first)
 	}
-	d := usedItems(t, app, w.shareTok, scopeAgent(sid, "game_code", "scratch_card"))
+	d := usedItems(t, app, w.shareTok, scopeOwn("game_code", "scratch_card"))
 	if it := findItem(t, d, "icon_button"); it.ConfigID != first.ConfigID || it.Source != "self" || it.URL != first.URL {
 		t.Fatalf("used/list: %+v", it)
 	}
 
 	// use_now=false: เก็บในคลังเฉยๆ ไม่แตะ used
-	second := uploadScratch(t, app, w.shareTok, formAgent(sid, "use_now", "false"), "icon_button")
+	second := uploadScratch(t, app, w.shareTok, formOwn("use_now", "false"), "icon_button")
 	if second.IsUsed {
 		t.Error("use_now=false ต้องได้ is_used = false")
 	}
-	d = usedItems(t, app, w.shareTok, scopeAgent(sid, "game_code", "scratch_card"))
+	d = usedItems(t, app, w.shareTok, scopeOwn("game_code", "scratch_card"))
 	if findItem(t, d, "icon_button").ConfigID != first.ConfigID {
 		t.Error("use_now=false ต้องไม่เปลี่ยนไฟล์ที่ใช้งาน")
 	}
@@ -368,15 +376,15 @@ func TestAssetUseNow(t *testing.T) { // AST-21 · AST-22
 		t.Error("ช่องหนึ่งมี used ได้ 1 แถว")
 	}
 	// use_now=true ครั้งถัดไป = แก้แถวเดิม (AST-22)
-	third := uploadScratch(t, app, w.shareTok, formAgent(sid, "use_now", "true"), "icon_button")
+	third := uploadScratch(t, app, w.shareTok, formOwn("use_now", "true"), "icon_button")
 	if usedCount(t, &sid, "scratch_card", "icon_button") != 1 {
 		t.Error("use_now=true ต้องแก้แถวเดิม ไม่ใช่เพิ่มแถว")
 	}
-	d = usedItems(t, app, w.shareTok, scopeAgent(sid, "game_code", "scratch_card"))
+	d = usedItems(t, app, w.shareTok, scopeOwn("game_code", "scratch_card"))
 	if findItem(t, d, "icon_button").ConfigID != third.ConfigID {
 		t.Error("ต้องชี้ไฟล์ที่เพิ่งอัป")
 	}
 	// ค่าที่ไม่ใช่ true/false
-	expect(t, postForm(t, app, "files/upload", formAgent(sid, "game_code", "scratch_card", "asset_type", "icon_button", "use_now", "maybe"),
+	expect(t, postForm(t, app, "files/upload", formOwn("game_code", "scratch_card", "asset_type", "icon_button", "use_now", "maybe"),
 		pngOf(t, 32, 32), w.shareTok), 200, 422)
 }

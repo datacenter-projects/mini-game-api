@@ -3,7 +3,7 @@ package apperr
 import "net/http"
 
 // asset (module id 05) — spec: docs/modules/asset.md หัวข้อ 9
-// สิทธิ์ใช้ code ของ module ②: ErrNoMenuPermission (402303), ErrDownlineNotFound (402402)
+// สิทธิ์เมนูใช้ code ของ module ②: ErrNoMenuPermission (402303) · ErrDownlineNotFound (402402) ไม่ใช้แล้ว — BO ดูได้แค่ของตัวเอง (lead 2026-10-16)
 // ตัด 405302, 405303 และ 405404 (banner เลื่อน) — เลขที่ตัดไม่ใช้ซ้ำ
 var (
 	// ErrAssetImageSize ใช้คู่กับ WithMessage เพื่อบอกขนาดที่ช่องนี้รับ (AST-17)
