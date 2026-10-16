@@ -202,3 +202,12 @@ Boiledegg: แก้ PA-09 + ใส่ "อนุมัติโดย: zerph ·
 2. หลัง apply ยิง `/__xff-test` ซ้ำ: คาด `X-Forwarded-For = <ค่าที่ client ใส่>, <IP จริง>, <IP Cloudflare>` → `ClientIP` ไล่จากขวาข้าม IP ที่เชื่อถือ ได้ IP จริง · ยิงตรงเข้า NLB ก็ปลอมไม่ได้ (nginx ต่อท้าย IP จริงของคนยิงเป็นตัวขวาสุด)
 3. `TRUSTED_PROXIES=192.168.0.0/16,<CIDR Cloudflare v4 + v6 ทั้งหมด>` (configmap minigame dev)
 4. **ระหว่างยังไม่ apply ข้อ 1:** `TRUSTED_PROXIES=""` · ทุกคนบน dev ได้ IP ของ nginx pod (rate limit login ใช้ร่วมกัน — รับได้ชั่วคราวบน dev) · **ห้ามเปิด `transfer/*` ให้ operator จริงจนกว่าข้อ 1–3 เสร็จและทดสอบผ่าน**
+
+## รอบ 9 — S1-b เสร็จ (infra apply 2026-10-16 ~20:00)
+- ingress-nginx ของ `thor-kube1`: XFF ต่อท้าย (`$full_x_forwarded_for`) · `externalTrafficPolicy: Local` · security group เปิด NodePort ให้เฉพาะ 15 CIDR ของ Cloudflare · ยิงตรงเข้า NLB = ถูกบล็อก
+- ทดสอบจริง (IP ต้นทาง 52.76.142.142): ใส่ XFF ปลอม → `X-Forwarded-For = 1.2.3.4,52.76.142.142, 172.68.85.210` (ปลอม · จริง · Cloudflare) · ไม่ใส่ → `52.76.142.142, 104.23.176.10`
+- `TRUSTED_PROXIES=192.168.0.0/16,<Cloudflare v4 + v6>` (configmap minigame-dev `91696867`) · app boot ผ่าน · log เห็น IP จริงของ client → `ClientIP` ไล่จากขวาข้าม Cloudflare / VPC ได้ IP จริง · ค่าปลอมทางซ้ายไม่มีผล
+- **S1-b ปิด** · rate limit login (BO / player) แยกตามผู้ใช้แล้ว · IP whitelist ของ `transfer/*` ใช้งานได้จริง
+- ยังค้างก่อนเปิด `transfer/*` ให้ operator จริง: `PLAYER_LOBBY_URL` (รอหน้าบ้าน) · spec Transfer API (ยอด / ฝาก / ถอน) ถ้าต้องให้ operator มีเงินเล่น
+- ตรวจผลกระทบ app อื่นใน cluster (lead 2026-10-16): landingpage-api · sarahuay-api · rng_result-api · askmelotto_game-api (lucky48) · askmelotto-api ไม่พัง ไม่แก้โค้ด · askmeboard / aff-member / game-market-poc ไม่ได้ใช้แล้ว
+- secret ดิบใน configmap minigame-dev (repo private): ย้ายเป็น Secret + ผูก IRSA **ก่อนตั้ง uat / prod**
