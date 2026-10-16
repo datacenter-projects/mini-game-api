@@ -170,7 +170,7 @@ Error: `422`, `406401`
 **Request** = body ของ RE4 แต่**ไม่ส่ง** `passcode` / `base_version`
 ```bash
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/check" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"game_code":"coin_toss","steps":[{"multiplier":1.99,"win_percent":50},{"multiplier":3.61,"win_percent":48},{"multiplier":6.859,"win_percent":46},{"multiplier":13.0321,"win_percent":44},{"multiplier":24.761,"win_percent":42,"status":true},{"multiplier":47.0459,"win_percent":40,"status":true},{"multiplier":89.3872,"win_percent":38},{"multiplier":169.8356,"win_percent":36},{"multiplier":322.6877,"win_percent":34,"status":true},{"multiplier":613.1066,"win_percent":32,"status":true}]}'
+  -d '{"game_code":"coin_toss","steps":[{"multiplier":1.99,"win_percent":50,"status":false},{"multiplier":3.61,"win_percent":48,"status":false},{"multiplier":6.859,"win_percent":46,"status":false},{"multiplier":13.0321,"win_percent":44,"status":false},{"multiplier":24.761,"win_percent":42,"status":true},{"multiplier":47.0459,"win_percent":40,"status":true},{"multiplier":89.3872,"win_percent":38,"status":false},{"multiplier":169.8356,"win_percent":36,"status":false},{"multiplier":322.6877,"win_percent":34,"status":true},{"multiplier":613.1066,"win_percent":32,"status":true}]}'
 ```
 
 **Response — ผิดกฎ (ยังได้ 200 พร้อมค่าคำนวณ)**
@@ -224,11 +224,11 @@ Error: `422`, `406401`
 **curl** (`base_version` = `version` จาก RE2 · ยังไม่เคยตั้ง = `0` · `passcode` 6 หลักของคนที่กด)
 ```bash
 # เกมขูดบัตร
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"scratch_card","base_version":0,"win_percent":50,"prizes":[{"multiplier":0.5,"share_percent":35},{"multiplier":1,"share_percent":35,"status":true},{"multiplier":2,"share_percent":18},{"multiplier":5,"share_percent":10,"status":true},{"multiplier":8,"share_percent":2}],"passcode":"123456"}'
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"scratch_card","base_version":0,"win_percent":50,"prizes":[{"multiplier":0.5,"share_percent":35,"status":false},{"multiplier":1,"share_percent":35,"status":true},{"multiplier":2,"share_percent":18,"status":false},{"multiplier":5,"share_percent":10,"status":true},{"multiplier":8,"share_percent":2,"status":false}],"passcode":"123456"}'
 # โยนเหรียญ
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"coin_toss","base_version":0,"steps":[{"multiplier":1.9,"win_percent":50},{"multiplier":3.61,"win_percent":48},{"multiplier":6.859,"win_percent":46},{"multiplier":13.0321,"win_percent":44},{"multiplier":24.761,"win_percent":42,"status":true},{"multiplier":47.0459,"win_percent":40,"status":true},{"multiplier":89.3872,"win_percent":38},{"multiplier":169.8356,"win_percent":36},{"multiplier":322.6877,"win_percent":34,"status":true},{"multiplier":613.1066,"win_percent":32,"status":true}],"passcode":"123456"}'
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"coin_toss","base_version":0,"steps":[{"multiplier":1.9,"win_percent":50,"status":false},{"multiplier":3.61,"win_percent":48,"status":false},{"multiplier":6.859,"win_percent":46,"status":false},{"multiplier":13.0321,"win_percent":44,"status":false},{"multiplier":24.761,"win_percent":42,"status":true},{"multiplier":47.0459,"win_percent":40,"status":true},{"multiplier":89.3872,"win_percent":38,"status":false},{"multiplier":169.8356,"win_percent":36,"status":false},{"multiplier":322.6877,"win_percent":34,"status":true},{"multiplier":613.1066,"win_percent":32,"status":true}],"passcode":"123456"}'
 # เป่ายิ้งฉุบ (body แบบเดียวกับโยนเหรียญ)
-curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"rock_paper_scissors","base_version":0,"steps":[{"multiplier":1.9,"win_percent":50},{"multiplier":3.61,"win_percent":48},{"multiplier":6.859,"win_percent":46},{"multiplier":13.0321,"win_percent":44},{"multiplier":24.761,"win_percent":42,"status":true},{"multiplier":47.0459,"win_percent":40,"status":true},{"multiplier":89.3872,"win_percent":38},{"multiplier":169.8356,"win_percent":36},{"multiplier":322.6877,"win_percent":34,"status":true},{"multiplier":613.1066,"win_percent":32,"status":true}],"passcode":"123456"}'
+curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json"   -d '{"game_code":"rock_paper_scissors","base_version":0,"steps":[{"multiplier":1.9,"win_percent":50,"status":false},{"multiplier":3.61,"win_percent":48,"status":false},{"multiplier":6.859,"win_percent":46,"status":false},{"multiplier":13.0321,"win_percent":44,"status":false},{"multiplier":24.761,"win_percent":42,"status":true},{"multiplier":47.0459,"win_percent":40,"status":true},{"multiplier":89.3872,"win_percent":38,"status":false},{"multiplier":169.8356,"win_percent":36,"status":false},{"multiplier":322.6877,"win_percent":34,"status":true},{"multiplier":613.1066,"win_percent":32,"status":true}],"passcode":"123456"}'
 ```
 
 **Request — Coin / RPS** (RPS ใช้ `"game_code":"rock_paper_scissors"` body เหมือนกัน)
@@ -237,10 +237,10 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bea
   "game_code": "coin_toss",
   "base_version": 0,
   "steps": [
-    { "multiplier": 1.9, "win_percent": 50 }, { "multiplier": 3.61, "win_percent": 48 },
-    { "multiplier": 6.859, "win_percent": 46 }, { "multiplier": 13.0321, "win_percent": 44 },
+    { "multiplier": 1.9, "win_percent": 50, "status": false }, { "multiplier": 3.61, "win_percent": 48, "status": false },
+    { "multiplier": 6.859, "win_percent": 46, "status": false }, { "multiplier": 13.0321, "win_percent": 44, "status": false },
     { "multiplier": 24.761, "win_percent": 42, "status": true }, { "multiplier": 47.0459, "win_percent": 40, "status": true },
-    { "multiplier": 89.3872, "win_percent": 38 }, { "multiplier": 169.8356, "win_percent": 36 },
+    { "multiplier": 89.3872, "win_percent": 38, "status": false }, { "multiplier": 169.8356, "win_percent": 36, "status": false },
     { "multiplier": 322.6877, "win_percent": 34, "status": true }, { "multiplier": 613.1066, "win_percent": 32, "status": true }
   ],
   "passcode": "123456"
@@ -254,8 +254,8 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bea
   "base_version": 1,
   "win_percent": 50,
   "prizes": [
-    { "multiplier": 0.5, "share_percent": 35 }, { "multiplier": 1, "share_percent": 35, "status": true }, { "multiplier": 2, "share_percent": 18 },
-    { "multiplier": 5, "share_percent": 10, "status": true }, { "multiplier": 8, "share_percent": 2 }
+    { "multiplier": 0.5, "share_percent": 35, "status": false }, { "multiplier": 1, "share_percent": 35, "status": true }, { "multiplier": 2, "share_percent": 18, "status": false },
+    { "multiplier": 5, "share_percent": 10, "status": true }, { "multiplier": 8, "share_percent": 2, "status": false }
   ],
   "passcode": "123456"
 }
@@ -272,7 +272,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bea
 > **`status` ต่อขั้น / ต่อแถวรางวัล (เพิ่ม 16 ต.ค. — รอ lead ยืนยัน · spec Q10)** — ใส่ได้ใน `steps[]` (Coin / RPS) และ `prizes[]` (Scratch) ของ RE3 / RE4 · boolean · **ไม่ส่ง = `false`** · ส่ง `null` = `422`
 > backend **เก็บและคืนค่าเท่านั้น** (ใช้ล็อกขั้น / แถวตอนเกลี่ยฝั่งหน้าบ้าน) ไม่กระทบสูตร / กฎ / ผลคำนวณ · คืนใน RE2 · RE3 · RE6 ทุกขั้น / ทุกแถว (`"status": true|false`)
 > เป็นส่วนของค่า: **เปลี่ยน `status` อย่างเดียว = เวอร์ชันใหม่** (`created: true`) · ส่งชุดเดิมรวม `status` = `created: false` · ย้อนเวอร์ชัน (RE7) คืน `status` ของเวอร์ชันนั้น · RE5 `changes` ไม่แสดงการเปลี่ยน `status`
-> ตัวอย่าง: `{"multiplier": 24.761, "win_percent": 42, "status": true}` · `{"multiplier": 1, "share_percent": 35, "status": true}`
+> ตัวอย่าง request ด้านบนส่ง `status` ครบทุกขั้น / ทุกแถวให้เห็นค่า (`true` เฉพาะที่เลือก · ที่เหลือ `false`) · ไม่ส่ง = `false` เหมือนกัน · หน้าบ้านเลือกเองว่าจะส่ง / ไม่ส่ง
 
 **Response**
 ```json
