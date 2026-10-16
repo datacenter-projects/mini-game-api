@@ -13,6 +13,7 @@ package testutil
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,7 +39,14 @@ import (
 var (
 	once     sync.Once
 	setupErr error
+
+	// ถือ connection ที่ล็อก advisory lock ไว้จนจบ process (ปล่อยเมื่อ process จบ / connection ปิด) — ห้ามปิดเอง
+	lockConn *sql.Conn
 )
+
+// packageLockKey — advisory lock ของ Postgres test env: ทุก package ที่ใช้ testutil ใช้ DB / Redis ชุดเดียวกันและ TRUNCATE / FLUSHDB ทุก test
+// `go test ./...` รันหลาย package ขนานกัน (ถ้าไม่ใส่ -p 1) แล้วข้อมูลของกันและกันถูกล้างกลางทาง — lock นี้ทำให้รันได้ทีละ package เสมอ
+const packageLockKey int64 = 7_300_100_001
 
 // ตารางที่ต้องล้างระหว่าง test — เพิ่มเมื่อมีตารางใหม่
 // asset: TRUNCATE user_agents CASCADE ล้างตาราง asset ทั้งก้อน (รวมแถว GLOBAL ที่ seed) · asset_types ไม่ถูกล้าง (catalog จาก migration)
@@ -99,6 +107,9 @@ func connect() error {
 	ctx := context.Background()
 	if err := database.PostgreSQLConnection(configs.Cfg.DB); err != nil {
 		return fmt.Errorf("postgres %s:%d/%s: %w", configs.Cfg.DB.Host, configs.Cfg.DB.Port, configs.Cfg.DB.Name, err)
+	}
+	if err := lockTestEnv(ctx); err != nil {
+		return fmt.Errorf("lock test env: %w", err)
 	}
 	if err := database.Migrate(ctx, "up"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
@@ -188,4 +199,24 @@ func Call(t *testing.T, app *fiber.App, method, path string, body any, token str
 		t.Fatalf("%s %s: invalid json %q", method, path, raw)
 	}
 	return out
+}
+
+// lockTestEnv รอ advisory lock ของ test env (pg_advisory_lock — บล็อกจนกว่า package อื่นที่ถืออยู่จะจบ process) ก่อน migrate / ล้างข้อมูล
+// connection ที่ถือ lock ค้างไว้ตลอดอายุ process → package ถัดไปเริ่มได้ทันทีที่ process นี้จบ แม้ crash ก็ปล่อย (session หลุด)
+// เวลาที่รอนับรวมใน -timeout ของ package นี้ — รันทั้ง repo ต้องตั้ง -timeout พอ (CI ใช้ 20m)
+func lockTestEnv(ctx context.Context) error {
+	sqlDB, err := database.DBConn.DB()
+	if err != nil {
+		return err
+	}
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", packageLockKey); err != nil {
+		_ = conn.Close()
+		return err
+	}
+	lockConn = conn
+	return nil
 }
