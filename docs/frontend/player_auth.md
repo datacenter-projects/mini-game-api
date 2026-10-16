@@ -186,3 +186,222 @@ curl -s -X POST $BASE/api/v1/transfer/login -H 'Content-Type: application/json' 
 - สร้างผู้เล่นทดสอบ 2 แบบ: **จากหลังบ้าน** (`members/create` — มีรหัส login ที่ PA1 ด้วย username ปกติ) และ **จาก operator** (`transfer/register` ใส่ `password` หรือไม่ใส่)
 - ก่อนเรียก `transfer/*`: ที่เมนู API ของ agent (Share B2C / Agent) ต้องมี **API Key** (สร้างอัตโนมัติ) และ **IP whitelist** ของเครื่องที่ยิง
 - ทดสอบสถานะ: ตั้ง Member `SUSPENDED` / `LOCKED` ที่ `members/status/update` แล้วยิง PA5 ด้วย token เดิม
+
+## 7. ตัวอย่าง request / response ละเอียด (ต่อเส้น)
+
+> ตัวอย่างในหัวข้อนี้ได้จากการยิง API จริงใน test env (16 ต.ค.) — ตัดเฉพาะ `token` ให้สั้น (`eyJhbGciOi…`) และเวลาเป็นค่าตัวอย่าง · ยังไม่ได้ยิงบน dev
+> ทุก response มีรูปแบบ `{"code", "msg", "data"}` · เส้นที่ไม่มีข้อมูลคืน (logout · password/update) **ไม่มี `data`** · `HTTP` ในแต่ละตัวอย่างคือ status จริงที่ได้ (error ส่วนใหญ่ของฝั่งผู้เล่นเป็น `401` / `403` ยกเว้น `422` / `407205` / `407307` / `407401` ที่เป็น `200`)
+> ตัวแปรในตัวอย่าง: `{{MG_URL}}` = base URL · `{{TOKEN}}` = token จาก PA1 หรือ L2
+
+### 7.1 PA1 · `player/pb/login` — ผู้เล่น login ตรง
+
+**Request** (ไม่ต้องมี header `Authorization`)
+```bash
+curl -X POST "{{MG_URL}}/api/v1/player/pb/login" -H "Content-Type: application/json" \
+  -d '{"username":"mem01","password":"aA4b4c4d4e4f"}'
+```
+
+**Response — สำเร็จ** `HTTP 200`
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "token": "eyJhbGciOi…",
+    "expires_at": "2026-10-16T20:12:43.897+07:00",
+    "member": { "username": "mem01", "name": "Namemem01", "currency": "THB", "status": "ACTIVE", "can_bet": true }
+  }
+}
+```
+- `member.status` = `SUSPENDED` และ `can_bet: false` ได้ (login ผ่าน แต่แทงไม่ได้) · `member` ไม่มี `credit` / `id`
+
+**Response — error**
+
+| กรณี | HTTP | code | msg |
+|---|---|---|---|
+| username ไม่พบ / รหัสผิด / ผู้เล่นไม่มีรหัส (ข้อความเดียวกันหมด) | 401 | `407201` | `username หรือรหัสผ่านไม่ถูกต้อง` |
+| ผู้เล่นถูกล็อก | 403 | `407301` | `บัญชีนี้ถูกล็อก กรุณาติดต่อผู้ดูแลระบบ` |
+| สายบัญชีต้นสังกัดถูกล็อก | 403 | `407302` | `สายบัญชีต้นสังกัดถูกล็อก กรุณาติดต่อผู้ดูแลระบบ` |
+| รหัสผิดครบ 5 ครั้งใน 15 นาที | 403 | `407303` | ระงับ 15 นาที (แม้ครั้งต่อไปรหัสถูก) |
+| เรียก login เกิน 20 ครั้ง / นาที ต่อ IP | 429 | `429` | เรียกบ่อยเกินไป |
+```json
+{ "code": 407201, "msg": "username หรือรหัสผ่านไม่ถูกต้อง" }
+```
+
+### 7.2 PA5 · `player/pr/me/get` — โปรไฟล์ + สถานะ
+
+**Request** body `{}`
+```bash
+curl -X POST "{{MG_URL}}/api/v1/player/pr/me/get" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{}'
+```
+
+**Response — ACTIVE** `HTTP 200`
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "username": "mem01", "name": "Namemem01", "currency": "THB", "status": "ACTIVE", "can_bet": true } }
+```
+
+**Response — SUSPENDED** (เรียกได้ปกติ · แทงไม่ได้)
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "username": "mem01", "name": "Namemem01", "currency": "THB", "status": "SUSPENDED", "can_bet": false } }
+```
+
+**Response — ไม่ส่ง token** `HTTP 401`
+```json
+{ "code": 407202, "msg": "กรุณาเข้าสู่ระบบ" }
+```
+
+### 7.3 PA6 · `player/pr/balance/get` — ยอดเงิน (และใช้เป็น ping)
+
+**Request** body `{}`
+```bash
+curl -X POST "{{MG_URL}}/api/v1/player/pr/balance/get" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{}'
+```
+**Response** `HTTP 200`
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "currency": "THB", "credit": 1250.5 } }
+```
+- `credit` ส่งค่าที่เก็บตามจริง (ทศนิยมได้ถึง 4 ตำแหน่ง) · อ่านจาก DB ตรง ไม่ cache
+
+### 7.4 PA7 · `player/pr/games/list` — รายชื่อเกมของ lobby
+
+**Request** body `{}`
+```bash
+curl -X POST "{{MG_URL}}/api/v1/player/pr/games/list" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{}'
+```
+**Response** `HTTP 200`
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "items": [
+      { "game_code": "scratch_card",        "name_th": "สแครชการ์ด",  "name_en": "Scratch Card",        "open": true, "game_cover": "" },
+      { "game_code": "coin_toss",           "name_th": "โยนเหรียญ",   "name_en": "Coin Toss",           "open": true, "game_cover": "" },
+      { "game_code": "rock_paper_scissors", "name_th": "เป่ายิ้งฉุบ", "name_en": "Rock Paper Scissors", "open": true, "game_cover": "" }
+    ]
+  }
+}
+```
+- `open: false` = เกมปิด (ยังอยู่ในรายการ) · `game_cover` เป็น URL เมื่อมีปก ไม่มี = `""`
+
+### 7.5 PA4 · `player/pr/auth/password/update` — เปลี่ยนรหัสผ่าน
+
+**Request**
+```bash
+curl -X POST "{{MG_URL}}/api/v1/player/pr/auth/password/update" -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
+  -d '{"old_password":"aA4b4c4d4e4f","new_password":"Zx9!kq2m"}'
+```
+**Response — สำเร็จ** `HTTP 200` (ไม่มี `data` · session เดิมใช้ต่อได้)
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+
+**Response — error** (ทั้งหมด `HTTP 200`)
+
+| กรณี | code | msg |
+|---|---|---|
+| รหัสเดิมผิด (นับรวมกับ login ผิด · ครบ 5 ครั้ง = `407303` และ session ถูกตัด) | `407205` | `รหัสผ่านเดิมไม่ถูกต้อง` |
+| รหัสใหม่ไม่ผ่านกติกา (เช่น สั้นเกินไป) | `422` | `new_password ต้องยาวอย่างน้อย 8 ตัว` |
+| รหัสใหม่ซ้ำรหัสเดิม | `422` | `new_password ต้องไม่ซ้ำกับรหัสผ่านเดิม` |
+| ผู้เล่นไม่มีรหัส (มาจาก operator และไม่ได้ตั้ง) | `407307` | `บัญชีนี้ไม่มีรหัสผ่าน` |
+```json
+{ "code": 407205, "msg": "รหัสผ่านเดิมไม่ถูกต้อง" }
+```
+
+### 7.6 PA3 · `player/pr/auth/logout` — ออกจากระบบ
+
+**Request** ไม่มี body
+```bash
+curl -X POST "{{MG_URL}}/api/v1/player/pr/auth/logout" -H "Authorization: Bearer {{TOKEN}}"
+```
+**Response** `HTTP 200` (ไม่มี `data` · เรียกซ้ำ / session หมดไปแล้วก็สำเร็จ)
+```json
+{ "code": 200, "msg": "สำเร็จ" }
+```
+- token ปลอมหรือหมดอายุ → `HTTP 401` `407202`
+
+### 7.7 ผล token หลังเหตุการณ์ต่างๆ (ทุกเส้น `pr/*` ที่ไม่ใช่ logout)
+
+| เหตุการณ์ | HTTP | code | msg |
+|---|---|---|---|
+| ไม่ส่ง / ส่ง token ผิด | 401 | `407202` | `กรุณาเข้าสู่ระบบ` |
+| หลัง logout / ไม่ใช้งานเกิน 30 นาที / ครบ 4 ชม. / ถูกล็อกระหว่างใช้งาน | 401 | `407203` | `เซสชันสิ้นสุดแล้ว กรุณาเข้าสู่ระบบใหม่` |
+| มี login ใหม่จากที่อื่น (token เก่า) | 401 | `407204` | `บัญชีนี้ถูกเข้าสู่ระบบจากที่อื่น` |
+| ผู้เล่นถูกล็อก (request ถัดไป) | 403 | `407301` | `บัญชีนี้ถูกล็อก กรุณาติดต่อผู้ดูแลระบบ` |
+
+### 7.8 L2 · `transfer/login` — operator ส่งผู้เล่นเข้า lobby
+
+**Request** (operator ฝั่ง server เป็นคนยิง · IP ต้องอยู่ใน whitelist)
+```bash
+curl -X POST "{{MG_URL}}/api/v1/transfer/login" -H "Content-Type: application/json" \
+  -d '{"agent_username":"agent01","key":"<64 hex>","player_username":"p001","currency":"THB","language":"th"}'
+```
+
+**Response — สำเร็จ** `HTTP 200` (ผู้เล่นใหม่และเดิมได้รูปแบบเดียวกัน)
+```json
+{
+  "code": 200,
+  "msg": "สำเร็จ",
+  "data": {
+    "token": "eyJhbGciOi…",
+    "expires_at": "2026-10-16T20:12:43.957+07:00",
+    "link": "https://lobby.example.com/?token=eyJhbGciOi…&lang=th"
+  }
+}
+```
+- `language: "en"` → `…&lang=en` · ไม่ส่ง `language` = `th`
+
+**Response — error**
+
+| กรณี | HTTP | code | msg |
+|---|---|---|---|
+| `agent_username` หรือ `key` ผิด (ข้อความเดียวกัน ไม่บอกว่าผิดที่ไหน · ไม่สะท้อน key กลับ) | 401 | `407206` | `agent_username หรือ key ไม่ถูกต้อง` |
+| IP ไม่อยู่ใน whitelist (whitelist ว่าง = ปฏิเสธทุก IP) | 403 | `407305` | IP ไม่ได้รับอนุญาต |
+| agent ประเภทนี้ใช้ไม่ได้ (เช่น Company Transfer / Share B2B) | 403 | `407306` | `บัญชีนี้ใช้ทางเข้านี้ไม่ได้` |
+| agent ถูกระงับ + ผู้เล่นใหม่ | 403 | `407308` | `บัญชีผู้สร้างถูกระงับ สร้างผู้เล่นใหม่ไม่ได้` |
+| agent หรือสายบนถูกล็อก | 403 | `407302` | `สายบัญชีต้นสังกัดถูกล็อก กรุณาติดต่อผู้ดูแลระบบ` |
+| ผู้เล่นถูกล็อก | 403 | `407301` | `บัญชีนี้ถูกล็อก กรุณาติดต่อผู้ดูแลระบบ` |
+| `language` ไม่ใช่ `th` / `en` | 200 | `422` | `language ต้องเป็น th หรือ en` |
+| สกุลเงินไม่ตรงกับผู้เล่นที่มีอยู่ (หรือไม่ใช่สกุลของ agent) | 200 | `422` | `สกุลเงินไม่ตรงกับผู้เล่น` |
+| `player_username` ผิดรูปแบบ | 200 | `422` | `player_username ต้องเป็น a-z, 0-9 ยาว 3–32 ตัว` |
+| ไม่ได้ตั้ง `PLAYER_LOBBY_URL` ฝั่ง server | 503 | `503` | ระบบยังไม่พร้อม |
+| เรียกเกิน 20 ครั้ง / นาที ต่อ IP | 429 | `429` | เรียกบ่อยเกินไป |
+```json
+{ "code": 407206, "msg": "agent_username หรือ key ไม่ถูกต้อง" }
+```
+
+### 7.9 TR · `transfer/register` — operator สร้างผู้เล่น
+
+**Request — ไม่ส่งรหัส** (ผู้เล่นเข้าทาง operator อย่างเดียว)
+```bash
+curl -X POST "{{MG_URL}}/api/v1/transfer/register" -H "Content-Type: application/json" \
+  -d '{"agent_username":"agent01","key":"<64 hex>","player_username":"p002"}'
+```
+**Response** `HTTP 200`
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "username": "agent01@p002", "currency": "THB" } }
+```
+
+**Request — ส่งรหัส** (ผู้เล่น login ตรงที่ PA1 ได้ด้วย `agent01@p003`)
+```bash
+curl -X POST "{{MG_URL}}/api/v1/transfer/register" -H "Content-Type: application/json" \
+  -d '{"agent_username":"agent01","key":"<64 hex>","player_username":"p003","currency":"THB","password":"aA4b4c4d4e4f"}'
+```
+**Response** `HTTP 200`
+```json
+{ "code": 200, "msg": "สำเร็จ", "data": { "username": "agent01@p003", "currency": "THB" } }
+```
+
+**Response — error** (ทั้งหมด `HTTP 200` ยกเว้น operator ผิดตาม 7.8)
+
+| กรณี | code | msg |
+|---|---|---|
+| มีผู้เล่นนี้แล้ว (operator ถือว่า "สร้างไว้แล้ว" · ไม่แก้ผู้เล่นเดิม) | `407401` | `มีผู้เล่นนี้แล้ว` |
+| `password` ไม่ผ่านกติกา | `422` | `password ต้องยาวอย่างน้อย 8 ตัว` |
+
+### 7.10 ลำดับเรียกที่ใช้จริง (ผู้เล่นเข้าทาง operator)
+1. server ของ operator เรียก **L2** `transfer/login` → ได้ `link`
+2. redirect ผู้เล่นไป `link` → หน้าเกมอ่าน `token` จาก URL แล้วลบออกจาก URL ทันที
+3. หน้าเกมเรียก **PA5** `me/get` (ดู `status` / `can_bet`) และ **PA7** `games/list`
+4. ระหว่างเล่นเรียก **PA6** `balance/get` ทุก 5–10 นาที (ต่อ session)
+5. ถ้าได้ `407202` / `407203` / `407204` → กลับหน้าเริ่มต้น (ให้ operator ส่งเข้าใหม่) · ถ้า `407301` / `407302` → แจ้งผู้เล่น
