@@ -5,7 +5,7 @@ spec เต็ม: `docs/modules/game_rate.md` · **deploy บน dev แล้�
 
 > **ก่อนเทส:** ระบบไม่มีอัตราเริ่มต้น — Superadmin ต้องบันทึกอัตราของแต่ละเกมครั้งแรกเอง (RE4 · ค่าตัวอย่างหัวข้อ 4) · ยังไม่ตั้ง = `version: 0` เกมเปิดเล่นไม่ได้
 >
-> **เพิ่ม (16 ต.ค. — รอ lead ยืนยัน)** — `status` (boolean) ต่อขั้น Coin / RPS และต่อแถวรางวัล Scratch ใน RE3 / RE4 · คืนใน RE2 / RE3 / RE6 — ดูหมายเหตุใต้ตาราง RE4
+> **เพิ่ม (16 ต.ค. — lead อนุมัติ)** — `status` (boolean) ต่อขั้น Coin / RPS และต่อแถวรางวัล Scratch ใน RE3 / RE4 · คืนใน RE2 / RE3 / RE6 — ดูหมายเหตุใต้ตาราง RE4
 > **เพิ่ม / เปลี่ยน (13–14 ต.ค.)** — RE8 `rate/status/update` สวิตช์เปิด / ปิดเกมทั้งระบบ · RE1 มี `status_game` + `status_updated_at` / `status_updated_by` (เปิด / ปิดล่าสุดเมื่อไหร่ โดยใคร) · Scratch มี `prizes[].payout_percent` ต่อแถว ·
 > ข้อความ error (`msg` / `issues[].message`) ใช้ชื่ออ่านได้ เช่น "ขั้นที่ 1 · โอกาสชนะ …" — ชี้ช่องที่ผิดใช้ `issues[].field` (path เดิม)
 
@@ -269,7 +269,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bea
 | `win_percent` + `prizes` (Scratch) | `win_percent` > 0 และ ≤ 50 · รางวัล 1–10 แถว · `multiplier` > 0 ≤ 1,000 ห้ามซ้ำ · `share_percent` > 0 รวม = 100 พอดี · `status` (boolean · ไม่ส่ง = `false`) ต่อแถว |
 | `passcode` | passcode ของคนที่กด |
 
-> **`status` ต่อขั้น / ต่อแถวรางวัล (เพิ่ม 16 ต.ค. — รอ lead ยืนยัน · spec Q10)** — ใส่ได้ใน `steps[]` (Coin / RPS) และ `prizes[]` (Scratch) ของ RE3 / RE4 · boolean · **ไม่ส่ง = `false`** · ส่ง `null` = `422`
+> **`status` ต่อขั้น / ต่อแถวรางวัล (เพิ่ม 16 ต.ค. — lead อนุมัติ 2026-10-16 · spec Q10)** — ใส่ได้ใน `steps[]` (Coin / RPS) และ `prizes[]` (Scratch) ของ RE3 / RE4 · boolean · **ไม่ส่ง = `false`** · ส่ง `null` = `422`
 > backend **เก็บและคืนค่าเท่านั้น** (ใช้ล็อกขั้น / แถวตอนเกลี่ยฝั่งหน้าบ้าน) ไม่กระทบสูตร / กฎ / ผลคำนวณ · คืนใน RE2 · RE3 · RE6 ทุกขั้น / ทุกแถว (`"status": true|false`)
 > เป็นส่วนของค่า: **เปลี่ยน `status` อย่างเดียว = เวอร์ชันใหม่** (`created: true`) · ส่งชุดเดิมรวม `status` = `created: false` · ย้อนเวอร์ชัน (RE7) คืน `status` ของเวอร์ชันนั้น · RE5 `changes` ไม่แสดงการเปลี่ยน `status`
 > ตัวอย่าง: `{"multiplier": 24.761, "win_percent": 42, "status": true}` · `{"multiplier": 1, "share_percent": 35, "status": true}`
