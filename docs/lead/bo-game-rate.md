@@ -79,3 +79,15 @@ merge dev ล่าสุด (`532ae1e`) แล้ว · unit + integration ผ�
 - อ่านจาก log `UPDATE_GAMES` ที่ target เป็น Superadmin (status_game ของ Superadmin เปลี่ยนได้ทางเดียวคือ RE8) · query เดียว `DISTINCT ON` ต่อเกม · ใช้ index `idx_account_change_logs_target` · **ไม่มี migration / field ใหม่ใน DB**
 - log ของบัญชีอื่น (เช่น `agents/detail/update` ปิดเกมของ Company) ไม่นับ
 - test `TestRateStatusLastAction` (ยังไม่เคย = "" · ปิด · ส่งซ้ำ · sub เปิดคืน · log ของ Company ไม่นับ) · spec 5.1 / 5.9 + frontend RE1 / RE8
+
+## 9. `status` ต่อขั้น / ต่อแถวรางวัล (RE3 / RE4 · 2026-10-16 · ตามคำขอหน้าบ้าน — **รอ lead ยืนยัน** · spec Q10 · RATE-36)
+
+- `steps[].status` (Coin / RPS) และ `prizes[].status` (Scratch) boolean · ไม่ส่ง = `false` · `null` = `422` · ไม่มี endpoint ใหม่ · ไม่มี action
+- backend **เก็บและคืนค่าเท่านั้น** (หน้าบ้านใช้ล็อกขั้น / แถวตอนเกลี่ย %) ไม่เข้าสูตร / กฎ RATE-07 / engine
+- เป็นส่วนของค่า: เปลี่ยน `status` อย่างเดียว = เวอร์ชันใหม่ · ชุดเดิมรวม `status` = `created: false` · ย้อนเวอร์ชันคืน `status` · RE5 `changes` ไม่แสดง
+- คืนใน RE2 / RE3 / RE6 ทุกขั้น / ทุกแถว
+- migration `20261016110000_game_rate_status.sql` (`game_rate_steps.status` / `game_rate_prizes.status` `BOOLEAN NOT NULL DEFAULT false`) — **ยังไม่รันบน RDS · ยังไม่ merge เข้า dev**
+- test `TestRateStatus` (Coin ขั้น 5/6/9/10 · ไม่ส่ง = false · ชุดเดิม created false · status อย่างเดียวเปลี่ยน = เวอร์ชันใหม่ · RE6 · ย้อน · RPS · Scratch) + `TestStatusIsPartOfValuesButNotFormula` (core)
+- เอกสาร: spec Q10 / RATE-36 / schema / test case · `docs/frontend/game_rate.md` (ตัวอย่าง response + หมายเหตุ) · `docs/MIGRATION_STATUS.md`
+- commit `194b60f` · `0045be1` · `6d452a6` บน `boiledegg/bo/game_rate-settings`
+- **ขอ lead:** ยืนยันให้ merge (และให้รัน migration บน RDS dev) · ถ้าเห็นต่าง (เช่น ให้ `status` มีผลกับการเล่น หรือแสดงใน RE5 `changes`) ต้องออก spec เพิ่ม

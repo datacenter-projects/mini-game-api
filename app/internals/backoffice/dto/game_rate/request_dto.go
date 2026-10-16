@@ -55,12 +55,14 @@ type StepIn struct {
 	Multiplier  *float64 `json:"multiplier"`
 	WinPercent  *float64 `json:"win_percent"`
 	DrawPercent *float64 `json:"draw_percent"`
+	Status      bool     `json:"status"` // ไม่ส่ง = false
 }
 
 // PrizeIn — 1 แถวรางวัลของรูปแบบ prizes
 type PrizeIn struct {
 	Multiplier   *float64 `json:"multiplier"`
 	SharePercent *float64 `json:"share_percent"`
+	Status       bool     `json:"status"` // ไม่ส่ง = false
 }
 
 // RatesInput — ค่าอัตราของ 1 เกม (RE3 · RE4) · ส่ง field ของรูปแบบอื่น = 422 (RATE-01)
@@ -116,6 +118,7 @@ func (r *RatesInput) validateSteps() error {
 		if r.Values[i].WinPercent, err = decimal4(p+"win_percent", s.WinPercent); err != nil {
 			return err
 		}
+		r.Values[i].Status = s.Status
 	}
 	return FormatError(gameRateCore.CheckStepsFormat(r.Values, r.Spec.StepCount), "steps", r.Spec.StepCount)
 }
@@ -140,6 +143,7 @@ func (r *RatesInput) validatePrizes() error {
 		if r.Scratch.Prizes[i].SharePercent, err = decimal4(f+"share_percent", p.SharePercent); err != nil {
 			return err
 		}
+		r.Scratch.Prizes[i].Status = p.Status
 	}
 	return FormatError(gameRateCore.CheckScratchFormat(r.Scratch), "prizes", 0)
 }

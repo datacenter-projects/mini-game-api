@@ -5,6 +5,7 @@ spec เต็ม: `docs/modules/game_rate.md` · **deploy บน dev แล้�
 
 > **ก่อนเทส:** ระบบไม่มีอัตราเริ่มต้น — Superadmin ต้องบันทึกอัตราของแต่ละเกมครั้งแรกเอง (RE4 · ค่าตัวอย่างหัวข้อ 4) · ยังไม่ตั้ง = `version: 0` เกมเปิดเล่นไม่ได้
 >
+> **เพิ่ม (16 ต.ค. — รอ lead ยืนยัน)** — `status` (boolean) ต่อขั้น Coin / RPS และต่อแถวรางวัล Scratch ใน RE3 / RE4 · คืนใน RE2 / RE3 / RE6 — ดูหมายเหตุใต้ตาราง RE4
 > **เพิ่ม / เปลี่ยน (13–14 ต.ค.)** — RE8 `rate/status/update` สวิตช์เปิด / ปิดเกมทั้งระบบ · RE1 มี `status_game` + `status_updated_at` / `status_updated_by` (เปิด / ปิดล่าสุดเมื่อไหร่ โดยใคร) · Scratch มี `prizes[].payout_percent` ต่อแถว ·
 > ข้อความ error (`msg` / `issues[].message`) ใช้ชื่ออ่านได้ เช่น "ขั้นที่ 1 · โอกาสชนะ …" — ชี้ช่องที่ผิดใช้ `issues[].field` (path เดิม)
 
@@ -97,16 +98,16 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/get" -H "Authorization: Bearer
     "game_code": "coin_toss",
     "version": 1,
     "steps": [
-      { "step": 1,  "multiplier": 1.9,      "win_percent": 50, "reach_percent": 50,     "payout_percent": 95,      "house_edge_percent": 5,       "max_win_percent": 50 },
-      { "step": 2,  "multiplier": 3.61,     "win_percent": 48, "reach_percent": 24,     "payout_percent": 86.64,   "house_edge_percent": 13.36,   "max_win_percent": 50 },
-      { "step": 3,  "multiplier": 6.859,    "win_percent": 46, "reach_percent": 11.04,  "payout_percent": 75.7234, "house_edge_percent": 24.2766, "max_win_percent": 50 },
-      { "step": 4,  "multiplier": 13.0321,  "win_percent": 44, "reach_percent": 4.8576, "payout_percent": 63.3047, "house_edge_percent": 36.6953, "max_win_percent": 50 },
-      { "step": 5,  "multiplier": 24.761,   "win_percent": 42, "reach_percent": 2.0402, "payout_percent": 50.5172, "house_edge_percent": 49.4828, "max_win_percent": 50 },
-      { "step": 6,  "multiplier": 47.0459,  "win_percent": 40, "reach_percent": 0.8161, "payout_percent": 38.3931, "house_edge_percent": 61.6069, "max_win_percent": 50 },
-      { "step": 7,  "multiplier": 89.3872,  "win_percent": 38, "reach_percent": 0.3101, "payout_percent": 27.7198, "house_edge_percent": 72.2802, "max_win_percent": 50 },
-      { "step": 8,  "multiplier": 169.8356, "win_percent": 36, "reach_percent": 0.1116, "payout_percent": 18.9603, "house_edge_percent": 81.0397, "max_win_percent": 50 },
-      { "step": 9,  "multiplier": 322.6877, "win_percent": 34, "reach_percent": 0.038,  "payout_percent": 12.2484, "house_edge_percent": 87.7516, "max_win_percent": 50 },
-      { "step": 10, "multiplier": 613.1066, "win_percent": 32, "reach_percent": 0.0121, "payout_percent": 7.447,   "house_edge_percent": 92.553,  "max_win_percent": 50 }
+      { "step": 1,  "multiplier": 1.9,      "win_percent": 50, "reach_percent": 50,     "payout_percent": 95,      "house_edge_percent": 5,       "max_win_percent": 50, "status": false },
+      { "step": 2,  "multiplier": 3.61,     "win_percent": 48, "reach_percent": 24,     "payout_percent": 86.64,   "house_edge_percent": 13.36,   "max_win_percent": 50, "status": false },
+      { "step": 3,  "multiplier": 6.859,    "win_percent": 46, "reach_percent": 11.04,  "payout_percent": 75.7234, "house_edge_percent": 24.2766, "max_win_percent": 50, "status": false },
+      { "step": 4,  "multiplier": 13.0321,  "win_percent": 44, "reach_percent": 4.8576, "payout_percent": 63.3047, "house_edge_percent": 36.6953, "max_win_percent": 50, "status": false },
+      { "step": 5,  "multiplier": 24.761,   "win_percent": 42, "reach_percent": 2.0402, "payout_percent": 50.5172, "house_edge_percent": 49.4828, "max_win_percent": 50, "status": false },
+      { "step": 6,  "multiplier": 47.0459,  "win_percent": 40, "reach_percent": 0.8161, "payout_percent": 38.3931, "house_edge_percent": 61.6069, "max_win_percent": 50, "status": false },
+      { "step": 7,  "multiplier": 89.3872,  "win_percent": 38, "reach_percent": 0.3101, "payout_percent": 27.7198, "house_edge_percent": 72.2802, "max_win_percent": 50, "status": false },
+      { "step": 8,  "multiplier": 169.8356, "win_percent": 36, "reach_percent": 0.1116, "payout_percent": 18.9603, "house_edge_percent": 81.0397, "max_win_percent": 50, "status": false },
+      { "step": 9,  "multiplier": 322.6877, "win_percent": 34, "reach_percent": 0.038,  "payout_percent": 12.2484, "house_edge_percent": 87.7516, "max_win_percent": 50, "status": false },
+      { "step": 10, "multiplier": 613.1066, "win_percent": 32, "reach_percent": 0.0121, "payout_percent": 7.447,   "house_edge_percent": 92.553,  "max_win_percent": 50, "status": false }
     ],
     "min_house_edge_percent": 5,
     "min_house_edge_step": 1,
@@ -140,11 +141,11 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/get" -H "Authorization: Bearer
     "version": 2,
     "win_percent": 50,
     "prizes": [
-      { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 8.75 },
-      { "row_no": 2, "multiplier": 1,   "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 17.5 },
-      { "row_no": 3, "multiplier": 2,   "share_percent": 18, "per_ticket_percent": 9, "payout_percent": 18 },
-      { "row_no": 4, "multiplier": 5,   "share_percent": 10, "per_ticket_percent": 5, "payout_percent": 25 },
-      { "row_no": 5, "multiplier": 8,   "share_percent": 2,  "per_ticket_percent": 1, "payout_percent": 8 }
+      { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 8.75, "status": false },
+      { "row_no": 2, "multiplier": 1,   "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 17.5, "status": false },
+      { "row_no": 3, "multiplier": 2,   "share_percent": 18, "per_ticket_percent": 9, "payout_percent": 18, "status": false },
+      { "row_no": 4, "multiplier": 5,   "share_percent": 10, "per_ticket_percent": 5, "payout_percent": 25, "status": false },
+      { "row_no": 5, "multiplier": 8,   "share_percent": 2,  "per_ticket_percent": 1, "payout_percent": 8, "status": false }
     ],
     "avg_multiplier": 1.545,
     "payout_percent": 77.25,
@@ -184,8 +185,8 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/check" -H "Authorization: Bear
       { "field": "steps[0].win_percent", "code": 406101, "message": "ขั้นที่ 1 · โอกาสชนะ ตั้งได้ไม่เกิน 49.7487% (ร้านต้องได้อย่างน้อย 1%)" }
     ],
     "steps": [
-      { "step": 1, "multiplier": 1.99, "win_percent": 50, "reach_percent": 50, "payout_percent": 99.5, "house_edge_percent": 0.5, "max_win_percent": 49.7487 },
-      { "step": 2, "multiplier": 3.61, "win_percent": 48, "reach_percent": 24, "payout_percent": 86.64, "house_edge_percent": 13.36, "max_win_percent": 50 }
+      { "step": 1, "multiplier": 1.99, "win_percent": 50, "reach_percent": 50, "payout_percent": 99.5, "house_edge_percent": 0.5, "max_win_percent": 49.7487, "status": false },
+      { "step": 2, "multiplier": 3.61, "win_percent": 48, "reach_percent": 24, "payout_percent": 86.64, "house_edge_percent": 13.36, "max_win_percent": 50, "status": false }
     ],
     "min_house_edge_percent": 0.5,
     "min_house_edge_step": 1,
@@ -205,7 +206,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/check" -H "Authorization: Bear
     "valid": true,
     "issues": [],
     "win_percent": 50,
-    "prizes": [ { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 8.75 } ],
+    "prizes": [ { "row_no": 1, "multiplier": 0.5, "share_percent": 35, "per_ticket_percent": 17.5, "payout_percent": 8.75, "status": false } ],
     "avg_multiplier": 1.545,
     "payout_percent": 77.25,
     "house_edge_percent": 22.75,
@@ -264,9 +265,14 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bea
 |---|---|
 | `game_code` | `scratch_card` · `coin_toss` · `rock_paper_scissors` (ไม่มี = `406401`) |
 | `base_version` | `version` จาก RE2 ที่หน้าจอโหลดมา · ยังไม่เคยตั้ง = `0` · ไม่ตรง = `406301` |
-| `steps` (Coin / RPS) | ครบ 10 ขั้น · `multiplier` 1–1,000 และมากกว่าขั้นก่อน · `win_percent` > 0 และ ≤ 50 · ห้ามส่ง `draw_percent` |
-| `win_percent` + `prizes` (Scratch) | `win_percent` > 0 และ ≤ 50 · รางวัล 1–10 แถว · `multiplier` > 0 ≤ 1,000 ห้ามซ้ำ · `share_percent` > 0 รวม = 100 พอดี |
+| `steps` (Coin / RPS) | ครบ 10 ขั้น · `multiplier` 1–1,000 และมากกว่าขั้นก่อน · `win_percent` > 0 และ ≤ 50 · ห้ามส่ง `draw_percent` · `status` (boolean · ไม่ส่ง = `false`) ต่อขั้น — ดูหมายเหตุ `status` ด้านล่าง |
+| `win_percent` + `prizes` (Scratch) | `win_percent` > 0 และ ≤ 50 · รางวัล 1–10 แถว · `multiplier` > 0 ≤ 1,000 ห้ามซ้ำ · `share_percent` > 0 รวม = 100 พอดี · `status` (boolean · ไม่ส่ง = `false`) ต่อแถว |
 | `passcode` | passcode ของคนที่กด |
+
+> **`status` ต่อขั้น / ต่อแถวรางวัล (เพิ่ม 16 ต.ค. — รอ lead ยืนยัน · spec Q10)** — ใส่ได้ใน `steps[]` (Coin / RPS) และ `prizes[]` (Scratch) ของ RE3 / RE4 · boolean · **ไม่ส่ง = `false`** · ส่ง `null` = `422`
+> backend **เก็บและคืนค่าเท่านั้น** (ใช้ล็อกขั้น / แถวตอนเกลี่ยฝั่งหน้าบ้าน) ไม่กระทบสูตร / กฎ / ผลคำนวณ · คืนใน RE2 · RE3 · RE6 ทุกขั้น / ทุกแถว (`"status": true|false`)
+> เป็นส่วนของค่า: **เปลี่ยน `status` อย่างเดียว = เวอร์ชันใหม่** (`created: true`) · ส่งชุดเดิมรวม `status` = `created: false` · ย้อนเวอร์ชัน (RE7) คืน `status` ของเวอร์ชันนั้น · RE5 `changes` ไม่แสดงการเปลี่ยน `status`
+> ตัวอย่าง: `{"multiplier": 24.761, "win_percent": 42, "status": true}` · `{"multiplier": 1, "share_percent": 35, "status": true}`
 
 **Response**
 ```json
@@ -369,9 +375,9 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/versions/detail/get" -H "Authorizatio
     "version": 1,
     "win_percent": 35,
     "prizes": [
-      { "row_no": 1, "multiplier": 0.5, "share_percent": 20, "per_ticket_percent": 7, "payout_percent": 3.5 },
-      { "row_no": 2, "multiplier": 1,   "share_percent": 50, "per_ticket_percent": 17.5, "payout_percent": 17.5 },
-      { "row_no": 3, "multiplier": 2,   "share_percent": 30, "per_ticket_percent": 10.5, "payout_percent": 21 }
+      { "row_no": 1, "multiplier": 0.5, "share_percent": 20, "per_ticket_percent": 7, "payout_percent": 3.5, "status": false },
+      { "row_no": 2, "multiplier": 1,   "share_percent": 50, "per_ticket_percent": 17.5, "payout_percent": 17.5, "status": false },
+      { "row_no": 3, "multiplier": 2,   "share_percent": 30, "per_ticket_percent": 10.5, "payout_percent": 21, "status": false }
     ],
     "avg_multiplier": 1.2,
     "payout_percent": 42,

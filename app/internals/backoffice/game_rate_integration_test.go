@@ -274,8 +274,8 @@ func TestRateVersions(t *testing.T) { // RATE-05 / 05A / 05B / 05C · RE1 / RE2 
 	// RE2 ต่อแถว: per_ticket = W × share · payout = per_ticket × multiplier (RATE-34 · รวม 85 = payout ของใบ)
 	r = call(t, app, "POST", rateDetailPath, map[string]any{"game_code": "scratch_card"}, c.saTok)
 	expect(t, r, 200, 200)
-	for _, want := range []string{`"per_ticket_percent":30,"payout_percent":30}`, `"per_ticket_percent":15,"payout_percent":30}`,
-		`"per_ticket_percent":5,"payout_percent":25}`, `"payout_percent":85,`} {
+	for _, want := range []string{`"per_ticket_percent":30,"payout_percent":30,"status":false}`, `"per_ticket_percent":15,"payout_percent":30,"status":false}`,
+		`"per_ticket_percent":5,"payout_percent":25,"status":false}`, `"payout_percent":85,`} {
 		if !strings.Contains(string(r.Data), want) {
 			t.Fatalf("RE2 ไม่มี %s ใน %s", want, r.Data)
 		}
@@ -460,5 +460,121 @@ func TestRateEngineFunctions(t *testing.T) { // หัวข้อ 5.8 · RATE-0
 	}
 	if _, err := gameRateService.ByVersionIDService(ctx, 999999); !errors.Is(err, gameRateService.ErrRateVersionMissing) {
 		t.Fatalf("id ไม่มี %v", err)
+	}
+}
+
+// statusOf — status ต่อขั้น / ต่อแถวจาก response (key ของ array: steps / prizes)
+func statusOf(t *testing.T, data json.RawMessage, key string) []bool {
+	t.Helper()
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	var items []struct {
+		Status *bool `json:"status"`
+	}
+	if err := json.Unmarshal(raw[key], &items); err != nil {
+		t.Fatal(err)
+	}
+	out := make([]bool, len(items))
+	for i, s := range items {
+		if s.Status == nil {
+			t.Fatalf("%s[%d] ไม่มี status ใน %s", key, i, data)
+		}
+		out[i] = *s.Status
+	}
+	return out
+}
+
+func withStatus(items []map[string]any, on ...int) []map[string]any { // on = ลำดับ (0 = ตัวแรก) ที่ status true · ที่เหลือไม่ส่ง
+	for _, i := range on {
+		items[i]["status"] = true
+	}
+	return items
+}
+
+func wantStatus(t *testing.T, label string, got []bool, on ...int) {
+	t.Helper()
+	want := make([]bool, len(got))
+	for _, i := range on {
+		want[i] = true
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("%s: status = %v want %v", label, got, want)
+		}
+	}
+}
+
+func TestRateStatus(t *testing.T) { // status ต่อขั้น (Coin / RPS) · ต่อแถวรางวัล (Scratch): เก็บ / คืนให้หน้าบ้าน ไม่กระทบสูตร
+	app := setup2(t)
+	c := buildChain(t, app)
+
+	// ไม่ส่ง = false · ส่งบางขั้น = true เฉพาะขั้นนั้น · RE3 สะท้อนกลับ
+	chk := coinBody(0, withStatus(rateSteps(nil), 4, 5, 8, 9))
+	delete(chk, "passcode")
+	delete(chk, "base_version")
+	r := call(t, app, "POST", rateCheckPath, chk, c.saTok)
+	expect(t, r, 200, 200)
+	wantStatus(t, "check", statusOf(t, r.Data, "steps"), 4, 5, 8, 9)
+
+	v1 := saveRate(t, app, c.saTok, rateUpdatePath, coinBody(0, withStatus(rateSteps(nil), 4, 5, 8, 9)))
+	if !v1.Created || v1.Version != 1 {
+		t.Fatalf("v1 %+v", v1)
+	}
+	r = call(t, app, "POST", rateDetailPath, map[string]any{"game_code": "coin_toss"}, c.saTok)
+	expect(t, r, 200, 200)
+	wantStatus(t, "RE2", statusOf(t, r.Data, "steps"), 4, 5, 8, 9)
+	if !strings.Contains(string(r.Data), `"payout_percent":95,`) { // สูตรเท่าเดิม (ขั้น 1: 1.9 × 50%)
+		t.Fatalf("สูตรต้องไม่เปลี่ยน: %s", r.Data)
+	}
+
+	// ส่งชุดเดิมทั้ง status → created false · status ต่างอย่างเดียว → เวอร์ชันใหม่
+	if s := saveRate(t, app, c.saTok, rateUpdatePath, coinBody(1, withStatus(rateSteps(nil), 4, 5, 8, 9))); s.Created || s.Version != 1 {
+		t.Fatalf("ค่าเดิม %+v", s)
+	}
+	v2 := saveRate(t, app, c.saTok, rateUpdatePath, coinBody(1, rateSteps(nil))) // ไม่ส่ง status ทุกขั้น = false หมด
+	if !v2.Created || v2.Version != 2 {
+		t.Fatalf("status อย่างเดียวเปลี่ยนต้องเป็นเวอร์ชันใหม่ %+v", v2)
+	}
+	r = call(t, app, "POST", rateDetailPath, map[string]any{"game_code": "coin_toss"}, c.saTok)
+	wantStatus(t, "RE2 v2", statusOf(t, r.Data, "steps"))
+
+	// RE6 ดูเวอร์ชันเก่า + ย้อน = status กลับมาด้วย
+	r = call(t, app, "POST", rateVersionPath, map[string]any{"game_code": "coin_toss", "version": 1}, c.saTok)
+	expect(t, r, 200, 200)
+	wantStatus(t, "RE6 v1", statusOf(t, r.Data, "steps"), 4, 5, 8, 9)
+	rb := saveRate(t, app, c.saTok, rateRollbackPath, map[string]any{"game_code": "coin_toss", "version": 1, "base_version": 2, "passcode": passcode})
+	if !rb.Created || rb.Version != 3 {
+		t.Fatalf("rollback %+v", rb)
+	}
+	r = call(t, app, "POST", rateDetailPath, map[string]any{"game_code": "coin_toss"}, c.saTok)
+	wantStatus(t, "RE2 หลังย้อน", statusOf(t, r.Data, "steps"), 4, 5, 8, 9)
+
+	// RPS ใช้ได้เหมือนกัน
+	rps := coinBody(0, withStatus(rateSteps(nil), 0))
+	rps["game_code"] = "rock_paper_scissors"
+	saveRate(t, app, c.saTok, rateUpdatePath, rps)
+	r = call(t, app, "POST", rateDetailPath, map[string]any{"game_code": "rock_paper_scissors"}, c.saTok)
+	wantStatus(t, "RPS", statusOf(t, r.Data, "steps"), 0)
+
+	// Scratch: status ต่อแถวรางวัล
+	chkS := scratchBody(0, 50, withStatus(ratePrizes(), 1, 3))
+	delete(chkS, "passcode")
+	delete(chkS, "base_version")
+	r = call(t, app, "POST", rateCheckPath, chkS, c.saTok)
+	expect(t, r, 200, 200)
+	wantStatus(t, "check scratch", statusOf(t, r.Data, "prizes"), 1, 3)
+	sv := saveRate(t, app, c.saTok, rateUpdatePath, scratchBody(0, 50, withStatus(ratePrizes(), 1, 3)))
+	if !sv.Created {
+		t.Fatalf("scratch %+v", sv)
+	}
+	r = call(t, app, "POST", rateDetailPath, map[string]any{"game_code": "scratch_card"}, c.saTok)
+	wantStatus(t, "RE2 scratch", statusOf(t, r.Data, "prizes"), 1, 3)
+	if !strings.Contains(string(r.Data), `"payout_percent":77.25,`) {
+		t.Fatalf("สูตร scratch ต้องไม่เปลี่ยน: %s", r.Data)
+	}
+	if s := saveRate(t, app, c.saTok, rateUpdatePath, scratchBody(1, 50, withStatus(ratePrizes(), 1, 3))); s.Created {
+		t.Fatalf("scratch ค่าเดิมต้องไม่สร้างเวอร์ชัน %+v", s)
 	}
 }

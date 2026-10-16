@@ -28,6 +28,7 @@ type GameRateStep struct {
 	Step       int     `gorm:"column:step;primaryKey"`
 	Multiplier float64 `gorm:"column:multiplier"`
 	WinPercent float64 `gorm:"column:win_percent"`
+	Status     bool    `gorm:"column:status"` // ค่าที่หน้าบ้านเก็บไว้ (ไม่กระทบสูตร)
 }
 
 func (GameRateStep) TableName() string { return "game_rate_steps" }
@@ -38,6 +39,7 @@ type GameRatePrize struct {
 	RowNo        int     `gorm:"column:row_no;primaryKey"`
 	Multiplier   float64 `gorm:"column:multiplier"`
 	SharePercent float64 `gorm:"column:share_percent"`
+	Status       bool    `gorm:"column:status"` // ค่าที่หน้าบ้านเก็บไว้ (ไม่กระทบสูตร)
 }
 
 func (GameRatePrize) TableName() string { return "game_rate_prizes" }
