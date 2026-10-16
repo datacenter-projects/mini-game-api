@@ -264,9 +264,14 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/rate/detail/update" -H "Authorization: Bea
 |---|---|
 | `game_code` | `scratch_card` · `coin_toss` · `rock_paper_scissors` (ไม่มี = `406401`) |
 | `base_version` | `version` จาก RE2 ที่หน้าจอโหลดมา · ยังไม่เคยตั้ง = `0` · ไม่ตรง = `406301` |
-| `steps` (Coin / RPS) | ครบ 10 ขั้น · `multiplier` 1–1,000 และมากกว่าขั้นก่อน · `win_percent` > 0 และ ≤ 50 · ห้ามส่ง `draw_percent` |
-| `win_percent` + `prizes` (Scratch) | `win_percent` > 0 และ ≤ 50 · รางวัล 1–10 แถว · `multiplier` > 0 ≤ 1,000 ห้ามซ้ำ · `share_percent` > 0 รวม = 100 พอดี |
+| `steps` (Coin / RPS) | ครบ 10 ขั้น · `multiplier` 1–1,000 และมากกว่าขั้นก่อน · `win_percent` > 0 และ ≤ 50 · ห้ามส่ง `draw_percent` · `status` (boolean · ไม่ส่ง = `false`) ต่อขั้น — ดูหมายเหตุ `status` ด้านล่าง |
+| `win_percent` + `prizes` (Scratch) | `win_percent` > 0 และ ≤ 50 · รางวัล 1–10 แถว · `multiplier` > 0 ≤ 1,000 ห้ามซ้ำ · `share_percent` > 0 รวม = 100 พอดี · `status` (boolean · ไม่ส่ง = `false`) ต่อแถว |
 | `passcode` | passcode ของคนที่กด |
+
+> **`status` ต่อขั้น / ต่อแถวรางวัล (เพิ่ม 16 ต.ค. — รอ lead ยืนยัน · spec Q10)** — ใส่ได้ใน `steps[]` (Coin / RPS) และ `prizes[]` (Scratch) ของ RE3 / RE4 · boolean · **ไม่ส่ง = `false`** · ส่ง `null` = `422`
+> backend **เก็บและคืนค่าเท่านั้น** (ใช้ล็อกขั้น / แถวตอนเกลี่ยฝั่งหน้าบ้าน) ไม่กระทบสูตร / กฎ / ผลคำนวณ · คืนใน RE2 · RE3 · RE6 ทุกขั้น / ทุกแถว (`"status": true|false`)
+> เป็นส่วนของค่า: **เปลี่ยน `status` อย่างเดียว = เวอร์ชันใหม่** (`created: true`) · ส่งชุดเดิมรวม `status` = `created: false` · ย้อนเวอร์ชัน (RE7) คืน `status` ของเวอร์ชันนั้น · RE5 `changes` ไม่แสดงการเปลี่ยน `status`
+> ตัวอย่าง: `{"multiplier": 24.761, "win_percent": 42, "status": true}` · `{"multiplier": 1, "share_percent": 35, "status": true}`
 
 **Response**
 ```json

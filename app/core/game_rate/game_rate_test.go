@@ -9,13 +9,17 @@ import (
 
 // ชุดตัวอย่าง Coin / RPS: ขั้น 1–2 จาก diagram ของ lead · ขั้น 3–10 = ตัวคูณ 1.9^n ปัด 4 ตำแหน่ง · ชนะลดขั้นละ 2% (spec 5.2)
 func diagramSteps() []Step {
-	return []Step{{1.9, 50}, {3.61, 48}, {6.859, 46}, {13.0321, 44}, {24.761, 42},
-		{47.0459, 40}, {89.3872, 38}, {169.8356, 36}, {322.6877, 34}, {613.1066, 32}}
+	m, w := []float64{1.9, 3.61, 6.859, 13.0321, 24.761, 47.0459, 89.3872, 169.8356, 322.6877, 613.1066}, []float64{50, 48, 46, 44, 42, 40, 38, 36, 34, 32}
+	out := make([]Step, len(m))
+	for i := range m {
+		out[i] = Step{Multiplier: m[i], WinPercent: w[i]}
+	}
+	return out
 }
 
 // ตัวอย่าง Scratch ใน diagram: W 50% · 0.5×/35 · 1×/35 · 2×/18 · 5×/10 · 8×/2
 func diagramScratch() Scratch {
-	return Scratch{WinPercent: 50, Prizes: []Prize{{0.5, 35}, {1, 35}, {2, 18}, {5, 10}, {8, 2}}}
+	return Scratch{WinPercent: 50, Prizes: prizesOf([][2]float64{{0.5, 35}, {1, 35}, {2, 18}, {5, 10}, {8, 2}})}
 }
 
 func TestEveryGameHasSpec(t *testing.T) { // RATE-01A: เพิ่มเกมใน core/game ต้องเพิ่มรูปแบบอัตราที่นี่ด้วย
@@ -63,10 +67,10 @@ func TestComputeStepsHouseEdgeBoundary(t *testing.T) { // RATE-07 · lead RR2: �
 		step1 Step
 		ok    bool
 	}{
-		{"edge = 1% พอดี", Step{1.98, 50}, true},
-		{"edge 0.99998%", Step{1.98, 50.0001}, false},
-		{"ค่าที่ max_win บอก (ปัดลง 49.7487) ตั้งได้จริง", Step{1.99, 49.7487}, true},
-		{"สูงกว่า max_win 0.0001 ไม่ผ่าน", Step{1.99, 49.7488}, false},
+		{"edge = 1% พอดี", Step{Multiplier: 1.98, WinPercent: 50}, true},
+		{"edge 0.99998%", Step{Multiplier: 1.98, WinPercent: 50.0001}, false},
+		{"ค่าที่ max_win บอก (ปัดลง 49.7487) ตั้งได้จริง", Step{Multiplier: 1.99, WinPercent: 49.7487}, true},
+		{"สูงกว่า max_win 0.0001 ไม่ผ่าน", Step{Multiplier: 1.99, WinPercent: 49.7488}, false},
 	}
 	for _, tt := range tests {
 		s := append([]Step{tt.step1}, steps[1:]...)
@@ -175,7 +179,7 @@ func TestCheckStepsFormat(t *testing.T) { // RATE-10 / 11 / 20 / 21 · lead RR3
 func TestCheckScratchFormat(t *testing.T) { // RATE-30 / 31
 	many := make([]Prize, 11)
 	for i := range many {
-		many[i] = Prize{float64(i + 1), 1}
+		many[i] = Prize{Multiplier: float64(i + 1), SharePercent: 1}
 	}
 	tests := []struct {
 		name string
@@ -240,8 +244,8 @@ func TestDiffSteps(t *testing.T) { // RE5 changes (Q4)
 }
 
 func TestDiffStepsCountChanged(t *testing.T) { // เกมเปลี่ยนจำนวนขั้น: ขั้นที่หายไป To nil · ขั้นที่เพิ่ม From nil
-	prev := []Step{{1.9, 50}, {3.61, 48}, {6.859, 46}}
-	cur := []Step{{1.9, 50}, {3.61, 48}}
+	prev := stepsOf([][2]float64{{1.9, 50}, {3.61, 48}, {6.859, 46}})
+	cur := stepsOf([][2]float64{{1.9, 50}, {3.61, 48}})
 	want := []Change{
 		{Type: ChangeStep, Step: 3, Field: "multiplier", From: ptr(6.859)},
 		{Type: ChangeStep, Step: 3, Field: "win_percent", From: ptr(46)},
@@ -259,8 +263,8 @@ func TestDiffScratch(t *testing.T) { // RE5 changes (Q4) · จับคู่�
 	if got := DiffScratch(nil, diagramScratch()); len(got) != 0 {
 		t.Fatalf("เวอร์ชันแรกต้องไม่มีรายการ %+v", got)
 	}
-	prev := Scratch{WinPercent: 35, Prizes: []Prize{{0.5, 20}, {1, 50}, {2, 30}}}
-	cur := Scratch{WinPercent: 50, Prizes: []Prize{{1, 60}, {2, 30}, {5, 10}}}
+	prev := Scratch{WinPercent: 35, Prizes: prizesOf([][2]float64{{0.5, 20}, {1, 50}, {2, 30}})}
+	cur := Scratch{WinPercent: 50, Prizes: prizesOf([][2]float64{{1, 60}, {2, 30}, {5, 10}})}
 	want := []Change{
 		{Type: ChangeWinPercent, From: ptr(35), To: ptr(50)},
 		{Type: ChangePrizeShare, Multiplier: 1, From: ptr(50), To: ptr(60)},
@@ -272,5 +276,50 @@ func TestDiffScratch(t *testing.T) { // RE5 changes (Q4) · จับคู่�
 	}
 	if got := DiffScratch(&prev, prev); len(got) != 0 {
 		t.Fatalf("ค่าเดิมต้องไม่มีรายการ %+v", got)
+	}
+}
+
+func stepsOf(v [][2]float64) []Step {
+	out := make([]Step, len(v))
+	for i, x := range v {
+		out[i] = Step{Multiplier: x[0], WinPercent: x[1]}
+	}
+	return out
+}
+
+func prizesOf(v [][2]float64) []Prize {
+	out := make([]Prize, len(v))
+	for i, x := range v {
+		out[i] = Prize{Multiplier: x[0], SharePercent: x[1]}
+	}
+	return out
+}
+
+// status เป็นส่วนของค่า: เปลี่ยนอย่างเดียวก็ไม่เท่าเดิม (บันทึกเป็นเวอร์ชันใหม่) · ไม่กระทบสูตร
+func TestStatusIsPartOfValuesButNotFormula(t *testing.T) {
+	a := diagramSteps()
+	b := diagramSteps()
+	if !SameSteps(a, b) {
+		t.Fatal("ค่าเท่ากันต้อง same")
+	}
+	b[4].Status = true
+	if SameSteps(a, b) {
+		t.Error("status ต่างต้องไม่ same (steps)")
+	}
+	ra, sa, _ := ComputeSteps(a)
+	rb, sb, _ := ComputeSteps(b)
+	if sa != sb || len(ra) != len(rb) || ra[4] != rb[4] {
+		t.Error("status ต้องไม่กระทบสูตร (steps)")
+	}
+
+	x, y := diagramScratch(), diagramScratch()
+	y.Prizes[2].Status = true
+	if SameScratch(x, y) {
+		t.Error("status ต่างต้องไม่ same (scratch)")
+	}
+	cx, _ := ComputeScratch(x)
+	cy, _ := ComputeScratch(y)
+	if cx.PayoutPercent != cy.PayoutPercent || cx.HouseEdgePercent != cy.HouseEdgePercent {
+		t.Error("status ต้องไม่กระทบสูตร (scratch)")
 	}
 }

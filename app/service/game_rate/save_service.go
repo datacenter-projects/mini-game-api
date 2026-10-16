@@ -88,13 +88,13 @@ func saveRates(ctx context.Context, tx *gorm.DB, actor agentAuthService.Actor, m
 	case gameRateCore.KindSteps:
 		rows := make([]models.GameRateStep, len(next.Steps))
 		for i, s := range next.Steps {
-			rows[i] = models.GameRateStep{VersionID: v.ID, Step: i + 1, Multiplier: s.Multiplier, WinPercent: s.WinPercent}
+			rows[i] = models.GameRateStep{VersionID: v.ID, Step: i + 1, Multiplier: s.Multiplier, WinPercent: s.WinPercent, Status: s.Status}
 		}
 		err = gameRatePostgres.CreateStepsRepository(tx, rows)
 	case gameRateCore.KindPrizes:
 		rows := make([]models.GameRatePrize, len(next.Scratch.Prizes))
 		for i, p := range next.Scratch.Prizes {
-			rows[i] = models.GameRatePrize{VersionID: v.ID, RowNo: i + 1, Multiplier: p.Multiplier, SharePercent: p.SharePercent}
+			rows[i] = models.GameRatePrize{VersionID: v.ID, RowNo: i + 1, Multiplier: p.Multiplier, SharePercent: p.SharePercent, Status: p.Status}
 		}
 		err = gameRatePostgres.CreatePrizesRepository(tx, rows)
 	}

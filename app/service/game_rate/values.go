@@ -47,7 +47,7 @@ func loadRates(db *gorm.DB, versions []models.GameRateVersion) (map[uint]Rates, 
 	}
 	for _, s := range steps { // เรียง version_id, step แล้ว
 		r := out[s.VersionID]
-		r.Steps = append(r.Steps, gameRateCore.Step{Multiplier: s.Multiplier, WinPercent: s.WinPercent})
+		r.Steps = append(r.Steps, gameRateCore.Step{Multiplier: s.Multiplier, WinPercent: s.WinPercent, Status: s.Status})
 		out[s.VersionID] = r
 	}
 	prizes, err := gameRatePostgres.ListPrizesByVersionIDsRepository(db, ids)
@@ -56,7 +56,7 @@ func loadRates(db *gorm.DB, versions []models.GameRateVersion) (map[uint]Rates, 
 	}
 	for _, p := range prizes { // เรียง version_id, row_no แล้ว
 		r := out[p.VersionID]
-		r.Scratch.Prizes = append(r.Scratch.Prizes, gameRateCore.Prize{Multiplier: p.Multiplier, SharePercent: p.SharePercent})
+		r.Scratch.Prizes = append(r.Scratch.Prizes, gameRateCore.Prize{Multiplier: p.Multiplier, SharePercent: p.SharePercent, Status: p.Status})
 		out[p.VersionID] = r
 	}
 	return out, nil
@@ -77,8 +77,8 @@ func stepsCalc(steps []gameRateCore.Step) (gameRateDto.StepsCalc, []gameRateCore
 		return out, nil
 	}
 	res, sum, issues := gameRateCore.ComputeSteps(steps)
-	for _, r := range res {
-		out.Steps = append(out.Steps, gameRateDto.StepView{Step: r.Step, Multiplier: r.Multiplier, WinPercent: r.WinPercent,
+	for i, r := range res {
+		out.Steps = append(out.Steps, gameRateDto.StepView{Status: steps[i].Status, Step: r.Step, Multiplier: r.Multiplier, WinPercent: r.WinPercent,
 			ReachPercent: r.ReachPercent, PayoutPercent: r.PayoutPercent, HouseEdgePercent: r.HouseEdgePercent, MaxWinPercent: r.MaxWinPercent})
 	}
 	out.MinHouseEdgePercent, out.MinHouseEdgeStep, out.MaxPayoutPercent = sum.MinHouseEdgePercent, sum.MinHouseEdgeStep, sum.MaxPayoutPercent
@@ -92,8 +92,8 @@ func prizesCalc(s gameRateCore.Scratch) (gameRateDto.PrizesCalc, []gameRateCore.
 		return out, nil
 	}
 	res, issues := gameRateCore.ComputeScratch(s)
-	for _, p := range res.Prizes {
-		out.Prizes = append(out.Prizes, gameRateDto.PrizeView{RowNo: p.RowNo, Multiplier: p.Multiplier, SharePercent: p.SharePercent,
+	for i, p := range res.Prizes {
+		out.Prizes = append(out.Prizes, gameRateDto.PrizeView{Status: s.Prizes[i].Status, RowNo: p.RowNo, Multiplier: p.Multiplier, SharePercent: p.SharePercent,
 			PerTicketPercent: p.PerTicketPercent, PayoutPercent: p.PayoutPercent})
 	}
 	out.WinPercent, out.AvgMultiplier, out.PayoutPercent = res.WinPercent, res.AvgMultiplier, res.PayoutPercent

@@ -375,6 +375,7 @@ CREATE TABLE game_rate_steps (               -- Coin Flip / RPS
     step           SMALLINT         NOT NULL CHECK (step >= 1),         -- จำนวนขั้นตาม gameSpecs (เกมใหม่ไม่ต้องแก้ตาราง)
     multiplier     DOUBLE PRECISION NOT NULL CHECK (multiplier >= 1 AND multiplier <= 1000),
     win_percent    DOUBLE PRECISION NOT NULL CHECK (win_percent > 0 AND win_percent <= 100),
+    status         BOOLEAN          NOT NULL DEFAULT false,            -- Q10 · หน้าบ้านเก็บไว้ (ล็อกขั้น) ไม่กระทบสูตร
     PRIMARY KEY (version_id, step)
 );
 
@@ -383,6 +384,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
     row_no         SMALLINT         NOT NULL CHECK (row_no BETWEEN 1 AND 10),
     multiplier     DOUBLE PRECISION NOT NULL CHECK (multiplier > 0 AND multiplier <= 1000),
     share_percent  DOUBLE PRECISION NOT NULL CHECK (share_percent > 0 AND share_percent <= 100),
+    status         BOOLEAN          NOT NULL DEFAULT false,            -- Q10 · หน้าบ้านเก็บไว้ (ล็อกแถว) ไม่กระทบสูตร
     PRIMARY KEY (version_id, row_no)
 );
 ```
@@ -448,6 +450,7 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | Q7 | RPS ไม่มีเสมอ (คำขอหน้าบ้าน) | ✅ **lead ตัดสิน 2026-10-12: ตัดเสมอออก** — แก้หัวข้อ 2, RATE-20 – 23, 5.2, 5.4, 5.5, 6 (ไม่มีคอลัมน์ `draw_percent`), 7 แล้ว · เอนจิ้นต้องไม่มีผลเสมอ (RH5) |
 | Q8 | หน้าบ้านแจ้ง: ดีไซน์ Coin มีช่อง "อัตราชนะรวมของเกม" แต่ spec ตั้งแยกทีละขั้น | ✅ ตัดสิน 2026-10-12: ไม่มีอัตราชนะรวม (ตั้งทีละขั้น) · กล่องสรุปของหน้าบ้านใช้ค่าคำนวณ `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` และ `payout_percent` ต่อขั้น (เพิ่มใน RE2 / RE3) |
 | Q9 | ชื่อ field ในข้อความ error | ✅ lead 2026-10-14 (รีวิวรอบ 3–4): `field` คง path · `msg` / `message` ใช้ `utils.FieldLabel` + "ขั้นที่ i+1" / "รางวัลที่ i+1" (หัวข้อ 5) |
+| Q10 | หน้าบ้านขอ (16 ต.ค.): เก็บ `status` (boolean) ต่อขั้น (Coin / RPS) และต่อแถวรางวัล (Scratch) ใน RE3 / RE4 — ใช้ล็อกขั้น / แถวตอนเกลี่ย % ฝั่งหน้าบ้าน | **[เสนอ — รอ lead]** ทำแล้วบน branch `boiledegg/bo/game_rate-settings` (ยังไม่ merge): backend **เก็บ / คืนค่าเท่านั้น** ไม่กระทบสูตร / กฎ / engine · ไม่ส่ง = `false` · อยู่ใน RE3 (สะท้อนกลับ) · RE4 · RE2 · RE6 · เป็นส่วนของค่า: `status` เปลี่ยนอย่างเดียว = เวอร์ชันใหม่ และย้อนเวอร์ชันคืนค่า `status` ด้วย · RE5 `changes` **ไม่แสดง** `status` · column `status BOOLEAN NOT NULL DEFAULT false` ทั้ง `game_rate_steps` / `game_rate_prizes` (migration `20261016110000`) |
 
 ### สวิตช์ปิดเกม RE8 — ตัดสินแล้ว 2026-10-13
 
