@@ -106,13 +106,15 @@ type LogRow struct {
 	ID                  uint    `json:"id"`
 	RequestID           string  `json:"request_id"`
 	TransactionType     string  `json:"transaction_type"`
+	Status              string  `json:"status"` // SUCCESS / FAILED (DW-35)
 	ActorUsername       string  `json:"actor_username"`
 	Role                string  `json:"role"`
 	UserID              uint    `json:"user_id"`
 	Username            string  `json:"username"`
 	Currency            string  `json:"currency"`
 	Amount              float64 `json:"amount"`
-	Note                string  `json:"note"`
+	Note                string  `json:"note"`             // FAILED = note ที่พิมพ์ + " · ล้มเหลว: เหตุผล" (DW-36)
+	IP                  string  `json:"ip"`               // ip ของคนกด
 	ParentUnlimited     bool    `json:"parent_unlimited"` // true = รายการก่อน 2026-10-15 (Superadmin ไม่มียอด)
 	ParentBalanceBefore float64 `json:"parent_balance_before"`
 	ParentBalanceAfter  float64 `json:"parent_balance_after"`

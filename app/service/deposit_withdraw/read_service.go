@@ -116,9 +116,9 @@ func ListLogsService(ctx context.Context, actor agentAuthService.Actor, q deposi
 	}
 	out := make([]depositWithdrawDto.LogRow, 0, len(logs))
 	for _, l := range logs {
-		out = append(out, depositWithdrawDto.LogRow{ID: l.ID, RequestID: l.RequestID, TransactionType: string(l.TransactionType),
+		out = append(out, depositWithdrawDto.LogRow{ID: l.ID, RequestID: l.RequestID, TransactionType: string(l.TransactionType), Status: string(l.Status),
 			ActorUsername: l.ActorUsername, Role: l.TargetRole, UserID: l.TargetID, Username: l.TargetUsername,
-			Currency: l.Currency, Amount: l.Amount, Note: l.Note, ParentUnlimited: l.ParentUnlimited,
+			Currency: l.Currency, Amount: l.Amount, Note: l.Note, IP: l.IP, ParentUnlimited: l.ParentUnlimited,
 			ParentBalanceBefore: l.ParentBalanceBefore, ParentBalanceAfter: l.ParentBalanceAfter,
 			TargetBalanceBefore: l.TargetBalanceBefore, TargetBalanceAfter: l.TargetBalanceAfter,
 			CreatedAt: formatTime(l.CreatedAt)})
@@ -146,7 +146,7 @@ func ListHistoryService(ctx context.Context, actor agentAuthService.Actor, q dep
 	for _, l := range logs {
 		out = append(out, depositWithdrawDto.HistoryRow{ID: l.ID, AgentID: l.TargetID, AgentUsername: l.TargetUsername, Role: l.TargetRole,
 			RequestBy: l.ActorID, RequestType: string(l.ActorType), RequestUsername: l.ActorUsername,
-			Currency: l.Currency, TransactionType: string(l.TransactionType), Amount: l.Amount, Remark: l.Note,
+			Currency: l.Currency, TransactionType: string(l.TransactionType), Status: string(l.Status), Amount: l.Amount, Remark: l.Note,
 			CreatedAt: formatTime(l.CreatedAt)})
 	}
 	return out, total, nil

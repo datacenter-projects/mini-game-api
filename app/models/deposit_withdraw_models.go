@@ -12,6 +12,14 @@ const (
 	DWWithdraw DWTransactionType = "WITHDRAW" // ลูกลด · แม่เพิ่ม
 )
 
+// DWStatus — ผลของรายการ (DW-35) · ไม่มี pending (ย้ายเงินจบใน request เดียว)
+type DWStatus string
+
+const (
+	DWStatusSuccess DWStatus = "SUCCESS"
+	DWStatusFailed  DWStatus = "FAILED" // ไม่มี ledger · เงินไม่ขยับ · ไม่จอง request_id
+)
+
 // เหตุผลใน balance_ledger ของการฝาก / ถอน (DW-33)
 const (
 	LedgerDepositOut  LedgerReason = "DEPOSIT_OUT"
@@ -41,6 +49,7 @@ type DepositWithdrawLog struct {
 	ID                  uint              `gorm:"column:id;primaryKey"`
 	RequestID           string            `gorm:"column:request_id"`
 	TransactionType     DWTransactionType `gorm:"column:transaction_type"`
+	Status              DWStatus          `gorm:"column:status"`     // ต้องตั้งเสมอ — GORM ส่ง "" แทนค่า default ของ DB
 	ActorType           AccountType       `gorm:"column:actor_type"` // คนกดจริง
 	ActorID             uint              `gorm:"column:actor_id"`
 	ActorUsername       string            `gorm:"column:actor_username"`

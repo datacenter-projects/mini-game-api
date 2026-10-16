@@ -52,6 +52,7 @@ type HistoryRow struct {
 	RequestUsername string  `json:"request_username"`
 	Currency        string  `json:"currency"`
 	TransactionType string  `json:"transaction_type"`
+	Status          string  `json:"status"` // SUCCESS / FAILED (DW-35)
 	Amount          float64 `json:"amount"`
 	Remark          string  `json:"remark"`
 	CreatedAt       string  `json:"created_at"`
