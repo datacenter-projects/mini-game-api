@@ -48,7 +48,7 @@ func TestValidateChildPT(t *testing.T) { // MGMT-18, MGMT-19, MGMT-25
 		{"Seamless Master ตั้ง force", ChildPT{80, 5, 0, 0}, 80, true, PTSeamlessMasterLock},
 	}
 	for _, tt := range tests {
-		if got := ValidateChildPT(tt.v, tt.received, tt.master, false); got != tt.want {
+		if got := ValidateChildPT(tt.v, tt.received, tt.master, false, false); got != tt.want {
 			t.Errorf("%s: ValidateChildPT = %v, want %v", tt.name, got, tt.want)
 		}
 	}
@@ -161,7 +161,28 @@ func TestCheckChildPTSuperadminRemain(t *testing.T) { // MGMT-18A: Superadmin �
 		{"ชั้นอื่น remain 5", ChildPT{PTFromParent: 80, Remain: 5}, false, PTIssue{Violation: PTOK}},
 	}
 	for _, tt := range tests {
-		if got := CheckChildPT(tt.v, FullPT, false, tt.superadmin); got != tt.want {
+		if got := CheckChildPT(tt.v, FullPT, false, tt.superadmin, false); got != tt.want {
+			t.Errorf("%s: %+v want %+v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestCheckChildPTSeamlessMasterForce(t *testing.T) { // MGMT-18A (lead pt_calculation Q3): ตั้ง force ให้ CSM ไม่ได้ · Company อื่นได้
+	tests := []struct {
+		name string
+		v    ChildPT
+		csm  bool
+		want PTIssue
+	}{
+		{"CSM force 10", ChildPT{PTFromParent: 80, Force: 10}, true, PTIssue{PTSeamlessMasterForce, "force", 0}},
+		{"CSM force 0", ChildPT{PTFromParent: 80, Commission: 0.5}, true, PTIssue{Violation: PTOK}},
+		{"CSM force ไม่ลง step มาก่อน", ChildPT{PTFromParent: 80, Force: 10.3}, true, PTIssue{PTInvalidStep, "force", 80}},
+		{"CSM force ก่อน remain", ChildPT{PTFromParent: 80, Force: 10, Remain: 5}, true, PTIssue{PTSeamlessMasterForce, "force", 0}},
+		{"CSM force เกินที่ให้ = ห้ามตั้งก่อนเพดาน", ChildPT{PTFromParent: 80, Force: 90}, true, PTIssue{PTSeamlessMasterForce, "force", 0}},
+		{"Company อื่น force 10", ChildPT{PTFromParent: 80, Force: 10}, false, PTIssue{Violation: PTOK}},
+	}
+	for _, tt := range tests {
+		if got := CheckChildPT(tt.v, FullPT, false, true, tt.csm); got != tt.want {
 			t.Errorf("%s: %+v want %+v", tt.name, got, tt.want)
 		}
 	}

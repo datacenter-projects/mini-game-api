@@ -73,7 +73,7 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 		if cv != agentManagementCore.CurrencyOK {
 			return CurrencyError(c.UserType, newAcc.UserType, cv, c.Currencies)
 		}
-		if err := CheckInitialBalance(req.BalanceAmounts, c.newAccountSeamless(newAcc.UserType), currencies); err != nil {
+		if err := CheckInitialBalance(req.BalanceAmounts, currencies); err != nil {
 			return err
 		}
 		if err := CheckCreatorBalance(tx, c, req.BalanceAmounts); err != nil {
@@ -97,7 +97,8 @@ func CreateAgentService(ctx context.Context, actor agentAuthService.Actor, req a
 			req.StatusGame = statusGameOf(c.Settings)
 		}
 		for _, g := range SortedGroups(req.PT) {
-			is := agentManagementCore.CheckChildPT(pts[g], c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster, c.Agent.Role == models.AgentRoleSuperAdmin)
+			is := agentManagementCore.CheckChildPT(pts[g], c.Received[agentManagementCore.PTGroup(g)], creatorIsMaster, c.Agent.Role == models.AgentRoleSuperAdmin,
+				newAcc.UserType == agentManagementCore.UserTypeCompanySeamlessMaster)
 			if err := ChildPTError(g, is); err != nil {
 				return err
 			}

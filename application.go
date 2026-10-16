@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	currencyRateService "app/app/service/currency_rate"
 	"app/pkg/configs"
 	"app/pkg/middleware"
 	"app/pkg/routes"
@@ -28,7 +29,10 @@ func main() {
 	}
 	utils.SetPasswordCost(configs.Cfg.Auth.PasswordCost)
 	logger.InitLogger(configs.Cfg.AppEnv == "local")
-	defer logger.Logger.Sync() //nolint:errcheck
+	defer logger.Logger.Sync()                    //nolint:errcheck
+	if w := configs.Cfg.ProxyWarning(); w != "" { // ไม่ตั้ง TRUSTED_PROXIES นอก local — เตือนตั้งแต่ boot
+		logger.SugarLogger.Warnw(w, "app_env", configs.Cfg.AppEnv)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -74,6 +78,9 @@ func main() {
 			}
 		}()
 	}
+
+	// ดึงอัตราแลกเปลี่ยนทุก 15 นาที — docs/modules/currency_rate.md (หยุดเมื่อ ctx ถูกยกเลิกตอน shutdown)
+	currencyRateService.StartSyncWorker(ctx)
 
 	app := fiber.New(configs.FiberConfig())
 	middleware.FiberMiddleware(app)

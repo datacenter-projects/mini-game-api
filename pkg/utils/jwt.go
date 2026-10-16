@@ -10,6 +10,12 @@ import (
 // TokenTypeBackoffice กันไม่ให้ token ของ context อื่น (เช่น player) ถูกใช้กับ route หลังบ้าน
 const TokenTypeBackoffice = "bo"
 
+// TokenTypePlayer — token ผู้เล่น (player_auth PA-20) · middleware ผู้เล่นรับเฉพาะ typ นี้ · account_type ใน claim = "MEMBER"
+const (
+	TokenTypePlayer   = "pl"
+	AccountTypeMember = "MEMBER"
+)
+
 var ErrInvalidJWT = errors.New("invalid jwt")
 
 // SessionClaims — token เป็นแค่ "บัตรอ้างอิง" ไปหา session ใน Redis

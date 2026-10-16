@@ -382,13 +382,17 @@ func TestMemberCreateRules(t *testing.T) { // MGMT-15A · MGMT-60 · หัว�
 	other["request_id"] = ag["request_id"]
 	expect(t, call(t, app, "POST", createMemberPath, other, c.agentTok), 200, 422)
 
-	// สาย Seamless ส่ง balance = 422
-	_, oneTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_1TO1", "one2one", []string{"JPY"}, childPT(80, 0, 0, 0)))
+	// สาย Seamless ส่ง balance ได้ (MGMT-15 แก้ 2026-10-15) · หักจากผู้สร้าง · payment_type ยังเป็น CASH (MGMT-63)
+	one, oneTok := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_1TO1", "one2one", []string{"JPY"}, childPT(80, 0, 0, 0)))
+	setBalance(t, one.ID, "JPY", 100)
 	sb := memberBody("memseam", 0)
 	sb["balance"] = map[string]any{"JPY": 10}
-	r = call(t, app, "POST", createMemberPath, sb, oneTok)
-	expect(t, r, 200, 422)
-	expectMsgHas(t, r.Msg, "ยอดเงินตั้งต้น", "Seamless")
+	expect(t, call(t, app, "POST", createMemberPath, sb, oneTok), 200, 200)
+	var seam models.UserMember
+	database.DBConn.Select("credit", "payment_type").Where("username = ?", "memseam").Take(&seam)
+	if seam.Credit != 10 || agentBalance(t, one.ID, "JPY") != 90 || seam.PaymentType != models.PaymentTypeCash {
+		t.Fatalf("Seamless member balance: credit %v · company %v · payment %s", seam.Credit, agentBalance(t, one.ID, "JPY"), seam.PaymentType)
+	}
 }
 
 func TestMemberRemovedPaths(t *testing.T) { // lead MN1: path เดิมได้ 404 (ไม่คง alias)

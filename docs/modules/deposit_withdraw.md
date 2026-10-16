@@ -9,6 +9,8 @@
   `create_requests` เป็นทะเบียน `request_id` กลาง (DW-26) · Redis ล่ม `504801` · tx timeout 8 วินาที (DW-23) · ลำดับ lock ใน ARCHITECTURE.md ใช้ทุก module รวม bet / settle (DW-51)
 - **แก้ DW1 response 2026-10-14 (lead อนุมัติ)**: `currency` map 27 สกุล · `last_login_*` · `credit_detail` · `total_sum` แยก role (DW-42 – DW-44A · ยกเว้นกฎข้อ 19)
 - **Superadmin มียอดจริง 2026-10-15 (lead อนุมัติ · seed เต็มใน migration)**: DW-12 / DW-14 / DW-33 / DW-44A · migration `20261015100000` · `parent_unlimited` = `false` เสมอสำหรับรายการใหม่ · MGMT-15A (Superadmin สร้าง Company Transfer พร้อมยอดตั้งต้น) หักยอด Superadmin ด้วย — ledger `INITIAL_TRANSFER_OUT` / `IN` (`agent_management/creator.go` · `field_errors.go`)
+- **DW4 `history/list` (lead อนุมัติ 2026-10-15)**: ค้นประวัติที่ทำให้ `username` หนึ่ง (ตรงตัว) ใต้ตัวเองทุกชั้น · ผู้ทำรายการจริง · `starttime` / `endtime` ไม่จำกัดช่วง · `404402` (DW-55 – DW-60)
+- **สาย Seamless มียอด 2026-10-15 (lead อนุมัติ)**: สร้างพร้อม `balance` ได้ (MGMT-15 / 15A) · ฝาก / ถอนได้ (DW-06) · DW1 `has_balance` = `true` เสมอ · `404302` เลิกใช้ · ยอดใช้แทงไม่ได้ (DW-52)
 - ผู้ดูแล: maofoy · PR review: boiledegg
 - ชื่อ module ในโค้ด: `deposit_withdraw` (`controllers/deposit_withdraw` · `dto/deposit_withdraw` · `service/deposit_withdraw` ·
   `repository/postgres/deposit_withdraw` · `repository/redis/deposit_withdraw`)
@@ -21,7 +23,7 @@
 ## 1. หน้าที่ของ module
 
 ย้ายเครดิตภายในสายกับ**ลูกตรงชั้นเดียว** (agent หรือ Member): บัญชีหลังบ้าน (Superadmin · Company · Share · Agent และ sub ของบัญชีเหล่านี้)
-ฝาก / ถอนเงินให้ลูกตรงของตัวเอง · ดูรายชื่อลูกตรงพร้อมยอด · ดูประวัติรายการที่ตัวเองทำ · **สาย Transfer เท่านั้น** ·
+ฝาก / ถอนเงินให้ลูกตรงของตัวเอง · ดูรายชื่อลูกตรงพร้อมยอด · ดูประวัติรายการที่ตัวเองทำ · **ทั้งสาย Transfer และ Seamless** (Seamless เพิ่ม 2026-10-15 · lead อนุมัติ — ยอดของสาย Seamless ใช้แทงไม่ได้) ·
 Superadmin มียอดจริงใน `agent_balances` (seed สกุลละ 100,000,000 — lead 2026-10-15 · เดิม "วงเงินไม่จำกัด")
 
 **ไม่อยู่ใน module นี้:** ยอดเงินตั้งต้นตอนสร้างบัญชี (agent_management MGMT-15A) · การหัก / คืนเงินจากการเล่นเกม (module เดิมพัน) ·
@@ -50,7 +52,7 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 | DW-03 | ADMIN ทำรายการไม่ได้ทั้ง 3 เส้น (`404305`) |
 | DW-04 | sub ทำได้ตามสิทธิ์เมนู `payment`: DW1 / DW3 = view · DW2 = edit (`402303` — เช็คที่ route กฎข้อ 28) · sub ของ Superadmin ทำได้เหมือน Superadmin |
 | DW-05 | แม่ที่ถูกระงับทำไม่ได้ (`PassedGates()` — AUTH-54) · **ลูกที่ `SUSPENDED` / `LOCKED`: ฝากไม่ได้ (`404301`) · ถอนได้** (ล็อกบัญชีที่โกงแล้วต้องดึงเงินคืนได้ — DQ1) |
-| DW-06 | **สาย Seamless ทั้งหมดใช้ไม่ได้** (ไม่มียอดเงิน — MGMT-15) = `404302` · ตัดสินจาก Company หัวสายของลูก (`GetChainCompanyTypeRepository` + `IsSeamless`) |
+| DW-06 | **แก้ 2026-10-15 (lead อนุมัติ)**: สาย Seamless ทุกประเภท (Reseller / Master / 1 to 1) **ฝาก / ถอนได้** ตามกฎลูกตรงเดิม (DW-01) — คู่ที่ทำได้ตามกฎการสร้าง MGMT-02 (Superadmin → Company Seamless · Company Seamless Reseller / Master → Share · Company Seamless 1 to 1 → Member · Share Reseller / Master → Member) · **ยอดนี้ใช้แทงไม่ได้** (DW-52) · `404302` เลิกใช้ · เดิม: Seamless ใช้ไม่ได้ = `404302` |
 | DW-07 | DW2 ต้องยืนยัน passcode ของตัวเอง (`RequirePasscode()` — `passcode` ใน body) |
 
 ### จำนวนเงินและสกุล
@@ -97,7 +99,7 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 | DW-41 | `keyword` (DQ11): ไม่ส่ง / `""` = ทั้งหมด · ส่ง = 4–32 ตัว (`422`) ค้น username บางส่วน ไม่สนตัวพิมพ์ **เฉพาะลูกตรง** (ไม่ลงหลาน — ต่างจาก E2) · escape `%` `_` `\` |
 | DW-42 | แต่ละแถว: `id` · `role` · `username` · `name` · `status` · `has_balance` · `currency` · `last_login_ip` · `last_login_at` (ยังไม่เคย login = `""`) · `role` ส่งกลับในเส้น DW2 ได้ทันที (DW-02) — **แก้ 2026-10-14 (lead อนุมัติ): `balances` (array) → `currency` (map) + last login** |
 | DW-43 | `currency` = map **ครบ 27 สกุลที่ระบบรองรับ** (`agentManagementCore.Currencies`) · key ตัวใหญ่ · สกุลที่ไม่มียอด / บัญชีไม่มี = `0` · agent = `agent_balances` · Member = `credit` ที่สกุลของตัวเอง · ยอดของแม่ + ลูกฝั่ง agent ในหน้าดึงด้วย `agent_id IN (...)` ครั้งเดียว (กฎข้อ 23 ห้าม N+1) |
-| DW-44 | `has_balance = false` = สาย Seamless (DW-06) · ยอด `0` ทุกสกุล · `status` = สถานะของลูกเอง (แม่ผ่าน `PassedGates()` แล้ว สายด้านบนจึงไม่ถูกระงับ) · หน้าบ้าน: ปุ่มฝากเปิดเมื่อ `has_balance` และ `ACTIVE` · **ปุ่มถอนเปิดเมื่อ `has_balance` (ลูกไม่ ACTIVE ก็ถอนได้ — DW-05)** |
+| DW-44 | `has_balance` = `true` ทุกแถว (สาย Seamless มียอดแล้ว — DW-06 แก้ 2026-10-15 · คง field ไว้ไม่ให้ contract แตก · เดิม Seamless = `false` + ยอด 0) · `status` = สถานะของลูกเอง (แม่ผ่าน `PassedGates()` แล้ว สายด้านบนจึงไม่ถูกระงับ) · หน้าบ้าน: ปุ่มฝากเปิดเมื่อ `has_balance` และ `ACTIVE` · **ปุ่มถอนเปิดเมื่อ `has_balance` (ลูกไม่ ACTIVE ก็ถอนได้ — DW-05)** |
 | DW-44A | **นอก PageData (lead อนุมัติยกเว้นกฎข้อ 19 · 2026-10-14)**: `credit_detail.currency` = ยอดของคนที่ login (แม่ · sub = เจ้าของ) map 27 สกุล (ซ้ำกับ profile `balances` — ACC-19 · สาย Seamless = `0` ทุกสกุล · Superadmin = ยอดจริง) · `total_sum` = ยอดรวมของ**ลูกตรงทั้งหมด** (ทุกหน้า · ตาม `keyword` เดียวกับรายชื่อ) แยกตาม `role` **key ตัวเล็ก** (`agent` · `member` · `shareholder` · `company` — แก้ 2026-10-14 จากตัวใหญ่ · field `role` ในแถวยังตัวใหญ่) → map 27 สกุล · ใส่เฉพาะ role ที่มีลูก · ไม่มีลูก = `{}` · รวมด้วย query SUM 1 ครั้ง (`GROUP BY role, currency`) · controller ประกอบกับ `response.PageData` (dto / service ไม่ import `pkg/response`) |
 | DW-45 | API ส่งยอดตามที่เก็บ ไม่ปัดเพิ่ม (กฎข้อ 9) |
 
@@ -116,6 +118,18 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 |---|---|
 | DW-50 | **module เดิมพันต้องหักเงินจาก `credit` ทันทีตอนแทง** (ข้อบังคับของ Bet) → ถอนไม่กระทบรอบเกมค้าง |
 | DW-51 | module เดิมพันที่ lock `agent_balances` + `user_members` พร้อมกันต้องใช้ลำดับ DW-32 (ARCHITECTURE.md) |
+| DW-52 | **ยอดของสาย Seamless ใช้แทงไม่ได้** (lead 2026-10-15): Member สาย Seamless แทงจาก wallet ของ operator (seamless callback) · ยอดใน `agent_balances` / `user_members.credit` ของสาย Seamless เป็นแค่วงเงินที่ย้ายในสาย — module เดิมพันต้องไม่ตัดยอดนี้ |
+
+### ประวัติของบัญชีในสาย (DW4) — lead อนุมัติ 2026-10-15
+
+| ID | Rule |
+|---|---|
+| DW-55 | ค้นประวัติฝาก / ถอนที่**ทำให้บัญชีหนึ่ง** (ฝั่งที่ถูกทำรายการ) ด้วย `username` **ตรงตัว** (ตัดช่องว่าง · ตัวเล็ก — username เก็บตัวเล็ก MGMT-05) · ไม่ส่ง / `""` = `422` "ต้องระบุชื่อผู้ใช้งาน" |
+| DW-56 | บัญชีที่ค้นได้: agent หรือ Member ที่อยู่**ใต้ตัวเองทุกชั้น** (`cnf @> {"parent":[{"id": แม่}]}` — MGMT-61 · กฎข้อ 22 · sub = ใต้เจ้าของ) · **ค้นตัวเองไม่ได้** · ไม่มี username นี้ / นอกสาย / ตัวเอง / ADMIN = `404402` "ไม่พบข้อมูลบัญชี" (ข้อความเดียวกันทุกกรณี) |
+| DW-57 | ผลรวมรายการที่ทำโดยใครก็ได้ในสาย (แม่ตรงของบัญชีนั้น หรือ sub ของแม่) · แสดง**คนกดจริง** `request_by` + `request_type` (`AGENT` / `SUB` — id ซ้ำกันได้) + `request_username` (sub = `share01@staff`) |
+| DW-58 | `starttime` / `endtime` บังคับ · RFC3339 มี timezone (เช่น `2026-10-15T00:00:00+07:00`) · `starttime` ≤ `endtime` · รวมทั้ง 2 ขอบ (`created_at >= starttime AND created_at <= endtime`) · **ไม่จำกัดช่วง** (query อยู่ที่บัญชีเดียว — DW-60) |
+| DW-59 | เรียง `created_at` ใหม่→เก่า แล้ว `id` ใหม่→เก่า · `page` / `limit` ใน body (`utils.NewPage` · ค่าเริ่มต้น 20 สูงสุด 100) · response = PageData มาตรฐาน · `currency` / `transaction_type` ตัวใหญ่ · `remark` = `note` · ไม่มี `updated_at` (log แก้ไม่ได้) |
+| DW-60 | หา username 1 query ต่อตาราง (`user_agents` / `user_members` · username ไม่ซ้ำข้าม 2 ตาราง — MGMT-05) แล้วดึง log ด้วย `target_type` + `target_id` + ช่วงเวลา → index `idx_deposit_withdraw_logs_target (target_type, target_id, created_at DESC)` ที่มีอยู่แล้ว · ไม่ต้องทำ migration |
 
 ## 4. สิ่งที่พบในโค้ดเก่า และการตัดสินใจ
 
@@ -131,6 +145,7 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 | 6 | Redis lock (DQ2) | ยังไม่มี lock helper ในระบบ — เขียนใหม่ใน `repository/redis/deposit_withdraw` (`SET NX PX` + Lua compare-and-delete) |
 | 7 | Redis ล่ม | `504801` (HTTP 503) — lead ไม่ได้ระบุ code · maofoy เลือก `c = 8` (storage) |
 | 8 | DW3 ช่วงวัน | lead ไม่ได้ระบุเพดาน · maofoy กำหนด ≤ 31 วัน เพื่อจำกัดขนาด query |
+| 9 | DW4 แยกเส้นจาก DW3 (lead อนุมัติ 2026-10-15) | DW3 = รายการที่ตัวเองเป็นแม่ · DW4 = รายการที่ทำให้บัญชีหนึ่งในสาย (ทุกชั้น · ผู้ทำรายการเป็นใครก็ได้ในสาย) · payload ตามหน้าจอ (`username` · `starttime` / `endtime`) แต่ response ตาม `response.Page` ของทีม (`limit` แทน `perpage`) |
 
 ## 5. Endpoints
 
@@ -141,6 +156,7 @@ Superadmin มียอดจริงใน `agent_balances` (seed สกุล
 | POST | `/api/v1/bo/pr/deposit-withdraw/downlines/list` | `RequirePermission(payment, view)` | DW1 รายชื่อลูกตรง + ยอด |
 | POST | `/api/v1/bo/pr/deposit-withdraw/create` | `RequirePermission(payment, edit)` · `RequirePasscode()` | DW2 ฝาก / ถอน |
 | POST | `/api/v1/bo/pr/deposit-withdraw/logs/list` | `RequirePermission(payment, view)` | DW3 ประวัติ |
+| POST | `/api/v1/bo/pr/deposit-withdraw/history/list` | `dwMw.RejectAdmin()` · `RequirePermission(payment, view)` | DW4 ประวัติของบัญชีในสาย |
 
 ตัวอย่างใช้ข้อมูลชุดเดียวกับ agent_management: `comp01` (id 10, Company Transfer) → `share01` (id 12, Share B2C · THB) → `agent01` (id 15) / `mem01` (Member id 501) · sub ของ share01 = `share01@staff` (id 31)
 
@@ -222,11 +238,11 @@ Response `data` (share01 ฝาก 100 ให้ mem01):
 - `parent_unlimited` = `false` เสมอสำหรับรายการใหม่ (Superadmin มียอดจริงตั้งแต่ 2026-10-15) · `true` เฉพาะรายการเก่าที่ Superadmin ยังไม่มียอด — `parent_balance_*` = `0`
 - ส่งซ้ำด้วย `request_id` เดิม + ค่าเดิม = `data` เดิม (DW-25)
 
-Error codes: `422`, `404301`, `404302`, `404303`, `404304`, `404306`, `404307`, `404401`, `504801` + error ของ passcode (`401204`, `401205`, `401304`)
+Error codes: `422`, `404301`, `404303`, `404304`, `404306`, `404307`, `404401`, `504801` + error ของ passcode (`401204`, `401205`, `401304`)
 
 **ลำดับการเช็ค** (ตามลำดับ middleware ใน route — แก้ตอน implement 2026-10-14: ADMIN ไม่มีเมนูใดเลย ถ้าเช็คสิทธิ์ก่อนจะได้ `402303` แทน `404305`):
 ADMIN (`404305` — `dwMw.RejectAdmin`) → สิทธิ์ `payment` (`402303`) → passcode (`422` / `401204` …) → รูปแบบ body (`400` / `422`) → Redis lock (`404307` / `504801`) → `request_id` (ผลเดิม / `422`) →
-หาลูก (`404401`) → Seamless (`404302`) → สถานะลูก เฉพาะฝาก (`404301`) → สกุล (`404303`) → lock + ยอด (`404304` / `404306`)
+หาลูก (`404401`) → สถานะลูก เฉพาะฝาก (`404301`) → สกุล (`404303`) → lock + ยอด (`404304` / `404306`)
 
 ### DW3 · POST /api/v1/bo/pr/deposit-withdraw/logs/list
 
@@ -298,6 +314,54 @@ Response `data`:
 
 Error codes: `422`
 
+### DW4 · POST /api/v1/bo/pr/deposit-withdraw/history/list
+
+ใช้กับหน้าจอ "ประวัติฝาก / ถอน": ค้น `username` แล้วดูว่าใครทำรายการให้บัญชีนั้นบ้าง (DW-55 – DW-60) · ตัวอย่าง: comp01 ค้น `agent01` (หลาน) → เห็นรายการที่ share01 / `share01@staff` ทำให้ agent01
+
+Request:
+```json
+{
+  "username": "agent01",
+  "starttime": "2026-10-15T00:00:00+07:00",
+  "endtime": "2026-10-15T23:59:59+07:00",
+  "page": 1,
+  "limit": 100
+}
+```
+
+| Field | บังคับ | Rule |
+|---|---|---|
+| `username` | ✓ | ตรงตัว (ไม่สนตัวพิมพ์) · agent หรือ Member ใต้ตัวเองทุกชั้น · ตัวเอง / นอกสาย / ไม่มี = `404402` |
+| `starttime` / `endtime` | ✓ | RFC3339 มี timezone · `starttime` ≤ `endtime` · รวมทั้ง 2 ขอบ · ไม่จำกัดช่วง |
+| `page` / `limit` | | ค่าเริ่มต้น 1 / 20 · สูงสุด 100 |
+
+Response `data` (เรียงใหม่ → เก่า):
+```json
+{
+  "current_page": 1, "total_page": 1, "total_count": 1, "limit": 100, "has_next": false, "has_prev": false,
+  "data": [
+    {
+      "id": 9003,
+      "agent_id": 15,
+      "agent_username": "agent01",
+      "role": "AGENT",
+      "request_by": 31,
+      "request_type": "SUB",
+      "request_username": "share01@staff",
+      "currency": "THB",
+      "transaction_type": "DEPOSIT",
+      "amount": 1000,
+      "remark": "",
+      "created_at": "2026-10-15T11:58:24.123456+07:00"
+    }
+  ]
+}
+```
+- `agent_id` / `agent_username` / `role` = บัญชีที่ถูกทำรายการ (Member ก็ใช้ชื่อ field นี้ · `role = MEMBER`) · `request_*` = คนกดจริง
+- `endtime` ที่ลงท้าย `23:59:59` ไม่รวมรายการในเสี้ยววินาทีสุดท้าย (`23:59:59.5`) — หน้าบ้านส่ง `23:59:59.999999` ได้ถ้าต้องการให้ครบวัน
+
+Error codes: `422`, `404402`
+
 ## 6. Schema
 
 migration ใหม่ (`make migration name=deposit_withdraw_logs`):
@@ -358,7 +422,7 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 | DW-04 | sub ของ Superadmin (`payment` edit) ฝาก 1,000 ให้ Company | สำเร็จ · log `actor_type = SUB` · `parent_id` = Superadmin · ยอด Superadmin ลด 1,000 |
 | DW-05 | ฝากให้ลูก `SUSPENDED` · `LOCKED` | `404301` ทั้งคู่ · ยอดไม่เปลี่ยน |
 | DW-05 | ถอน 100 จากลูก `LOCKED` ที่มี 300 | สำเร็จ · ลูก 200 · แม่ +100 |
-| DW-06 | Superadmin ฝากให้ Company Seamless · Share Master ฝากให้ Agent · Company Seamless Reseller ฝากให้ Share | `404302` ทั้งหมด |
+| DW-06 | Superadmin (THB 100) ฝาก 5 ให้ Company Seamless Reseller แล้วถอน 2 · Company Seamless 1 to 1 สร้าง Member พร้อมยอด | Reseller 3 · Superadmin 97 · สำเร็จ |
 | DW-07 | ไม่ส่ง passcode · passcode ผิด | `422` · `401204` |
 | DW-10 | `amount` `0` · `-5` · `1.00001` · `"100"` · `1000000001` · `1000000000` · `25.5` | `422` · `422` · `422` · `400` · `422` · สำเร็จ · สำเร็จ ยอด 25.5 |
 | DW-10 | ยอด 0.1 ฝาก 0.2 | ยอด = 0.3 (ไม่ใช่ 0.30000000000000004) |
@@ -384,11 +448,16 @@ CREATE INDEX idx_deposit_withdraw_logs_target ON deposit_withdraw_logs(target_ty
 | DW-34 | integration: ชื่อ constraint `agent_balances_amount_check` / `user_members_credit_check` มีใน `pg_constraint` · repository UPDATE ยอดติดลบตรงๆ | มีครบ · ได้ `ErrBalanceNegative` |
 | DW-40 / 41 | share01 มีลูก agent 1 + Member 1 + ADMIN ในระบบ · `keyword` `"mem0"` · `"ab"` · keyword ของหลาน | 2 แถว A→Z ไม่มี ADMIN · `mem01` · `422` · ไม่พบ |
 | DW-43 | แม่ / ลูก / Member ที่มียอดสกุลเดียว · Share B2B THB 7 + USD 3 | `currency` ครบ 27 key · สกุลอื่น = 0 · THB 7 · USD 3 |
-| DW-44 | Company Seamless ใน list ของ Superadmin | `has_balance = false` · `currency` = 0 ทุกสกุล |
+| DW-44 | Company Seamless (THB 33) ใน list ของ Superadmin | `has_balance = true` · `currency` THB 33 |
 | DW-44A | share01 (THB 900) มี agent01 9,900 + Member 100.5 · `limit 1` · `keyword` เฉพาะ Member · keyword ไม่เจอ · comp01 ดู (share01 900 + shareb2b 7 / USD 3) · Superadmin ดู | `credit_detail` THB 900 · `total_sum` `{agent: 9900, member: 100.5}` · ยังรวม 2 role · มีแค่ `member` · `{}` + `credit_detail` ยังมี · `shareholder` THB 907 / USD 3 · `credit_detail` 0 ทุกสกุล |
 | DW-46 | share01 ดู DW3 · comp01 ดู DW3 | เห็นเฉพาะรายการที่ `parent_id = 12` · comp01 ไม่เห็นรายการของ share01 |
 | DW-47 | `date_from` > `date_to` · ช่วง 32 วัน · `"2026/10/01"` | `422` |
 | DW-48 | ส่ง `role` ไม่ส่ง `user_id` · `transaction_type: "WITHDRAW"` | `422` · เฉพาะรายการถอน |
+| DW-55 | ไม่ส่ง `username` · `""` · `" AGENT01 "` | `422` · `422` · ค้น `agent01` ได้ |
+| DW-56 | comp01 ค้น `agent01` (หลาน) · ค้น Member ของ agent01 · ค้น `comp01` (ตัวเอง) · ค้นบัญชีสายอื่น · ค้น username ที่ไม่มี · ค้น ADMIN | เห็นรายการ · เห็นรายการ · `404402` ทุกกรณีที่เหลือ (ข้อความเดียวกัน) |
+| DW-57 | `share01@staff` ฝากให้ agent01 แล้ว comp01 ค้น `agent01` | แถวมี `request_type = SUB` · `request_username = share01@staff` · `request_by` = id ของ sub |
+| DW-58 | `starttime` > `endtime` · ไม่มี timezone · `"2026-10-15"` · ช่วง 1 ปี · รายการที่ `created_at` = `endtime` พอดี | `422` · `422` · `422` · สำเร็จ · อยู่ในผล |
+| DW-59 | รายการ 3 แถว `limit 2` | หน้า 1 = 2 แถวใหม่สุด · `total_page = 2` · `currency` / `transaction_type` ตัวใหญ่ |
 
 ## 8. Contract changes (สำหรับแจ้ง frontend)
 

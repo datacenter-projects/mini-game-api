@@ -78,12 +78,14 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 
 ชื่อ key ทั้งหมดดูที่ `.env.example` (ต้นฉบับคือ `pkg/configs/config.go`) ค่าที่เป็นความลับเก็บใน k8s Secret
 
+> ⚠️ **`TRUSTED_PROXIES` — dev / uat / prod ต้องตั้งเสมอ:** app อยู่หลัง ingress / LB ถ้าไม่ตั้ง **ทุกคนจะได้ IP ของ ingress** → rate limit ของ BO login และ player login ใช้ร่วมกันทั้งระบบ (คนเดียวรัวก็ล็อกทุกคน) + whitelist ของ operator (`transfer/*`) ไม่ผ่าน (`407305`) · ต้องใส่ CIDR ของ proxy **ทุกชั้น** (ALB / nginx pod / CDN ถ้ามี) · ถ้าไม่ตั้งนอก `APP_ENV=local` app จะ boot ได้แต่ log `warn` ตั้งแต่เริ่ม (`TRUSTED_PROXIES is empty …`) · ตั้งผิดรูปแบบ = boot ไม่ขึ้น
+
 | key | หมายเหตุ |
 |---|---|
 | `APP_ENV` | `dev` / `prod` |
 | `SERVER_ADDR` | `:8181` |
 | `METRICS_ADDR` | `:9090` (default) — ค่าว่าง = ปิด metrics ต้องไม่ซ้ำกับ `SERVER_ADDR` |
-| `TRUSTED_PROXIES` | CIDR ของ ingress/LB คั่นด้วย `,` — ว่าง = ไม่เชื่อ `X-Forwarded-For` (IP ที่ log และ rate limit จะเป็น IP ของ proxy) |
+| `TRUSTED_PROXIES` | CIDR (หรือ IP เดี่ยว) ของ ingress/LB **ทุกชั้นที่อยู่หน้า app** คั่นด้วย `,` — ว่าง = ไม่เชื่อ `X-Forwarded-For` (IP ที่ log / rate limit / whitelist จะเป็น IP ของ proxy) · เมื่อตั้ง ระบบไล่ `X-Forwarded-For` **จากขวาไปซ้าย ข้ามทุก IP ที่อยู่ใน `TRUSTED_PROXIES`** แล้วใช้ IP แรกที่ไม่ใช่ proxy เป็น IP ของ client (`middleware.ClientIP`) — ค่าที่ client ใส่เองจะอยู่ทางซ้ายจึงปลอมไม่ได้ · **รายการที่พิมพ์ผิด (ไม่ใช่ IP / CIDR) = boot ไม่ขึ้น** · ถ้าลืมใส่ proxy ชั้นใดชั้นหนึ่ง IP ของ proxy ชั้นนั้นจะถูกนับเป็น client (ทุกคนใช้ IP เดียวกัน) · connection ที่ไม่ได้มาจาก proxy ใน list ไม่เชื่อ header |
 | `CORS_ALLOW_ORIGINS` | domain ของหน้าเว็บ ห้ามใช้ `*` บน prod |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME` | required |
 | `DB_PASSWORD` | Secret |
@@ -95,6 +97,8 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 | `JWT_SECRET` | Secret, required, อย่างน้อย 32 ตัวอักษร, แยกค่าต่อ env |
 | `PASSWORD_COST` | bcrypt cost — **12** (default) ห้ามลดบน dev/prod ค่า 4 ใช้กับ CI/test เท่านั้น |
 | `SESSION_*`, `LOGIN_*`, `PASSCODE_*`, `TEMP_CREDENTIAL_TTL` | มี default ใช้ตาม `.env.example` ได้ |
+| `PLAYER_SESSION_*`, `OPERATOR_IP_LIMIT_PER_MINUTE` | มี default ใช้ตาม `.env.example` ได้ (player_auth) |
+| `PLAYER_LOBBY_URL` | URL หน้า lobby ที่ `transfer/login` ต่อ `?token=` ท้าย — **prod / dev ต้องตั้ง** ไม่ตั้ง = `transfer/login` ตอบ 503 · ต้องเป็น absolute `http(s)://host/...` ผิดรูปแบบ = **boot ไม่ขึ้น** |
 | `MIGRATE_ON_START` | **`false`** (default เมื่อไม่ตั้ง) — migration รันแยกตามข้อถัดไป |
 
 key ที่ required ถ้าขาด app จะไม่ boot (log `missing required env: ...`)
@@ -165,6 +169,22 @@ metric ที่มี
 - `/app/migrate` โหลด config ชุดเดียวกับ app จึงต้องได้ env ครบเหมือน Deployment (รวม `REDIS_ADDR`, `JWT_SECRET`) แม้จะใช้แค่ Postgres
 - migrate fail = exit code ≠ 0 → ห้าม rollout ต่อ
 - migration ต้องเข้ากันได้กับ pod เวอร์ชันเก่าที่ยังรันอยู่ระหว่าง rolling update (เพิ่มคอลัมน์ก่อน ลบทีหลังในอีก release)
+
+### รัน seed รูปค่ากลางของ asset (GLOBAL — `asset.md` AST-61)
+
+รูปค่ากลางของ asset เก็บใน repo ที่ `seed/global-assets/{game_code}/{asset_type}.{ext}` (ตอนนี้มี `scratch_card` 19 ช่อง) — **ไม่ถูกใส่ใน image และไม่มี Job ตอน deploy**
+คนรันสคริปต์เอง**ทีละ env** หลัง migrate แล้วและ S3 / CloudFront พร้อม:
+
+```
+make seed-asset-global
+# หรือ: go run ./scripts/seed_asset_global -dir seed/global-assets
+```
+
+- **เขียน S3 + DB ของจริงตาม `.env` ของเครื่องที่รัน** → ขอ lead ก่อนรันบน dev / uat / prod ทุกครั้ง · ห้ามรันโดยไม่ได้รับอนุญาต
+- `.env` ต้องมี `DB_*` ของ env เป้าหมาย · `S3_BUCKET` · `S3_REGION` · `S3_CDN_BASE_URL` · credential AWS ที่เขียน bucket ได้ · ไม่ตั้ง `S3_BUCKET` = สคริปต์หยุดตั้งแต่ต้น ไม่เขียนอะไร
+- **รันซ้ำได้:** ช่องที่ GLOBAL มีรูปแล้วถูกข้าม · เติมเฉพาะช่องว่าง · เปลี่ยนรูปที่ใช้อยู่ = ใส่ `-force` (อัปเวอร์ชันใหม่ + ตั้งเป็นรูปที่ใช้ · ไฟล์เดิมยังอยู่ใน bucket / คลัง)
+- ท้ายผลบอกช่องของทุกเกมที่ GLOBAL ยังไม่มีรูป (`coin_toss` / `rock_paper_scissors` จะค้างจนกว่าทีมเกมส่งรูป — ไม่ใช่ error) · ต้องครบทุกช่องของ `scratch_card` ก่อน UAT (AST-24)
+- ตรวจหลังรัน: `used/list` (`scope: GLOBAL`, `game_code: scratch_card`) ทุกช่องต้องมี `url` และเปิดดูรูปได้
 
 ### prod ครั้งแรก (lead 2026-10-11)
 

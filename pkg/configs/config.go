@@ -2,6 +2,8 @@ package configs
 
 import (
 	"fmt"
+	"net/netip"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -18,18 +20,37 @@ type Config struct {
 	ServerWriteTimeout time.Duration
 	ShutdownTimeout    time.Duration
 	TrustedProxies     []string
-	CORSAllowOrigins   string
+	// TrustedProxyPrefixes = TrustedProxies ที่ validate + แปลงแล้วตอน Load (parse ครั้งเดียว · ผิด = boot ไม่ขึ้น — S1-a) · middleware.ClientIP อ่านจากนี่
+	TrustedProxyPrefixes []netip.Prefix
+	CORSAllowOrigins     string
 
 	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
 	MetricsAddr string
 
-	DB      DBConfig
-	Redis   RedisConfig
-	Auth    AuthConfig
+	DB           DBConfig
+	Redis        RedisConfig
+	Auth         AuthConfig
+	CurrencyRate CurrencyRateConfig
+
 	Storage StorageConfig
 
+	// PlayerLobbyURL คือ URL หน้า lobby ที่ transfer/login ต่อ ?token= ท้าย (player_auth L2 · lead Q12) · ไม่ตั้ง = transfer/login ตอบ 503
+	PlayerLobbyURL string
+
 	MigrateOnStart bool
+
+	// DevRoutesEnabled — เปิด context developer (/api/v1/dev/... ไม่ต้อง login) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
+	DevRoutesEnabled bool
 }
+
+// CurrencyRateConfig — docs/modules/currency_rate.md (CR-02, หัวข้อ 6)
+type CurrencyRateConfig struct {
+	SyncEnabled bool   // IS_CURRENCY_RATE_SYNC (ค่าเริ่มต้น true)
+	BaseURL     string // CURRENCY_RATE_API_BASE_URL — origin เปล่า ไม่มี path
+}
+
+// ค่าเริ่มต้นของ CURRENCY_RATE_API_BASE_URL (host ฝั่ง dev) — ใช้ได้เฉพาะ local / dev
+const defaultCurrencyRateBaseURL = "https://dev-api.amblotto.net"
 
 // AuthConfig — ค่าตาม spec docs/modules/agent_auth.md (AUTH-07, AUTH-10, AUTH-11)
 // และ docs/modules/agent_auth_phase2.md (AUTH-35, AUTH-46)
@@ -41,6 +62,11 @@ type AuthConfig struct {
 
 	SessionIdleTimeout     time.Duration
 	SessionAbsoluteTimeout time.Duration
+
+	// ผู้เล่น (docs/modules/player_auth.md PA-21 / PA-42) — idle 30 นาที · absolute 4 ชม. · transfer/* ต่อ IP ต่อนาที
+	PlayerSessionIdleTimeout     time.Duration
+	PlayerSessionAbsoluteTimeout time.Duration
+	OperatorIPLimit              int
 
 	LoginFailLimit     int
 	LoginFailWindow    time.Duration
@@ -128,19 +154,23 @@ func Load() error {
 			DB:       getEnvInt("REDIS_DB", 0),
 		},
 
+		PlayerLobbyURL: os.Getenv("PLAYER_LOBBY_URL"),
 		Auth: AuthConfig{
-			JWTSecret:              required("JWT_SECRET"),
-			PasswordCost:           getEnvInt("PASSWORD_COST", 12),
-			SessionIdleTimeout:     getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
-			SessionAbsoluteTimeout: getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
-			LoginFailLimit:         getEnvInt("LOGIN_FAIL_LIMIT", 5),
-			LoginFailWindow:        getEnvDuration("LOGIN_FAIL_WINDOW", 15*time.Minute),
-			LoginBlockDuration:     getEnvDuration("LOGIN_BLOCK_DURATION", 15*time.Minute),
-			LoginIPLimit:           getEnvInt("LOGIN_IP_LIMIT_PER_MINUTE", 20),
-			PasscodeFailLimit:      getEnvInt("PASSCODE_FAIL_LIMIT", 5),
-			PasscodeFailWindow:     getEnvDuration("PASSCODE_FAIL_WINDOW", 24*time.Hour),
-			PasscodeBlockDuration:  getEnvDuration("PASSCODE_BLOCK_DURATION", time.Hour),
-			TempCredentialTTL:      getEnvDuration("TEMP_CREDENTIAL_TTL", 24*time.Hour),
+			JWTSecret:                    required("JWT_SECRET"),
+			PasswordCost:                 getEnvInt("PASSWORD_COST", 12),
+			SessionIdleTimeout:           getEnvDuration("SESSION_IDLE_TIMEOUT", 60*time.Minute),
+			SessionAbsoluteTimeout:       getEnvDuration("SESSION_ABSOLUTE_TIMEOUT", 12*time.Hour),
+			PlayerSessionIdleTimeout:     getEnvDuration("PLAYER_SESSION_IDLE_TIMEOUT", 30*time.Minute),
+			PlayerSessionAbsoluteTimeout: getEnvDuration("PLAYER_SESSION_ABSOLUTE_TIMEOUT", 4*time.Hour),
+			OperatorIPLimit:              getEnvInt("OPERATOR_IP_LIMIT_PER_MINUTE", 20),
+			LoginFailLimit:               getEnvInt("LOGIN_FAIL_LIMIT", 5),
+			LoginFailWindow:              getEnvDuration("LOGIN_FAIL_WINDOW", 15*time.Minute),
+			LoginBlockDuration:           getEnvDuration("LOGIN_BLOCK_DURATION", 15*time.Minute),
+			LoginIPLimit:                 getEnvInt("LOGIN_IP_LIMIT_PER_MINUTE", 20),
+			PasscodeFailLimit:            getEnvInt("PASSCODE_FAIL_LIMIT", 5),
+			PasscodeFailWindow:           getEnvDuration("PASSCODE_FAIL_WINDOW", 24*time.Hour),
+			PasscodeBlockDuration:        getEnvDuration("PASSCODE_BLOCK_DURATION", time.Hour),
+			TempCredentialTTL:            getEnvDuration("TEMP_CREDENTIAL_TTL", 24*time.Hour),
 		},
 
 		Storage: StorageConfig{
@@ -151,7 +181,12 @@ func Load() error {
 			Endpoint:      os.Getenv("S3_ENDPOINT"),
 		},
 
-		MigrateOnStart: getEnvBool("MIGRATE_ON_START", false),
+		MigrateOnStart:   getEnvBool("MIGRATE_ON_START", false),
+		DevRoutesEnabled: getEnvBool("DEV_ROUTES_ENABLED", false),
+	}
+
+	if err := loadCurrencyRate(cfg, required); err != nil {
+		return err
 	}
 
 	if len(missing) > 0 {
@@ -165,6 +200,20 @@ func Load() error {
 	}
 	if cfg.MetricsAddr != "" && cfg.MetricsAddr == cfg.ServerAddr {
 		return fmt.Errorf("METRICS_ADDR must differ from SERVER_ADDR")
+	}
+	prefixes, err := ParseTrustedProxies(cfg.TrustedProxies)
+	if err != nil {
+		return err
+	}
+	cfg.TrustedProxyPrefixes = prefixes
+	if err := validateLobbyURL(cfg.PlayerLobbyURL); err != nil {
+		return err
+	}
+	if cfg.DevRoutesEnabled && cfg.IsProd() { // PTC-41
+		return fmt.Errorf("DEV_ROUTES_ENABLED must be false when APP_ENV=prod")
+	}
+	if cfg.Auth.PlayerSessionIdleTimeout > cfg.Auth.PlayerSessionAbsoluteTimeout {
+		return fmt.Errorf("PLAYER_SESSION_IDLE_TIMEOUT must not exceed PLAYER_SESSION_ABSOLUTE_TIMEOUT")
 	}
 	if cfg.Auth.SessionIdleTimeout > cfg.Auth.SessionAbsoluteTimeout {
 		return fmt.Errorf("SESSION_IDLE_TIMEOUT must not exceed SESSION_ABSOLUTE_TIMEOUT")
@@ -227,4 +276,27 @@ func getEnvList(key string) []string {
 		}
 	}
 	return out
+}
+
+// loadCurrencyRate — CURRENCY_RATE_API_BASE_URL ต้องเป็น origin เปล่า (scheme://host[:port]) · บังคับใน uat / prod
+// local / dev ไม่ตั้ง = ใช้ค่าเริ่มต้น (host ฝั่ง dev) — docs/modules/currency_rate.md หัวข้อ 6
+func loadCurrencyRate(cfg *Config, required func(string) string) error {
+	cfg.CurrencyRate.SyncEnabled = getEnvBool("IS_CURRENCY_RATE_SYNC", true)
+	var raw string
+	switch cfg.AppEnv {
+	case "uat", "prod":
+		raw = required("CURRENCY_RATE_API_BASE_URL")
+		if raw == "" {
+			return nil // แจ้งรวมกับ env อื่นที่ขาด
+		}
+	default:
+		raw = getEnv("CURRENCY_RATE_API_BASE_URL", defaultCurrencyRateBaseURL)
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+		u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return fmt.Errorf("CURRENCY_RATE_API_BASE_URL must be a bare origin like https://dev-api.amblotto.net (no path or trailing slash)")
+	}
+	cfg.CurrencyRate.BaseURL = raw
+	return nil
 }

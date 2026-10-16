@@ -244,9 +244,14 @@ func TestDWRules(t *testing.T) { // DW-01 – DW-07 · DW-10 · DW-11 · DW-15
 	database.DBConn.Model(&models.UserAgent{}).Where("id = ?", c.agent.ID).Update("status", models.AgentStatusSuspended)
 	expect(t, call(t, app, "POST", dwCreatePath, dwBody("AGENT", c.agent.ID, "DEPOSIT", 1), c.shareTok), 200, 404301)
 
-	// Seamless (DW-06)
+	// สาย Seamless ฝาก / ถอนได้ (DW-06 แก้ 2026-10-15)
 	reseller, _ := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_RESELLER", "reseller01", nil, childPT(80, 0, 0, 0)))
-	expect(t, call(t, app, "POST", dwCreatePath, dwBody("COMPANY", reseller.ID, "DEPOSIT", 1), c.saTok), 200, 404302)
+	setBalance(t, superadminID(t), "THB", 100)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("COMPANY", reseller.ID, "DEPOSIT", 5), c.saTok), 200, 200)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("COMPANY", reseller.ID, "WITHDRAW", 2), c.saTok), 200, 200)
+	if agentBalance(t, reseller.ID, "THB") != 3 || agentBalance(t, superadminID(t), "THB") != 97 {
+		t.Fatalf("Seamless ฝาก / ถอน: reseller %v · superadmin %v", agentBalance(t, reseller.ID, "THB"), agentBalance(t, superadminID(t), "THB"))
+	}
 
 	// สกุล (DW-11)
 	j := dwBody("SHAREHOLDER", c.share.ID, "DEPOSIT", 1)
@@ -498,12 +503,13 @@ func TestDWDownlinesList(t *testing.T) { // DW-40 – DW-44A
 		t.Fatalf("total_sum shareholder = %v", s)
 	}
 
-	// Seamless: has_balance = false · ยอด 0 ทุกสกุล · credit_detail ของ Superadmin = ยอดจริงใน agent_balances (lead 2026-10-15)
-	mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_RESELLER", "reseller01", nil, childPT(80, 0, 0, 0)))
+	// สาย Seamless มียอดแล้ว (2026-10-15): has_balance = true ทุกแถว · ยอดจริง · credit_detail ของ Superadmin = ยอดจริงใน agent_balances
+	reseller, _ := mustCreate(t, app, c.saTok, agentBody("COMPANY_SEAMLESS_RESELLER", "reseller01", nil, childPT(80, 0, 0, 0)))
 	setBalance(t, superadminID(t), "THB", 100000000)
+	setBalance(t, reseller.ID, "THB", 33)
 	p = list(c.saTok, map[string]any{})
 	for _, r := range p.Data {
-		if (r.Username == "reseller01") == r.HasBalance || (r.Username == "reseller01" && r.Currency["THB"] != 0) {
+		if !r.HasBalance || (r.Username == "reseller01" && r.Currency["THB"] != 33) {
 			t.Fatalf("Seamless %+v", r)
 		}
 	}
@@ -552,4 +558,106 @@ func TestDWLogsList(t *testing.T) { // DW-46 – DW-48
 	} {
 		expect(t, call(t, app, "POST", dwLogsPath, body, c.shareTok), 200, 422)
 	}
+}
+
+func TestDWHistoryList(t *testing.T) { // DW-55 – DW-60
+	const dwHistoryPath = "/api/v1/bo/pr/deposit-withdraw/history/list"
+	app := setup2(t)
+	c := buildChain(t, app)
+	setBalance(t, c.share.ID, "THB", 1000)
+	setBalance(t, c.agent.ID, "THB", 1000)
+	staff := createSubAPI(t, app, c.shareTok, "Pay", map[string]string{"payment": "edit"})
+	staffTok := readyToken(t, app, models.AccountTypeSub, staff.ID, staff.Username)
+	mem := createMemberOf(t, app, c.agentTok, "memhist")
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("AGENT", c.agent.ID, "DEPOSIT", 10), c.shareTok), 200, 200)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("AGENT", c.agent.ID, "WITHDRAW", 3), staffTok), 200, 200)
+	expect(t, call(t, app, "POST", dwCreatePath, dwBody("MEMBER", mem.ID, "DEPOSIT", 7), c.agentTok), 200, 200)
+
+	now := time.Now()
+	start, end := now.Add(-time.Hour).Format(time.RFC3339), now.Add(time.Hour).Format(time.RFC3339)
+	type row struct {
+		ID              uint    `json:"id"`
+		AgentID         uint    `json:"agent_id"`
+		AgentUsername   string  `json:"agent_username"`
+		Role            string  `json:"role"`
+		RequestBy       uint    `json:"request_by"`
+		RequestType     string  `json:"request_type"`
+		RequestUsername string  `json:"request_username"`
+		Currency        string  `json:"currency"`
+		TransactionType string  `json:"transaction_type"`
+		Amount          float64 `json:"amount"`
+		CreatedAt       string  `json:"created_at"`
+	}
+	type page struct {
+		TotalCount int64 `json:"total_count"`
+		TotalPage  int   `json:"total_page"`
+		Data       []row `json:"data"`
+	}
+	body := func(username string) map[string]any {
+		return map[string]any{"username": username, "starttime": start, "endtime": end, "page": 1, "limit": 100}
+	}
+	history := func(tok string, b map[string]any) page {
+		r := call(t, app, "POST", dwHistoryPath, b, tok)
+		expect(t, r, 200, 200)
+		var p page
+		if err := json.Unmarshal(r.Data, &p); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	// comp01 ค้นหลาน agent01: เห็นรายการของ share01 และ sub ของ share01 · ใหม่ → เก่า · คนกดจริง
+	p := history(c.comTok, body(" AGENT01 "))
+	if p.TotalCount != 2 || p.Data[0].RequestType != "SUB" || p.Data[0].RequestUsername != staff.Username || p.Data[0].RequestBy != staff.ID ||
+		p.Data[0].TransactionType != "WITHDRAW" || p.Data[1].RequestUsername != "share01" || p.Data[1].RequestType != "AGENT" ||
+		p.Data[1].AgentUsername != "agent01" || p.Data[1].AgentID != c.agent.ID || p.Data[1].Role != "AGENT" || p.Data[1].Currency != "THB" {
+		t.Fatalf("agent01 = %+v", p)
+	}
+	// Member ใต้สาย (เหลน) · ไม่จำกัดชั้น
+	if p = history(c.comTok, body("memhist")); p.TotalCount != 1 || p.Data[0].Role != "MEMBER" || p.Data[0].RequestUsername != "agent01" || p.Data[0].Amount != 7 {
+		t.Fatalf("memhist = %+v", p)
+	}
+	// แบ่งหน้า
+	b := body("agent01")
+	b["limit"] = 1
+	if p = history(c.comTok, b); len(p.Data) != 1 || p.TotalPage != 2 || p.Data[0].TransactionType != "WITHDRAW" {
+		t.Fatalf("limit 1 = %+v", p)
+	}
+	// endtime รวมขอบ: ตั้ง created_at ของรายการฝากให้เท่า endtime พอดี
+	at := now.Add(2 * time.Hour).Truncate(time.Second)
+	execSQL(t, "UPDATE deposit_withdraw_logs SET created_at = ? WHERE target_id = ? AND transaction_type = 'DEPOSIT' AND target_type = 'AGENT'", at, c.agent.ID)
+	b = body("agent01")
+	b["endtime"] = at.Format(time.RFC3339)
+	if p = history(c.comTok, b); p.TotalCount != 2 {
+		t.Fatalf("endtime รวมขอบ = %d", p.TotalCount)
+	}
+
+	// ไม่พบ: ตัวเอง · ชั้นบน · ไม่มี · นอกสาย (DW-56)
+	other, _ := mustCreate(t, app, c.saTok, agentBody("COMPANY_TRANSFER", "comp02", nil, childPT(80, 0, 0, 0)))
+	_ = other
+	for _, u := range []string{"comp01", "superadmin", "nouser", "comp02"} {
+		expect(t, call(t, app, "POST", dwHistoryPath, body(u), c.comTok), 200, 404402)
+	}
+	expect(t, call(t, app, "POST", dwHistoryPath, body("agent01"), c.agentTok), 200, 404402) // agent01 ค้นตัวเอง
+	// รูปแบบ (DW-55 · DW-58)
+	for _, mod := range []map[string]any{
+		{"username": ""},
+		{"starttime": "2026-10-15T00:00:00"},
+		{"endtime": "2026-10-15"},
+		{"starttime": end, "endtime": start},
+	} {
+		b = body("agent01")
+		for k, v := range mod {
+			b[k] = v
+		}
+		expect(t, call(t, app, "POST", dwHistoryPath, b, c.comTok), 200, 422)
+	}
+	// ช่วงยาว 1 ปีได้ (ไม่จำกัด)
+	b = body("agent01")
+	b["starttime"] = now.AddDate(-1, 0, 0).Format(time.RFC3339)
+	expect(t, call(t, app, "POST", dwHistoryPath, b, c.comTok), 200, 200)
+	// ADMIN = 404305
+	admin := createAccount(t, "admin01", models.AgentRoleAdmin, nil)
+	adminTok := loginReady(t, app, models.AccountTypeAgent, admin.ID, "admin01")
+	expect(t, call(t, app, "POST", dwHistoryPath, body("agent01"), adminTok), 200, 404305)
 }

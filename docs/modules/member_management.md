@@ -9,7 +9,8 @@
 - ชื่อ module ในโค้ด: `member_management` (`controllers/member_management`, `dto/member_management`, `service/member_management`) · กฎ business ร่วมอยู่ที่ `core/agent_management`
 - rule ID ใช้ `MGMT-xx` ชุดเดียวกับ [agent_management.md](agent_management.md) (ไม่ตั้งเลขใหม่ — โค้ดและ test อ้างเลขเดิม) · error ใช้ `402xxx` ของ module `agent_management`
 - เมนู: 2 การจัดการสมาชิก — ส่วนของ Member (สร้าง · รายละเอียด · แก้ข้อมูล / PT · แก้สถานะ · dropdown Member ลูกตรง)
-- **แก้ตาม lead review 2026-10-12** ([docs/reviews/member-payment.md](../reviews/member-payment.md) — P1–P15): วิธีจ่ายเงิน · บัญชีธนาคาร · ลิมิตชนะต่อวัน (MGMT-63 – MGMT-65 · หัวข้อ 2.2)
+- **แก้ตาม lead review 2026-10-12** ([docs/reviews/member-payment.md](../reviews/member-payment.md) — P1–P15): วิธีจ่ายเงิน · บัญชีธนาคาร · ลิมิตชนะต่อวัน (MGMT-63 – MGMT-65 · หัวข้อ 2.2) ·
+  **รอบ 2 / 2.1 (2026-10-15):** `win_limit_per_day` `0` = เล่นไม่ได้ · ไม่ส่ง = `10,000,000` · **หน่วยบาทเสมอ** · แปลงสกุลที่ module เดิมพัน (MGMT-65)
 
 > เอกสารนี้คือ source of truth ของเส้น Member — กฎที่ใช้ร่วมกับฝั่ง agent อยู่ใน agent_management.md และอ้างด้วย ID
 
@@ -36,8 +37,8 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | MGMT-08A | migration เบอร์เดิมของ Member (lead B1 · แบบเดียวกับ agent): ขึ้นต้น `0` → `66` + ตัด 0 · ขึ้นต้น `66` และยาว 11 หลัก → `66` + ส่วนที่เหลือ · แบบอื่นล้างเป็น `""` · แปลงแล้วซ้ำภายใต้ผู้สร้างเดียวกัน เก็บแถว `id` น้อยสุด แถวอื่นล้าง · ทุกรายการที่ถูกล้างบันทึกใน `migration_phone_cleared` (`table_name = user_members` · `reason` `FORMAT` / `DUPLICATE` · `kept_member_id` = Member ที่ได้เก็บเบอร์ไว้) |
 | MGMT-09A | แก้ได้: ชื่อ · เบอร์ · PT / Commission · วิธีจ่ายเงิน / บัญชีธนาคาร · ลิมิตชนะต่อวัน (เส้นเดียว `members/detail/update` — M3) · สถานะ (`members/status/update` — M4) · แก้ไม่ได้: username · สกุลเงิน · ผู้สร้าง |
 | MGMT-13 | สกุลเงิน = สกุลของผู้สร้าง (1 สกุล) ไม่ต้องส่ง |
-| MGMT-15A | ยอดเงินตั้งต้น `balance` ไม่บังคับ · ฝั่ง Transfer เท่านั้น — **สายที่เป็น Seamless ส่งแล้วได้ `422`** · โอนจากผู้สร้าง (ยอดไม่พอ `402312`) · ต้องมี `request_id` (UUID) กันส่งซ้ำ — `request_id` เดิมของตัวเองที่ใช้สร้าง Member = ได้ `id` เดิม ไม่โอนซ้ำ · ของคนอื่น / ที่เคยใช้สร้างฝั่ง agent = `422` (lead Q-R4) · ยอดของ Member เก็บที่ `user_members.credit` (Member มี 1 สกุล) · ทุกการแก้ `credit` ต้อง lock แถว `user_members` `FOR UPDATE` ก่อน (lead MA5) · `balance_ledger` `owner_type = MEMBER` |
-| MGMT-15B | Member ฝั่ง Seamless ไม่มียอด: `balances` แสดง `amount: 0` เสมอ (ACC-19 · lead MQ6) — หน้าบ้านซ่อนเอง |
+| MGMT-15A | ยอดเงินตั้งต้น `balance` ไม่บังคับ · ส่งได้ทั้งฝั่ง Transfer และ Seamless (MGMT-15 แก้ 2026-10-15 · lead อนุมัติ — เดิม Seamless = `422`) · โอนจากผู้สร้าง (ยอดไม่พอ `402312`) · ต้องมี `request_id` (UUID) กันส่งซ้ำ — `request_id` เดิมของตัวเองที่ใช้สร้าง Member = ได้ `id` เดิม ไม่โอนซ้ำ · ของคนอื่น / ที่เคยใช้สร้างฝั่ง agent = `422` (lead Q-R4) · ยอดของ Member เก็บที่ `user_members.credit` (Member มี 1 สกุล) · ทุกการแก้ `credit` ต้อง lock แถว `user_members` `FOR UPDATE` ก่อน (lead MA5) · `balance_ledger` `owner_type = MEMBER` |
+| MGMT-15B | **แก้ 2026-10-15**: Member ฝั่ง Seamless มียอดได้ (ยอดตั้งต้น / ฝากจากผู้สร้าง) · `balances` แสดงยอดจริง · **ยอดนี้ใช้แทงไม่ได้** (แทงจาก wallet ของ operator) · เดิม: แสดง `0` เสมอ (lead MQ6) |
 | MGMT-61 | `user_members.cnf` = สายชั้นบนของ Member `{"parent": [{"id", "position"}, …]}` เรียงจาก Superadmin ลงมาถึง**ผู้สร้าง** (= `cnf` ของผู้สร้าง + ผู้สร้าง) · ตั้งตอนสร้าง (lead MA4) |
 | MGMT-62 | `user_member_game_settings.parent_id` = id ของ agent ผู้สร้าง Member (ค่าเดียวกับ `user_members.agent_id`) · ตั้งตอนสร้าง · NOT NULL |
 | MGMT-63 | `payment_type` วิธีจ่ายเงิน = `CREDIT` / `CASH` (ส่งตัวเล็กได้ เก็บตัวใหญ่) · **บังคับ**ตอนสร้าง · **ข้อมูลแสดงผลอย่างเดียว** ไม่มีผลกับยอดเงิน การเติม / ถอน หรือการแทง (lead P1) · ผู้สร้างฝั่ง Seamless: ระบบเก็บ `CASH` เสมอ ไม่ว่าส่งค่าอะไรมา (ทั้งตอนสร้างและแก้) · Member ก่อนมี field นี้ = `CASH` (P2) |
@@ -46,7 +47,7 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | | • **ห้ามซ้ำที่คู่ (`bank_code` + `account_number`) เฉพาะภายใต้ผู้สร้างเดียวกัน** (`402405`) · คนละผู้สร้างซ้ำได้ (P4) |
 | | • ชื่อเจ้าของบัญชี 6 field ไม่บังคับ: `name_th` · `midname_th` · `surname_th` (อักษรไทย) · `name_en` · `midname_en` · `surname_en` (A–Z a–z) · มีช่องว่าง / `-` ได้ ขึ้นต้นด้วยตัวอักษร · ไม่เกิน 50 ตัว · ส่งชื่อโดยไม่มี `bank_code` + `account_number` = `422` (P7) |
 | | • แสดง: เลขบัญชีเต็มใน `members/detail/get` · ไม่อยู่ใน `downlines/list` · ใน `account_change_logs` ปิดบางส่วน 3 ตัวแรก + `•••` + 4 ตัวท้าย (เช่น `787•••6654` — P8) · ไม่มีบัญชี = object ที่ทุก field เป็น `""` (ACC-32 · P12) · "คัดลอกการตั้งค่าจาก" ไม่คัดลอกบัญชี (P15) |
-| MGMT-65 | `win_limit_per_day` ลิมิตชนะต่อวัน **ค่าเดียวใช้ทุกเกม** · หน่วยสกุลของ Member · ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9) · JSON number (`float64` — ทีมตกลง 2026-10-12 · ส่งเป็นข้อความ = `400`) · **ตั้งได้ `0` – `10,000,000`** (ตัวเลขเดียวทุกสกุล · เกิน = `422`) · **`0` = เล่นไม่ได้** · `1` – `10,000,000` = ชนะได้ไม่เกินเท่านี้ต่อวัน · ไม่บังคับ **ไม่ส่ง = `10,000,000`** · Member เดิมที่เป็น `0` (ความหมายเดิม = ไม่จำกัด) ปรับเป็น `10,000,000` (migration `20261014160000`) — **maofoy 2026-10-14 แทน P9 (เดิม ไม่ส่ง / `0` = ไม่จำกัด) และเพดาน `1,000,000` เดิม · รอ lead รับทราบ** · ไม่มีเพดานจากชั้นบน (P11) · รอบนี้**แค่เก็บค่า** — วิธีนับ / ตัดรอบวัน / ผลเมื่อถึงลิมิตกำหนดใน module เดิมพัน (P10) · "คัดลอกการตั้งค่าจาก" คัดลอกค่านี้ด้วย (P15) |
+| MGMT-65 | `win_limit_per_day` ลิมิตชนะต่อวัน **ค่าเดียวใช้ทุกเกม** · **หน่วยบาท (THB) เสมอ ไม่ว่า Member ใช้สกุลอะไร** (lead รอบ 2.1 · 2026-10-15) · ตอนตั้งค่าไม่แปลงสกุล ไม่ใช้ currency_rate · **การแปลงอยู่ที่ module เดิมพัน**: ตอนเช็ค / สะสมยอดชนะของวัน แปลงยอดชนะจากสกุลของ Member เป็นบาทก่อนเทียบ (เช่น Member USD ตั้ง `1,000,000` = ยอดชนะ USD แปลงเป็นบาทแล้วต้องไม่เกิน 1,000,000 บาท) · ≥ 0 ทศนิยมไม่เกิน 4 ตำแหน่ง (กฎข้อ 9) · JSON number (`float64` — ทีมตกลง 2026-10-12 · ส่งเป็นข้อความ = `400`) · **ตั้งได้ `0` – `10,000,000` บาท** (เกิน = `422`) · **`0` = เล่นไม่ได้** · `1` – `10,000,000` = ชนะได้ไม่เกินเท่านี้ต่อวัน · ไม่บังคับ **ไม่ส่ง = `10,000,000`** · Member เดิมที่เป็น `0` (ความหมายเดิม = ไม่จำกัด) ปรับเป็น `10,000,000` (migration `20261014160000`) — **maofoy 2026-10-14 แทน P9 (เดิม ไม่ส่ง / `0` = ไม่จำกัด) และเพดาน `1,000,000` เดิม · lead รับ 2026-10-15 (member-payment รอบ 2 / 2.1)** · Player Auth PA-09 ใช้ `DefaultWinLimitPerDay` ตัวเดียวกัน · ไม่มีเพดานจากชั้นบน (P11) · รอบนี้**แค่เก็บค่า** — วิธีนับ / ตัดรอบวัน / ผลเมื่อถึงลิมิตกำหนดใน module เดิมพัน (P10) · "คัดลอกการตั้งค่าจาก" คัดลอกค่านี้ด้วย (P15) |
 | MGMT-16 | `created_by` / `updated_by` ของค่า PT = username ของคนกดจริง (sub = `comp01@staff` — lead Q-R2) |
 | MGMT-21 | ผู้สร้างตั้งให้ Member ต่อระบบ 2 ค่า (lead MA1 / MA3): `pt` = ผู้สร้าง**ถือสู้กับ Member คนนี้** (0 ถึงค่าที่ผู้สร้างได้รับ) · `commission_percent` 0–1% · Member แต่ละคน `pt` ต่างกันได้ · ส่ง `pt_from_parent` / `force` / `remain_quota` / `status` = `422` |
 | | • ขั้น (lead MQ3): `pt` ทีละ 0.5 · commission ทีละ 0.1 · ไม่ลงขั้นหรือทศนิยมเกิน 4 ตำแหน่ง = `422` · ลงขั้นแต่เกินเพดาน = `402305` (`pt` เกินค่าที่ผู้สร้างได้รับ) / `402309` (commission เกิน 1) |
@@ -56,7 +57,7 @@ ADMIN ค้นหาบัญชี (MGMT-27B) · การเติม / ถ�
 | | • ผู้สร้างไม่มีแถว PT ของกลุ่มนั้น (ข้อมูลก่อน module ②) → ค่าที่ได้รับ = 0 → ตั้งได้แค่ `pt` 0 |
 | MGMT-29 | รายละเอียด: ทุก field ยกเว้น password / hash · ไม่มี `passcode_set` / `status_game` · **`pt` แสดงเสมอ** (ไม่มีเมนูสิทธิ์ `pt` แล้ว — lead P4) · มี `payment_type` · `payment_account` (เลขบัญชีเต็ม) · `win_limit_per_day` (MGMT-63 – MGMT-65) |
 | MGMT-30 | สถานะ `ACTIVE` / `SUSPENDED` / `LOCKED` แก้ได้เฉพาะผู้สร้างโดยตรง (`402304`) · ตั้งกลับ `ACTIVE` ได้ · ไม่ต้อง passcode · **ส่งสถานะเดิม = `200` ไม่เขียน log** (lead MQ5) · `status` ที่แสดง = สถานะที่ใช้งานจริง (หัวสายถูกระงับ = `SUSPENDED`) |
-| MGMT-30A | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน: **open item** → กำหนดตอน review Player Auth (lead MQ7 · ร่าง: LOCKED = login ไม่ได้ + ตัด session · SUSPENDED = login / ดูได้ เดิมพันไม่ได้) |
+| MGMT-30A | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน (lead MQ7 · **ปิดแล้ว 2026-10-15** ตาม player_auth PQ7 / PA-30 – PA-35): `LOCKED` = login ไม่ได้ + ตัด session (ตั้ง `LOCKED` ที่ M4 → ลบ session ผู้เล่นหลัง commit · ส่ง `LOCKED` ซ้ำก็ลบอีกรอบ) · `SUSPENDED` = login / ดูข้อมูลได้ เดิมพันไม่ได้ (`can_bet = false`) · สถานะที่ใช้งานจริง = แย่สุดของ Member + สายบน · รายละเอียด: `docs/modules/player_auth.md` |
 | MGMT-32M | `members/detail/update` (lead M3-1 · MN2 · P13): section `info` / `pt` / `payment` / `limit` ไม่บังคับ แต่**ต้องมีอย่างน้อย 1** (`422` "ต้องส่งอย่างน้อย 1 section") · `info` ส่งบาง field ได้ (ไม่ส่ง = คงเดิม · เบอร์ต้องส่งคู่) · `pt.{กลุ่ม}` ต้องครบ `pt` + `commission_percent` · `payment` ส่ง `payment_type` และ / หรือ `payment_account` (ไม่ส่ง = คงเดิม · `payment_account` ที่ส่ง**แทนทั้งก้อน** · ล้างบัญชีส่ง `{}`) · `limit` ต้องมี `win_limit_per_day` · ผู้สร้างโดยตรงเท่านั้น (หลาน `402304` · นอกสาย `402402`) · tx เดียว (section ไหนผิดไม่บันทึกเลย) · ทำตามลำดับ `info` → `pt` → `payment` → `limit` · log แยกแถว `UPDATE_INFO` / `UPDATE_PT` / `UPDATE_PAYMENT` / `UPDATE_LIMIT` เฉพาะ section ที่เปลี่ยนจริง · ค่าเดิม = ไม่เขียน log · ไม่ต้อง passcode |
 | MGMT-32N | Member ไม่มีแถวค่าตั้งของกลุ่มที่ส่ง (ข้อมูลก่อน module ②) → ข้ามกลุ่มนั้นเงียบ ไม่บันทึก ไม่เขียน log (lead MQ4) |
 | MGMT-35M | `members/list` (lead M5): Member ที่เป็น**ลูกตรงของตัวเอง** ไว้ทำ dropdown "คัดลอกการตั้งค่าจาก" → เลือกแล้วเรียก `members/detail/get` · `keyword` ไม่บังคับ 4–32 ตัว (ค้น username บางส่วน ไม่สนตัวพิมพ์) · A→Z · ไม่แบ่งหน้า สูงสุด 500 · ไม่มี = `[]` |
@@ -142,7 +143,7 @@ Response:
 | `request_id` | UUID บังคับ (MGMT-15A) |
 | `username` · `password` · `name` | MGMT-05 – MGMT-07 |
 | `phone_country_code` · `phone` | MGMT-08 · ไม่กรอก `""` ทั้งคู่ |
-| `balance` | ไม่บังคับ · key = สกุลของผู้สร้าง · ฝั่ง Seamless ห้ามส่ง (MGMT-15A) |
+| `balance` | ไม่บังคับ · key = สกุลของผู้สร้าง · ฝั่ง Seamless ส่งได้แล้ว (MGMT-15A แก้ 2026-10-15) |
 | `pt.minigame` | `pt` + `commission_percent` บังคับทั้งคู่ · ต้องส่งครบทุกกลุ่ม (MGMT-21) |
 | `payment_type` | บังคับ `CREDIT` / `CASH` · ฝั่ง Seamless เก็บ `CASH` เสมอ (MGMT-63) |
 | `payment_account` | ไม่บังคับ · `bank_code` + `account_number` คู่กัน · ชื่อ 6 field ไม่บังคับ (MGMT-64) |
@@ -302,7 +303,7 @@ test ของเส้น Member อยู่ในชุด integration test �
 | MGMT-08A | migration: `0812345678` ×2 ใต้ผู้สร้างเดียวกัน · `0812345678` ใต้ผู้สร้างอื่น · `12345678` | แถวแรก `66`/`812345678` แถวที่สอง `""` (DUPLICATE · `kept_member_id`) · `66`/`812345678` · `""` (FORMAT) |
 | MGMT-13 | สร้าง Member | `currencies` = สกุลของผู้สร้าง |
 | MGMT-15A | สร้างพร้อม `balance` · ส่งซ้ำด้วย `request_id` เดิม · `request_id` ของคนอื่น / ที่ใช้สร้าง agent | ผู้สร้างยอดลด · Member ได้ยอด · ledger 2 แถว · ได้ `id` เดิม ไม่โอนซ้ำ · `422` |
-| MGMT-15A | ผู้สร้างฝั่ง Seamless ส่ง `balance` · `balance` 25.5 | `422` · `credit` = 25.5 · ledger 25.5 |
+| MGMT-15A | Company Seamless 1 to 1 (JPY 100) สร้าง Member พร้อม `balance` 10 · `balance` 25.5 | สำเร็จ · `credit` 10 · Company 90 · `payment_type` = `CASH` · `credit` = 25.5 · ledger 25.5 |
 | MGMT-15A | log ยอดตั้งต้น | `INITIAL_BALANCE` `new_value` key `amounts` |
 | MGMT-61 | Agent (ใต้ Share ใต้ Company) สร้าง Member | `cnf.parent` = superadmin → company → share → agent |
 | MGMT-21 | Commission 0.3 · 1.1 · 0.15 · ส่ง `pt_from_parent` | สำเร็จ · `402309` · `422` · `422` |
@@ -352,13 +353,17 @@ test ของเส้น Member อยู่ในชุด integration test �
 
 | # | เรื่อง | ตัดสินเมื่อ |
 |---|---|---|
-| MQ7 | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน (MGMT-30A) | review Player Auth |
+| MQ7 | ผล `LOCKED` / `SUSPENDED` ของ Member ต่อ login / เดิมพัน (MGMT-30A) | ✅ ตัดสินแล้วใน review Player Auth (PQ7) → `player_auth.md` PA-30 – PA-35 |
 | MA2 | ความหมายของ Remain ตอน settle | module Settle |
-| P10 | `win_limit_per_day`: วิธีนับ "ชนะ" · เวลาตัดรอบวัน · ผลเมื่อถึงลิมิต · **`0` = ห้ามเล่น ต้องบังคับตอนเดิมพัน** (MGMT-65) | module เดิมพัน |
+| P10 | `win_limit_per_day`: วิธีนับ "ชนะ" · เวลาตัดรอบวัน · ผลเมื่อถึงลิมิต · **`0` = ห้ามเล่น ต้องบังคับตอนเดิมพัน** · **แปลงยอดชนะจากสกุลของ Member เป็นบาทก่อนเทียบ** (เรทจากไหน / ตอนไหน) (MGMT-65) | module เดิมพัน |
 
 ## 8. Contract changes (แจ้ง frontend)
 
-### 2026-10-14 (MGMT-65 · maofoy · รอ lead รับทราบ)
+### 2026-10-15 (MGMT-65 · lead รอบ 2.1)
+
+- `win_limit_per_day` **หน่วยบาทเสมอ** — label บนจอเป็น "บาท" ไม่ใช่สกุลของ Member · ค่า / ช่วง / ค่าเริ่มต้นเหมือนเดิม (API ไม่เปลี่ยน)
+
+### 2026-10-14 (MGMT-65 · maofoy · lead รับ 2026-10-15)
 
 - `win_limit_per_day`: **`0` = เล่นไม่ได้** (เดิม = ไม่จำกัด) · ตั้งได้ `0` – `10,000,000` (เดิมเพดาน `1,000,000`) · `members/create` ไม่ส่ง = `10,000,000` (เดิม `0`)
 - Member เดิมที่เป็น `0` ถูกปรับเป็น `10,000,000` · ฟอร์มสร้างควรตั้งค่าเริ่มต้น `10,000,000` (เดิมหน้าจอแสดง `0.00`)

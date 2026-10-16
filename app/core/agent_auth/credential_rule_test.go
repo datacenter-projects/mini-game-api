@@ -158,3 +158,18 @@ func TestCurrentGate(t *testing.T) { // AUTH-29
 		}
 	}
 }
+
+func TestPasswordViolationMessage(t *testing.T) { // AUTH-36: ทุกผลที่ไม่ผ่านมีข้อความไทย / อังกฤษ · ผ่าน = ว่าง
+	for v := PasswordOK; v <= PasswordRepeated; v++ {
+		th, en := PasswordViolationMessage(v)
+		if (v == PasswordOK) != (th == "" && en == "") {
+			t.Errorf("violation %d: th %q en %q", v, th, en)
+		}
+		if v != PasswordOK && (th == "" || en == "") {
+			t.Errorf("violation %d: ต้องมีข้อความครบ 2 ภาษา", v)
+		}
+	}
+	if th, en := PasswordViolationMessage(PasswordViolation(99)); th == "" || en == "" {
+		t.Error("ค่าที่ไม่รู้จักต้องมีข้อความสำรอง")
+	}
+}

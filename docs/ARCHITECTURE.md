@@ -32,7 +32,8 @@ app/
 │   │   ├── middleware/
 │   │   └── routes.go
 │   ├── frontend/                      # ผู้เล่น                     → /api/v1/player
-│   └── game/                          # เอนจิ้นเกม                  → /api/v1/{scratch,cointoss,rockpaperscissors}
+│   ├── game/                          # เอนจิ้นเกม                  → /api/v1/{scratch,cointoss,rockpaperscissors}
+│   └── developer/                     # เครื่องมือ dev / QA (public) → /api/v1/dev · เปิดเฉพาะ DEV_ROUTES_ENABLED=true · prod เปิดไม่ได้ (CLAUDE.md กฎข้อ 28)
 ├── externals/                         # API ที่ partner ภายนอกเรียก (trust boundary แยก)
 │   └── provider/                      #                             → /api/v1/provider
 ├── service/{module}/                  # business logic — ใช้ร่วมทุก context

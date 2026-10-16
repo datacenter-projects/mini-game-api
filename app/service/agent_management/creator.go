@@ -29,8 +29,13 @@ type Creator struct {
 }
 
 func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
+	return LoadCreatorByAgentID(db, actor.AgentID)
+}
+
+// LoadCreatorByAgentID — เหมือน LoadCreator แต่รู้แค่ id ของผู้สร้าง (operator ที่สร้างผู้เล่นผ่าน Key ไม่มี Actor — player_auth PA-07)
+func LoadCreatorByAgentID(db *gorm.DB, agentID uint) (Creator, error) {
 	var c Creator
-	a, err := agentManagementPostgres.GetAgentProfileRepository(db, actor.AgentID)
+	a, err := agentManagementPostgres.GetAgentProfileRepository(db, agentID)
 	if err != nil {
 		return c, err
 	}
@@ -68,22 +73,11 @@ func LoadCreator(db *gorm.DB, actor agentAuthService.Actor) (Creator, error) {
 	return c, nil
 }
 
-// newAccountSeamless — บัญชีใหม่อยู่ฝั่ง Seamless ไหม (MGMT-15) · ใต้ Superadmin ตัดสินจากประเภทของ Company ใหม่
-func (c Creator) newAccountSeamless(newType agentManagementCore.UserType) bool {
-	if c.UserType == agentManagementCore.UserTypeSuperadmin {
-		return agentManagementCore.IsSeamless(newType)
-	}
-	return agentManagementCore.IsSeamless(c.CompanyType)
-}
-
-// CheckInitialBalance — ตรวจยอดเงินตั้งต้นก่อนเปิด tx (MGMT-15, MGMT-15A, MGMT-51)
-func CheckInitialBalance(amounts map[string]float64, seamless bool, accountCurrencies []string) error {
+// CheckInitialBalance — ตรวจยอดเงินตั้งต้นก่อนเปิด tx (MGMT-15A, MGMT-51) · สกุลต้องเป็นของบัญชีใหม่
+// สาย Seamless ส่งได้แล้ว (MGMT-15 แก้ 2026-10-15 · lead อนุมัติ) — ยอดนี้ใช้แทงไม่ได้ (Member สาย Seamless แทงจาก wallet ของ operator)
+func CheckInitialBalance(amounts map[string]float64, accountCurrencies []string) error {
 	if len(amounts) == 0 {
 		return nil
-	}
-	if seamless {
-		th, en := utils.FieldLabel("balance")
-		return apperr.ErrValidation.WithMessage(th+" บัญชีฝั่ง Seamless ไม่มียอดเงิน ไม่ต้องกรอก", en+" is not allowed for Seamless accounts")
 	}
 	has := map[string]bool{}
 	for _, c := range accountCurrencies {

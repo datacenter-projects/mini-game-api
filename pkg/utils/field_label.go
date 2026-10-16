@@ -96,6 +96,8 @@ var topLabels = map[string]label{
 	"note":             {"หมายเหตุ", "Note"},
 	"date_from":        {"วันที่เริ่มต้น", "Start date"},
 	"date_to":          {"วันที่สิ้นสุด", "End date"},
+	"starttime":        {"เวลาเริ่มต้น", "Start time"},
+	"endtime":          {"เวลาสิ้นสุด", "End time"},
 	// game_rate (lead Q9 2026-10-14)
 	"game_code":    {"เกม", "Game"},
 	"base_version": {"เวอร์ชันที่โหลดมา", "Loaded version"},
@@ -104,6 +106,8 @@ var topLabels = map[string]label{
 	"prizes":       {"ตารางรางวัล", "Prizes"},
 	"win_percent":  {"อัตราชนะ", "Win rate"},
 	"status_game":  {"สถานะเกม", "Game status"},
+	// pt_calculation (เส้น dev — docs/modules/pt_calculation.md)
+	"member_id": {"รหัส Member", "Member ID"},
 }
 
 // rowLabels — array ที่แต่ละแถวมีเลขในข้อความ (เลขเริ่ม 1) · field ในแถวอยู่ sectionLabels ชื่อเดียวกัน
