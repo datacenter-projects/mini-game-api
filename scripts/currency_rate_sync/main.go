@@ -2,11 +2,11 @@
 // ใช้ service เดียวกับ job `currency_rate_sync` (SyncCurrencyRateService) — ตรวจ response / ปัด 8 ตำแหน่ง / lock เหมือนกันทุกอย่าง
 //
 //	go run ./scripts/currency_rate_sync -month 2026-10            # เติมเฉพาะสกุลที่ขาด (ไม่ทับของเดิม)
-//	go run ./scripts/currency_rate_sync -month 2026-10 -force     # เขียนทับทั้งเดือน (ต้องขอ lead บน env ร่วม)
+//	go run ./scripts/currency_rate_sync -month 2026-10 -force -yes   # เขียนทับทั้งเดือน (-force ต้องมี -yes เสมอ · env ร่วมต้องขอ lead)
 //	go run ./scripts/currency_rate_sync                           # เดือนปัจจุบัน (เวลาไทย) เติมเฉพาะที่ขาด
 //
 // ขอ askmelotto ด้วยวันที่ 1 ของเดือนที่ระบุ · -month ต้องเป็นเดือนที่ askmelotto มีเรท
-// env ร่วม (APP_ENV = dev / uat / prod) ต้องขอ lead ก่อนรัน · -force บน env ร่วมต้องใส่ -yes ยืนยันอีกชั้น
+// env ร่วม (APP_ENV = dev / uat / prod) ต้องขอ lead ก่อนรัน · **-force ต้องใส่ -yes ทุกครั้ง ไม่ว่า APP_ENV อะไร (ไม่ตั้ง APP_ENV ก็ทับ DB ร่วมได้ จึงไม่แยกตาม env)**
 // ต้องมี env ตาม .env (DB / Redis / ASKMELOTTO_API_BASE_URL) — สคริปต์พิมพ์ env และ DB host ก่อนทำงานทุกครั้ง
 package main
 
@@ -31,7 +31,7 @@ import (
 func main() {
 	month := flag.String("month", "", "เดือนที่จะ sync รูปแบบ YYYY-MM (ว่าง = เดือนปัจจุบันตามเวลาไทย)")
 	force := flag.Bool("force", false, "เขียนทับทั้งเดือน (ไม่ใส่ = เติมเฉพาะสกุลที่ขาด)")
-	yes := flag.Bool("yes", false, "ยืนยัน -force บน env ร่วม (dev / uat / prod)")
+	yes := flag.Bool("yes", false, "ยืนยัน -force (ต้องใส่ทุกครั้งที่ใช้ -force)")
 	flag.Parse()
 
 	if err := run(*month, *force, *yes); err != nil {
@@ -54,10 +54,9 @@ func run(monthArg string, force, yes bool) error {
 	}
 	logger.InitLogger(true)
 
-	shared := configs.Cfg.AppEnv != "local"
 	fmt.Printf("env=%s db=%s/%s askmelotto=%s force=%v\n", configs.Cfg.AppEnv, configs.Cfg.DB.Host, configs.Cfg.DB.Name, configs.Cfg.Askmelotto.BaseURL, force)
-	if shared && force && !yes {
-		return errors.New("-force บน env ร่วมต้องใส่ -yes ด้วย (และขอ lead ก่อน)")
+	if force && !yes {
+		return errors.New("-force ต้องใส่ -yes ทุกครั้ง (ทับเรททั้งเดือน — บน env ร่วมขอ lead ก่อน)")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

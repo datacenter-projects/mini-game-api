@@ -350,14 +350,14 @@ func TestConvertToTHB(t *testing.T) { // CR-20 – CR-22
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.AmountTHB != 3395.9596 || got.THBRate != 33.95959596 || !got.RateMonth.Equal(time.Date(2026, 10, 1, 0, 0, 0, 0, bkk)) {
+	if got.AmountTHB != 3395.9596 || got.THBRate != 33.95959596 || !got.RateMonth.Equal(monthDate(2026, 10)) {
 		t.Errorf("100 USD = %+v", got)
 	}
 
 	// เดือนตาม at เวลาไทย: 31 ต.ค. 23:59 ใช้เรท ต.ค. · 1 พ.ย. 00:01 ใช้เรท พ.ย.
 	oct, _ := currencyRateService.ConvertToTHBService(context.Background(), database.DBConn, 100, "USD", time.Date(2026, 10, 31, 23, 59, 0, 0, bkk))
 	nov, _ := currencyRateService.ConvertToTHBService(context.Background(), database.DBConn, 100, "USD", time.Date(2026, 11, 1, 0, 1, 0, 0, bkk))
-	if oct.THBRate != 33.95959596 || nov.THBRate != 34 || nov.AmountTHB != 3400 || !nov.RateMonth.Equal(time.Date(2026, 11, 1, 0, 0, 0, 0, bkk)) {
+	if oct.THBRate != 33.95959596 || nov.THBRate != 34 || nov.AmountTHB != 3400 || !nov.RateMonth.Equal(monthDate(2026, 11)) {
 		t.Errorf("ข้ามเดือน: oct %+v nov %+v", oct, nov)
 	}
 	// 31 ต.ค. 17:30 UTC = 1 พ.ย. 00:30 ไทย → เรท พ.ย.
@@ -544,4 +544,29 @@ func toStrings(v any) []string {
 		return s
 	}
 	return nil
+}
+
+// RateMonth ที่คืนต้องเป็นค่าเดียวกับ rate_month ที่ repo / model ใช้ (เที่ยงคืน UTC) — bet เก็บไว้กับรายการเดิมพันแล้วเอาไปเทียบ / join ได้ตรง (ตรวจรอบ 2 ของ lead)
+func TestConvertRateMonthMatchesStoredRow(t *testing.T) {
+	setup(t)
+	seedRate(t, monthDate(2026, 10), "USD", 0.99, 33.95959596)
+
+	at := time.Date(2026, 10, 1, 0, 30, 0, 0, bkk) // 30 ก.ย. 17:30 UTC — เวลาไทยเป็นเดือน ต.ค.
+	for _, cur := range []string{"USD", "THB"} {
+		got, err := currencyRateService.ConvertToTHBService(context.Background(), database.DBConn, 1, cur, at)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.RateMonth.Location() != time.UTC || !got.RateMonth.Equal(time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)) {
+			t.Errorf("%s: RateMonth = %v (%v) want 2026-10-01 00:00 UTC", cur, got.RateMonth, got.RateMonth.Location())
+		}
+	}
+	var row models.CurrencyRate
+	if err := database.DBConn.Where("currency = ?", "USD").First(&row).Error; err != nil {
+		t.Fatal(err)
+	}
+	got, _ := currencyRateService.ConvertToTHBService(context.Background(), database.DBConn, 1, "USD", at)
+	if !got.RateMonth.Equal(row.RateMonth) {
+		t.Errorf("RateMonth %v ไม่ตรงกับแถวที่เก็บ %v", got.RateMonth, row.RateMonth)
+	}
 }

@@ -102,7 +102,7 @@ func TestRunForceOverwritesWholeMonth(t *testing.T) { // -force = เขีย�
 	newRates["THB"], newRates["USD"] = "35", "0.5"
 	fake.Set(func(c *testutil.FakeAskmelottoConfig) { c.Rates = newRates })
 	time.Sleep(5 * time.Millisecond)
-	if err := run("2026-10", true, false); err != nil { // APP_ENV=local ไม่ต้อง -yes
+	if err := run("2026-10", true, true); err != nil {
 		t.Fatal(err)
 	}
 	got := ratesOf(t, "2026-10")
@@ -111,22 +111,25 @@ func TestRunForceOverwritesWholeMonth(t *testing.T) { // -force = เขีย�
 	}
 }
 
-func TestRunForceOnSharedEnvNeedsYes(t *testing.T) { // -force บน env ร่วมต้องใส่ -yes ด้วย
+func TestRunForceAlwaysNeedsYes(t *testing.T) { // -force ต้องใส่ -yes ทุกครั้ง ไม่ว่า APP_ENV (local / dev / ไม่ตั้ง) — ตรวจรอบ 2 ของ lead S1
 	fake := setup(t)
-	t.Setenv("APP_ENV", "dev")
-	err := run("2026-10", true, false)
-	if err == nil || !strings.Contains(err.Error(), "-yes") {
-		t.Fatalf("ต้อง error ที่ขอ -yes: %v", err)
+	for _, env := range []string{"local", "dev", "prod", ""} {
+		t.Setenv("APP_ENV", env)
+		err := run("2026-10", true, false)
+		if err == nil || !strings.Contains(err.Error(), "-yes") {
+			t.Fatalf("APP_ENV=%q ต้อง error ที่ขอ -yes: %v", env, err)
+		}
+		if fake.Hits() != 0 || len(ratesOf(t, "2026-10")) != 0 {
+			t.Fatalf("APP_ENV=%q ห้ามทำอะไรก่อนได้ -yes: hits %d", env, fake.Hits())
+		}
 	}
-	if fake.Hits() != 0 || len(ratesOf(t, "2026-10")) != 0 {
-		t.Errorf("ห้ามทำอะไรก่อนได้ -yes: hits %d", fake.Hits())
-	}
+	t.Setenv("APP_ENV", "local")
 	if err := run("2026-10", true, true); err != nil || len(ratesOf(t, "2026-10")) != 27 {
 		t.Errorf("ใส่ -yes แล้วต้องทำงาน: %v", err)
 	}
-	// ไม่ใส่ -force บน env ร่วมไม่ต้อง -yes (เติมเฉพาะที่ขาด ปลอดภัย)
+	// ไม่ใส่ -force ไม่ต้อง -yes (เติมเฉพาะที่ขาด ปลอดภัย)
 	if err := run("2026-09", false, false); err != nil {
-		t.Errorf("เติมเฉพาะที่ขาดบน env ร่วมไม่ต้อง -yes: %v", err)
+		t.Errorf("เติมเฉพาะที่ขาดไม่ต้อง -yes: %v", err)
 	}
 }
 

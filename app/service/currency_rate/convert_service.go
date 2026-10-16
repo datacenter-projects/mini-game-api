@@ -17,7 +17,7 @@ import (
 // THBConversion — ผลแปลงเป็นบาท (CR-20): bet เก็บ THBRate + RateMonth + ยอดบาทไว้กับรายการเดิมพัน (C3)
 type THBConversion struct {
 	AmountTHB float64   // Round4(amount × THBRate) — ปัดครั้งเดียวตอนท้าย ครึ่งขึ้น
-	RateMonth time.Time // วันที่ 1 ของเดือนที่ใช้ (เวลาไทย)
+	RateMonth time.Time // วันที่ 1 ของเดือนที่ใช้ เป็นเที่ยงคืน UTC ของวันนั้น (ค่าเดียวกับ rate_month ใน repo / model — bet เก็บไปเทียบ / join ได้ตรง)
 	THBRate   float64   // 1 หน่วยของสกุลนั้น = ? บาท ของเดือนนั้น
 }
 
@@ -30,14 +30,13 @@ type THBConversion struct {
 //   - อ่านแถวเดียวด้วย PK · ใช้ db / tx ของผู้เรียก · ไม่ lock · ไม่มี endpoint (CR-26)
 func ConvertToTHBService(ctx context.Context, db *gorm.DB, amount float64, currency string, at time.Time) (THBConversion, error) {
 	month := currencyRateCore.MonthDate(at)
-	rateMonth := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, currencyRateCore.Bangkok())
 
 	if currency == currencyRateCore.CurrencyTHB {
 		thb, ok := currencyRateCore.ConvertTHB(amount, 1)
 		if !ok {
 			return THBConversion{}, apperr.ErrInternal.Wrap(fmt.Errorf("invalid amount %v", amount))
 		}
-		return THBConversion{AmountTHB: thb, RateMonth: rateMonth, THBRate: 1}, nil
+		return THBConversion{AmountTHB: thb, RateMonth: month, THBRate: 1}, nil
 	}
 	if _, ok := currencyRateCore.ConvertTHB(amount, 1); !ok { // ตรวจ amount ก่อน เพื่อไม่ให้ amount ผิดไปปนกับ "เรทหาย"
 		return THBConversion{}, apperr.ErrInternal.Wrap(fmt.Errorf("invalid amount %v", amount))
@@ -59,5 +58,5 @@ func ConvertToTHBService(ctx context.Context, db *gorm.DB, amount float64, curre
 	if !ok {
 		return THBConversion{}, apperr.ErrInternal.Wrap(fmt.Errorf("convert %v %s with rate %v", amount, currency, row.THBRate))
 	}
-	return THBConversion{AmountTHB: thb, RateMonth: rateMonth, THBRate: row.THBRate}, nil
+	return THBConversion{AmountTHB: thb, RateMonth: month, THBRate: row.THBRate}, nil
 }

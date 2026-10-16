@@ -54,7 +54,7 @@
 | CR-14 | flow: (1) เดือนปัจจุบัน (เวลาไทย) ครบ 27 สกุลแล้ว → จบ ไม่ยิง (`SUCCESS`) (2) ยิง askmelotto ด้วยวันที่ 1 (3) ตรวจ response (CR-15) (4) `INSERT … ON CONFLICT DO NOTHING` เฉพาะสกุลที่ยังไม่มี (5) ยังไม่ครบ 27 → `FAILED` บอกสกุลที่ขาด · ครบ → `SUCCESS` · ทุกสกุลที่ผ่านตรวจถูกบันทึกไม่ว่ารอบนั้นจะ `FAILED` หรือไม่ |
 | CR-15 | **ตรวจ response** (J4-3): HTTP 200 **และ** `code = 200` **และ** `data.base_currency = "USDT"` **และ** `data.date` = วันที่ที่ขอ (ไม่ตรง = ไม่บันทึกอะไรเลย) **และ** `data.json_rate` เป็น object · แต่ละสกุล: JSON number > 0 · ทศนิยมไม่เกิน 8 ตำแหน่ง · อยู่ใน 27 สกุลของระบบ (สกุลอื่นไม่สนใจ) · สกุลที่ไม่ผ่านไม่บันทึกและ log บอกสกุล · error ของ askmelotto ตอบ HTTP 200 แต่ `code` ≠ 200 (`430502` รูปแบบวันที่ผิด · `430503` ยังไม่มีเรทของวันนั้น) |
 | CR-16 | **log** (J4-4): ยังไม่ครบก่อนวันที่ 1 เวลา **03:00** (เวลาไทย) ของเดือน = `info` (askmelotto สร้างเรทใหม่ตอนตี 1 ช้าได้) · หลังจากนั้นยังไม่ครบ = `warn` ทุกรอบ · log มี `code` / `msg` ของ askmelotto และสกุลที่ขาด/ผิด · **ไม่ log URL ที่มี secret / ไม่ log body ดิบเกินจำเป็น** |
-| CR-17 | **คำสั่งมือ** `scripts/currency_rate_sync -month 2026-10 [-force]` (J4-5): ใช้ **service เดียวกับ job** · ไม่ใส่ `-force` = เติมเฉพาะสกุลที่ขาด · `-force` = เขียนทับทั้งเดือน · รันบน env ร่วม (dev / uat / prod) **ต้องขอ lead ก่อน** · `-month` ต้องเป็นเดือนที่ askmelotto มีเรท (ขอด้วยวันที่ 1 ของเดือนนั้น) |
+| CR-17 | **คำสั่งมือ** `scripts/currency_rate_sync -month 2026-10 [-force -yes]` (J4-5): ใช้ **service เดียวกับ job** · ไม่ใส่ `-force` = เติมเฉพาะสกุลที่ขาด · `-force` (ต้องใส่ `-yes` ทุกครั้งไม่ว่า `APP_ENV` — lead S1 2026-10-16) = เขียนทับทั้งเดือน · รันบน env ร่วม (dev / uat / prod) **ต้องขอ lead ก่อน** · `-month` ต้องเป็นเดือนที่ askmelotto มีเรท (ขอด้วยวันที่ 1 ของเดือนนั้น) |
 | CR-18 | job เรียกได้เฉพาะ **service** (ไม่มี business logic ใน `app/cronjob`) · ตัวยิง HTTP ไป askmelotto อยู่ที่ `platform/askmelotto` (client เดียวของทุกเส้น askmelotto — J3) · goroutine มีขอบเขต รับ ctx หยุดตอน server ปิด (กฎข้อ 27) |
 
 ### 3.3 ฟังก์ชันแปลง (ให้ module เดิมพันใช้)
@@ -93,7 +93,7 @@ func ConvertToTHBService(ctx context.Context, db *gorm.DB, amount float64, curre
 
 type THBConversion struct {
     AmountTHB float64   // Round4(amount × THBRate) — ปัดครั้งเดียวตอนท้าย ครึ่งขึ้น
-    RateMonth time.Time // วันที่ 1 ของเดือนที่ใช้ (เวลาไทย)
+    RateMonth time.Time // วันที่ 1 ของเดือนที่ใช้ — เที่ยงคืน UTC ของวันนั้น (ค่าเดียวกับ rate_month ใน DB / model · bet เก็บไปเทียบได้ตรง · ตรวจรอบ 2 ของ lead 2026-10-16)
     THBRate   float64   // 1 หน่วยของสกุลนั้น = ? บาท ของเดือนนั้น
 }
 ```

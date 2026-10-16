@@ -179,10 +179,10 @@ SELECT code, enabled, last_status, last_started_at, last_finished_at, last_error
 
 ```bash
 go run ./scripts/currency_rate_sync -month 2026-10            # เติมเฉพาะสกุลที่ขาด (ไม่ทับของเดิม)
-go run ./scripts/currency_rate_sync -month 2026-10 -force -yes   # เขียนทับทั้งเดือน (-yes บังคับบน env ร่วม)
+go run ./scripts/currency_rate_sync -month 2026-10 -force -yes   # เขียนทับทั้งเดือน (-force ต้องมี -yes ทุกครั้ง)
 ```
 
-  สคริปต์พิมพ์ `env` / DB host / askmelotto URL ก่อนทำงานทุกครั้ง · `-force` บน env ร่วมต้องมี `-yes`
+  สคริปต์พิมพ์ `env` / DB host / askmelotto URL ก่อนทำงานทุกครั้ง · `-force` ต้องมี `-yes` ทุกครั้งไม่ว่า `APP_ENV` (ไม่ตั้ง `APP_ENV` ก็ชี้ DB ร่วมได้ จึงไม่แยกตาม env) · env ร่วมขอ lead ก่อนเสมอ
 
 ### Migration
 
