@@ -100,6 +100,8 @@ tag ที่ไม่ได้อยู่บน branch ที่กำหน�
 | `PLAYER_SESSION_*`, `OPERATOR_IP_LIMIT_PER_MINUTE` | มี default ใช้ตาม `.env.example` ได้ (player_auth) |
 | `PLAYER_LOBBY_URL` | URL หน้า lobby ที่ `transfer/login` ต่อ `?token=` ท้าย — **prod / dev ต้องตั้ง** ไม่ตั้ง = `transfer/login` ตอบ 503 · ต้องเป็น absolute `http(s)://host/...` ผิดรูปแบบ = **boot ไม่ขึ้น** |
 | `MIGRATE_ON_START` | **`false`** (default เมื่อไม่ตั้ง) — migration รันแยกตามข้อถัดไป |
+| `IS_CRONJOB` | **`false`** (default) — `true` = pod นี้รัน cronjob ทุกตัว (`app/cronjob` — ตอนนี้ `currency_rate_sync`) · **ตั้ง `true` เฉพาะ deployment เดียวต่อ env** (pod อื่นไม่รัน) · แทน `IS_CURRENCY_RATE_SYNC` (ลบแล้ว — ตั้งไว้ก็ไม่มีผล) · เปิด / ปิดแต่ละ job ด้วยตาราง `cronjobs` (ดู "งานตามเวลา" ด้านล่าง) |
+| `ASKMELOTTO_API_BASE_URL` | origin ของระบบ askmelotto เช่น `https://dev-api.amblotto.net` (เปล่า ไม่มี path / query / `/` ท้าย ไม่งั้น boot ไม่ขึ้น) · **uat / prod ต้องตั้ง** (ไม่ตั้ง = boot ไม่ขึ้น) · local / dev ไม่ตั้ง = host ฝั่ง dev · แทน `CURRENCY_RATE_API_BASE_URL` (ลบแล้ว) · pod ที่ `IS_CRONJOB=true` ต้องออกไปเรียก URL นี้ได้ (HTTPS ออก) |
 
 key ที่ required ถ้าขาด app จะไม่ boot (log `missing required env: ...`)
 
@@ -155,6 +157,32 @@ metric ที่มี
 - `path` เป็น route pattern เช่น `/api/v1/bo/pb/agents/:id` ไม่ใช่ path จริง — path ที่ไม่ตรง route ไหนเป็น `unmatched`, request ที่ middleware ของ group ตอบเอง (เช่น 401) เป็น prefix ของ group
 - `/` และ `/health/*` ไม่ถูกนับ (LB poll)
 - `status` คือ HTTP status — error ทาง business ตอบ HTTP 200 (ผลอยู่ใน field `code` ของ body) จึงเห็นเป็น 200 ตั้ง alert error rate ด้วย `status=~"5.."`
+
+### งานตามเวลา (cronjob — `currency_rate.md` · CLAUDE.md กฎข้อ 30–31)
+
+- งานตามเวลารันใน process เดียวกับ API เฉพาะ pod ที่ `IS_CRONJOB=true` — **ตั้งเฉพาะ deployment เดียวต่อ env** (ถ้าตั้งหลาย deployment ยังมี Redis lock กันซ้ำ แต่เปลือง) · เปิด pod เพิ่ม / scale ของ deployment อื่นไม่เกี่ยว
+- ตาราง `cronjobs` เก็บ `enabled` ของแต่ละ job + ผลรอบล่าสุด (`last_started_at` · `last_finished_at` · `last_status` = `SUCCESS` / `FAILED` / `SKIPPED` · `last_error`) · แถวสร้างเองตอน boot ครั้งแรกตามค่าเริ่มต้นในโค้ด (`currency_rate_sync` = เปิด) และ **ไม่ถูกทับตอน boot ครั้งถัดไป**
+- **เปิด / ปิด job ด้วย SQL** (บน env ร่วม dev / uat / prod **ขอ lead ก่อนทุกครั้ง** · ตั้ง `updated_by = 'sql:{ชื่อ}'`):
+
+```sql
+-- ปิด currency_rate_sync (ข้ามรอบเงียบ ไม่ยิง askmelotto ไม่แก้ last_*)
+UPDATE cronjobs SET enabled = false, updated_by = 'sql:zerph', updated_at = now() WHERE code = 'currency_rate_sync';
+-- เปิดกลับ
+UPDATE cronjobs SET enabled = true,  updated_by = 'sql:zerph', updated_at = now() WHERE code = 'currency_rate_sync';
+-- ดูสถานะ
+SELECT code, enabled, last_status, last_started_at, last_finished_at, last_error, updated_by FROM cronjobs;
+```
+
+- **ก่อน deploy ครั้งแรกที่มี `currency_rate` ใหม่:** migrate (`currency_rates` + `cronjobs`) · ตั้ง `IS_CRONJOB=true` ที่ deployment เดียว · pod นั้นออกไปเรียก askmelotto ได้ · env เดิม `IS_CURRENCY_RATE_SYNC` / `CURRENCY_RATE_API_BASE_URL` ลบออกได้ (ไม่มีผลแล้ว) · key Redis เดิม `currency_rate:usdt` / `:meta` ปล่อยไว้ ไม่ต้องลบ
+- **alert ที่แนะนำ:** `time() - mini_game_api_cronjob_last_success_timestamp{job="currency_rate_sync"} > 3600` (เรทรายเดือนครบแล้ว job ก็ยัง SUCCESS ทุกรอบโดยไม่ยิง — ถ้าเกิน 1 ชม. แปลว่า job ล้ม / pod cronjob หาย) · `cronjob_runs_total{status="FAILED"}` เพิ่มต่อเนื่อง
+- **เติม / แก้เรทด้วยมือ** (เช่น วันที่ 1 ของเดือน askmelotto ช้า หรือต้องแก้ค่า) — ใช้ service เดียวกับ job · env ร่วมขอ lead ก่อน:
+
+```bash
+go run ./scripts/currency_rate_sync -month 2026-10            # เติมเฉพาะสกุลที่ขาด (ไม่ทับของเดิม)
+go run ./scripts/currency_rate_sync -month 2026-10 -force -yes   # เขียนทับทั้งเดือน (-force ต้องมี -yes ทุกครั้ง)
+```
+
+  สคริปต์พิมพ์ `env` / DB host / askmelotto URL ก่อนทำงานทุกครั้ง · `-force` ต้องมี `-yes` ทุกครั้งไม่ว่า `APP_ENV` (ไม่ตั้ง `APP_ENV` ก็ชี้ DB ร่วมได้ จึงไม่แยกตาม env) · env ร่วมขอ lead ก่อนเสมอ
 
 ### Migration
 

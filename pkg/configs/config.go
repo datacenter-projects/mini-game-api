@@ -27,10 +27,10 @@ type Config struct {
 	// MetricsAddr คือ address ของ server /metrics (พอร์ตภายใน แยกจาก API) — ว่าง = ปิด metrics
 	MetricsAddr string
 
-	DB           DBConfig
-	Redis        RedisConfig
-	Auth         AuthConfig
-	CurrencyRate CurrencyRateConfig
+	DB         DBConfig
+	Redis      RedisConfig
+	Auth       AuthConfig
+	Askmelotto AskmelottoConfig
 
 	Storage StorageConfig
 
@@ -39,18 +39,20 @@ type Config struct {
 
 	MigrateOnStart bool
 
+	// IsCronjob — pod นี้รัน cronjob (app/cronjob) ทุกตัวไหม · ค่าเริ่มต้น false · เปิดเฉพาะ deployment เดียว (currency_rate CR-11 · แทน IS_CURRENCY_RATE_SYNC)
+	IsCronjob bool
+
 	// DevRoutesEnabled — เปิด context developer (/api/v1/dev/... ไม่ต้อง login) ให้ dev / QA เช็คผลเอง · prod ห้ามเปิด (pt_calculation PTC-40 / PTC-41)
 	DevRoutesEnabled bool
 }
 
-// CurrencyRateConfig — docs/modules/currency_rate.md (CR-02, หัวข้อ 6)
-type CurrencyRateConfig struct {
-	SyncEnabled bool   // IS_CURRENCY_RATE_SYNC (ค่าเริ่มต้น true)
-	BaseURL     string // CURRENCY_RATE_API_BASE_URL — origin เปล่า ไม่มี path
+// AskmelottoConfig — ระบบ askmelotto ภายนอก (docs/modules/currency_rate.md หัวข้อ 6.3) · ใช้กับทุกเส้นของ askmelotto ผ่าน platform/askmelotto
+type AskmelottoConfig struct {
+	BaseURL string // ASKMELOTTO_API_BASE_URL — origin เปล่า ไม่มี path
 }
 
-// ค่าเริ่มต้นของ CURRENCY_RATE_API_BASE_URL (host ฝั่ง dev) — ใช้ได้เฉพาะ local / dev
-const defaultCurrencyRateBaseURL = "https://dev-api.amblotto.net"
+// ค่าเริ่มต้นของ ASKMELOTTO_API_BASE_URL (host ฝั่ง dev) — ใช้ได้เฉพาะ local / dev
+const defaultAskmelottoBaseURL = "https://dev-api.amblotto.net"
 
 // AuthConfig — ค่าตาม spec docs/modules/agent_auth.md (AUTH-07, AUTH-10, AUTH-11)
 // และ docs/modules/agent_auth_phase2.md (AUTH-35, AUTH-46)
@@ -185,7 +187,8 @@ func Load() error {
 		DevRoutesEnabled: getEnvBool("DEV_ROUTES_ENABLED", false),
 	}
 
-	if err := loadCurrencyRate(cfg, required); err != nil {
+	cfg.IsCronjob = getEnvBool("IS_CRONJOB", false)
+	if err := loadAskmelotto(cfg, required); err != nil {
 		return err
 	}
 
@@ -278,25 +281,24 @@ func getEnvList(key string) []string {
 	return out
 }
 
-// loadCurrencyRate — CURRENCY_RATE_API_BASE_URL ต้องเป็น origin เปล่า (scheme://host[:port]) · บังคับใน uat / prod
-// local / dev ไม่ตั้ง = ใช้ค่าเริ่มต้น (host ฝั่ง dev) — docs/modules/currency_rate.md หัวข้อ 6
-func loadCurrencyRate(cfg *Config, required func(string) string) error {
-	cfg.CurrencyRate.SyncEnabled = getEnvBool("IS_CURRENCY_RATE_SYNC", true)
+// loadAskmelotto — ASKMELOTTO_API_BASE_URL ต้องเป็น origin เปล่า (scheme://host[:port]) · บังคับใน uat / prod
+// local / dev ไม่ตั้ง = ใช้ค่าเริ่มต้น (host ฝั่ง dev) — docs/modules/currency_rate.md หัวข้อ 6.3
+func loadAskmelotto(cfg *Config, required func(string) string) error {
 	var raw string
 	switch cfg.AppEnv {
 	case "uat", "prod":
-		raw = required("CURRENCY_RATE_API_BASE_URL")
+		raw = required("ASKMELOTTO_API_BASE_URL")
 		if raw == "" {
 			return nil // แจ้งรวมกับ env อื่นที่ขาด
 		}
 	default:
-		raw = getEnv("CURRENCY_RATE_API_BASE_URL", defaultCurrencyRateBaseURL)
+		raw = getEnv("ASKMELOTTO_API_BASE_URL", defaultAskmelottoBaseURL)
 	}
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
 		u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
-		return fmt.Errorf("CURRENCY_RATE_API_BASE_URL must be a bare origin like https://dev-api.amblotto.net (no path or trailing slash)")
+		return fmt.Errorf("ASKMELOTTO_API_BASE_URL must be a bare origin like https://dev-api.amblotto.net (no path or trailing slash)")
 	}
-	cfg.CurrencyRate.BaseURL = raw
+	cfg.Askmelotto.BaseURL = raw
 	return nil
 }

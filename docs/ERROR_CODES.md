@@ -48,6 +48,7 @@ code ทั้งหมดประกาศใน `pkg/apperr/*_errors.go` ผ�
 | 06 | game_rate (อัตราแพ้ชนะ — ตรงกับเมนู ⑥) | `pkg/apperr/game_rate_errors.go` | `docs/modules/game_rate.md` |
 | 07 | player_auth (ผู้เล่นเข้าระบบ) | `pkg/apperr/player_auth_errors.go` | `docs/modules/player_auth.md` (จองช่วง · ตาราง code ใน spec หัวข้อ 8 · อนุมัติแล้ว 2026-10-15) |
 | 08 | pt_calculation (คิด PT ต่อ Member) | `pkg/apperr/pt_calculation_errors.go` | `docs/modules/pt_calculation.md` (lead อนุมัติ 2026-10-15 · 07 จองโดย player_auth) |
+| 09 | currency_rate (อัตราแลกเปลี่ยนรายเดือน) | `pkg/apperr/currency_rate_errors.go` | `docs/modules/currency_rate.md` (lead อนุมัติ 2026-10-16) |
 
 ## agent_auth (01)
 
@@ -180,3 +181,9 @@ HTTP ตรงแบบ agent_auth (spec PA-27) · `407304` เว้นไว�
 | 408301 | — | จองถาวร (ตัดก่อนปล่อยใช้ — lead Q2: ชั้นไม่รับ PT ถือ 0 ไม่ error) |
 | 408401 | 200 | ไม่พบ Member |
 | 508601 | 500 | ข้อมูล PT ในสายไม่ถูกต้อง คิด PT ไม่ได้ |
+
+## currency_rate (09)
+
+| Code | HTTP | ความหมาย |
+|---|---|---|
+| 409401 | 200 | ไม่มีอัตราแลกเปลี่ยนของเดือนนี้ (สกุลนี้ / เดือนนี้ยังไม่มีเรท — `ConvertToTHBService` คืน · เส้นที่ใช้กับเงินต้อง fail closed) |

@@ -46,7 +46,7 @@ var tables = []string{"game_rate_prizes", "game_rate_steps", "game_rate_versions
 	"account_change_logs", "auth_audit_logs", "balance_ledger", "create_requests", "deposit_withdraw_logs",
 	"user_member_game_settings", "user_members", "agent_balances", "agent_game_settings", "agent_currencies",
 	"asset_used", "asset_configs", "game_themes", "site_brandings",
-	"subaccounts", "user_agents"}
+	"subaccounts", "user_agents", "currency_rates", "cronjobs"}
 
 // env ที่ห้ามรัน integration test เด็ดขาด — test ล้างทุกตารางและ FLUSHDB Redis
 var forbiddenEnvs = map[string]bool{"dev": true, "uat": true, "prod": true}

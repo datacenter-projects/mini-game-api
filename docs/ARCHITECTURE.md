@@ -36,6 +36,7 @@ app/
 │   └── developer/                     # เครื่องมือ dev / QA (public) → /api/v1/dev · เปิดเฉพาะ DEV_ROUTES_ENABLED=true · prod เปิดไม่ได้ (CLAUDE.md กฎข้อ 28)
 ├── externals/                         # API ที่ partner ภายนอกเรียก (trust boundary แยก)
 │   └── provider/                      #                             → /api/v1/provider
+├── cronjob/                           # งานตามเวลา — cronjob.go (Start) + {job}_job.go · เรียกได้แค่ service · รันเฉพาะ IS_CRONJOB=true (CLAUDE.md กฎข้อ 30–31)
 ├── service/{module}/                  # business logic — ใช้ร่วมทุก context
 ├── core/{topic}/                      # pure business rule + table test
 ├── repository/postgres/{module}/      # query PostgreSQL — แยกตาม module เจ้าของตาราง
@@ -52,6 +53,7 @@ pkg/
 platform/
 ├── database/                          # DBConn (postgres), DBRedis, Migrate
 ├── logger/                            # zap + logger.Ctx(ctx)
+├── askmelotto/                        # client เดียวของเส้นที่เรียกระบบ askmelotto (service เรียกผ่านที่นี่ ไม่ยิง HTTP เอง)
 └── metrics/                           # Prometheus registry + server /metrics (METRICS_ADDR) — metric ทุกตัวลงทะเบียนที่นี่
 database/migrations/                   # goose .sql
 scripts/                               # migrate, check_structure.sh, งาน ops
@@ -288,6 +290,7 @@ DROP TABLE notes;
 |---|---|---|---|
 | unit | `app/core/**`, `pkg/**` | ไม่ | `make test` |
 | integration | `app/service/**`, `app/repository/**` ใส่ `//go:build integration` | Postgres/Redis ของ test env (`docs/TESTING.md`) | `make test-env-up && make test-integration` |
+| integration (cronjob / คำสั่งมือ) | `app/cronjob/**`, `scripts/{cmd}/` ใส่ `//go:build integration` | Postgres/Redis ของ test env + askmelotto จำลอง (`pkg/testutil.FakeAskmelotto` — ชี้ `ASKMELOTTO_API_BASE_URL` มาที่ httptest server · ไม่ยิงระบบจริง) | `make test-integration` |
 
 - ไม่ใช้ mock — logic ที่อยากเทสแบบไม่มี DB ให้ย้ายไป `app/core`
 - test case ของ business ต้องมาจาก spec ที่อนุมัติแล้ว (`docs/modules/{module}.md`) ไม่ใช่จากพฤติกรรมของโค้ดเก่า
@@ -303,3 +306,25 @@ DROP TABLE notes;
 | 5 | request_id ส่งเป็น param แรก | อยู่ใน `ctx` แล้วใช้ `logger.Ctx(ctx)` | ctx ต้องส่งอยู่แล้วเพื่อ timeout/cancel ของ DB |
 | 6 | calc อยู่ปนใน service/models | `app/core` เป็น pure function | เทสกฎเงินได้โดยไม่ต้องมี DB |
 | 7 | AutoMigrate | goose `.sql` | schema review ได้, มี version, up/down |
+
+## 7. งานตามเวลา (`app/cronjob`) — แม่แบบ job
+
+```go
+// app/cronjob/currency_rate_job.go — 1 ไฟล์ต่อ job · ไม่มี business logic
+var currencyRateJob = job{
+	code:           "currency_rate_sync", // PK ของตาราง cronjobs
+	defaultEnabled: true,                 // ค่าเริ่มต้นตอนสร้างแถวครั้งแรก (job เสี่ยง = false)
+	interval:       15 * time.Minute,     // ความถี่อยู่ในโค้ด
+	run: func(ctx context.Context) cronjobService.Outcome {
+		res, err := currencyRateService.SyncCurrencyRateService(ctx, time.Now(), currencyRateService.SyncOptions{})
+		// err → FAILED · res.Skipped (ไม่ได้ Redis lock) → SKIPPED · อื่นๆ → SUCCESS
+		...
+	},
+}
+```
+
+- เพิ่ม job: สร้าง `{job}_job.go` แล้วใส่ใน `jobs` ที่ `app/cronjob/cronjob.go` — ตัวห่อ (`service/cronjob.RunService`) จัดการ `enabled` · `last_*` · metrics ให้ทุก job
+- `Start(ctx)` เริ่มก็ต่อเมื่อ `IS_CRONJOB=true` · boot สร้างแถวใน `cronjobs` ถ้ายังไม่มี (ไม่ทับค่าที่ตั้งไว้) · รัน 1 รอบทันทีแล้วทุก `interval` จน ctx ถูกยกเลิก
+- metric: `cronjob_runs_total{job,status}` · `cronjob_last_success_timestamp{job}` (`platform/metrics/cronjob.go`)
+- ระบบภายนอก: ยิงผ่าน `platform/{ระบบ}` (ตอนนี้ `platform/askmelotto`) — base URL อ่านจาก `configs` · test ใช้ `testutil.FakeAskmelotto` ไม่ยิงจริง
+- spec ตัวอย่าง: `docs/modules/currency_rate.md` (หัวข้อ 3.2 job · 6.2 ตาราง `cronjobs`)
