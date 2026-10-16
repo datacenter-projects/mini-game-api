@@ -1,6 +1,6 @@
 # API ผู้เล่น + operator สาย Transfer (`player_auth`) — 15 ต.ค. 2026
 
-spec เต็ม: `docs/modules/player_auth.md` (**APPROVED** · zerph 2026-10-15) · สถานะ: **implement แล้วใน branch `boiledegg/player/auth` · ยังไม่ merge / ยังไม่ deploy dev** · ผู้ทำ: Boiledegg
+spec เต็ม: `docs/modules/player_auth.md` (**APPROVED** · zerph 2026-10-15) · สถานะ: **merge เข้า dev แล้ว · อยู่ใน image `dev-202610160626` · migration รันบน RDS dev แล้ว · ใช้จริงบน dev ได้เมื่อตั้ง `TRUSTED_PROXIES` + `PLAYER_LOBBY_URL` ครบ (รอ ingress CIDR จาก lead) — ก่อนนั้นยังไม่ควรให้หน้าบ้านเรียก** · ผู้ทำ: Boiledegg
 ขอบเขตรอบนี้ = **สาย Transfer เท่านั้น** (Seamless พักไว้ · `transfer/launch` ยังไม่ทำ)
 
 > ตัวอย่างด้านล่างเขียนตามโครงที่ integration test ตรวจ (`app/internals/backoffice/player_auth_*_integration_test.go`) — ยังไม่ได้ยิงบน dev จริง

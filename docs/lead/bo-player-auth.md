@@ -1,7 +1,7 @@
 # Player Auth (ผู้เล่นเข้าระบบ · สาย Transfer) — verify ผ่าน (รอบ 6) · แก้ S2 / S3 / nit แล้ว · **รอ merge ส่วนต่าง + S1 เป็นงานถัดไป**
 
 จาก boiledegg · review: [docs/reviews/player-auth.md](../reviews/player-auth.md) (รอบ 1–4) · spec: [docs/modules/player_auth.md](../modules/player_auth.md) (**APPROVED**) · เอกสารหน้าบ้าน: [docs/frontend/player_auth.md](../frontend/player_auth.md)
-branch `boiledegg/player/auth` + `boiledegg/fix/client-ip` **merge เข้า dev แล้ว** (`3c42948`) · ไม่เปิด PR · **ยังไม่ deploy** (ยังไม่ออก tag) · แก้ต่อเนื่องที่ `boiledegg/fix/player-auth-config`
+branch `boiledegg/player/auth` + `boiledegg/fix/client-ip` **merge เข้า dev แล้ว** (`3c42948`) · ไม่เปิด PR · โค้ดอยู่ใน image `dev-202610160626` (16 ต.ค.) · migration `20261015140000` / `20261015150000` รันบน RDS dev แล้ว · **ใช้จริงบน dev ได้เมื่อตั้ง `TRUSTED_PROXIES` + `PLAYER_LOBBY_URL` (รอ ingress CIDR จาก lead)** · แก้ต่อเนื่องที่ `boiledegg/fix/player-auth-config`
 
 ## 1. เสร็จแล้ว
 
