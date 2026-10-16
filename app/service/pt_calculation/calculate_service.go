@@ -24,11 +24,12 @@ import (
 const PositionMember = "member"
 
 // Layer — ผลของชั้นหนึ่ง เรียง Superadmin → … → Member (PTC-22) · PT = nil เฉพาะแถว Member
+// CommissionNet = % ของยอดแทงที่ได้ (+) / เสีย (−) สุทธิ (PTC-13) — เงิน = ยอดแทง × CommissionNet ÷ 100 · % ที่ตั้งไว้ใช้คิดภายในไม่คืน (PTC-12)
 type Layer struct {
-	ID         uint
-	Position   string
-	PT         *float64
-	Commission float64
+	ID            uint
+	Position      string
+	PT            *float64
+	CommissionNet float64
 }
 
 // CalculateMemberPTService — เส้น dev POST /api/v1/dev/pt/calculate (PTC-40)
@@ -114,16 +115,18 @@ func CalculateMemberPT(ctx context.Context, db *gorm.DB, memberID uint, gameCode
 			"agent_id", nodes[w.Layer].ID, "want", w.Want, "got", w.Got)
 	}
 
+	commissions := make([]float64, len(nodes))
+	for i := 1; i < len(nodes); i++ { // Superadmin ไม่มีผู้สร้าง = 0 (PTC-11)
+		commissions[i] = settings[i].Commission
+	}
+	net := ptCalculationCore.NetCommission(res.PT, commissions, ms.Commission) // PTC-13
+
 	out := make([]Layer, 0, len(nodes)+1)
 	for i, n := range nodes {
 		pt := res.PT[i]
-		commission := settings[i].Commission
-		if i == 0 { // Superadmin ไม่มีผู้สร้าง (PTC-11)
-			commission = 0
-		}
-		out = append(out, Layer{ID: n.ID, Position: n.Position, PT: &pt, Commission: commission})
+		out = append(out, Layer{ID: n.ID, Position: n.Position, PT: &pt, CommissionNet: net[i]})
 	}
-	out = append(out, Layer{ID: m.ID, Position: PositionMember, Commission: ms.Commission})
+	out = append(out, Layer{ID: m.ID, Position: PositionMember, CommissionNet: net[len(nodes)]})
 	return out, nil
 }
 
