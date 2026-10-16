@@ -104,46 +104,71 @@ func failReason(err error) (string, bool) {
 }
 
 // recordFailure — แถว FAILED ใน tx ใหม่ (DW-35 / DW-36): ยอดก่อน = ยอดหลัง = ยอด ณ ตอนบันทึก · ไม่มี ledger · ไม่ลง create_requests
+// C-S1 (lead review รอบ 3): COMMIT ผลไม่แน่ชัด (timeout / เน็ตหลุดตอน commit) — Transaction คืน error แต่ DB อาจ commit ไปแล้ว
+// → advisory lock key เดียวกับ tx หลัก (รอจน tx หลักจบจริง) แล้วเช็ค create_requests · มีแล้ว = รายการสำเร็จ ไม่เขียน FAILED
 // บันทึกไม่ได้ (เช่น DB ล่ม) = log แล้วไปต่อ — ไม่เปลี่ยน error ที่ตอบ client
 func recordFailure(ctx context.Context, a attempt, actor agentAuthService.Actor, req depositWithdrawDto.CreateRequest,
 	meta agentAuthService.RequestMeta, reason string) {
 	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), failWriteWait)
 	defer cancel()
-	db := database.DBConn.WithContext(fctx)
+	committed := false
+	err := database.DBConn.WithContext(fctx).Transaction(func(tx *gorm.DB) error {
+		if err := agentManagementPostgres.AdvisoryXactLockRepository(tx, "create_request:"+req.RequestID); err != nil {
+			return err
+		}
+		_, err := agentManagementPostgres.GetCreateRequestRepository(tx, req.RequestID)
+		if err == nil {
+			committed = true
+			return nil
+		}
+		if !errors.Is(err, apperr.ErrNotFound) {
+			return err
+		}
+		return createFailedLog(tx, a, actor, req, meta, reason)
+	})
+	if err != nil {
+		logger.Ctx(ctx).Warnw("record failed deposit_withdraw", "request_id", req.RequestID, "reason", reason, "error", err)
+		return
+	}
+	if committed {
+		logger.Ctx(ctx).Warnw("deposit_withdraw committed despite error — FAILED not recorded", "request_id", req.RequestID, "reason", reason)
+	}
+}
+
+// createFailedLog — อ่านยอด ณ ตอนบันทึกแล้วเขียนแถว FAILED (ใน tx ของ recordFailure)
+func createFailedLog(tx *gorm.DB, a attempt, actor agentAuthService.Actor, req depositWithdrawDto.CreateRequest,
+	meta agentAuthService.RequestMeta, reason string) error {
 	ids := []uint{a.parent.ID}
 	if a.target.owner == models.BalanceOwnerAgent {
 		ids = append(ids, a.target.id)
 	}
-	balances, err := depositWithdrawPostgres.ListAgentBalancesOfRepository(db, ids)
-	if err == nil {
-		have := map[uint]float64{}
-		for _, b := range balances {
-			if b.Currency == req.Currency {
-				have[b.AgentID] = b.Amount
-			}
-		}
-		targetBal := have[a.target.id]
-		if a.target.owner == models.BalanceOwnerMember {
-			var m models.UserMember
-			if m, err = depositWithdrawPostgres.GetDWMemberRepository(db, a.target.id); err == nil {
-				targetBal = m.Credit
-			}
-		}
-		if err == nil {
-			l := models.DepositWithdrawLog{RequestID: req.RequestID, TransactionType: req.Type, Status: models.DWStatusFailed,
-				ActorType: actor.AccountType, ActorID: actor.AccountID(), ActorUsername: actor.Username,
-				ParentID: a.parent.ID, ParentUsername: a.parent.Username,
-				TargetType: a.target.owner, TargetID: a.target.id, TargetRole: a.target.role, TargetUsername: a.target.username,
-				Currency: req.Currency, Amount: req.Amount,
-				ParentBalanceBefore: have[a.parent.ID], ParentBalanceAfter: have[a.parent.ID],
-				TargetBalanceBefore: targetBal, TargetBalanceAfter: targetBal,
-				Note: depositWithdrawCore.FailedNote(req.Note, reason), IP: meta.IP, CreatedAt: time.Now().Truncate(time.Microsecond)}
-			err = depositWithdrawPostgres.CreateDWLogRepository(db, &l)
-		}
-	}
+	balances, err := depositWithdrawPostgres.ListAgentBalancesOfRepository(tx, ids)
 	if err != nil {
-		logger.Ctx(ctx).Warnw("record failed deposit_withdraw", "request_id", req.RequestID, "reason", reason, "error", err)
+		return err
 	}
+	have := map[uint]float64{}
+	for _, b := range balances {
+		if b.Currency == req.Currency {
+			have[b.AgentID] = b.Amount
+		}
+	}
+	targetBal := have[a.target.id]
+	if a.target.owner == models.BalanceOwnerMember {
+		m, err := depositWithdrawPostgres.GetDWMemberRepository(tx, a.target.id)
+		if err != nil {
+			return err
+		}
+		targetBal = m.Credit
+	}
+	l := models.DepositWithdrawLog{RequestID: req.RequestID, TransactionType: req.Type, Status: models.DWStatusFailed,
+		ActorType: actor.AccountType, ActorID: actor.AccountID(), ActorUsername: actor.Username,
+		ParentID: a.parent.ID, ParentUsername: a.parent.Username,
+		TargetType: a.target.owner, TargetID: a.target.id, TargetRole: a.target.role, TargetUsername: a.target.username,
+		Currency: req.Currency, Amount: req.Amount,
+		ParentBalanceBefore: have[a.parent.ID], ParentBalanceAfter: have[a.parent.ID],
+		TargetBalanceBefore: targetBal, TargetBalanceAfter: targetBal,
+		Note: depositWithdrawCore.FailedNote(req.Note, reason), IP: meta.IP, CreatedAt: time.Now().Truncate(time.Microsecond)}
+	return depositWithdrawPostgres.CreateDWLogRepository(tx, &l)
 }
 
 // releaseLock — compare-and-delete (DW-22) · ปลดไม่ได้ = log แล้วปล่อยให้ TTL หมดเอง ไม่ทำให้ request ล้ม

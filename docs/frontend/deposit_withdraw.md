@@ -1,8 +1,11 @@
-# API หลังบ้าน — ฝาก / ถอนเงินให้ลูกตรง (สำหรับหน้าบ้าน) — 15 ต.ค. 2026
+# API หลังบ้าน — ฝาก / ถอนเงินให้ลูกตรง (สำหรับหน้าบ้าน) — 16 ต.ค. 2026
 
-เอกสารนี้ตรงกับโค้ดบน `dev` (deploy แล้ว `dev-202610150510` — รวม Superadmin มียอด · **2.4 `history/list` อยู่บน `dev` แล้วแต่ยังไม่ deploy** — ใช้ได้หลัง release รอบถัดไป) · spec เต็ม: `docs/modules/deposit_withdraw.md` · ผู้ดูแล module: maofoy
+เอกสารนี้ตรงกับโค้ดบน `dev` (deploy แล้ว `dev-202610160811` — รวม 2.4 `history/list` · `status` / `ip` · Superadmin มียอด · สาย Seamless มียอด) · spec เต็ม: `docs/modules/deposit_withdraw.md` · ผู้ดูแล module: maofoy
 
-> **เส้นใหม่ (15 ต.ค. — มีผลหลัง deploy รอบถัดจาก `dev-202610150510`)** — **2.4 `history/list`** ค้นประวัติฝาก / ถอนของบัญชีในสายด้วย `username` (หน้าจอ "ประวัติฝาก / ถอน")
+> **เปลี่ยนจากเดิม (16 ต.ค. — deploy แล้ว `dev-202610160701`)** — 2.3 / 2.4 เพิ่ม **`status`** (`SUCCESS` / `FAILED`) · 2.3 เพิ่ม **`ip`** (ip ของคนกด) ·
+> รายการที่กดแล้วไม่สำเร็จ (ยอดไม่พอ ฯลฯ) มีแถว **`FAILED`** + เหตุผลท้าย `note` / `remark` · `request_id` เดียวกันมีหลายแถวได้ — ใช้ `id` เป็น key
+>
+> **เส้นใหม่ (15 ต.ค. — deploy แล้ว `dev-202610150558`)** — **2.4 `history/list`** ค้นประวัติฝาก / ถอนของบัญชีในสายด้วย `username` (หน้าจอ "ประวัติฝาก / ถอน")
 >
 > **เปลี่ยนจากเดิม (15 ต.ค. — deploy แล้ว `dev-202610150510`)** — **Superadmin มียอดของตัวเองแล้ว** (สกุลละ 100,000,000): ฝาก = หักยอด Superadmin · ฝากเกินยอดที่มี = `404304` ·
 > ถอน = ยอด Superadmin เพิ่ม · `credit_detail` (2.1) ของ Superadmin เป็นยอดจริง · `parent_unlimited` (2.2 / 2.3) = `false` เสมอสำหรับรายการใหม่
@@ -29,7 +32,7 @@
 - **ฝาก** = ยอดของคุณลด · ลูกเพิ่ม · **ถอน** = ลูกลด · ยอดของคุณเพิ่ม · **Superadmin มียอดของตัวเองเหมือนบัญชีอื่น** (ยอดตั้งต้นสกุลละ 100,000,000 · ฝากเกินยอดที่มี = `404304`)
 - **ปุ่มฝาก:** เปิดเมื่อ `has_balance = true` **และ** `status = ACTIVE`
 - **ปุ่มถอน:** เปิดเมื่อ `has_balance = true` — **ลูกที่ถูกระงับ / ล็อกยังถอนได้** (ดึงเงินคืนจากบัญชีที่ถูกล็อก)
-- **`has_balance = false`** = บัญชีฝั่ง Seamless ไม่มียอดเงิน — ปิดทั้ง 2 ปุ่ม
+- **`has_balance`** = `true` ทุกแถวตั้งแต่ 15 ต.ค. (สาย Seamless ฝาก / ถอนได้แล้ว · คง field ไว้ไม่ให้โค้ดเดิมพัง) · ยอดของสาย Seamless **ใช้แทงไม่ได้** (Member สาย Seamless แทงจาก wallet ของ operator)
 - **เงิน:** JSON number · ทศนิยมไม่เกิน 4 ตำแหน่ง · ไม่เกิน 1,000,000,000 ต่อรายการ · API ส่งยอดตามที่เก็บ — หน้าบ้านปัด 3 ตำแหน่งตอนแสดงเอง
 - **ภาษาของ `msg`:** ไทยเป็นค่าเริ่มต้น · ส่ง header `X-Lang: en` (หรือ `Accept-Language: en`) ได้ภาษาอังกฤษ
 
@@ -69,7 +72,7 @@ Response `data` (ตัวอย่างย่อ map สกุลเหลื�
 ```
 - **`credit_detail.currency`** = ยอดของคุณ (คนที่ login · sub = ยอดของเจ้าของ) · Superadmin = ยอดจริงของ Superadmin
 - **`total_sum`** = ยอดรวมของลูกตรง**ทั้งหมด** (ทุกหน้า · ตาม `keyword` ที่ส่ง) แยกตาม `role` — key เป็น**ตัวเล็ก** (`agent` · `member` · `shareholder` · `company`) ต่างจาก field `role` ในแถวที่เป็นตัวใหญ่ · มีเฉพาะ role ที่มีลูก · ไม่มีลูก = `{}`
-- **`currency`** (ทุก map) = ครบ 27 สกุลที่ระบบรองรับ · key ตัวใหญ่ · สกุลที่บัญชีไม่มี / ยังไม่มียอด = `0` · บัญชี Seamless = `0` ทุกสกุล
+- **`currency`** (ทุก map) = ครบ 27 สกุลที่ระบบรองรับ · key ตัวใหญ่ · สกุลที่บัญชีไม่มี / ยังไม่มียอด = `0` · บัญชี Seamless แสดงยอดจริง
 - เรียง username A→Z · ไม่มีลูก = `"data": []` (`credit_detail` ยังมีเสมอ)
 - `role`: `COMPANY` / `SHAREHOLDER` / `AGENT` / `MEMBER` — ส่งค่านี้กลับใน 2.2 ได้เลย
 - `status`: `ACTIVE` / `SUSPENDED` / `LOCKED` (สถานะของลูกเอง)
@@ -128,7 +131,7 @@ Response `data`:
 - **ได้ `404307`** = มีรายการของลูกคนนี้กำลังทำอยู่ (เช่น กดซ้ำเร็ว ๆ หรือมีคนอื่นทำพร้อมกัน) — รอสักครู่แล้วส่งใหม่ด้วย **`request_id` เดิม**
 
 **ลำดับ error เมื่อผิดหลายอย่าง:** ADMIN `404305` → สิทธิ์ sub `402303` → passcode → รูปแบบ body (`400` / `422`) → `404307` / `504801` →
-`request_id` `422` → ไม่ใช่ลูกตรง `404401` → Seamless `404302` → ลูกถูกระงับ (เฉพาะฝาก) `404301` → สกุล `404303` → ยอดไม่พอ `404304` / `404306`
+`request_id` `422` → ไม่ใช่ลูกตรง `404401` → ลูกถูกระงับ (เฉพาะฝาก) `404301` → สกุล `404303` → ยอดไม่พอ `404304` / `404306`
 
 ### 2.3 ประวัติ — `deposit-withdraw/logs/list`
 
@@ -148,20 +151,28 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/deposit-withdraw/logs/list" \
 Response `data` (เรียงใหม่ → เก่า):
 ```json
 {
-  "current_page": 1, "total_page": 1, "total_count": 2, "limit": 20, "has_next": false, "has_prev": false,
+  "current_page": 1, "total_page": 1, "total_count": 3, "limit": 20, "has_next": false, "has_prev": false,
   "data": [
     {
-      "id": 9002, "request_id": "0b7e9d1c-3a2f-4e8b-9c11-5d6e7f8a9b0c", "transaction_type": "WITHDRAW",
+      "id": 9003, "request_id": "7a1d0c4e-2b3f-4c5d-8e9f-0a1b2c3d4e5f", "transaction_type": "DEPOSIT", "status": "FAILED",
+      "actor_username": "share01", "role": "MEMBER", "user_id": 501, "username": "mem01",
+      "currency": "THB", "amount": 99999, "note": "เติมโบนัส · ล้มเหลว: ยอดเงินของคุณไม่พอ", "ip": "203.0.113.10", "parent_unlimited": false,
+      "parent_balance_before": 4950, "parent_balance_after": 4950,
+      "target_balance_before": 150, "target_balance_after": 150,
+      "created_at": "2026-10-14T12:00:00.111111+07:00"
+    },
+    {
+      "id": 9002, "request_id": "0b7e9d1c-3a2f-4e8b-9c11-5d6e7f8a9b0c", "transaction_type": "WITHDRAW", "status": "SUCCESS",
       "actor_username": "share01@staff", "role": "MEMBER", "user_id": 501, "username": "mem01",
-      "currency": "THB", "amount": 50, "note": "", "parent_unlimited": false,
+      "currency": "THB", "amount": 50, "note": "", "ip": "203.0.113.25", "parent_unlimited": false,
       "parent_balance_before": 4900, "parent_balance_after": 4950,
       "target_balance_before": 200, "target_balance_after": 150,
       "created_at": "2026-10-14T11:00:00.654321+07:00"
     },
     {
-      "id": 9001, "request_id": "6f1c2a9e-8b1d-4c1e-9a55-2f0d6b7c1a10", "transaction_type": "DEPOSIT",
+      "id": 9001, "request_id": "6f1c2a9e-8b1d-4c1e-9a55-2f0d6b7c1a10", "transaction_type": "DEPOSIT", "status": "SUCCESS",
       "actor_username": "share01", "role": "MEMBER", "user_id": 501, "username": "mem01",
-      "currency": "THB", "amount": 100, "note": "เติมเครดิตรอบแรก", "parent_unlimited": false,
+      "currency": "THB", "amount": 100, "note": "เติมเครดิตรอบแรก", "ip": "203.0.113.10", "parent_unlimited": false,
       "parent_balance_before": 5000, "parent_balance_after": 4900,
       "target_balance_before": 100, "target_balance_after": 200,
       "created_at": "2026-10-14T10:00:00.123456+07:00"
@@ -170,8 +181,21 @@ Response `data` (เรียงใหม่ → เก่า):
 }
 ```
 - เห็นเฉพาะรายการที่บัญชีของคุณ (หรือ sub ของคุณ) เป็นคนทำ — ลูกไม่เห็นรายการที่แม่ทำกับตัวเองในเส้นนี้
-- `actor_username` = คนที่กดจริง (sub เช่น `share01@staff`) · `username` / `role` = ค่าตอนทำรายการ
+- `actor_username` = คนที่กดจริง (sub เช่น `share01@staff`) · `ip` = ip ของคนที่กด · `username` / `role` = ค่าตอนทำรายการ
 - `parent_unlimited = true` มีเฉพาะรายการเก่าก่อน 15 ต.ค. ที่ Superadmin ยังไม่มียอด → `parent_balance_before` / `after` = `0` ไม่ต้องแสดง
+
+**`status` ของรายการ** (ใช้ทั้ง 2.3 และ 2.4):
+
+| ค่า | ความหมาย | แสดงอย่างไร |
+|---|---|---|
+| `SUCCESS` | ย้ายเงินสำเร็จ | ยอดก่อน / หลังเปลี่ยนตาม `amount` |
+| `FAILED` | กดแล้ว**ไม่สำเร็จ — เงินไม่ขยับ** | ยอดก่อน = ยอดหลัง (ยอด ณ ตอนบันทึก) · เหตุผลอยู่ท้าย `note` |
+
+- **แถว `FAILED` เกิดเมื่อ** ระบบปฏิเสธหลังหาลูกเจอแล้ว — ลูกถูกระงับ / ล็อก (ฝาก) · สกุลไม่ตรง · ยอดของคุณไม่พอ · ยอดของลูกไม่พอ — หรือระบบขัดข้องระหว่างย้ายเงิน
+- **ไม่มีแถวเลย** เมื่อ body ผิด · ไม่มีสิทธิ์ · passcode ผิด · ไม่ใช่ลูกตรง · ได้ `404307` (มีรายการอื่นกำลังทำ) — กรณีเหล่านี้ยังไม่ได้เริ่มย้ายเงิน
+- **`note` ของแถว `FAILED`** = ข้อความที่คนกดพิมพ์ (ถ้ามี) + `" · ล้มเหลว: "` + เหตุผล เช่น `"เติมโบนัส · ล้มเหลว: ยอดเงินของคุณไม่พอ"` / ไม่ได้พิมพ์ = `"ล้มเหลว: ยอดเงินของคุณไม่พอ"` · ระบบขัดข้อง = `"ล้มเหลว: เกิดข้อผิดพลาดภายในระบบ"`
+- **`request_id` เดียวกันอาจมีหลายแถว** (เช่น `FAILED` แล้วกดซ้ำด้วย `request_id` เดิมจนสำเร็จ = แถว `FAILED` + `SUCCESS`) — ใช้ `id` เป็น key ของแถว ไม่ใช่ `request_id`
+- ไม่มีสถานะ "กำลังดำเนินการ" — การฝาก / ถอนจบใน request เดียว (สำเร็จหรือไม่สำเร็จทันที)
 
 ### 2.4 ประวัติของบัญชีในสาย — `deposit-withdraw/history/list`
 
@@ -204,6 +228,7 @@ Response `data` (เรียงใหม่ → เก่า):
       "request_username": "com0004",
       "currency": "THB",
       "transaction_type": "DEPOSIT",
+      "status": "SUCCESS",
       "amount": 1000,
       "remark": "",
       "created_at": "2026-10-15T11:58:24.123456+07:00"
@@ -216,6 +241,7 @@ Response `data` (เรียงใหม่ → เก่า):
 |---|---|
 | ผู้ทำรายการ | `request_username` — **คนที่กดจริง** (sub เช่น `com0004@staff`) |
 | การจัดการ | `transaction_type` — `DEPOSIT` = ฝากเงิน · `WITHDRAW` = ถอนเงิน |
+| สถานะ | `status` — `SUCCESS` = สำเร็จ · `FAILED` = ไม่สำเร็จ (เงินไม่ขยับ · เหตุผลท้าย `remark`) — ดูตาราง status ใน 2.3 |
 | ทำรายการให้ | `agent_username` (บัญชีที่ค้น · Member ใช้ field นี้เหมือนกัน — ดูจาก `role`) |
 | จำนวน / ค่าเงิน / หมายเหตุ / วันที่ | `amount` · `currency` (ตัวใหญ่ `THB`) · `remark` (`""` = ไม่มี) · `created_at` |
 
@@ -224,6 +250,7 @@ Response `data` (เรียงใหม่ → เก่า):
 - `request_type`: `AGENT` / `SUB` — `request_by` เป็น id ของตารางตาม `request_type` (id ของ 2 ตารางซ้ำกันได้)
 - `endtime` = `23:59:59` จะไม่รวมรายการในเสี้ยววินาทีสุดท้ายของวัน — ต้องการครบวันให้ส่ง `23:59:59.999999+07:00`
 - `amount` เป็นค่าบวกเสมอ — ดูทิศจาก `transaction_type`
+- มีแถว `FAILED` ด้วย (ความหมายเดียวกับ 2.3) · `remark` ของแถว `FAILED` = ข้อความที่พิมพ์ + `" · ล้มเหลว: เหตุผล"`
 
 Error codes: `422`, `404402`
 
@@ -236,7 +263,7 @@ Error codes: `422`, `404402`
 | `402303` | 200 | sub ไม่มีสิทธิ์เมนู `payment` (ดู = view · ฝากถอน = edit) | ทุกเส้น |
 | `401204` / `401205` / `401304` | — | passcode ไม่ถูกต้อง / ผิดครบ 5 ครั้ง / ยังไม่ได้ตั้ง passcode — ดู [auth.md](auth.md) | 2.2 |
 | `404301` | 200 | ฝากให้บัญชีที่ถูกระงับ / ล็อกไม่ได้ | 2.2 |
-| `404302` | 200 | บัญชีฝั่ง Seamless ไม่มียอดเงิน ฝาก / ถอนไม่ได้ | 2.2 |
+| `404302` | — | เลิกใช้ 15 ต.ค. (สาย Seamless ฝาก / ถอนได้แล้ว) — ไม่มีเส้นไหนตอบ code นี้แล้ว | — |
 | `404303` | 200 | สกุลเงินนี้ไม่มีในบัญชีของคุณหรือบัญชีปลายทาง | 2.2 |
 | `404304` | 200 | ยอดเงินของคุณไม่พอ | 2.2 |
 | `404305` | 200 | ADMIN ทำรายการฝาก / ถอนไม่ได้ | ทุกเส้น |
