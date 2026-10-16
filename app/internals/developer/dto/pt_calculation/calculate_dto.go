@@ -34,8 +34,8 @@ func invalid(field, th, en string) error {
 
 // LayerRow — 1 ชั้นในผล เรียง Superadmin → … → Member (PTC-22) · แถว Member ไม่มี pt
 type LayerRow struct {
-	ID         uint     `json:"id"`
-	Position   string   `json:"position"`
-	PT         *float64 `json:"pt,omitempty"`
-	Commission float64  `json:"commission"`
+	ID            uint     `json:"id"`
+	Position      string   `json:"position"`
+	PT            *float64 `json:"pt,omitempty"`
+	CommissionNet float64  `json:"commission_net"` // % ของยอดแทงที่ได้ (+) / เสีย (−) สุทธิ (PTC-13)
 }

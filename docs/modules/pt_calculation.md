@@ -12,7 +12,7 @@
 
 ## 1. หน้าที่ของ module
 
-ใส่ `member_id` + `game_code` แล้วได้ **PT สุดท้าย** (หลังคิด Force → Remain → คืน Superadmin) และ **% Commission** ของทุกชั้นในสายของ Member คนนั้น
+ใส่ `member_id` + `game_code` แล้วได้ **PT สุดท้าย** (หลังคิด Force → Remain → คืน Superadmin) และ **Commission สุทธิ** (`commission_net` — % ของยอดแทงที่ได้ / เสีย) ของทุกชั้นในสายของ Member คนนั้น
 
 - **service** `CalculateMemberPT` (รับ `db` / tx ของผู้เรียก) — ไว้ให้ module เดิมพันเรียกตอนรับ bet (เก็บผลไว้กับ bet — MGMT-23 "มีผลกับ bet ใหม่")
 - **เส้น dev** `POST /api/v1/dev/pt/calculate` (context `developer` · ไม่ต้อง login) — ให้ dev / QA เช็คผลเอง · เปิดเฉพาะ env ที่ตั้ง `DEV_ROUTES_ENABLED=true`
@@ -69,8 +69,14 @@ eff[0] += left                                             // PTC-06
 
 | ID | Rule |
 |---|---|
-| PTC-11 | `commission` ของชั้นฝั่ง agent = `agent_game_settings.commission` ของชั้นนั้น (ผู้สร้างตั้งให้) · Superadmin = `0` เสมอ (ไม่มีผู้สร้าง) · Member = `user_member_game_settings.commission` |
-| PTC-12 | คืนเป็น **% ตามที่ตั้ง** ไม่คิดเป็นเงิน (สูตรเงินดู reference ข้อ 4 — ตัดสินใน module Settle) |
+| PTC-11 | % Commission ที่ใช้คิด (input ของ PTC-13): ชั้นฝั่ง agent = `agent_game_settings.commission` ของชั้นนั้น (ผู้สร้างตั้งให้) · Superadmin = `0` เสมอ (ไม่มีผู้สร้าง) · Member = `user_member_game_settings.commission` |
+| PTC-12 | **ไม่คืน % ที่ตั้งไว้** (แก้ 2026-10-16 — คืนแค่ `commission_net`) · ไม่คิดเป็นเงิน (ไม่มียอดแทงใน input — คูณยอดแทงที่ module เดิมพัน / Settle) |
+| PTC-13 | **`commission_net`** = % ของยอดแทงที่ชั้นนั้นได้ / เสีย **สุทธิ** (แบบ ก — ชั้นบนตรงจ่าย commission ของลูกทั้งก้อน · ตาราง "จ่ายจริง" ใน reference ข้อ 4 กลับเครื่องหมาย · lead อนุมัติ 2026-10-16 ผ่าน maofoy): |
+| | • `t[j] = Round4(%Com[j] × PTเหนือ[j] ÷ 100)` · `PTเหนือ[j]` = PT สุดท้ายของทุกชั้นเหนือ `Lj` รวมกัน · Member: `PTเหนือ` = 100 |
+| | • Superadmin = `−t[1]` · `Li` (1 … k) = `t[i] − t[i+1]` (ได้จากผู้สร้าง − จ่ายลูก · ลูกของ `Lk` = Member) · Member = `t[Member]` · ทุกค่า Round4 · ไม่มี `-0` |
+| | • ตรวจ: Σ `commission_net` ทุกแถว = 0 (ได้เท่ากับเสีย) |
+| | • ตัวอย่าง: Agent ไม่ได้ commission จากชั้นบน (0) แต่ให้ Member 0.1% → Agent `−0.1` · Member `+0.1` · ชั้นที่ได้ commission ได้จริงเฉพาะส่วนที่ชั้นบนถือ PT (เช่น ตั้ง 0.3% · PT เหนือ 95% → ได้ 0.285%) |
+| | • ยอดเงิน = ยอดแทง × `commission_net` ÷ 100 (คิดที่ module เดิมพัน) |
 
 ### Input / ผลลัพธ์
 
@@ -120,14 +126,14 @@ Request:
 { "member_id": 123, "game_code": "coin_toss" }
 ```
 
-Response `data` (ตัวอย่างจาก reference ข้อ 3 — ดูข้อมูลตั้งต้นในหัวข้อ 7.1):
+Response `data` (ตัวอย่างจาก reference ข้อ 3 / 4 — ดูข้อมูลตั้งต้นในหัวข้อ 7.1 · แทง 1,000 → `commission_net` × 10 = คอลัมน์ "จ่ายจริง" กลับเครื่องหมาย):
 ```json
 [
-  { "id": 1,   "position": "superadmin",  "pt": 20, "commission": 0 },
-  { "id": 2,   "position": "company",     "pt": 25, "commission": 1 },
-  { "id": 3,   "position": "shareholder", "pt": 25, "commission": 0.7 },
-  { "id": 4,   "position": "agent",       "pt": 30, "commission": 0.3 },
-  { "id": 123, "position": "member",                "commission": 1 }
+  { "id": 1,   "position": "superadmin",  "pt": 20, "commission_net": -0.2 },
+  { "id": 2,   "position": "company",     "pt": 25, "commission_net": -0.115 },
+  { "id": 3,   "position": "shareholder", "pt": 25, "commission_net": 0.105 },
+  { "id": 4,   "position": "agent",       "pt": 30, "commission_net": -0.79 },
+  { "id": 123, "position": "member",                "commission_net": 1 }
 ]
 ```
 
@@ -184,7 +190,10 @@ a1 Remain 60: 25 + 40 = 65 ≥ 60 ไม่ทำงาน → คืน SA 5 �
 | PTC-07 | (core table test เท่านั้น — ค่าจริงตั้งได้ทีละ 0.5% ตาม MGMT-18) ค่าที่มีเศษ เช่น `P` 33.3333 / `pt` 11.1111 | ทุกค่าปัด 4 ตำแหน่ง · รวม 100 |
 | PTC-10 | ข้อมูลจงใจผิด MGMT-18 (Force > ค่าที่ได้รับ) | ถือเพิ่มไม่เกิน `left` · log warn · รวม 100 |
 | PTC-09 | ลบแถว settings ของชั้นกลาง · `P` ลูก > `P` ผู้สร้าง | `508601` |
-| PTC-11 | ชุด A | commission SA 0 · ชั้นอื่นตามที่ตั้ง |
+| PTC-11 | ชุด A | ใช้ commission ที่ตั้งไว้ (SA = 0) คิด `commission_net` · response ไม่มี field `commission` |
+| PTC-13 | ชุด A + commission Co 1 · Sh 0.7 · Ag 0.3 · Member 1 (reference ข้อ 4) | `commission_net` SA −0.2 · Co −0.115 · Sh 0.105 · Ag −0.79 · Member 1 · รวม 0 |
+| PTC-13 | PT 77 / 14 / 4 / 5 · commission 0 / 0 / 0 · Member 0.1 (Agent ให้ส่วนลด Member อย่างเดียว) | Agent −0.1 · Member 0.1 · ชั้นอื่น 0 (ไม่มี `-0`) |
+| PTC-13 | PT 77 / 14 / 4 / 5 · SA→Co 0.5 · Co→Sh 0.4 · Sh→Ag 0.3 · Ag→Member 0.1 | SA −0.385 · Co 0.021 · Sh 0.079 · Ag 0.185 · Member 0.1 |
 | PTC-20 | ไม่ส่ง `member_id` · `game_code` ไม่มีจริง | `422` msg บอก field |
 | PTC-21 | `member_id` ไม่มีจริง | `408401` |
 | PTC-22 | ชุด B | 6 แถว · `agent` 2 แถวเรียงบน → ล่าง |
@@ -222,3 +231,10 @@ a1 Remain 60: 25 + 40 = 65 ≥ 60 ไม่ทำงาน → คืน SA 5 �
 | S2 | เพิ่ม integration ชุด C / D / E2 + นับ query ≤ 3 (หัวข้อ 7.2) |
 | L1 | Member `pt = 0` แต่ผู้สร้างมี Force → ผู้สร้างถือตาม Force — **ตั้งใจ** (Force = บังคับถืออย่างน้อยเท่านี้) |
 | L2 | ปิด `pt.status` ของ CSM → sync ไป Share Master → ทั้งสายถือ 0 คืน Superadmin — **ตั้งใจ** (ตรง Q2) |
+
+### Commission สุทธิ (lead อนุมัติ 2026-10-16 ผ่าน maofoy)
+
+| # | เรื่อง | ผล |
+|---|---|---|
+| C1 | ใครแบก commission ที่ให้ลูก: ก) ชั้นบนตรงจ่ายทั้งก้อน · ข) ทุกชั้นเหนือลูกจ่ายตามสัดส่วน PT | **ก** (ตาราง "จ่ายจริง" ใน reference ข้อ 4) → PTC-13 `commission_net` |
+| C2 | คิดที่ไหน | service กลาง `CalculateMemberPT` (module เดิมพันใช้ต่อ) + เส้น dev แสดงผล |

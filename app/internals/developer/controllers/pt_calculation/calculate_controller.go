@@ -21,7 +21,7 @@ func CalculateController(c *fiber.Ctx) error {
 	}
 	rows := make([]ptCalculationDto.LayerRow, len(layers))
 	for i, l := range layers {
-		rows[i] = ptCalculationDto.LayerRow{ID: l.ID, Position: l.Position, PT: l.PT, Commission: l.Commission}
+		rows[i] = ptCalculationDto.LayerRow{ID: l.ID, Position: l.Position, PT: l.PT, CommissionNet: l.CommissionNet}
 	}
 	return response.OK(c, rows)
 }
