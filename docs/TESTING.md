@@ -46,6 +46,8 @@ powershell -ExecutionPolicy Bypass -File scripts\testenv.ps1 reset     # ปิ�
 go test -count=1 -tags=integration ./...
 ```
 
+- **รันขนานหลาย package ได้ปลอดภัย** — ทุก package ที่ใช้ test env ใช้ Postgres / Redis ชุดเดียวกัน และ `testutil.Setup` ล้างทุกตาราง + `FLUSHDB` ทุก test · `testutil` จึงถือ Postgres advisory lock ตั้งแต่ package เริ่ม (ปล่อยเมื่อ process จบ) ให้รันได้ทีละ package แม้ไม่ใส่ `-p 1` · package ที่รอ lock นับเวลารอรวมใน `-timeout` ของตัวเอง — รันทั้ง repo ให้ตั้ง `-timeout 20m` (CI ตั้งแล้ว)
+
 - `pkg/testutil` โหลด `.env.test` ที่ root ของ repo เอง — ไม่ต้อง export env · ถ้า environment มี `DB_HOST` อยู่แล้ว (เช่น CI) ไม่โหลดไฟล์เลย · ค่าที่ตั้งไว้แล้วไม่ถูกทับ
 - ถ้าต่อ DB / Redis ไม่ได้ ทุก test ได้ error เดียวกัน `testutil: postgres localhost:55432/minigame_test: ...`
 
