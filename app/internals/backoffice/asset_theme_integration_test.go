@@ -52,24 +52,27 @@ func TestAssetReadPermission(t *testing.T) { // AST-05 · AST-06
 	expect(t, used(g, w.shareNone), 200, codeNoMenu)
 	expect(t, assetCall(t, app, "games/list", nil, w.shareNone), 200, codeNoMenu)
 	expect(t, assetCall(t, app, "slots/list", map[string]any{"game_code": "scratch_card"}, w.shareNone), 200, codeNoMenu)
-	expect(t, assetCall(t, app, "bundle/detail/get", byAgent(w.share.ID, "game_code", "scratch_card"), w.shareNone), 200, codeNoMenu)
+	expect(t, assetCall(t, app, "bundle/detail/get", own("game_code", "scratch_card"), w.shareNone), 200, codeNoMenu)
 	// view sub: อ่านได้ เขียนไม่ได้
-	expect(t, used(scopeAgent(w.share.ID, "game_code", "scratch_card"), w.shareViewTok), 200, 200)
-	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card"), scopeAgent(w.share.ID)), w.shareViewTok), 200, codeNoMenu)
-	expect(t, assetCall(t, app, "branding/detail/update", byAgent(w.share.ID, "site_name", "X"), w.shareViewTok), 200, codeNoMenu)
+	expect(t, used(scopeOwn("game_code", "scratch_card"), w.shareViewTok), 200, 200)
+	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card"), scopeOwn()), w.shareViewTok), 200, codeNoMenu)
+	expect(t, assetCall(t, app, "branding/detail/update", own("site_name", "X"), w.shareViewTok), 200, codeNoMenu)
 
-	// ตัวเอง · สายล่าง · นอกสาย
-	expect(t, used(scopeAgent(w.share.ID, "game_code", "scratch_card"), w.shareTok), 200, 200)
-	expect(t, used(scopeAgent(w.agent.ID, "game_code", "scratch_card"), w.shareTok), 200, 200)
-	expect(t, used(scopeAgent(w.agent.ID, "game_code", "scratch_card"), w.saTok), 200, 200)
-	expect(t, used(scopeAgent(w.csm.ID, "game_code", "scratch_card"), w.shareTok), 200, codeOutsideLine)
-	expect(t, used(scopeAgent(w.share.ID, "game_code", "scratch_card"), w.agentTok), 200, codeOutsideLine) // ชั้นบนของตัวเอง
-	expect(t, used(scopeAgent(w.agent.ID, "game_code", "scratch_card"), w.sm1Tok), 200, codeOutsideLine)
-	expect(t, used(scopeAgent(999999, "game_code", "scratch_card"), w.shareTok), 200, codeOutsideLine) // ไม่มีบัญชีนี้ = นอกสาย
-	// sub อ่านในนามเจ้าของ: sub ของ share01 ดูของ agent01 (สายล่างของเจ้าของ) ได้
-	expect(t, used(scopeAgent(w.agent.ID, "game_code", "scratch_card"), w.shareViewTok), 200, 200)
+	// AGENT = ของตัวเองเสมอ (lead 2026-10-16) · ทุกบัญชีอ่านของตัวเองได้ · ชั้นบนดูของสายล่างไม่ได้ (ระบุไม่ได้)
+	for name, tok := range map[string]string{"share01": w.shareTok, "agent01": w.agentTok, "sa": w.saTok, "sm01": w.sm1Tok, "view sub": w.shareViewTok} {
+		if r := used(scopeOwn("game_code", "scratch_card"), tok); r.Code != 200 {
+			t.Errorf("%s อ่านของตัวเอง: code %d (%s)", name, r.Code, r.Msg)
+		}
+	}
+	// ส่ง agent_id (สายล่าง / นอกสาย / ไม่มีบัญชีนี้) = 422 ไม่ใช่ 402402 · ไม่มีทางเห็นของบัญชีอื่น
+	for name, id := range map[string]uint{"สายล่าง": w.agent.ID, "นอกสาย": w.csm.ID, "ไม่มีบัญชีนี้": 999999} {
+		body := scopeOwn("game_code", "scratch_card", "agent_id", id)
+		if r := used(body, w.shareTok); r.Code != 422 {
+			t.Errorf("share01 ส่ง agent_id ของ%s: ต้อง 422 ได้ %d (%s)", name, r.Code, r.Msg)
+		}
+	}
 	// Share Master อ่านค่าของตัวเอง (ที่ได้จาก CSM) ได้
-	expect(t, assetCall(t, app, "theme/detail/get", scopeAgent(w.sm1.ID, "game_code", "scratch_card"), w.sm1Tok), 200, 200)
+	expect(t, assetCall(t, app, "theme/detail/get", scopeOwn("game_code", "scratch_card"), w.sm1Tok), 200, 200)
 
 	// AST-06: ADMIN ไม่มีเมนู asset · ไม่ login = 401 · บัญชีถูกระงับ = 401311
 	admin := createAccount(t, "admin01", models.AgentRoleAdmin, nil)
@@ -87,18 +90,18 @@ func TestAssetTheme(t *testing.T) { // AST-33 – AST-40 · lead GE10-1
 	testutil.NewFakeS3(t)
 	w := buildAssetWorld(t, app)
 	sid, aid := w.share.ID, w.agent.ID
-	get := func(id uint, tok string) themeData {
+	get := func(tok string) themeData { // ของบัญชีของ token เสมอ (lead 2026-10-16)
 		t.Helper()
-		r := assetCall(t, app, "theme/detail/get", scopeAgent(id, "game_code", "scratch_card"), tok)
+		r := assetCall(t, app, "theme/detail/get", scopeOwn("game_code", "scratch_card"), tok)
 		expect(t, r, 200, 200)
 		return decode[themeData](t, r)
 	}
-	upd := func(id uint, body map[string]any, tok string) testutil.Response {
-		return assetCall(t, app, "theme/detail/update", putTheme(body, scopeAgent(id)), tok)
+	upd := func(body map[string]any, tok string) testutil.Response {
+		return assetCall(t, app, "theme/detail/update", putTheme(body, scopeOwn()), tok)
 	}
 
 	// AST-37: ไม่มีใครตั้ง = ค่ากลางทั้ง 5 ค่า (seed)
-	d := get(sid, w.shareTok)
+	d := get(w.shareTok)
 	if d.Source != "global" || d.InheritedFrom != "" || d.FontFamily != "noto" || d.MainColor1 != "#f7447e" || d.MainColor2 != "#ffffff" ||
 		d.StatsBarColor != "main_color_1" || d.StatsBarColorHex != "#f7447e" || d.StatsBarFontFamily != "prompt" {
 		t.Fatalf("ค่ากลาง: %+v", d)
@@ -131,7 +134,7 @@ func TestAssetTheme(t *testing.T) { // AST-33 – AST-40 · lead GE10-1
 		{"null", themeBody("scratch_card", "font_family", nil), "font_family"},
 	}
 	for _, b := range bad {
-		r := upd(sid, b.body, w.shareTok)
+		r := upd(b.body, w.shareTok)
 		if r.Code != 422 || !strings.Contains(r.Msg, b.field) {
 			t.Errorf("%s: want 422 พร้อม field %q, got code %d msg %q", b.name, b.field, r.Code, r.Msg)
 		}
@@ -139,11 +142,11 @@ func TestAssetTheme(t *testing.T) { // AST-33 – AST-40 · lead GE10-1
 	if n := countRows(t, &models.GameTheme{}, "agent_id IS NOT NULL"); n != 0 {
 		t.Fatalf("422 ต้องไม่เขียนอะไร: %d แถว", n)
 	}
-	expect(t, upd(sid, themeBody("plinko"), w.shareTok), 200, codeSlotNotFound)
+	expect(t, upd(themeBody("plinko"), w.shareTok), 200, codeSlotNotFound)
 
 	// เขียนสำเร็จ: สีเป็นตัวพิมพ์เล็ก · source = self · stats bar ตามสีหลัก (AST-35 · AST-36)
-	expect(t, upd(sid, themeBody("scratch_card"), w.shareTok), 200, 200)
-	d = get(sid, w.shareTok)
+	expect(t, upd(themeBody("scratch_card"), w.shareTok), 200, 200)
+	d = get(w.shareTok)
 	if d.Source != "self" || d.FontFamily != "kanit" || d.MainColor1 != "#1e90ff" || d.MainColor2 != "#ffffff" ||
 		d.StatsBarColor != "main_color_2" || d.StatsBarColorHex != "#ffffff" {
 		t.Fatalf("หลังตั้ง: %+v", d)
@@ -152,11 +155,11 @@ func TestAssetTheme(t *testing.T) { // AST-33 – AST-40 · lead GE10-1
 		t.Errorf("shades ของ #1e90ff / #ffffff: %+v / %+v", d.Shades1, d.Shades2)
 	}
 	// AST-36: เปลี่ยน main_color_2 แล้ว stats_bar_color_hex ตาม
-	expect(t, upd(sid, themeBody("scratch_card", "main_color_2", "#00FF00"), w.shareTok), 200, 200)
-	if d = get(sid, w.shareTok); d.StatsBarColorHex != "#00ff00" {
+	expect(t, upd(themeBody("scratch_card", "main_color_2", "#00FF00"), w.shareTok), 200, 200)
+	if d = get(w.shareTok); d.StatsBarColorHex != "#00ff00" {
 		t.Errorf("stats_bar_color_hex ต้องตามสีหลัก: %+v", d)
 	}
-	expect(t, upd(sid, themeBody("scratch_card"), w.shareTok), 200, 200)
+	expect(t, upd(themeBody("scratch_card"), w.shareTok), 200, 200)
 
 	// GE10-1: ส่งค่าเดิมทั้งชุด = 200 ไม่แตะ updated_* ไม่สร้างแถวใหม่
 	var before models.GameTheme
@@ -164,7 +167,7 @@ func TestAssetTheme(t *testing.T) { // AST-33 – AST-40 · lead GE10-1
 		t.Fatal(err)
 	}
 	time.Sleep(20 * time.Millisecond)
-	expect(t, upd(sid, themeBody("scratch_card", "main_color_1", "#1e90ff"), w.shareEditTok), 200, 200) // sub ส่งค่าเดิม (ตัวพิมพ์ต่างกัน)
+	expect(t, upd(themeBody("scratch_card", "main_color_1", "#1e90ff"), w.shareEditTok), 200, 200) // sub ส่งค่าเดิม (ตัวพิมพ์ต่างกัน)
 	var after models.GameTheme
 	if err := database.DBConn.Where("agent_id = ? AND game_code = ?", sid, "scratch_card").Take(&after).Error; err != nil {
 		t.Fatal(err)
@@ -176,49 +179,49 @@ func TestAssetTheme(t *testing.T) { // AST-33 – AST-40 · lead GE10-1
 		t.Errorf("ต้องมี 1 แถว: %d", n)
 	}
 	// ส่งค่าต่างแล้ว sub เป็นคนแก้ → updated_by = username ของ sub · created_by ไม่เปลี่ยน
-	expect(t, upd(sid, themeBody("scratch_card", "font_family", "mitr"), w.shareEditTok), 200, 200)
+	expect(t, upd(themeBody("scratch_card", "font_family", "mitr"), w.shareEditTok), 200, 200)
 	database.DBConn.Where("agent_id = ? AND game_code = ?", sid, "scratch_card").Take(&after)
 	if after.UpdatedBy != "share01@design" || after.CreatedBy != "share01" {
 		t.Errorf("created_by / updated_by: %+v", after)
 	}
-	expect(t, upd(sid, themeBody("scratch_card"), w.shareTok), 200, 200)
+	expect(t, upd(themeBody("scratch_card"), w.shareTok), 200, 200)
 
 	// ไล่สาย: agent01 ไม่ตั้ง = ได้ของ share01 ทั้งชุด (upline + inherited_from)
-	d = get(aid, w.agentTok)
+	d = get(w.agentTok)
 	if d.Source != "upline" || d.InheritedFrom != "share01" || d.FontFamily != "kanit" || d.MainColor1 != "#1e90ff" {
 		t.Fatalf("agent01 ต้องได้ของ share01: %+v", d)
 	}
 	// GE10-1 (ไล่สายแล้ว): agent01 ส่งค่าเท่ากับที่ได้จาก share01 = 200 ไม่สร้างแถว (ยังได้ค่าของชั้นบนต่อไป)
-	expect(t, upd(aid, themeBody("scratch_card"), w.agentTok), 200, 200)
+	expect(t, upd(themeBody("scratch_card"), w.agentTok), 200, 200)
 	if n := countRows(t, &models.GameTheme{}, "agent_id = ?", aid); n != 0 {
 		t.Fatalf("ส่งค่าเท่ากับที่สืบทอดมา ต้องไม่สร้างแถว: %d", n)
 	}
 	// ส่งค่าต่างจากที่ใช้อยู่ 1 ค่า = สร้างแถวของ agent01 ทั้ง 5 ค่า (ไม่ผสมกับ share01)
-	expect(t, upd(aid, themeBody("scratch_card", "font_family", "sarabun"), w.agentTok), 200, 200)
-	d = get(aid, w.agentTok)
+	expect(t, upd(themeBody("scratch_card", "font_family", "sarabun"), w.agentTok), 200, 200)
+	d = get(w.agentTok)
 	if d.Source != "self" || d.InheritedFrom != "" || d.FontFamily != "sarabun" || d.MainColor1 != "#1e90ff" {
 		t.Fatalf("agent01 หลังตั้งเอง: %+v", d)
 	}
 	// reset: agent01 กลับไปใช้ของ share01 · share01 reset แล้วทั้งสายกลับไปค่ากลาง
-	expect(t, assetCall(t, app, "theme/reset", scopeAgent(aid, "game_code", "scratch_card"), w.agentTok), 200, 200)
-	if d = get(aid, w.agentTok); d.Source != "upline" || d.InheritedFrom != "share01" {
+	expect(t, assetCall(t, app, "theme/reset", scopeOwn("game_code", "scratch_card"), w.agentTok), 200, 200)
+	if d = get(w.agentTok); d.Source != "upline" || d.InheritedFrom != "share01" {
 		t.Fatalf("หลัง reset: %+v", d)
 	}
-	expect(t, assetCall(t, app, "theme/reset", scopeAgent(sid, "game_code", "scratch_card"), w.shareTok), 200, 200)
-	if d = get(aid, w.agentTok); d.Source != "global" || d.FontFamily != "noto" {
+	expect(t, assetCall(t, app, "theme/reset", scopeOwn("game_code", "scratch_card"), w.shareTok), 200, 200)
+	if d = get(w.agentTok); d.Source != "global" || d.FontFamily != "noto" {
 		t.Fatalf("share01 reset แล้ว agent01 ต้องได้ค่ากลาง: %+v", d)
 	}
 
 	// AST-37: แก้ค่ากลางมีผลกับบัญชีที่ไม่เคยตั้งทันที · บัญชีที่ตั้งเองไม่เปลี่ยน
-	expect(t, upd(sid, themeBody("scratch_card"), w.shareTok), 200, 200)
+	expect(t, upd(themeBody("scratch_card"), w.shareTok), 200, 200)
 	r := assetCall(t, app, "theme/detail/update", scopeGlobal(
 		"game_code", "scratch_card", "font_family", "mitr", "main_color_1", "#112233", "main_color_2", "#445566",
 		"stats_bar_color", "main_color_1", "stats_bar_font_family", "noto"), w.saTok)
 	expect(t, r, 200, 200)
-	if d = get(w.com.ID, w.comTok); d.Source != "global" || d.FontFamily != "mitr" || d.MainColor1 != "#112233" {
+	if d = get(w.comTok); d.Source != "global" || d.FontFamily != "mitr" || d.MainColor1 != "#112233" {
 		t.Errorf("comp01 ต้องได้ค่ากลางใหม่: %+v", d)
 	}
-	if d = get(sid, w.shareTok); d.Source != "self" || d.FontFamily != "kanit" {
+	if d = get(w.shareTok); d.Source != "self" || d.FontFamily != "kanit" {
 		t.Errorf("share01 ที่ตั้งเองต้องไม่เปลี่ยน: %+v", d)
 	}
 	// AST-38: กฎเดียวกันทั้ง GLOBAL — GLOBAL ส่งสีผิดก็ 422 · ไม่มี used/reset ของค่ากลาง
@@ -228,7 +231,7 @@ func TestAssetTheme(t *testing.T) { // AST-33 – AST-40 · lead GE10-1
 		t.Errorf("แถวค่ากลางต้องมี 3 (หนึ่งต่อเกม): %d", n)
 	}
 	// เกมอื่นไม่เปลี่ยน
-	r = assetCall(t, app, "theme/detail/get", scopeAgent(sid, "game_code", "coin_toss"), w.shareTok)
+	r = assetCall(t, app, "theme/detail/get", scopeOwn("game_code", "coin_toss"), w.shareTok)
 	if d = decode[themeData](t, r); d.Source != "global" || d.FontFamily != "noto" {
 		t.Errorf("coin_toss: %+v", d)
 	}
@@ -237,24 +240,21 @@ func TestAssetTheme(t *testing.T) { // AST-33 – AST-40 · lead GE10-1
 func TestAssetThemeShareMasterFollowsCSM(t *testing.T) { // AST-37 · lead AV1
 	app := setup2(t)
 	w := buildAssetWorld(t, app)
-	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card", "font_family", "sarabun"), scopeAgent(w.csm.ID)), w.csmTok), 200, 200)
-	for _, c := range []struct {
-		tok string
-		id  uint
-	}{{w.sm1Tok, w.sm1.ID}, {w.sm2Tok, w.sm2.ID}} {
-		r := assetCall(t, app, "theme/detail/get", scopeAgent(c.id, "game_code", "scratch_card"), c.tok)
+	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card", "font_family", "sarabun"), scopeOwn()), w.csmTok), 200, 200)
+	for _, tok := range []string{w.sm1Tok, w.sm2Tok} {
+		r := assetCall(t, app, "theme/detail/get", scopeOwn("game_code", "scratch_card"), tok)
 		expect(t, r, 200, 200)
 		if d := decode[themeData](t, r); d.Source != "upline" || d.InheritedFrom != "csm01" || d.FontFamily != "sarabun" {
 			t.Errorf("Share Master ต้องได้ของ csm01: %+v", d)
 		}
 	}
-	// Share Master ตั้งเองไม่ได้ · csm01 แก้ให้ Share Master ตรงๆ ก็ไม่ได้ (สืบทอดเอง)
-	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card"), scopeAgent(w.sm1.ID)), w.sm1Tok), 200, codeNoPermission)
-	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card"), scopeAgent(w.sm1.ID)), w.csmTok), 200, codeNoPermission)
-	expect(t, assetCall(t, app, "theme/reset", scopeAgent(w.sm1.ID, "game_code", "scratch_card"), w.sm1Tok), 200, codeNoPermission)
+	// Share Master ตั้งเองไม่ได้ · csm01 ระบุ Share Master ไม่ได้ (ส่ง agent_id = 422 — สืบทอดผ่านสายเอง)
+	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card"), scopeOwn()), w.sm1Tok), 200, codeNoPermission)
+	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card"), scopeOwn("agent_id", w.sm1.ID)), w.csmTok), 200, 422)
+	expect(t, assetCall(t, app, "theme/reset", scopeOwn("game_code", "scratch_card"), w.sm1Tok), 200, codeNoPermission)
 	// csm01 แก้แล้ว Share Master ทุกคนเปลี่ยนตามทันที
-	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card", "font_family", "mitr"), scopeAgent(w.csm.ID)), w.csmTok), 200, 200)
-	r := assetCall(t, app, "theme/detail/get", scopeAgent(w.sm2.ID, "game_code", "scratch_card"), w.sm2Tok)
+	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card", "font_family", "mitr"), scopeOwn()), w.csmTok), 200, 200)
+	r := assetCall(t, app, "theme/detail/get", scopeOwn("game_code", "scratch_card"), w.sm2Tok)
 	if d := decode[themeData](t, r); d.FontFamily != "mitr" {
 		t.Errorf("sm02 ต้องตามการแก้ของ csm01: %+v", d)
 	}

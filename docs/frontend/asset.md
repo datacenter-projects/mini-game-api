@@ -1,10 +1,14 @@
-# API หลังบ้าน — หน้าตาเกม / หน้าเว็บ (asset · ธีม · branding) (สำหรับหน้าบ้าน) — 14 ต.ค. 2026 (ฉบับแรก · แก้ตาม lead A1 / A2)
+# API หลังบ้าน — หน้าตาเกม / หน้าเว็บ (asset · ธีม · branding) (สำหรับหน้าบ้าน) — 16 ต.ค. 2026 (ไม่ส่ง agent_id · ดูได้แค่ของตัวเอง)
 
 เอกสารนี้ตรงกับโค้ดบน branch `carl/asset` (**ยังไม่ merge เข้า `dev`** — ใช้บน server หลัง merge + deploy) ·
 ตัวอย่าง response และข้อความ error ทุกตัว**ยิงจากโค้ดจริง** (14 ต.ค.) · spec เต็ม: `docs/modules/asset.md` (DRAFT — รอ lead รับทราบฉบับแก้ · ผู้ดูแล module: schneider) ·
 login / session / ด่านหลัง login / ตั้งค่า Postman (`{{MG_URL}}` · `{{TOKEN}}`) ดู [auth.md](auth.md) และ [agent_management.md](agent_management.md) หัวข้อ 1
 
-> **สถานะ:** MVP ฝั่งหลังบ้าน 16 เส้น · **ยังไม่มี**เส้นฝั่งผู้เล่น (`/player/asset/bundle` — รอ Player Auth) · banner / favicon / `site_theme` เลื่อนไปรอบหน้า (ยังไม่ต้องทำหน้าจอ)
+> **เปลี่ยนจากเดิม (16 ต.ค. — lead อนุมัติ · breaking change)** — **ทุกเส้นไม่รับ `agent_id` แล้ว** เป้าหมายคือบัญชีที่ login (sub = เจ้าของ) ·
+> ส่ง `agent_id` มา = `422` "ไม่ต้องส่ง agent_id" · **ดู / แก้ได้เฉพาะของตัวเอง + ค่ากลาง (GLOBAL)** — ชั้นบนดูของสายล่างไม่ได้แล้ว ·
+> `402402` ไม่เกิดในเส้นของ asset แล้ว · เส้น branding / bundle ไม่ต้องส่งอะไรเพื่อระบุบัญชี · การไล่สาย (ได้ค่าของชั้นบน → GLOBAL) **เหมือนเดิม**
+>
+> **สถานะ:** MVP ฝั่งหลังบ้าน 16 เส้น + **เส้นผู้เล่น `player/pr/asset/bundle`** (2.17 · 16 ต.ค.) · banner / favicon / `site_theme` เลื่อนไปรอบหน้า (ยังไม่ต้องทำหน้าจอ)
 >
 > **ก่อนใช้งานจริง:** รูปค่ากลาง (GLOBAL) ของทุกช่องต้องถูกอัปก่อน (ทีมหลังบ้านรัน script) · ช่อง / ขนาดภาพในหัวข้อ 1.7 เป็น**ค่าร่าง รอทีมเกมยืนยัน** — ดึงจาก `slots/list` เสมอ อย่าฝังในหน้าบ้าน
 
@@ -15,39 +19,42 @@ login / session / ด่านหลัง login / ตั้งค่า Postman
 
 ### 1.1 ภาพรวมเส้น
 
-| # | Path (ต่อท้าย `{{MG_URL}}`) | ใช้เมื่อ | สิทธิ์ `asset` | ระบุเป้าหมายด้วย |
+| # | Path (ต่อท้าย `{{MG_URL}}`) | ใช้เมื่อ | สิทธิ์ `asset` | ส่งเพื่อเลือกเป้าหมาย |
 |---|---|---|---|---|
-| 2.1 | `/api/v1/bo/pr/asset/games/list` | รายชื่อเกม + รูปปก | view | — (บัญชีที่ login) |
+| 2.1 | `/api/v1/bo/pr/asset/games/list` | รายชื่อเกม + รูปปก | view | — |
 | 2.2 | `/api/v1/bo/pr/asset/slots/list` | ช่องรูปของเกม + ขนาดภาพที่รับ | view | — |
-| 2.3 | `/api/v1/bo/pr/asset/files/upload` | อัปรูปเข้าช่อง (multipart) | edit | `scope` + `agent_id` |
-| 2.4 | `/api/v1/bo/pr/asset/files/list` | คลังรูปของช่อง (แบ่งหน้า) | view | `scope` + `agent_id` |
-| 2.5 | `/api/v1/bo/pr/asset/files/delete` | ลบรูปจากคลัง | edit | `scope` + `agent_id` |
-| 2.6 | `/api/v1/bo/pr/asset/used/list` | รูปที่ใช้อยู่จริงทุกช่องของเกม | view | `scope` + `agent_id` |
-| 2.7 | `/api/v1/bo/pr/asset/used/update` | เลือกรูปจากคลังมาใช้กับช่อง | edit | `scope` + `agent_id` |
-| 2.8 | `/api/v1/bo/pr/asset/used/reset` | ยกเลิกรูปที่ตั้งเอง → กลับไปใช้ของชั้นบน | edit | `scope` + `agent_id` (AGENT เท่านั้น) |
-| 2.9 | `/api/v1/bo/pr/asset/theme/detail/get` | ธีมที่ใช้อยู่ + shades | view | `scope` + `agent_id` |
-| 2.10 | `/api/v1/bo/pr/asset/theme/detail/update` | ตั้งฟอนต์ / สี (แทนทั้งชุด) | edit | `scope` + `agent_id` |
-| 2.11 | `/api/v1/bo/pr/asset/theme/reset` | กลับไปใช้ธีมของชั้นบน | edit | `scope` + `agent_id` (AGENT เท่านั้น) |
-| 2.12 | `/api/v1/bo/pr/asset/branding/detail/get` | ชื่อเว็บ + โลโก้ที่ใช้อยู่ | view | `agent_id` |
-| 2.13 | `/api/v1/bo/pr/asset/branding/detail/update` | แก้ชื่อเว็บ | edit | `agent_id` |
-| 2.14 | `/api/v1/bo/pr/asset/branding/logo/upload` | อัปโลโก้ (multipart) | edit | `agent_id` |
-| 2.15 | `/api/v1/bo/pr/asset/branding/reset` | กลับไปใช้ branding ของชั้นบน | edit | `agent_id` |
-| 2.16 | `/api/v1/bo/pr/asset/bundle/detail/get` | preview: สิ่งที่ผู้เล่นของบัญชีนี้จะเห็น | view | `agent_id` |
+| 2.3 | `/api/v1/bo/pr/asset/files/upload` | อัปรูปเข้าช่อง (multipart) | edit | `scope` |
+| 2.4 | `/api/v1/bo/pr/asset/files/list` | คลังรูปของช่อง (แบ่งหน้า) | view | `scope` |
+| 2.5 | `/api/v1/bo/pr/asset/files/delete` | ลบรูปจากคลัง | edit | `scope` |
+| 2.6 | `/api/v1/bo/pr/asset/used/list` | รูปที่ใช้อยู่จริงทุกช่องของเกม | view | `scope` |
+| 2.7 | `/api/v1/bo/pr/asset/used/update` | เลือกรูปจากคลังมาใช้กับช่อง | edit | `scope` |
+| 2.8 | `/api/v1/bo/pr/asset/used/reset` | ยกเลิกรูปที่ตั้งเอง → กลับไปใช้ของชั้นบน | edit | `scope` (AGENT เท่านั้น) |
+| 2.9 | `/api/v1/bo/pr/asset/theme/detail/get` | ธีมที่ใช้อยู่ + shades | view | `scope` |
+| 2.10 | `/api/v1/bo/pr/asset/theme/detail/update` | ตั้งฟอนต์ / สี (แทนทั้งชุด) | edit | `scope` |
+| 2.11 | `/api/v1/bo/pr/asset/theme/reset` | กลับไปใช้ธีมของชั้นบน | edit | `scope` (AGENT เท่านั้น) |
+| 2.12 | `/api/v1/bo/pr/asset/branding/detail/get` | ชื่อเว็บ + โลโก้ที่ใช้อยู่ | view | — (ของตัวเองเสมอ) |
+| 2.13 | `/api/v1/bo/pr/asset/branding/detail/update` | แก้ชื่อเว็บ | edit | — (ของตัวเองเสมอ) |
+| 2.14 | `/api/v1/bo/pr/asset/branding/logo/upload` | อัปโลโก้ (multipart) | edit | — (ของตัวเองเสมอ) |
+| 2.15 | `/api/v1/bo/pr/asset/branding/reset` | กลับไปใช้ branding ของชั้นบน | edit | — (ของตัวเองเสมอ) |
+| 2.16 | `/api/v1/bo/pr/asset/bundle/detail/get` | preview: สิ่งที่ผู้เล่นของบัญชีนี้จะเห็น | view | — (ของตัวเองเสมอ) |
+| 2.17 | `/api/v1/player/pr/asset/bundle` | **ผู้เล่น** — หน้าเกมโหลดรูป + ธีม + ชื่อเว็บ / โลโก้ของเว็บตัวเอง | token ผู้เล่น (ไม่ใช้สิทธิ์ `asset`) | — (เว็บของผู้เล่นเสมอ) |
 
-- ทุกเส้นเป็น `POST` · ไม่มี `GET` / `DELETE` · ไม่มี `?agent_id=` หรือ `me`
+- ทุกเส้นเป็น `POST` · ไม่มี `GET` / `DELETE` · ไม่มี `?agent_id=` หรือ `me` · 2.1 – 2.16 ใช้ token หลังบ้าน · 2.17 ใช้ token ผู้เล่น
 - header: `Authorization: Bearer <token>` · JSON ใช้ `Content-Type: application/json` · multipart ไม่ต้องตั้ง `Content-Type` เอง (หัวข้อ 1.6) · `X-Lang: en` = `msg` อังกฤษ (ไม่ส่ง = ไทย)
 
-### 1.2 `scope` + `agent_id` — "กำลังดู / แก้ของใคร"
+### 1.2 `scope` — "ของตัวเอง" หรือ "ค่ากลาง"
 
-| `scope` | ความหมาย | `agent_id` |
-|---|---|---|
-| `"AGENT"` | ค่าที่ตั้งไว้ที่บัญชีหนึ่ง | **ต้องส่ง** เลขมากกว่า 0 |
-| `"GLOBAL"` | ค่ากลางของระบบ (ปลายทางสุดท้ายของการไล่สาย) | **ห้ามส่ง** (ส่ง `0` ได้) |
+**เป้าหมายคือบัญชีที่ login เสมอ** (sub = เจ้าของ) · ไม่มี `agent_id` · ระบุบัญชีอื่นไม่ได้ (16 ต.ค. — lead)
 
-- `scope` ต้องเป็น `"GLOBAL"` / `"AGENT"` **ตัวพิมพ์ใหญ่ตรงตัว** · ไม่ส่ง / ค่าอื่น / ไม่ใช่ข้อความ = `422` · **ห้ามเดาว่าไม่ส่ง = GLOBAL**
-- `agent_id` เป็น JSON number (ใน multipart เป็นข้อความตัวเลข เช่น `"12"`) · ส่งเป็นข้อความใน JSON (`"12"`) = `422`
-- **เส้น branding / bundle (2.12 – 2.16) ไม่มี `scope`** ส่งแค่ `agent_id` · ส่ง `"scope": "AGENT"` มาด้วยได้ (ไม่มีผล) · ส่ง `scope` ค่าอื่น = `422`
-- **หน้าของตัวเอง:** ใช้ `id` ของบัญชีที่ login (ได้จาก Profile — [account.md](account.md)) · **sub ใช้ `id` ของเจ้าของ** (sub ทำในนามเจ้าของ)
+| `scope` | ความหมาย |
+|---|---|
+| `"AGENT"` | ของบัญชีที่ login |
+| `"GLOBAL"` | ค่ากลางของระบบ (ปลายทางสุดท้ายของการไล่สาย) |
+
+- เส้นที่มี `scope` (2.3 – 2.11): ต้องส่ง `"GLOBAL"` / `"AGENT"` **ตัวพิมพ์ใหญ่ตรงตัว** · ไม่ส่ง / ค่าอื่น / ไม่ใช่ข้อความ = `422` · **ไม่ส่งไม่ได้แปลว่า GLOBAL**
+- **เส้น branding / bundle (2.12 – 2.16) ไม่มี `scope`** — เป็นของบัญชีที่ login เสมอ · ส่ง `"scope": "AGENT"` มาด้วยได้ (ไม่มีผล) · ส่ง `scope` ค่าอื่น = `422`
+- **ห้ามส่ง `agent_id`** ทุกเส้น (ค่าใดก็ตาม รวม `0` และ id ของตัวเอง) = `422` "ไม่ต้องส่ง agent_id (ใช้บัญชีที่เข้าสู่ระบบ)" — ไม่เมินเงียบๆ เพื่อไม่ให้หน้าจอเดิมที่ส่ง id ของลูกไปแก้ของตัวเองโดยไม่รู้ตัว
+- `agent_id` ใน **response** ของ `files/upload` ยังมีอยู่ (= บัญชีที่ login · GLOBAL = `0`) เป็นข้อมูลอ่านอย่างเดียว
 
 ### 1.3 สิทธิ์ — ใครดู / แก้อะไรได้
 
@@ -57,13 +64,13 @@ login / session / ด่านหลัง login / ตั้งค่า Postman
 | **บัญชีตัวเอง** (`AGENT`) | ได้ | ได้ เมื่อเป็น Company ทุกประเภท · Share B2B / B2C / Reseller · Agent |
 | **Share Master ตัวเอง** | ได้ (ได้ค่าตาม Company Seamless Master) | **ไม่ได้** `405301` — ใช้ของ CSM · CSM ตั้งครั้งเดียว ทุกเว็บใต้ CSM หน้าตาเหมือนกัน |
 | **Superadmin ตั้ง `AGENT` ของตัวเอง** | — | **ไม่ได้** `405301` — Superadmin ตั้งได้เฉพาะ GLOBAL |
-| **บัญชีในสายล่าง** | ได้ (ชั้นบนดูของสายล่างได้) | **ไม่ได้** `405301` |
-| **นอกสาย / ไม่มีบัญชีนี้** | `402402` | `402402` |
+| **บัญชีอื่น** (ลูก / ชั้นบน / นอกสาย) | **ระบุไม่ได้** — ชั้นบนดูของสายล่างไม่ได้ (16 ต.ค.) | **ระบุไม่ได้** (ส่ง `agent_id` = `422`) |
 
 - ทุกเส้นต้องมีสิทธิ์เมนู **`asset`** (`view` = เส้นอ่าน · `edit` = เส้นเขียน) · ไม่มี / sub ที่มีแค่ `view` เรียกเส้นเขียน = `402303` · **ADMIN ไม่มีเมนูนี้**
-- **ซ่อน / ปิดปุ่มแก้ล่วงหน้า** เมื่อ: ดู GLOBAL แต่ไม่ใช่ Superadmin · ดูของสายล่าง · เป็น Share Master · สิทธิ์ `asset` เป็น `view`
-- **ลำดับ error:** ไม่มีสิทธิ์กับเป้าหมาย (`402402` / `405301`) ตอบ**ก่อน** `422` ของ field อื่น · ยกเว้น `scope` / `agent_id` / `null` ผิด ได้ `422` ก่อนเสมอ ·
-  ตัวอย่าง: share01 แก้ของ agent01 แล้วลืม `config_id` → ได้ `405301` (ไม่ใช่ `422`) — ถ้าได้ `402402` / `405301` ให้แสดงว่าไม่มีสิทธิ์ ไม่ต้องชี้ช่องที่กรอก
+- **ซ่อน / ปิดปุ่มแก้ล่วงหน้า** เมื่อ: ดู GLOBAL แต่ไม่ใช่ Superadmin · เป็น Share Master · บัญชี Superadmin ดู `AGENT` · สิทธิ์ `asset` เป็น `view`
+- **หน้าจอ "ดูหน้าตาของลูก" ใช้ไม่ได้แล้ว** — ถ้ามีหน้าที่เลือกบัญชีลูกเพื่อดู / แก้ ให้เอาออก (ลูกต้อง login ดูเอง)
+- **ลำดับ error:** ไม่มีสิทธิ์กับ scope นี้ (`405301`) ตอบ**ก่อน** `422` ของ field อื่น · ยกเว้น `scope` / `agent_id` / `null` ผิด ได้ `422` ก่อนเสมอ ·
+  ตัวอย่าง: Share Master ตั้งธีมแล้วลืม `game_code` → ได้ `405301` (ไม่ใช่ `422`) — ถ้าได้ `405301` ให้แสดงว่าไม่มีสิทธิ์ ไม่ต้องชี้ช่องที่กรอก
 
 ### 1.4 การไล่สาย (ค่าที่ใช้จริงมาจากไหน)
 
@@ -152,19 +159,15 @@ login / session / ด่านหลัง login / ตั้งค่า Postman
 | `422` | 200 | มี `null` ใน body | `<field>` ห้ามเป็น null (เช่น `game_code ห้ามเป็น null`) | `<field>` must not be null | แก้ request (ห้ามส่ง null) |
 | `500` | 500 | ระบบผิดพลาด | เกิดข้อผิดพลาดภายในระบบ | Internal server error | แสดง msg ให้ลองใหม่ |
 
-**เส้นที่ระบุเป้าหมาย** (2.3 – 2.16) เพิ่ม:
+**เส้นที่มีเป้าหมาย** (2.3 – 2.16) เพิ่ม:
 
 | Code | เมื่อไหร่ | msg (ไทย) | msg (EN) |
 |---|---|---|---|
 | `422` | ไม่ส่ง `scope` / ไม่ใช่ข้อความ | ต้องส่ง scope เป็น "GLOBAL" หรือ "AGENT" | scope must be "GLOBAL" or "AGENT" |
 | `422` | `scope` เป็นค่าอื่น (เช่น `"agent"`) | scope ต้องเป็น "GLOBAL" หรือ "AGENT" | scope must be "GLOBAL" or "AGENT" |
-| `422` | `scope = AGENT` แต่ไม่ส่ง `agent_id` / ส่ง `0` | scope = AGENT ต้องส่ง agent_id มากกว่า 0 | agent_id is required and must be greater than 0 when scope is AGENT |
-| `422` | `scope = GLOBAL` แต่ส่ง `agent_id` (ไม่ใช่ 0) | scope = GLOBAL ห้ามส่ง agent_id | agent_id must not be sent when scope is GLOBAL |
-| `422` | `agent_id` ไม่ใช่ตัวเลข (เช่น `"12"` ใน JSON) | agent_id ต้องเป็นตัวเลขจำนวนเต็ม | agent_id must be an integer |
-| `422` | เส้น branding / bundle: ไม่ส่ง `agent_id` / ส่ง `0` | ต้องส่ง agent_id มากกว่า 0 | agent_id is required and must be greater than 0 |
+| `422` | ส่ง `agent_id` มา (ค่าใดก็ตาม · ทุกเส้น) | ไม่ต้องส่ง agent_id (ใช้บัญชีที่เข้าสู่ระบบ) | agent_id is not accepted (the logged-in account is used) |
 | `422` | เส้น branding / bundle: ส่ง `scope` ที่ไม่ใช่ `AGENT` | ไม่ต้องส่ง scope (เส้นนี้ใช้ได้เฉพาะของบัญชี) | scope is not accepted here (this endpoint works on an account only) |
-| `402402` | เป้าหมายอยู่นอกสาย / ไม่มีบัญชีนี้ (ตอบเหมือนกัน) | ไม่พบบัญชีในสายของคุณ | Account not found in your downline |
-| `405301` | เส้นเขียน: ไม่มีสิทธิ์แก้เป้าหมายนี้ (หัวข้อ 1.3) | ไม่มีสิทธิ์แก้หน้าตาของบัญชีนี้ | You cannot change the look of this account |
+| `405301` | เส้นเขียน: เขียน GLOBAL ไม่ใช่ Superadmin · Share Master / Superadmin เขียน `AGENT` (หัวข้อ 1.3) | ไม่มีสิทธิ์แก้หน้าตาของบัญชีนี้ | You cannot change the look of this account |
 
 ตาราง error ของแต่ละเส้นในหัวข้อ 2 แสดง**เฉพาะ error ของเส้นนั้น** — ให้รวมกับ 2 ตารางนี้เสมอ
 
@@ -272,7 +275,6 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/slots/list" \
 | field | บังคับ | กติกา |
 |---|---|---|
 | `scope` | ✓ | `GLOBAL` / `AGENT` (หัวข้อ 1.2) |
-| `agent_id` | เฉพาะ `AGENT` | id ของบัญชีเป้าหมาย · `GLOBAL` ไม่ส่ง |
 | `game_code` | ✓ | หัวข้อ 1.7 |
 | `asset_type` | ✓ | ชื่อช่องจาก `slots/list` |
 | `use_now` | | `"true"` / `"false"` · **ไม่ส่ง = `"true"`** (ตั้งเป็นรูปที่ใช้ทันที) · ค่าอื่น = `422` |
@@ -281,7 +283,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/slots/list" \
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/files/upload" \
   -H "Authorization: Bearer {{TOKEN}}" \
-  -F "scope=AGENT" -F "agent_id=12" -F "game_code=scratch_card" -F "asset_type=icon_button" \
+  -F "scope=AGENT" -F "game_code=scratch_card" -F "asset_type=icon_button" \
   -F "use_now=true" -F "file=@./icon_button.png"
 ```
 GLOBAL (Superadmin):
@@ -327,7 +329,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/files/upload" \
 }
 ```
 - `is_used` = รูปนี้ถูกตั้งเป็นรูปที่ใช้อยู่แล้ว (ตาม `use_now`) · `use_now = "false"` → `is_used: false` เก็บเข้าคลังเฉยๆ แล้วไปเลือกด้วย `used/update`
-- เป้าหมาย `GLOBAL` → `agent_id: 0` · `created_by` = username ของคนกด (sub แสดง `owner@sub`)
+- `agent_id` ใน response = บัญชีที่ login (`GLOBAL` → `0`) · `created_by` = username ของคนกด (sub แสดง `owner@sub`)
 - **อัปทุกครั้งได้รูปใหม่เข้าคลัง** (ไม่ทับของเก่า · ไม่มีโควตา) · `config_id` ใช้ต่อกับ `used/update` / `files/delete`
 
 **Error** (ลำดับการตรวจ: field → ช่อง → ช่องเลิกใช้ → ขนาดไฟล์ → ชนิดไฟล์ + อ่าน header → เพดาน 4096 px → ขนาดตามช่อง → ที่เก็บไฟล์)
@@ -353,7 +355,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/files/upload" \
 
 | field | ชนิด | บังคับ | กติกา |
 |---|---|---|---|
-| `scope` · `agent_id` | | ✓ | หัวข้อ 1.2 |
+| `scope` | string | ✓ | `AGENT` / `GLOBAL` (หัวข้อ 1.2) |
 | `game_code` | string | ✓ | |
 | `asset_type` | string | ✓ | |
 | `page` | number | | หน้าที่ต้องการ · ไม่ส่ง / น้อยกว่า 1 = 1 |
@@ -362,7 +364,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/files/upload" \
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/files/list" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"scope":"AGENT","agent_id":12,"game_code":"scratch_card","asset_type":"icon_button","page":1,"limit":20}'
+  -d '{"scope":"AGENT","game_code":"scratch_card","asset_type":"icon_button","page":1,"limit":20}'
 ```
 **Response สำเร็จ:**
 ```json
@@ -403,13 +405,13 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/files/list" \
 
 | field | ชนิด | บังคับ | กติกา |
 |---|---|---|---|
-| `scope` · `agent_id` | | ✓ | หัวข้อ 1.2 |
+| `scope` | string | ✓ | `AGENT` / `GLOBAL` (หัวข้อ 1.2) |
 | `config_id` | number | ✓ | มากกว่า 0 · จาก `files/list` |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/files/delete" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"scope":"AGENT","agent_id":12,"config_id":9002}'
+  -d '{"scope":"AGENT","config_id":9002}'
 ```
 **Response สำเร็จ:** `{ "code": 200, "msg": "สำเร็จ" }`
 
@@ -432,13 +434,13 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/files/delete" \
 
 | field | ชนิด | บังคับ | กติกา |
 |---|---|---|---|
-| `scope` · `agent_id` | | ✓ | หัวข้อ 1.2 |
+| `scope` | string | ✓ | `AGENT` / `GLOBAL` (หัวข้อ 1.2) |
 | `game_code` | string | ✓ | |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/used/list" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"scope":"AGENT","agent_id":15,"game_code":"scratch_card"}'
+  -d '{"scope":"AGENT","game_code":"scratch_card"}'
 ```
 **Response สำเร็จ** (agent01 ไม่ได้ตั้งเอง · ได้ปก + `icon_button` จาก share01 · `win_highlight` จาก GLOBAL · ครบ 19 ช่อง):
 ```json
@@ -490,14 +492,14 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/used/list" \
 
 | field | ชนิด | บังคับ | กติกา |
 |---|---|---|---|
-| `scope` · `agent_id` | | ✓ | หัวข้อ 1.2 |
+| `scope` | string | ✓ | `AGENT` / `GLOBAL` (หัวข้อ 1.2) |
 | `game_code` | string | ✓ | เกมของรูป |
 | `config_id` | number | ✓ | มากกว่า 0 · จาก `files/list` (ช่องถูกระบุจากรูปเอง) |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/used/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"scope":"AGENT","agent_id":12,"game_code":"scratch_card","config_id":120}'
+  -d '{"scope":"AGENT","game_code":"scratch_card","config_id":120}'
 ```
 **Response สำเร็จ:** `{ "code": 200, "msg": "สำเร็จ" }`
 
@@ -519,14 +521,14 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/used/update" \
 
 | field | ชนิด | บังคับ | กติกา |
 |---|---|---|---|
-| `scope` · `agent_id` | | ✓ | **`scope` ต้องเป็น `AGENT`** |
+| `scope` | string | ✓ | **ต้องเป็น `AGENT`** |
 | `game_code` | string | ✓ | |
 | `asset_type` | string | ✓ | |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/used/reset" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"scope":"AGENT","agent_id":12,"game_code":"scratch_card","asset_type":"icon_button"}'
+  -d '{"scope":"AGENT","game_code":"scratch_card","asset_type":"icon_button"}'
 ```
 **Response สำเร็จ:** `{ "code": 200, "msg": "สำเร็จ" }`
 
@@ -548,13 +550,13 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/used/reset" \
 
 | field | ชนิด | บังคับ |
 |---|---|---|
-| `scope` · `agent_id` | | ✓ |
+| `scope` | string | ✓ |
 | `game_code` | string | ✓ |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/theme/detail/get" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"scope":"AGENT","agent_id":15,"game_code":"scratch_card"}'
+  -d '{"scope":"AGENT","game_code":"scratch_card"}'
 ```
 **Response สำเร็จ** (agent01 ได้ธีมจาก share01):
 ```json
@@ -631,7 +633,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/theme/detail/get" \
 
 | field | ชนิด | บังคับ | ค่าที่รับ |
 |---|---|---|---|
-| `scope` · `agent_id` | | ✓ | หัวข้อ 1.2 |
+| `scope` | string | ✓ | `AGENT` / `GLOBAL` (หัวข้อ 1.2) |
 | `game_code` | string | ✓ | |
 | `font_family` | string | ✓ | `noto` · `prompt` · `kanit` · `mitr` · `sarabun` (ตัวเล็กตรงตัว) |
 | `main_color_1` | string | ✓ | `#RRGGBB` (ไม่รับ `#RGB`) |
@@ -642,13 +644,12 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/theme/detail/get" \
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/theme/detail/update" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"scope":"AGENT","agent_id":12,"game_code":"scratch_card","font_family":"kanit","main_color_1":"#1E90FF","main_color_2":"#FFFFFF","stats_bar_color":"main_color_2","stats_bar_font_family":"prompt"}'
+  -d '{"scope":"AGENT","game_code":"scratch_card","font_family":"kanit","main_color_1":"#1E90FF","main_color_2":"#FFFFFF","stats_bar_color":"main_color_2","stats_bar_font_family":"prompt"}'
 ```
 Request:
 ```json
 {
   "scope": "AGENT",
-  "agent_id": 12,
   "game_code": "scratch_card",
   "font_family": "kanit",
   "main_color_1": "#1E90FF",
@@ -686,13 +687,13 @@ Request:
 
 | field | ชนิด | บังคับ | กติกา |
 |---|---|---|---|
-| `scope` · `agent_id` | | ✓ | **`scope` ต้องเป็น `AGENT`** |
+| `scope` | string | ✓ | **ต้องเป็น `AGENT`** |
 | `game_code` | string | ✓ | |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/theme/reset" \
   -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" \
-  -d '{"scope":"AGENT","agent_id":12,"game_code":"scratch_card"}'
+  -d '{"scope":"AGENT","game_code":"scratch_card"}'
 ```
 **Response สำเร็จ:** `{ "code": 200, "msg": "สำเร็จ" }` · ลบธีมที่ตั้งเองของเกมนั้น → ใช้ของชั้นบน / GLOBAL · ยังไม่ได้ตั้ง = 200
 
@@ -706,15 +707,11 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/theme/reset" \
 
 ### 2.12 Branding — `branding/detail/get`
 
-**Request**
-
-| field | ชนิด | บังคับ |
-|---|---|---|
-| `agent_id` | number | ✓ |
+**Request:** ไม่มี field (ส่ง `{}`) — ของบัญชีที่ login
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/branding/detail/get" \
-  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"agent_id":15}'
+  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{}'
 ```
 **Response สำเร็จ** (agent01 ได้จาก share01):
 ```json
@@ -744,13 +741,12 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/branding/detail/get" \
 
 | field | ชนิด | บังคับ | กติกา |
 |---|---|---|---|
-| `agent_id` | number | ✓ | |
 | `site_name` | string | ✓ | ตัดช่องว่างหน้า-หลังแล้วต้องยาว 1–50 ตัวอักษร · ห้ามอักขระควบคุม (ขึ้นบรรทัดใหม่ / tab) |
 | `site_theme` | | **ห้ามส่ง** | ยังไม่เปิดใช้ |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/branding/detail/update" \
-  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"agent_id":12,"site_name":"Share One"}'
+  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"site_name":"Share One"}'
 ```
 **Response สำเร็จ:** `{ "code": 200, "msg": "สำเร็จ" }`
 
@@ -773,12 +769,11 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/branding/detail/update" \
 
 | field | บังคับ | กติกา |
 |---|---|---|
-| `agent_id` | ✓ | ข้อความตัวเลข |
 | `file` | ✓ | ไฟล์รูป (หัวข้อ 1.6) · ไม่ตรวจขนาดตามช่อง แต่ต้องอ่านขนาดได้และ**ไม่เกิน 4096×4096 px** |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/branding/logo/upload" \
-  -H "Authorization: Bearer {{TOKEN}}" -F "agent_id=12" -F "file=@./logo.png"
+  -H "Authorization: Bearer {{TOKEN}}" -F "file=@./logo.png"
 ```
 **Response สำเร็จ:**
 ```json
@@ -799,15 +794,11 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/branding/logo/upload" \
 
 ### 2.15 กลับไปใช้ branding ของชั้นบน — `branding/reset`
 
-**Request**
-
-| field | ชนิด | บังคับ |
-|---|---|---|
-| `agent_id` | number | ✓ |
+**Request:** ไม่มี field (ส่ง `{}`) — ของบัญชีที่ login
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/branding/reset" \
-  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"agent_id":12}'
+  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{}'
 ```
 **Response สำเร็จ:** `{ "code": 200, "msg": "สำเร็จ" }` · ล้างทั้งชื่อเว็บและโลโก้ที่ตั้งเอง → ใช้ของชั้นบน (ไม่มี = ค่าว่างทุก field) · ยังไม่ได้ตั้ง = 200
 
@@ -819,12 +810,11 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/branding/reset" \
 
 | field | ชนิด | บังคับ |
 |---|---|---|
-| `agent_id` | number | ✓ |
 | `game_code` | string | ✓ (เกมเดียวต่อคำขอ) |
 
 ```
 curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/bundle/detail/get" \
-  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"agent_id":15,"game_code":"scratch_card"}'
+  -H "Authorization: Bearer {{TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"scratch_card"}'
 ```
 **Response สำเร็จ** (agent01 · ธีมจาก share01 · มีชื่อเว็บ + โลโก้จาก share01):
 ```json
@@ -902,7 +892,7 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/bundle/detail/get" \
 - เป็นชุดเดียวกับที่**ผู้เล่นของบัญชีนี้จะได้รับ** (asset + ธีม + branding ไล่สายแล้ว) — ใช้ทำหน้า preview
 - `assets` = map `asset_type → URL` **เฉพาะช่องที่มีรูป** · ไม่มีรูปเลย = `{}` · ลำดับ key ไม่แน่นอน
 - `theme` เหมือน 2.9 แต่**ไม่มี `inherited_from`** · `site` ไม่มี `source` / `inherited_from`
-- เส้นผู้เล่นในอนาคตใช้รูปแบบ `data` เดียวกันนี้
+- เส้นผู้เล่น (2.17) ได้ `data` รูปแบบเดียวกันนี้ทุก key
 
 **Error**
 
@@ -910,6 +900,42 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/bundle/detail/get" \
 |---|---|---|---|
 | `422` | ไม่ส่ง `game_code` | ต้องส่ง game_code | game_code is required |
 | `405401` | ไม่มีเกมนี้ | ไม่พบเกมหรือช่อง asset | Game or asset slot not found |
+
+### 2.17 ผู้เล่น — `POST /api/v1/player/pr/asset/bundle` (หน้าเกม)
+
+เส้นของ**หน้าเกมฝั่งผู้เล่น** (ไม่ใช่หลังบ้าน) · ใช้ **token ของผู้เล่น** จาก login ผู้เล่น ([player_auth.md](player_auth.md)) · เปิดเกมแล้วเรียกเส้นนี้เส้นเดียวได้ทั้งรูป ธีม ชื่อเว็บ / โลโก้
+
+**Request**
+
+| field | ชนิด | บังคับ | กติกา |
+|---|---|---|---|
+| `game_code` | string | ✓ | เกมเดียวต่อคำขอ (หัวข้อ 1.7) |
+
+```
+curl -X POST "{{MG_URL}}/api/v1/player/pr/asset/bundle" \
+  -H "Authorization: Bearer {{PLAYER_TOKEN}}" -H "Content-Type: application/json" -d '{"game_code":"scratch_card"}'
+```
+**Response สำเร็จ:** รูปแบบ `data` **เดียวกับ 2.16 ทุก key** (`source` · `assets` · `theme` · `site`) — ได้ค่าเท่ากับ preview ที่ผู้สร้างตรงของผู้เล่นเห็นในหลังบ้านทุกตัวอักษร
+
+- **เว็บ = ผู้สร้างตรงของผู้เล่นจาก session** · ไม่รับ `agent_id` (ส่งมาก็ถูกเมิน — ได้ของเว็บตัวเองเสมอ) · field อื่นใน body ถูกเมิน
+- **อ่านอย่างเดียว** · ไม่มีเส้นอัป / เลือก / ลบฝั่งผู้เล่น
+- **เกมที่ปิดอยู่ตอบตามปกติ** (lobby `games/list` บอกว่าเกมปิด · การเดิมพันเช็คเกมปิดเอง) · ผู้เล่นที่ถูกระงับ (SUSPENDED) เรียกได้
+- `theme` **ไม่มี `inherited_from`** (ไม่เปิด username ของชั้นบน) · ไม่มีรูปเลย = `assets: {}` ไม่ใช่ error
+- ไม่ cache ฝั่ง server · เรียกตอนเปิดเกม (หรือเมื่อต้องการหน้าตาล่าสุด)
+- ช่องที่ไม่มีรูป (ไม่อยู่ใน `assets`) ให้ใช้รูป default ของหน้าเกมเอง
+
+**Error**
+
+| Code | HTTP | เมื่อไหร่ | msg (ไทย) | msg (EN) |
+|---|---|---|---|---|
+| `422` | 200 | ไม่ส่ง / ส่ง `game_code` ว่าง | ต้องส่ง game_code | game_code is required |
+| `422` | 200 | `game_code` เป็น `null` | game_code ห้ามเป็น null | game_code must not be null |
+| `405401` | 200 | ไม่มีเกมนี้ | ไม่พบเกมหรือช่อง asset | Game or asset slot not found |
+| `407202` | 401 | ไม่มี token / token ผิด / หมดอายุ / ใช้ token ของหลังบ้าน | กรุณาเข้าสู่ระบบ | Missing or invalid token |
+| `407203` | 401 | session สิ้นสุด | เซสชันสิ้นสุดแล้ว กรุณาเข้าสู่ระบบใหม่ | Session has ended, please log in again |
+| `407204` | 401 | ถูก login จากที่อื่น | บัญชีนี้ถูกเข้าสู่ระบบจากที่อื่น | This account has been logged in from another place |
+| `407301` | 403 | บัญชีผู้เล่นถูกล็อก | บัญชีนี้ถูกล็อก กรุณาติดต่อผู้ดูแลระบบ | This account is locked |
+| `407302` | 403 | สายบัญชีต้นสังกัดถูกล็อก | สายบัญชีต้นสังกัดถูกล็อก กรุณาติดต่อผู้ดูแลระบบ | An upline account is locked |
 
 ## 3. สรุป error code ของ module นี้
 
@@ -920,7 +946,6 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/bundle/detail/get" \
 | `400` | 200 | คำขอไม่ถูกต้อง (JSON ผิดรูป / ชนิดข้อมูลผิด) — ไม่บอก field | ทุกเส้นที่มี body | แสดง msg |
 | `422` | 200 | ข้อมูลไม่ผ่าน (`msg` บอก field) | ทุกเส้นยกเว้น 2.1 | แสดง msg ที่ field |
 | `402303` | 200 | ไม่มีสิทธิ์เมนู `asset` | ทุกเส้น | ซ่อนเมนู / ปุ่ม |
-| `402402` | 200 | ไม่พบบัญชีในสายของคุณ | 2.3 – 2.16 | แสดง msg |
 | `405101` | 200 | ขนาดภาพไม่ตรงกับที่ช่องนี้รับ (`msg` บอกขนาดที่รับ) · หรือเกิน 4096×4096 px | 2.3 · 2.14 | แสดง msg ให้เลือกรูปใหม่ |
 | `405102` | 200 | ชนิดไฟล์ไม่รองรับ (รวมไฟล์ที่อ่าน header ภาพไม่ได้) | 2.3 · 2.14 | แสดง msg |
 | `405103` | 200 | ไฟล์ใหญ่เกิน 5 MB | 2.3 · 2.14 | แสดง msg (ควรกันก่อนส่ง) |
@@ -935,7 +960,6 @@ curl -X POST "{{MG_URL}}/api/v1/bo/pr/asset/bundle/detail/get" \
 
 ## 4. สิ่งที่ยังไม่มี / จะเปลี่ยน
 
-- **เส้นผู้เล่น** `POST /api/v1/player/asset/bundle` (ผู้เล่นโหลดรูป ธีม branding) — รอ Player Auth · `data` รูปแบบเดียวกับ 2.16
 - **เส้นรายชื่อเกมของ lobby ฝั่งผู้เล่น:** ตัดสินพร้อม review Player Auth
 - **เลื่อน (ไม่ต้องทำหน้าจอ):** banner · favicon · `site_theme` · ประวัติการแก้ (change log)
 - ชื่อช่อง / ขนาดภาพ: รอทีมเกมยืนยัน — ถ้าเปลี่ยน หลังบ้านแก้ catalog ไม่ต้องแก้ path (หน้าบ้านดึงจาก `slots/list`)

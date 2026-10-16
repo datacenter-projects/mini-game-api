@@ -6,6 +6,7 @@
 package frontend
 
 import (
+	assetController "app/app/internals/frontend/controllers/asset"
 	playerAuthController "app/app/internals/frontend/controllers/player_auth"
 	mw "app/app/internals/frontend/middleware"
 
@@ -29,4 +30,7 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/me/get", playerAuthController.MeController)                           // PA5 · SUSPENDED ผ่าน
 	pr.Post("/balance/get", playerAuthController.BalanceController)                 // PA6 · SUSPENDED ผ่าน · ใช้เป็น ping กันหลุด
 	pr.Post("/games/list", playerAuthController.GamesListController)                // PA7 · SUSPENDED ผ่าน
+
+	// asset — docs/modules/asset.md GN23 (lead 2026-10-16) · อ่านอย่างเดียว · เว็บ = ผู้สร้างตรงจาก session (AST-52) · SUSPENDED ผ่าน
+	pr.Post("/asset/bundle", assetController.BundleController)
 }

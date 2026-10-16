@@ -42,11 +42,11 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 |---|---|
 | เจ้าของหน้าตา | บัญชีหลักฝั่ง agent ที่ตั้งหน้าตาของตัวเองได้ (AST-02) |
 | GLOBAL | ค่ากลางของระบบ — ปลายทางสุดท้ายของการไล่สาย · เขียนได้เฉพาะ Superadmin (AST-03) |
-| AGENT | ค่าที่ตั้งไว้ที่บัญชีใดบัญชีหนึ่ง (`agent_id` = id ของบัญชีนั้น) |
+| AGENT | ค่าที่ตั้งไว้ที่บัญชีใดบัญชีหนึ่ง · ฝั่ง BO = **บัญชีที่ login** (sub = เจ้าของ) ไม่มี `agent_id` (AST-08 · lead 2026-10-16) |
 | สาย (chain) | ลำดับบัญชีที่ใช้ไล่หาค่า: ตัวเอง → ชั้นบนจากใกล้ → ไกล → GLOBAL (AST-57) |
 | ชั้นบน (upline) | บัญชีใน `cnf` ของบัญชีนั้น (MGMT-61) |
 | CSM | Company Seamless Master — ตั้งครั้งเดียว Share Master ทุกคนใต้ตัวเองได้ตามผ่านสาย (lead H2) |
-| เป้าหมาย | scope + บัญชีที่คำขอนั้นทำงานด้วย (AST-08) |
+| เป้าหมาย | scope + บัญชีที่คำขอนั้นทำงานด้วย · `AGENT` = บัญชีจาก token เสมอ · `GLOBAL` = ค่ากลาง (AST-08) |
 | ช่อง (slot) | หน่วยที่ปรับแต่งได้ 1 หน่วย = (เป้าหมาย, `game_code`, `asset_type`) |
 | catalog | รายการช่องที่มีได้ของแต่ละเกม (`asset_types`) พร้อมขนาดภาพที่รับ |
 | config | ไฟล์ 1 เวอร์ชันที่เคยอัปโหลด (`asset_configs`) — เก็บทุกเวอร์ชัน = "คลังรูป" |
@@ -71,17 +71,17 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 | AST-01 | asset และ theme มี **2 scope**: `GLOBAL` · `AGENT` · เจ้าของค่าคือ**บัญชีเดี่ยว** (ไม่มีระดับ "กลุ่มเว็บ") · บัญชีที่ไม่ได้ตั้งเองได้ค่าจากชั้นบนตาม AST-57 · branding มีแค่ `AGENT` (ไม่มี GLOBAL) |
 | AST-02 | **เจ้าของหน้าตา** (ตั้ง scope `AGENT` ได้) = บัญชีหลักฝั่ง agent: Company ทุกประเภท (รวม CSM) · Share B2B / B2C / Reseller · Agent · **Share Master ตั้งเองไม่ได้ ใช้ของ CSM** (asset · theme · branding ทั้งหมด — lead AV1 / H2 / H3) → เขียน = `405301` · ทุกเว็บใต้ CSM เดียวกันหน้าตาเหมือนกัน · เป็นข้อยกเว้นของ GR4 เฉพาะ Share Master (ประเภทอื่นตั้งเองได้) · Superadmin ตั้งได้เฉพาะ GLOBAL (AST-03) · ADMIN ไม่มีเมนู `asset` (AST-06) · **ไม่มีข้อจำกัดว่า "เป็นเว็บหรือไม่"** (ตัด `405302` — lead GR4) |
 | AST-03 | **เขียน GLOBAL**: SUPERADMIN (บัญชีหลัก) · sub ของ SUPERADMIN ต้องมี `asset` = `edit` · บัญชีอื่น → `405301` |
-| AST-04 | **เขียน AGENT**: เฉพาะบัญชีตัวเอง (บัญชีหลักที่เป็นเจ้าของหน้าตา AST-02) หรือ sub ของบัญชีนั้นที่มี `asset` = `edit` (ทำในนามเจ้าของ) · เป้าหมายเป็นบัญชีในสายล่าง = **ดูได้ แก้ไม่ได้** → `405301` · เป้าหมายนอกสาย → `402402` · CSM ตั้งของ CSM ครั้งเดียว Share Master ทุกคนใต้ได้ตามเอง (ไม่ต้องตั้งแทนทีละคน) |
-| AST-05 | **อ่าน**: ต้องมี `asset` ≥ `view` ทุกเส้น · อ่าน GLOBAL ได้ทุกบัญชีที่มีสิทธิ์ · อ่าน AGENT ได้: ตัวเอง และบัญชีในสายล่าง (ชั้นบนดูของสายล่างได้ — ตรวจจาก `cnf` ของเป้าหมาย) · นอกสาย → `402402` · Share Master อ่านค่าที่ได้จาก CSM ของตัวเองได้ (อ่านอย่างเดียว) |
+| AST-04 | **เขียน AGENT**: ของบัญชีตัวเองเท่านั้น (บัญชีจาก token ที่เป็นเจ้าของหน้าตา AST-02) หรือ sub ของบัญชีนั้นที่มี `asset` = `edit` (ทำในนามเจ้าของ) · **ระบุบัญชีอื่นไม่ได้** (ไม่มี `agent_id` — AST-08 · lead 2026-10-16 แทน GR4 / GQ1 / GQ2 ส่วนนี้) · CSM ตั้งของ CSM ครั้งเดียว Share Master ทุกคนใต้ได้ตามเองผ่านการไล่สาย (ไม่ต้องตั้งแทนทีละคน) |
+| AST-05 | **อ่าน**: ต้องมี `asset` ≥ `view` ทุกเส้น · อ่าน GLOBAL ได้ทุกบัญชีที่มีสิทธิ์ · อ่าน AGENT ได้**เฉพาะของตัวเอง** (ค่าที่ไล่สายแล้ว — AST-57) · **ชั้นบนดูของสายล่างไม่ได้** (lead 2026-10-16 · แทน GR4 / GQ1 / GQ2 ส่วน "ชั้นบนดูของสายล่างได้" · การไล่สายคงเดิม) · Share Master อ่านค่าที่ได้จาก CSM ของตัวเองได้ (อ่านอย่างเดียว) |
 | AST-06 | sub ต้องมีสิทธิ์ `asset` ทุกเส้นของ module นี้ (AUTH-26 · lead A5) · ADMIN ไม่มีเมนู `asset` (AUTH-43) → `402303` · บัญชีที่ `status` ไม่ใช่ `ACTIVE` ถูกกันที่ `PassedGates()` (AUTH-54 → `401311` · AUTH-27) · ทุกเส้นไม่ต้องยืนยัน passcode |
-| AST-07 | middleware ตอบแค่ "ผู้เรียกทำกับเป้าหมายนี้ได้ไหม" — **ไม่ได้พิสูจน์ว่า resource เป็นของเป้าหมาย** · service ต้องเช็คซ้ำทุกครั้งว่า config ที่ระบุเป็นของเป้าหมาย (หรือเป็นของ GLOBAL เมื่อกฎอนุญาต) |
+| AST-07 | middleware ตอบแค่ "ผู้เรียกทำ scope นี้ได้ไหม" — **ไม่ได้พิสูจน์ว่า resource เป็นของเป้าหมาย** · service ต้องเช็คซ้ำทุกครั้งว่า config ที่ระบุเป็นของเป้าหมาย (หรือเป็นของ GLOBAL เมื่อกฎอนุญาต) — กันส่ง `config_id` ของบัญชีอื่น |
 
 ### การระบุเป้าหมาย
 
 | ID | Rule |
 |---|---|
-| AST-08 | เส้นที่เลือก scope ได้ส่ง `scope` = `"GLOBAL"` / `"AGENT"` **บังคับ** · `AGENT` ต้องส่ง `agent_id` > 0 · `GLOBAL` ต้องไม่ส่ง `agent_id` หรือส่ง `0` · เส้น branding ส่ง `agent_id` > 0 อย่างเดียว (ไม่มี scope) · ไม่ส่ง / ค่าอื่น / `null` / อ่านไม่ออก → `422` msg บอก field (JSON ใช้ `utils.ParseBodyNoNull`) · เส้น multipart ส่งเป็น **form field** (lead GQ4) · **ไม่มีค่าพิเศษ `me`** · ห้ามตีความค่าว่างหรือ 0 เป็น GLOBAL เงียบๆ — พิมพ์ผิดต้องไม่กลายเป็นการเขียนทับค่ากลาง |
-| AST-09 | middleware `ResolveAssetTarget` เก็บผลเป็น struct ที่บอกชัดว่า resolve แล้วหรือยัง และได้ scope ไหน · guard ที่มีความหมายเฉพาะฝั่งเดียว (AST-02, AST-04) ต้องอยู่หลังตัวแยกฝั่ง · ถ้าอ่านผล resolve ไม่ได้ → ปฏิเสธ (fail-closed) ห้ามปล่อยผ่าน |
+| AST-08 | เป้าหมายมาจาก **token เสมอ** (lead 2026-10-16): เส้นที่เลือก scope ได้ (asset · theme) ส่ง `scope` = `"GLOBAL"` / `"AGENT"` **บังคับ** · `AGENT` = บัญชีที่ login (sub = เจ้าของ) · `GLOBAL` = ค่ากลาง · เส้น branding / bundle ไม่มี scope (ของตัวเองเสมอ — ส่ง `scope` อื่นนอกจาก `AGENT` → `422`) · **ไม่รับ `agent_id` ทุกเส้น** — ส่งมา (ค่าใดก็ตาม) → `422` "ไม่ต้องส่ง agent_id" (ไม่เมินเงียบๆ: หน้าบ้านเดิมที่ยังส่ง id ของบัญชีอื่นต้องรู้ตัว ไม่ใช่ไปแก้ของตัวเองโดยไม่ตั้งใจ — ต่างจากฝั่งผู้เล่น AST-52 ที่ไม่มีเส้นเขียน) · ไม่ส่ง / ค่าอื่น / `null` / อ่านไม่ออก → `422` msg บอก field · เส้น multipart อ่าน **form field** (lead GQ4) · ห้ามตีความ scope ที่ไม่ส่งเป็น GLOBAL เงียบๆ |
+| AST-09 | middleware `ResolveAssetTarget` อ่าน `scope` · `RequireAssetTarget` เติมบัญชีจาก token + สายของบัญชีนั้น แล้วตั้ง `Resolved` · service ปฏิเสธเป้าหมายที่ไม่ `Resolved` (route ลืม middleware = fail-closed) ห้ามปล่อยผ่าน · guard ที่มีความหมายเฉพาะฝั่งเดียว (AST-02) ต้องอยู่หลังตัวแยกฝั่ง |
 
 ### Catalog
 
@@ -162,7 +162,7 @@ change log (ระหว่างนี้ใช้ `created_by` / `updated_by` 
 | AST-45 | bundle ของ (บัญชี, เกม) = `source` + `assets` (map `asset_type` → URL ตาม AST-25) + `theme` (AST-37 + shades) + `site` (branding) · **`assets` กับ `site` แยก key** — ชื่อช่องอะไรก็ไม่ชนกับ branding |
 | AST-46 | ไม่มี asset เลย → `assets = {}` ตอบสำเร็จ (ไม่ใช่ error) · อ่าน branding ไม่สำเร็จ → `site` เป็นค่าว่างตาม ACC-32 + log warn — **asset คือส่วนที่จำเป็น branding ล้มต้องไม่ทำให้ทั้ง bundle ล้ม** |
 | AST-47 | branding **ไล่ทั้งชุด** ตาม AST-57: บัญชีใกล้สุดในสายที่ "มี branding" = แถวที่มี `site_name` หรือโลโก้ไม่ว่าง → ใช้**ทั้งแถว**ของบัญชีนั้น ห้ามผสม field จากคนละชั้น (ชื่อของลูก + โลโก้ของแม่ = ไม่ใช่ branding ของใคร) · ไม่เจอเลย → ทุก field `""` (ไม่ใช่ error · ไม่ใช่ `null`) |
-| AST-48 | bundle ผู้เล่น (`/player/asset/bundle` — GN23): implement ใน module หน้าบ้านหลัง Player Auth · ต้องเรียก **service เดียวกับ preview หลังบ้าน** (ห้ามเขียน logic รวมซ้ำ) · เว็บเป้าหมายมาจากผู้สร้างตรงของ Member ตาม AST-57 · **ใครทำเส้นฝั่งผู้เล่น (bundle + รายชื่อเกมของ lobby) ตัดสินพร้อม review Player Auth** (lead GE22-2) · `theme` ใน bundle ไม่มี `inherited_from` (ไม่ส่ง username ชั้นบนให้ผู้เล่น — ❓ หัวข้อ 9) |
+| AST-48 | bundle ผู้เล่น (`POST /api/v1/player/pr/asset/bundle` — GN23 · lead 2026-10-16): ใช้**ตัวสร้าง bundle ตัวเดียวกับ preview หลังบ้าน** (`buildBundle` — ห้ามเขียน logic รวมซ้ำ) · เว็บเป้าหมาย = ผู้สร้างตรงของ Member จาก session ตาม AST-57 · **เกมที่ปิดอยู่ (`status_game`) ตอบตามปกติ** (lobby แสดงเกมปิด · Bet เช็คเกมปิดเอง — PA-60 · lead Q5) · `theme` ไม่มี `inherited_from` (ไม่เปิด username ชั้นบน — lead Q6) · ยังไม่ทำ cache (lead Q7) · SUSPENDED เรียกได้ (ดูข้อมูลได้ — PA-33) |
 | AST-51 | `game_cover` เป็น**ชื่อช่องสงวน** ต้องมีใน catalog ของทุกเกม (seed) · `games/list` อ่านปกจากช่อง `game_cover` ที่ **ไล่สายจากผู้เรียก** (AST-57 — เห็นแบบเดียวกับผู้เล่นของตัวเอง ไม่ใช่ GLOBAL อย่างเดียว · lead GE1-1) ผ่าน service ตัวเดียวกับ `used/list` (ห้ามเขียน query คู่ขนาน) · **ไม่กรองเกมที่ `status_game` ปิด** — หน้าจัดการหน้าตาต้องเห็นทุกเกม (lead GE1-2) · เกมที่ยังไม่มีปก / อ่านปกไม่สำเร็จ → `game_cover = ""` (ACC-32) + log warn · **ห้ามทำให้ทั้งเส้นล้มเพราะเกมเดียว** · เส้นรายชื่อเกมของ lobby ผู้เล่นใช้ service เดียวกัน (ตัดสินพร้อม Player Auth — GQ9) |
 | AST-52 | ฝั่งผู้เล่น (Member) **อ่านอย่างเดียว** ไม่มีเส้นเขียนใดๆ · บัญชีเป้าหมายมาจาก token ของผู้เล่นเท่านั้น · **ไม่รับ `agent_id` จาก path / query / body** — ขอดูของบัญชีอื่นไม่ได้ทุกกรณี |
 | AST-53 | `*/detail/get` ของ theme และ branding ตอบ**ค่าที่ไล่สายแล้ว** + `source` (`self` / `upline` / `global`) กฎเดียวกับ bundle (lead GR4: "ใช้กฎเดียวกันทั้ง BO preview และผู้เล่น") · หน้าตั้งค่ารู้ว่าเป็นของตัวเองหรือไม่จาก `source` · ปุ่ม reset แสดงเมื่อ `source = self` · เมื่อ `source = upline` เพิ่ม **`inherited_from`** = username ของชั้นบนที่ให้ค่ามา (lead AV3 · GE9 / GE12 — `used/list` ดู AST-25) · `source` อื่นส่ง `inherited_from = ""` |
@@ -229,15 +229,15 @@ extract จากโค้ดเท่านั้น (ไม่อ่าน doc
 
 ## 5. Endpoints
 
-ทุกเส้น BO เป็น `POST` (lead GN) ใต้ `/api/v1/bo/pr/asset/` · ระบุบัญชีด้วย `agent_id` ใน body / form · ผ่าน `Authenticated` + `PassedGates()` ·
-สิทธิ์เมนูด้วย `RequirePermission(MenuAsset, LevelView / LevelEdit)` · สิทธิ์ต่อเป้าหมาย (AST-03 / 04 / 05) ด้วย `ResolveAssetTarget` + `RequireAssetTarget` ·
+ทุกเส้น BO เป็น `POST` (lead GN) ใต้ `/api/v1/bo/pr/asset/` · **เป้าหมายคือบัญชีที่ login** (ไม่มี `agent_id` — AST-08 · lead 2026-10-16) · ผ่าน `Authenticated` + `PassedGates()` ·
+สิทธิ์เมนูด้วย `RequirePermission(MenuAsset, LevelView / LevelEdit)` · สิทธิ์ต่อ scope (AST-02 / 03) ด้วย `ResolveAssetTarget` + `RequireAssetTarget` ·
 ลำดับใน `routes.go`: `Authenticated` → `PassedGates()` → `RequirePermission` → `ResolveAssetTarget` → `RequireAssetTarget` — เขียนบรรทัดเดียวกับ route (กฎข้อ 28) ·
 sub ต้องมีสิทธิ์ `asset` (AST-06) · ลำดับเช็คและ error ดูหัวข้อ 7.1 · ชื่อ `config_id` ใช้เหมือนกันทุกเส้น ·
 `games/list` · `slots/list` · `used/list` · `theme/detail/get` · `branding/detail/get` · `bundle/detail/get` ตอบ array / object ธรรมดา ·
 `files/list` แบ่งหน้าตามกฎข้อ 19 (`response.Page`)
 
 error ร่วมทุกเส้น: `401202`, `401203`, `401301`, `401302`, `401304`, `401306`, `401307`, `401311`, `402303` ·
-เส้นที่ระบุเป้าหมายเพิ่ม: `422` (AST-08), `402402`, `405301`
+เส้นที่มีเป้าหมายเพิ่ม: `422` (AST-08), `405301`
 
 | GN | Path (ต่อท้าย `/api/v1/bo/pr/asset/`) | สิทธิ์ `asset` | ทำอะไร | เทียบของเก่า |
 |---|---|---|---|---|
@@ -257,7 +257,7 @@ error ร่วมทุกเส้น: `401202`, `401203`, `401301`, `401302`,
 | GN14 | `branding/logo/upload` | edit | อัปโลโก้ (multipart · เขียนทับ) | เปลี่ยน |
 | GN16 | `branding/reset` | edit | กลับไปใช้ branding ของชั้นบน | **ใหม่** |
 | GN22 | `bundle/detail/get` | view | preview: asset + theme + branding ของบัญชีหนึ่ง | เปลี่ยน (เดิมไม่มี `site`) |
-| GN23 | `/api/v1/player/asset/bundle` | token ผู้เล่น | ผู้เล่นโหลดรูป ธีม และ branding | **contract เท่านั้น** — implement หลัง Player Auth (AST-48) |
+| GN23 | `/api/v1/player/pr/asset/bundle` | token ผู้เล่น | ผู้เล่นโหลดรูป ธีม และ branding (เว็บของตัวเอง) | **ใหม่** (lead 2026-10-16 · AST-48) |
 
 **เลื่อน (ไม่ implement รอบนี้):** GN15 `branding/favicon/upload` · GN17 `site-themes/list` · GN18 `banners/list` · GN19 `banners/create` · GN20 `banners/status/update` · GN21 `banners/delete` (ภายหลัง — AST-44, AST-58, AST-59)
 
@@ -297,7 +297,6 @@ Request: `{ "game_code": "scratch_card" }` · Response `data`:
 | field | ค่า |
 |---|---|
 | `scope` | `GLOBAL` / `AGENT` |
-| `agent_id` | id ของบัญชีเป้าหมาย (เฉพาะ `AGENT`) |
 | `game_code` | เช่น `scratch_card` |
 | `asset_type` | ชื่อช่องตาม catalog |
 | `use_now` | `true` / `false` (ไม่ส่ง = `true`) |
@@ -317,13 +316,13 @@ Response `data`:
   "created_at": "2026-10-12T10:00:00+07:00"
 }
 ```
-เป้าหมาย `GLOBAL` → `agent_id = 0` · Error codes: `422`, `405101`, `405102`, `405103`, `405304`, `405401`, `505801`, `505802`, `500`
+`agent_id` ใน response = บัญชีที่ login (`GLOBAL` → `0`) · Error codes: `422`, `405101`, `405102`, `405103`, `405304`, `405401`, `505801`, `505802`, `500`
 
 ### GN4 · POST files/list (คลังรูปของช่อง)
 
 Request:
 ```json
-{ "scope": "AGENT", "agent_id": 12, "game_code": "scratch_card", "asset_type": "icon_button", "page": 1, "limit": 20 }
+{ "scope": "AGENT", "game_code": "scratch_card", "asset_type": "icon_button", "page": 1, "limit": 20 }
 ```
 Response `data` (`response.Page`):
 ```json
@@ -344,12 +343,12 @@ Response `data` (`response.Page`):
 
 ### GN5 · POST files/delete
 
-Request: `{ "scope": "AGENT", "agent_id": 12, "config_id": 9001 }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) ·
+Request: `{ "scope": "AGENT", "config_id": 9001 }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) ·
 Error codes: `422`, `405402`, `405403`
 
 ### GN6 · POST used/list (ไฟล์ใช้งานจริงต่อช่อง ไล่สายแล้ว)
 
-Request: `{ "scope": "AGENT", "agent_id": 15, "game_code": "scratch_card" }` · Response `data`:
+Request: `{ "scope": "AGENT", "game_code": "scratch_card" }` (agent01 login) · Response `data`:
 ```json
 {
   "source": "mixed",
@@ -367,17 +366,17 @@ Request: `{ "scope": "AGENT", "agent_id": 15, "game_code": "scratch_card" }` · 
 
 ### GN7 · POST used/update
 
-Request: `{ "scope": "AGENT", "agent_id": 12, "game_code": "scratch_card", "config_id": 118 }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) ·
+Request: `{ "scope": "AGENT", "game_code": "scratch_card", "config_id": 118 }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) ·
 Error codes: `422`, `405304`, `405402`
 
 ### GN8 · POST used/reset
 
-Request: `{ "scope": "AGENT", "agent_id": 12, "game_code": "scratch_card", "asset_type": "icon_button" }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) ·
+Request: `{ "scope": "AGENT", "game_code": "scratch_card", "asset_type": "icon_button" }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) ·
 Error codes: `422` (รวม `scope = GLOBAL`), `405401`
 
 ### GN9 · POST theme/detail/get
 
-Request: `{ "scope": "AGENT", "agent_id": 15, "game_code": "scratch_card" }` · Response `data`:
+Request: `{ "scope": "AGENT", "game_code": "scratch_card" }` (agent01 login) · Response `data`:
 ```json
 {
   "source": "upline",
@@ -411,7 +410,6 @@ Request:
 ```json
 {
   "scope": "AGENT",
-  "agent_id": 12,
   "game_code": "scratch_card",
   "font_family": "kanit",
   "main_color_1": "#1E90FF",
@@ -425,12 +423,12 @@ Error codes: `422` (ขาดค่า / ฟอนต์ไม่อยู่ใ
 
 ### GN11 · POST theme/reset
 
-Request: `{ "scope": "AGENT", "agent_id": 12, "game_code": "scratch_card" }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) ·
+Request: `{ "scope": "AGENT", "game_code": "scratch_card" }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) ·
 Error codes: `422` (รวม `scope = GLOBAL`), `405401`
 
 ### GN12 · POST branding/detail/get
 
-Request: `{ "agent_id": 15 }` · Response `data`:
+Request: `{}` (agent01 login) · Response `data`:
 ```json
 { "source": "upline", "inherited_from": "share01", "site_name": "Share One", "logo": "https://cdn.example.com/sites/12/logo/1759900000000000000-0a1b2c3d.png" }
 ```
@@ -439,11 +437,11 @@ Request: `{ "agent_id": 15 }` · Response `data`:
 
 ### GN13 · POST branding/detail/update
 
-Request: `{ "agent_id": 12, "site_name": "Share One" }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) · Error codes: `422`
+Request: `{ "site_name": "Share One" }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) · Error codes: `422`
 
 ### GN14 · POST branding/logo/upload (multipart/form-data)
 
-field: `agent_id`, `file` · Response `data`:
+field: `file` · Response `data`:
 ```json
 { "url": "https://cdn.example.com/sites/12/logo/1759900000000000000-0a1b2c3d.png" }
 ```
@@ -451,11 +449,11 @@ Error codes: `422`, `405102`, `405103`, `505801`, `505802`
 
 ### GN16 · POST branding/reset
 
-Request: `{ "agent_id": 12 }` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) · Error codes: `422`
+Request: `{}` · Response: `{"code":200,"msg":"สำเร็จ"}` (ไม่มี `data`) · Error codes: `422`
 
 ### GN22 · POST bundle/detail/get (preview — ผู้เล่นของบัญชีนี้จะเห็นอะไร)
 
-Request: `{ "agent_id": 15, "game_code": "scratch_card" }` · Response `data`:
+Request: `{ "game_code": "scratch_card" }` (agent01 login) · Response `data`:
 ```json
 {
   "source": "mixed",
@@ -489,11 +487,11 @@ Request: `{ "agent_id": 15, "game_code": "scratch_card" }` · Response `data`:
 ```
 Error codes: `422`, `405401`
 
-### GN23 · POST /api/v1/player/asset/bundle (contract — implement หลัง Player Auth)
+### GN23 · POST /api/v1/player/pr/asset/bundle (ผู้เล่น · lead 2026-10-16)
 
-Request: `{ "game_code": "scratch_card" }` (เกมเดียวต่อคำขอ — รอ review Player Auth ยืนยัน P1) · `data` รูปแบบเดียวกับ GN22 แต่ `theme` ไม่มี `inherited_from` ·
-ใช้ token ของ Member · อ่านอย่างเดียว · บัญชีเป้าหมายมาจากผู้สร้างตรงของ Member เท่านั้น ไม่รับ `agent_id` ใดๆ (AST-52) ·
-การเช็คเกมเปิด / ปิด (`status_game` — MGMT-20) เป็นของ module หน้าบ้าน
+Request: `{ "game_code": "scratch_card" }` (เกมเดียวต่อคำขอ · field อื่นถูกเมิน) · `data` รูปแบบเดียวกับ GN22 ทุก key (theme ไม่มี `inherited_from` อยู่แล้ว) ·
+ใช้ token ของ Member (`PlayerAuthenticated` — player_auth) · อ่านอย่างเดียว · เว็บเป้าหมายมาจากผู้สร้างตรงของ Member ใน session เท่านั้น ไม่รับ `agent_id` ใดๆ (AST-52) ·
+เกมปิดตอบตามปกติ (AST-48) · Error codes: `422` (ไม่ส่ง / null `game_code`), `405401`, `407202` · `407203` · `407204` · `407301` · `407302` (middleware ผู้เล่น)
 
 ## 6. Schema
 
@@ -617,29 +615,27 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-02 | sm01 (Share Master) `theme/detail/update` / `files/upload` / `branding/detail/update` ของตัวเอง | `405301` ทั้งหมด (ใช้ของ CSM — lead AV1) |
 | AST-02 | sm01 และ sm02 (Share Master ใต้ csm01 เดียวกัน) เรียก `bundle/detail/get` | ได้ค่าชุดเดียวกัน (ของ csm01) |
 | AST-02 | agent ที่ sm01 สร้าง (Agent ใต้ Share Master) ตั้งของตัวเอง | สำเร็จ (ข้อยกเว้นเฉพาะ Share Master) |
-| AST-02 | superadmin `scope=AGENT, agent_id=<id ตัวเอง>` | `405301` |
+| AST-02 | superadmin เขียน `scope=AGENT` (ของตัวเอง) | `405301` |
 | AST-03 | superadmin อัป `scope=GLOBAL` | สำเร็จ · `created_by = superadmin` |
 | AST-03 | `sa@ops` ที่ `asset = view` อัป `scope=GLOBAL` | `402303` |
 | AST-03 | `sa@ops` ที่ `asset = edit` อัป `scope=GLOBAL` | สำเร็จ · `created_by = sa@ops` |
 | AST-03 | share01 อัป `scope=GLOBAL` | `405301` |
-| AST-04 | share01 อัป / ตั้ง theme ให้ `agent_id=15` (ลูกในสายล่าง) | `405301` · ข้อมูลของ agent01 ไม่เปลี่ยน |
-| AST-04 | share01 ตั้งให้ `agent_id=20` (csm01 — นอกสาย) | `402402` |
-| AST-04 | `share01@design` ที่ `asset = edit` อัปให้ `agent_id=12` | สำเร็จ · เป็นของ share01 |
+| AST-04 | share01 ส่ง `agent_id=15` (ลูกในสายล่าง) มากับ `files/upload` / `theme/detail/update` | `422` "ไม่ต้องส่ง agent_id" · ข้อมูลของ agent01 และ share01 ไม่เปลี่ยน |
+| AST-04 | `share01@design` ที่ `asset = edit` อัป `scope=AGENT` | สำเร็จ · เป็นของ share01 (เจ้าของ) |
 | AST-04 | csm01 ตั้ง theme ของตัวเอง | `sm01` และ `sm02` ได้ตาม (`source = upline`) โดยไม่ต้องตั้งต่อคน |
 | AST-05 | `share01@design` ที่ `asset = off` เรียก `used/list scope=GLOBAL` | `402303` |
 | AST-05 | agent01 เรียก `used/list scope=GLOBAL` | สำเร็จ |
-| AST-05 | share01 เรียก `used/list scope=AGENT, agent_id=15` (ดูสายล่าง) | สำเร็จ |
-| AST-05 | share01 เรียก `used/list scope=AGENT, agent_id=20` (นอกสาย) | `402402` |
+| AST-05 | share01 เรียก `used/list scope=AGENT` | ได้ของ share01 เท่านั้น · ไม่มีทางดูของ agent01 (ชั้นบนดูสายล่างไม่ได้ — lead 2026-10-16) |
+| AST-05 | agent01 เรียก `used/list scope=AGENT` หลัง share01 ตั้งรูป | ได้รูปของ share01 (`source = upline`) — การไล่สายคงเดิม |
 | AST-05 | sm01 เรียก `theme/detail/get` ของตัวเอง | สำเร็จ · ได้ค่าของ csm01 · `source = upline` |
 | AST-06 | ADMIN เรียก `games/list` | `402303` |
 | AST-06 | share01 ถูก SUSPEND เรียก `used/list` | `401311` |
 | AST-06 | `share01@design` ที่ไม่มีสิทธิ์ `asset` เรียกทุกเส้น | `402303` |
 | AST-07 | share01 `used/update` / `files/delete` ด้วย `config_id` ของ agent01 | `405402` (ข้อความเดียวกับไม่พบ) |
 | AST-08 | ไม่ส่ง `scope` / `scope="global"` / `scope=null` | `422` |
-| AST-08 | `scope=AGENT` ไม่ส่ง `agent_id` / `agent_id=0` / `agent_id="abc"` | `422` (ไม่ตกไปเป็น GLOBAL) |
-| AST-08 | `scope=GLOBAL, agent_id=12` | `422` |
-| AST-08 | multipart `files/upload` ส่ง `agent_id` เป็น query แทน form field | `422` (ไม่ส่ง field) |
-| AST-09 | เส้น AGENT-only (branding) ตอนไม่มีผล resolve (bug จำลอง) | ปฏิเสธ ไม่ผ่าน |
+| AST-08 | `scope=AGENT` + `agent_id` ใดๆ (`12` · `0` · `"abc"`) · `scope=GLOBAL` + `agent_id` · branding / bundle + `agent_id` | `422` "ไม่ต้องส่ง agent_id" |
+| AST-08 | multipart `files/upload` ส่ง `scope` เป็น query แทน form field | `422` (ไม่ส่ง field) |
+| AST-09 | เรียก service ด้วยเป้าหมายที่ไม่ผ่าน `RequireAssetTarget` (bug จำลอง) | ปฏิเสธ ไม่ผ่าน |
 | AST-10 | `slots/list` `game_code=plinko` | `405401` |
 | AST-11 | อัป `asset_type = "win_highlite"` (สะกดผิด) | `405401` · `asset_types` ไม่มีแถวเพิ่ม |
 | AST-12 | migration แก้ขนาดของ `win_highlight` | `slots/list` และการตรวจตอน `files/upload` ใช้ขนาดใหม่พร้อมกัน |
@@ -722,7 +718,9 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | AST-47 | **3 ชั้น:** agent01 ไม่มี branding · share01 มี | `bundle` ของ agent01 ได้ `site` ทั้งแถวของ share01 |
 | AST-47 | agent01 ตั้งแค่โลโก้ · share01 ตั้งครบ | `bundle` ของ agent01 ได้ของ agent01 (`site_name = ""`) — ไม่เอาชื่อของ share01 มาผสม |
 | AST-47 | ทั้งสายไม่มีใครตั้ง | `site` ทุก field `""` · สำเร็จ |
-| AST-48 | Member `mem01` เรียก bundle ฝั่งผู้เล่น (เมื่อมี module หน้าบ้าน) | `data` เท่ากับ `bundle/detail/get` ของ agent01 ทุกส่วน (BO preview = ผู้เล่น) |
+| AST-48 | Member `mem01` (ใต้ agent01) เรียก `player/pr/asset/bundle` | `data` เท่ากับ `bundle/detail/get` ที่ agent01 เรียกเองทุกตัวอักษร (BO preview = ผู้เล่น) · theme ไม่มี `inherited_from` |
+| AST-48 | เกมที่ share01 ปิด (`status_game = false`) · Member SUSPENDED | ตอบตามปกติ |
+| AST-48 | ไม่มี token · token ของ BO | `407202` (HTTP 401) |
 | AST-49 | `S3_CDN_BASE_URL = https://cdn.example.com/` | URL ไม่มี `//` ซ้อน |
 | AST-50 | `share01@design` อัป แล้ว share01 แก้ theme | config `created_by = share01@design` · theme `updated_by = share01` |
 | AST-51 | `scratch_card` มีปก · `coin_toss` ยังไม่มีปก | `games/list` สำเร็จ · `scratch_card` ได้ URL · `coin_toss` ได้ `""` |
@@ -766,8 +764,8 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 |---|---|---|
 | 1 | `Authenticated` → `PassedGates()` | `401202` · `401203` · `401301` · `401302` · `401304` · `401306` · `401307` · `401311` |
 | 2 | `RequirePermission(MenuAsset, view / edit)` | `402303` |
-| 3 | `ResolveAssetTarget` — ไม่มี `null` ใน body · `scope` · `agent_id` (AST-08) | `400` · `422` |
-| 4 | `RequireAssetTarget` — สิทธิ์ต่อเป้าหมาย (AST-03 / AST-04 / AST-05) | `402402` → `405301` |
+| 3 | `ResolveAssetTarget` — ไม่มี `null` ใน body · `scope` · ห้ามส่ง `agent_id` (AST-08) | `400` · `422` |
+| 4 | `RequireAssetTarget` — เติมบัญชีจาก token · สิทธิ์ต่อ scope (เขียน GLOBAL ไม่ใช่ Superadmin · Share Master / Superadmin เขียนของตัวเอง — AST-02 / 03) | `405301` |
 | 5 | controller — อ่าน body / form + `Validate()` (field อื่น เช่น `game_code` · `asset_type` · `config_id` · `use_now` · `site_theme` · ไฟล์แนบ) | `400` · `422` |
 | 6 | service — ค่าที่ต้องปรับก่อนตรวจ: ธีม 5 ค่า (AST-34 – AST-36) · `site_name` (AST-42) | `422` |
 | 6 | service — `files/upload`: catalog → เลิกใช้ → ขนาดไฟล์ → ชนิดไฟล์ + อ่าน header → เพดาน 4096 px → ขนาดตามสเปกช่อง → storage (AST-15, AST-17) | `405401` → `405304` → `405103` → `405102` → `405101` → `405101` → `505801` / `505802` |
@@ -775,20 +773,20 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | 6 | service — `files/delete`: config → ยังถูกใช้ (AST-28) | `405402` → `405403` |
 | 6 | service — `used/reset` · `theme/reset` · `branding/reset` | `422` (scope GLOBAL) |
 
-**ทำไมต่างจาก agent_management:** เป้าหมายของ asset ระบุใน body (`scope` + `agent_id`) และตรวจสิทธิ์ต่อเป้าหมายใน middleware บรรทัดเดียวกับ route
-(กฎข้อ 28) ซึ่งรันก่อน controller · ผลคือ request ที่ทั้ง**ไม่มีสิทธิ์กับเป้าหมาย**และ**body ผิด** ได้ `402402` / `405301` ไม่ใช่ `422`
+**ทำไมต่างจาก agent_management:** asset เลือก `scope` ใน body และตรวจสิทธิ์ต่อ scope ใน middleware บรรทัดเดียวกับ route
+(กฎข้อ 28) ซึ่งรันก่อน controller · ผลคือ request ที่ทั้ง**ไม่มีสิทธิ์กับ scope นี้**และ**body ผิด** ได้ `405301` ไม่ใช่ `422`
 (ไม่มีสิทธิ์ = ไม่ต้องบอกว่า body ผิดตรงไหน) · ถ้ามีสิทธิ์ ได้ `422` ตามปกติ · agent_management ตรวจสายใน service จึงได้ `422` ก่อน
 
 ## 8. Contract changes (แจ้ง frontend)
 
-- **path / method ใหม่ทั้งหมด** (หัวข้อ 5 · ตาม lead GN) · ทุกเส้น `POST` · ไม่มี `DELETE` · ไม่มี `?agent_id=` และ `me` — ส่ง `scope` + `agent_id` ใน body / form field (multipart)
+- **path / method ใหม่ทั้งหมด** (หัวข้อ 5 · ตาม lead GN) · ทุกเส้น `POST` · ไม่มี `DELETE` · ไม่มี `?agent_id=` และ `me` — ส่ง `scope` ใน body / form field (multipart) · **เป้าหมายคือบัญชีที่ login ไม่มี `agent_id`** (lead 2026-10-16)
 - จัดกลุ่มใหม่: ไฟล์รูปอยู่ใต้ `files/*` · รูปที่ใช้งานใต้ `used/*` · ธีมใต้ `theme/*` · branding ใต้ `branding/*` · รูปแบบชื่อ `…/detail/get` · `…/detail/update` (lead N1)
 - **เส้นใหม่:** `used/reset` · `theme/reset` · `branding/reset` (กลับไปใช้ของชั้นบน)
-- **ลำดับ error:** ไม่มีสิทธิ์กับบัญชีเป้าหมาย (`402402` / `405301`) ตอบก่อน body ผิด (`422`) — ถ้าได้ `402402` / `405301` ให้แสดงว่าไม่มีสิทธิ์ ไม่ต้องชี้ช่องที่กรอก (หัวข้อ 7.1 · ต่างจากเส้น `manage/*`)
+- **ลำดับ error:** ไม่มีสิทธิ์กับ scope นี้ (`405301`) ตอบก่อน body ผิด (`422`) — ถ้าได้ `405301` ให้แสดงว่าไม่มีสิทธิ์ ไม่ต้องชี้ช่องที่กรอก (หัวข้อ 7.1 · ต่างจากเส้น `manage/*`)
 - **อัปแล้วขึ้นจริงไหม:** ใช้งานจริง = `used` เท่านั้น · `files/upload` ส่ง `use_now` (ไม่ส่ง = `true` = ใช้ทันที) · ไม่มีกฎ "ใช้ไฟล์ล่าสุดอัตโนมัติ" แล้ว
 - **ลบ = soft delete ทั้งค่ากลางและของบัญชี** · ลบรูปที่ยังถูกเลือกใช้ไม่ได้ (`405403`) ต้อง `used/update` หรือ `used/reset` ก่อน · ลบได้ไม่ผูกกับคนอัป
 - **ไล่สาย:** บัญชีที่ไม่ได้ตั้งได้ค่าของชั้นบนที่ใกล้ที่สุด แล้วค่ากลาง (asset ทีละช่อง · theme / branding ทั้งชุด) · `source` เป็น `self` / `upline` / `global` / `mixed` (เดิม `agent` / `global` / `mixed`)
-- ชั้นบนดูของสายล่างได้ แก้ไม่ได้ (`405301`) · Share Master ตั้งเองไม่ได้ ได้ตาม CSM
+- **breaking change (lead 2026-10-16):** BO ไม่รับ `agent_id` แล้วทุกเส้น (ส่งมา = `422`) · ดู / แก้ได้เฉพาะของบัญชีที่ login + ค่ากลาง · **ชั้นบนดูของสายล่างไม่ได้อีก** · `402402` ไม่เกิดใน module นี้แล้ว · Share Master ตั้งเองไม่ได้ ได้ตาม CSM
 - `theme/detail/get` · `branding/detail/get` · `used/list` ตอบค่าที่ไล่สายแล้ว + `source` + **`inherited_from`** (username ของชั้นบนเมื่อ `source = upline` ไม่เช่นนั้น `""`) (เดิม branding ไม่ไล่สายในหน้าตั้งค่า)
 - **`used/list` ส่งทุกช่องของเกม** — ช่องที่ไม่มีไฟล์ได้ `url = ""` · `config_id = 0` · `source = ""`
 - **`games/list`** ปกเกมไล่สายจากผู้เรียก (เห็นแบบเดียวกับผู้เล่นของตัวเอง ไม่ใช่ค่ากลางอย่างเดียว) · ไม่กรองเกมที่ `status_game` ปิด
@@ -797,7 +795,7 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 - ไฟล์ ≤ **5 MB** (เดิม 10 MB) · ห้าม SVG · ชนิดไฟล์ตรวจจากเนื้อไฟล์ · ชื่อช่องต้องตรง catalog ทุกตัวอักษร
 - `games/list` · `slots/list` ต้อง login และมีสิทธิ์ `asset` (เดิม public) · `game_type` → `game_code`
 - อ่านค่ากลาง (GLOBAL) ต้องมีสิทธิ์ `asset` ≥ `view` (เดิมใครที่ login ก็อ่านได้)
-- bundle: `data` เป็น `{ source, assets, theme, site }` (เดิม map แบน + `site` ปน) · ไม่ใช้ header `X-Asset-Source` · ไม่มีไฟล์ = `assets: {}` (เดิม code แยก / 404) · ผู้เล่นเรียก `POST /player/asset/bundle` (contract — หลัง Player Auth)
+- bundle: `data` เป็น `{ source, assets, theme, site }` (เดิม map แบน + `site` ปน) · ไม่ใช้ header `X-Asset-Source` · ไม่มีไฟล์ = `assets: {}` (เดิม code แยก / 404) · ผู้เล่นเรียก `POST /api/v1/player/pr/asset/bundle` (`game_code` อย่างเดียว · lead 2026-10-16)
 - สีใน response เป็นตัวพิมพ์เล็กเสมอ
 - **เลื่อน:** banner · favicon · site-themes (`site_theme`) — frontend ยังไม่ต้องทำ
 - **error code ชุดใหม่ทั้งหมด** (ไม่ใช้ `1004xx`, `2000xx`, `2600xx` ของระบบเก่า) — ดูหัวข้อ 9
@@ -809,7 +807,7 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | lead | เรื่อง | ตัดสิน → rule |
 |---|---|---|
 | GS1 | scope | MVP: catalog + asset + theme + bundle + branding ชื่อ / โลโก้ · เลื่อน banner / favicon / site-themes / change log → หัวข้อ 1 · AST-44, 58–60 |
-| GR4 · GQ1 · GQ2 | เจ้าของ + สืบทอด | ไล่สายทั้ง asset / theme / branding · ชั้นบนดู แก้ไม่ได้ · นอกสาย `402402` · CSM ตั้งครั้งเดียว Share Master ได้ตาม · ตัด `405302` → AST-01, 02, 04, 05, 25, 37, 47, 57 |
+| GR4 · GQ1 · GQ2 | เจ้าของ + สืบทอด | ไล่สายทั้ง asset / theme / branding · ~~ชั้นบนดู แก้ไม่ได้ · นอกสาย `402402`~~ (แทนด้วย lead 2026-10-16 — ดูของตัวเองเท่านั้น) · CSM ตั้งครั้งเดียว Share Master ได้ตาม · ตัด `405302` → AST-01, 02, 04, 05, 25, 37, 47, 57 |
 | GR1 | อัปแล้วขึ้นจริงไหม | ใช้งานจริง = `used` เท่านั้น · `use_now` (ค่าเริ่มต้น `true`) · ตัดกฎไฟล์ล่าสุด → AST-21, 24 |
 | GR2 | ลบ | soft delete ทั้ง 2 scope · ไม่ลบไฟล์ S3 ใน request · ตัดกฎคนอัป · ตัด `405303` → AST-28–32 |
 | GR3 · GQ11 | ขนาดไฟล์ | ≤ 5 MB · multipart · ไม่แตะ `BodyLimit` · ห้าม SVG · `Content-Type` / `Cache-Control` ของ object → AST-16 |
@@ -850,7 +848,7 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | 405101 | 200 | ขนาดภาพไม่ตรงกับที่ช่องนี้รับ (msg บอกขนาดที่รับ) · หรือกว้าง / สูงเกิน 4096 px (msg "ขนาดภาพต้องไม่เกิน 4096×4096 px") |
 | 405102 | 200 | ชนิดไฟล์ไม่รองรับ (รับ png / jpeg / gif / webp) · รวมไฟล์ที่อ่าน header ภาพไม่ได้ |
 | 405103 | 200 | ไฟล์ใหญ่เกิน 5 MB |
-| 405301 | 200 | ไม่มีสิทธิ์แก้หน้าตาของบัญชีนี้ (ค่ากลางที่ไม่ใช่ Superadmin · บัญชีในสายล่าง · Share Master) |
+| 405301 | 200 | ไม่มีสิทธิ์แก้หน้าตาของบัญชีนี้ (เขียนค่ากลางที่ไม่ใช่ Superadmin · Share Master / Superadmin เขียน `scope=AGENT` ของตัวเอง) |
 | 405304 | 200 | ช่องนี้เลิกใช้แล้ว |
 | 405401 | 200 | ไม่พบเกมหรือช่อง asset |
 | 405402 | 200 | ไม่พบ asset (ตอบเหมือนกันทุกกรณี — AST-23, AST-31) |
@@ -858,7 +856,7 @@ chain ของ `mem01` = chain ของผู้สร้างตรง (agen
 | 505801 | 503 | ที่เก็บไฟล์ยังไม่พร้อม |
 | 505802 | 502 | อัปโหลดไปที่เก็บไฟล์ไม่สำเร็จ |
 
-validation ทั่วไปใช้ `422` + msg บอก field · สิทธิ์ใช้ code ของ module ② (`402303`, `402402`)
+validation ทั่วไปใช้ `422` + msg บอก field · สิทธิ์เมนูใช้ code ของ module ② (`402303`) · `402402` ไม่ใช้แล้ว (lead 2026-10-16)
 
 **lead ตรวจโค้ด (2026-10-14 · `carl/asset` @ `b29a7ff`) — ไม่มี must-fix · ✅ แก้แล้วในฉบับนี้:**
 
@@ -869,11 +867,19 @@ validation ทั่วไปใช้ `422` + msg บอก field · สิท�
 | A3 | รัน migration บน dev DB จาก branch ที่ยังไม่ merge | รับทราบ · ห้ามแก้ `20261012160000` / `20261012170000` อีก (ต้องเปลี่ยน = migration ใหม่) · ครั้งหน้าขอก่อนเขียน DB / รัน migration บน env ร่วม |
 | A4 | MinIO → `scripts/fakes3` · ตรวจสิทธิ์ต่อเป้าหมายก่อน body · GE10-1 เทียบค่าที่ไล่สายแล้ว | **รับทั้งหมด** → GQ12 (หัวข้อนี้) · หัวข้อ 7.1 · AST-33 |
 
+**lead 2026-10-16 (ข้อเสนอของ schneider · docs/reviews/game-asset.md):**
+
+| เรื่อง | ตัดสิน → rule |
+|---|---|
+| BO ใช้บัญชีจาก token | ทุกเส้น BO **ไม่รับ `agent_id`** · เป้าหมาย = บัญชีที่ login (sub = เจ้าของ) · เลือกได้แค่ `scope` `AGENT` / `GLOBAL` (คงชื่อเดิม) · **ชั้นบนดูของสายล่างไม่ได้** (แทน GR4 / GQ1 / GQ2 ส่วนนี้) · การไล่สายคงเดิม · `402402` ไม่เกิดใน module นี้ · breaking change → AST-04, 05, 07, 08, 09 · หัวข้อ 5 · 7.1 · 8 |
+| ส่ง `agent_id` มา | `422` "ไม่ต้องส่ง agent_id" (ไม่เมิน — กันหน้าบ้านเดิมเขียนผิดบัญชีโดยไม่รู้ตัว) → AST-08 |
+| เส้นผู้เล่น GN23 | `POST /api/v1/player/pr/asset/bundle` · `game_code` อย่างเดียว · เป้าหมายจาก token · ตัวสร้าง bundle ร่วมกับ preview · เกมปิดตอบปกติ · ไม่ส่ง `inherited_from` · ยังไม่ทำ cache → AST-48, 52 · GN23 |
+
 ### ❓ คำถามที่ยังเปิด (ไม่ขวางการ merge)
 
-1. **`theme` ใน bundle ไม่มี `inherited_from`** (AST-48) — เพราะ bundle ใช้ส่งผู้เล่นและไม่ควรเปิด username ชั้นบน · `detail/get` ฝั่ง BO มีตาม GE9 — ขอ lead ยืนยัน
+1. ~~**`theme` ใน bundle ไม่มี `inherited_from`**~~ — lead ยืนยันแล้ว (2026-10-16 Q6) · เดิม: (AST-48) — เพราะ bundle ใช้ส่งผู้เล่นและไม่ควรเปิด username ชั้นบน · `detail/get` ฝั่ง BO มีตาม GE9 — ขอ lead ยืนยัน
 2. **สคริปต์ AST-61** — รูปแบบโฟลเดอร์ `{game_code}/{asset_type}.{ext}` · `-force` · `created_by = script:<user>` เป็นร่างของผม ขอ lead / ทีมเกมยืนยันว่าไฟล์ที่ส่งมาตั้งชื่อแบบนี้ได้ไหม
-3. **`/player/asset/bundle`** (GN23) — `game_code` ใน body ตามที่ร่างไว้ · เส้นผู้เล่น + lobby ตัดสินพร้อม review Player Auth (GE22-2)
+3. ~~**`/player/asset/bundle`** (GN23)~~ — lead ตัดสินแล้ว (2026-10-16 Q4) · เดิม: — `game_code` ใน body ตามที่ร่างไว้ · เส้นผู้เล่น + lobby ตัดสินพร้อม review Player Auth (GE22-2)
 4. **รายชื่อช่อง / ขนาด / palette** (GQ7) — รอทีมเกม / หน้าบ้านยืนยัน (ไม่ตอบใน ~3 วัน seed ตามร่าง)
 
 ~~GE10-1~~ (ส่งค่าเดิมทั้งชุด = เทียบค่าที่ไล่สายแล้ว) และ ~~ลำดับเช็คสิทธิ์ต่อเป้าหมายกับ body~~ — lead รับแล้ว (A4)

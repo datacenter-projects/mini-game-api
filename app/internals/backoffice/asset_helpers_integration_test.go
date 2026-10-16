@@ -59,8 +59,9 @@ func buildAssetWorld(t *testing.T, app *fiber.App) assetWorld {
 
 // ---- request ----
 
-func scopeAgent(id uint, kv ...any) map[string]any {
-	m := map[string]any{"scope": "AGENT", "agent_id": id}
+// scopeOwn — scope AGENT = ของบัญชีที่ login (เป้าหมายมาจาก token · ไม่มี agent_id — AST-08 · lead 2026-10-16)
+func scopeOwn(kv ...any) map[string]any {
+	m := map[string]any{"scope": "AGENT"}
 	for i := 0; i+1 < len(kv); i += 2 {
 		m[kv[i].(string)] = kv[i+1]
 	}
@@ -75,8 +76,9 @@ func scopeGlobal(kv ...any) map[string]any {
 	return m
 }
 
-func byAgent(id uint, kv ...any) map[string]any {
-	m := map[string]any{"agent_id": id}
+// own — body ของเส้น branding / bundle (ของบัญชีที่ login เสมอ · ไม่มี scope / agent_id)
+func own(kv ...any) map[string]any {
+	m := map[string]any{}
 	for i := 0; i+1 < len(kv); i += 2 {
 		m[kv[i].(string)] = kv[i+1]
 	}
@@ -128,8 +130,9 @@ func postForm(t *testing.T, app *fiber.App, op string, fields map[string]string,
 	return out
 }
 
-func formAgent(id uint, kv ...string) map[string]string {
-	m := map[string]string{"scope": "AGENT", "agent_id": itoa(id)}
+// formOwn — form field ของ multipart: scope AGENT = ของบัญชีที่ login
+func formOwn(kv ...string) map[string]string {
+	m := map[string]string{"scope": "AGENT"}
 	for i := 0; i+1 < len(kv); i += 2 {
 		m[kv[i]] = kv[i+1]
 	}

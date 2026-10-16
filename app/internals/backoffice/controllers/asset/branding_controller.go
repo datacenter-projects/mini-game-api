@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetBrandingController — POST /api/v1/bo/pr/asset/branding/detail/get (GN12) · เป้าหมาย = agent_id (ไม่มี scope)
+// GetBrandingController — POST /api/v1/bo/pr/asset/branding/detail/get (GN12) · เป้าหมาย = บัญชีที่ login (ไม่มี scope · ไม่รับ agent_id — AST-08)
 func GetBrandingController(c *fiber.Ctx) error {
 	res, err := assetService.GetBrandingService(c.UserContext(), middleware.GetActor(c), middleware.GetAssetTarget(c))
 	if err != nil {
@@ -32,7 +32,7 @@ func UpdateBrandingController(c *fiber.Ctx) error {
 	return response.OK(c, nil)
 }
 
-// UploadLogoController — POST /api/v1/bo/pr/asset/branding/logo/upload (GN14) · multipart/form-data (agent_id, file)
+// UploadLogoController — POST /api/v1/bo/pr/asset/branding/logo/upload (GN14) · multipart/form-data (file) · ของบัญชีที่ login
 func UploadLogoController(c *fiber.Ctx) error {
 	file, err := utils.ReadFormFile(c, "file", assetCore.MaxFileSize+1)
 	if err != nil {

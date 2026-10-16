@@ -94,11 +94,11 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/manage/subaccounts/status/update", mw.PassedGates(), mw.RequireMainAccount(), agentManagementController.UpdateSubaccountStatusController)
 
 	// asset — docs/modules/asset.md หัวข้อ 5 (lead GN1–GN22) · ทุกเส้นใช้เมนู asset (GQ3) · view = อ่าน · edit = เขียน
-	// เป้าหมาย: asset / theme ส่ง scope + agent_id (ResolveAssetTarget(true)) · branding / bundle ส่ง agent_id อย่างเดียว (false) — AST-08
-	// RequireAssetTarget ตรวจสิทธิ์ต่อเป้าหมาย (AST-03 / 04 / 05) · multipart: files/upload · branding/logo/upload (≤ 5 MB — AST-16)
+	// เป้าหมาย = บัญชีที่ login (sub = เจ้าของ) · ไม่รับ agent_id (lead 2026-10-16 — AST-08) · asset / theme เลือก scope AGENT / GLOBAL (ResolveAssetTarget(true))
+	// branding / bundle เป็นของตัวเองเสมอ (false) · RequireAssetTarget เติมบัญชี + ตรวจสิทธิ์ต่อ scope (AST-02 / 03) · multipart: files/upload · branding/logo/upload (≤ 5 MB — AST-16)
 	assetView := mw.RequirePermission(agentManagementCore.MenuAsset, agentManagementCore.LevelView)
 	assetEdit := mw.RequirePermission(agentManagementCore.MenuAsset, agentManagementCore.LevelEdit)
-	scoped, byAgent := mw.ResolveAssetTarget(true), mw.ResolveAssetTarget(false)
+	scoped, ownOnly := mw.ResolveAssetTarget(true), mw.ResolveAssetTarget(false)
 	targetView, targetEdit := mw.RequireAssetTarget(false), mw.RequireAssetTarget(true)
 	pr.Post("/asset/games/list", mw.PassedGates(), assetView, assetController.ListGamesController)
 	pr.Post("/asset/slots/list", mw.PassedGates(), assetView, assetController.ListSlotsController)
@@ -111,11 +111,11 @@ func RegisterRoutes(api fiber.Router) {
 	pr.Post("/asset/theme/detail/get", mw.PassedGates(), assetView, scoped, targetView, assetController.GetThemeController)
 	pr.Post("/asset/theme/detail/update", mw.PassedGates(), assetEdit, scoped, targetEdit, assetController.UpdateThemeController)
 	pr.Post("/asset/theme/reset", mw.PassedGates(), assetEdit, scoped, targetEdit, assetController.ResetThemeController)
-	pr.Post("/asset/branding/detail/get", mw.PassedGates(), assetView, byAgent, targetView, assetController.GetBrandingController)
-	pr.Post("/asset/branding/detail/update", mw.PassedGates(), assetEdit, byAgent, targetEdit, assetController.UpdateBrandingController)
-	pr.Post("/asset/branding/logo/upload", mw.PassedGates(), assetEdit, byAgent, targetEdit, assetController.UploadLogoController)
-	pr.Post("/asset/branding/reset", mw.PassedGates(), assetEdit, byAgent, targetEdit, assetController.ResetBrandingController)
-	pr.Post("/asset/bundle/detail/get", mw.PassedGates(), assetView, byAgent, targetView, assetController.GetBundleController)
+	pr.Post("/asset/branding/detail/get", mw.PassedGates(), assetView, ownOnly, targetView, assetController.GetBrandingController)
+	pr.Post("/asset/branding/detail/update", mw.PassedGates(), assetEdit, ownOnly, targetEdit, assetController.UpdateBrandingController)
+	pr.Post("/asset/branding/logo/upload", mw.PassedGates(), assetEdit, ownOnly, targetEdit, assetController.UploadLogoController)
+	pr.Post("/asset/branding/reset", mw.PassedGates(), assetEdit, ownOnly, targetEdit, assetController.ResetBrandingController)
+	pr.Post("/asset/bundle/detail/get", mw.PassedGates(), assetView, ownOnly, targetView, assetController.GetBundleController)
 	// game_rate (อัตราแพ้ชนะ · เมนู ⑥) — docs/modules/game_rate.md หัวข้อ 5 (lead RN1) · สิทธิ์ rate (มีแค่ Superadmin + sub ที่ได้เมนูนี้ — RATE-02)
 	// บันทึก / ย้อน: สิทธิ์ก่อน passcode
 	rateView := mw.RequirePermission(agentManagementCore.MenuRate, agentManagementCore.LevelView)

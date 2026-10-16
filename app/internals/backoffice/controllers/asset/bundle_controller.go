@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetBundleController — POST /api/v1/bo/pr/asset/bundle/detail/get (GN22) · preview ของบัญชี agent_id
+// GetBundleController — POST /api/v1/bo/pr/asset/bundle/detail/get (GN22) · preview ของบัญชีที่ login (ไม่รับ agent_id — AST-08)
 // เส้นฝั่งผู้เล่น (GN23) เรียก assetService.GetBundleService ตัวเดียวกันตอนทำ Player Auth
 func GetBundleController(c *fiber.Ctx) error {
 	var req assetDto.GameRequest

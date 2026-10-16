@@ -13,58 +13,51 @@ import (
 
 func str(v string) utils.JSONString { return utils.JSONString{Value: v, Present: true, IsString: true} }
 
-func TestResolveTargetWithScope(t *testing.T) { // AST-08
+func TestResolveTargetWithScope(t *testing.T) { // AST-08 · เป้าหมาย AGENT เติมจาก token ทีหลัง (lead 2026-10-16)
 	tests := []struct {
-		name    string
-		scope   utils.JSONString
-		agentID string
-		want    assetCore.Target
-		wantErr string // "" = ผ่าน · ไม่ว่าง = 422 และ msg ต้องมีข้อความนี้
+		name        string
+		scope       utils.JSONString
+		agentIDSent bool
+		want        assetCore.Target
+		wantErr     string // "" = ผ่าน · ไม่ว่าง = 422 และ msg ต้องมีข้อความนี้
 	}{
-		{"GLOBAL ไม่ส่ง agent_id", str("GLOBAL"), "", assetCore.Target{Resolved: true, Scope: assetCore.ScopeGlobal}, ""},
-		{"GLOBAL ส่ง agent_id = 0", str("GLOBAL"), "0", assetCore.Target{Resolved: true, Scope: assetCore.ScopeGlobal}, ""},
-		{"AGENT มี agent_id", str("AGENT"), "12", assetCore.Target{Resolved: true, Scope: assetCore.ScopeAgent, AgentID: 12}, ""},
-		{"AGENT ช่องว่างรอบเลข (form)", str("AGENT"), " 12 ", assetCore.Target{Resolved: true, Scope: assetCore.ScopeAgent, AgentID: 12}, ""},
+		{"GLOBAL", str("GLOBAL"), false, assetCore.Target{Scope: assetCore.ScopeGlobal}, ""},
+		{"AGENT (ของตัวเอง)", str("AGENT"), false, assetCore.Target{Scope: assetCore.ScopeAgent}, ""},
 
-		{"ไม่ส่ง scope", utils.JSONString{}, "12", assetCore.Target{}, "scope"},
-		{"scope ไม่ใช่ string", utils.JSONString{Present: true}, "12", assetCore.Target{}, "scope"},
-		{"scope ตัวพิมพ์เล็ก", str("global"), "", assetCore.Target{}, "scope"},
-		{"scope ว่าง", str(""), "", assetCore.Target{}, "scope"},
-		{"scope อื่น", str("ALL"), "", assetCore.Target{}, "scope"},
-		{"AGENT ไม่ส่ง agent_id", str("AGENT"), "", assetCore.Target{}, "agent_id"},
-		{"AGENT agent_id = 0", str("AGENT"), "0", assetCore.Target{}, "agent_id"},
-		{"AGENT agent_id เป็นข้อความ", str("AGENT"), "abc", assetCore.Target{}, "agent_id"},
-		{"AGENT agent_id เป็น JSON string", str("AGENT"), `"12"`, assetCore.Target{}, "agent_id"},
-		{"AGENT agent_id ติดลบ", str("AGENT"), "-1", assetCore.Target{}, "agent_id"},
-		{"AGENT agent_id ทศนิยม", str("AGENT"), "1.5", assetCore.Target{}, "agent_id"},
-		{"AGENT agent_id ใหญ่เกิน", str("AGENT"), "99999999999", assetCore.Target{}, "agent_id"},
-		{"GLOBAL แต่ส่ง agent_id", str("GLOBAL"), "12", assetCore.Target{}, "agent_id"},
-		{"GLOBAL agent_id ไม่ใช่ตัวเลข (ห้ามเงียบ)", str("GLOBAL"), "abc", assetCore.Target{}, "agent_id"},
+		{"ไม่ส่ง scope", utils.JSONString{}, false, assetCore.Target{}, "scope"},
+		{"scope ไม่ใช่ string", utils.JSONString{Present: true}, false, assetCore.Target{}, "scope"},
+		{"scope ตัวพิมพ์เล็ก", str("global"), false, assetCore.Target{}, "scope"},
+		{"scope ว่าง", str(""), false, assetCore.Target{}, "scope"},
+		{"scope อื่น", str("ALL"), false, assetCore.Target{}, "scope"},
+		{"AGENT ส่ง agent_id มา", str("AGENT"), true, assetCore.Target{}, "agent_id"},
+		{"GLOBAL ส่ง agent_id มา", str("GLOBAL"), true, assetCore.Target{}, "agent_id"},
+		{"ไม่ส่ง scope แต่ส่ง agent_id (บอกเรื่อง agent_id ก่อน)", utils.JSONString{}, true, assetCore.Target{}, "agent_id"},
 	}
 	for _, tt := range tests {
-		got, err := ResolveTarget(true, tt.scope, tt.agentID)
+		got, err := ResolveTarget(true, tt.scope, tt.agentIDSent)
 		checkResolve(t, tt.name, got, err, tt.want, tt.wantErr)
+		if err == nil && got.Resolved {
+			t.Errorf("%s: ResolveTarget ต้องยังไม่ Resolved (RequireAssetTarget ตั้งให้ — AST-09)", tt.name)
+		}
 	}
 }
 
-func TestResolveTargetWithoutScope(t *testing.T) { // AST-01 · AST-08: เส้น branding / bundle
+func TestResolveTargetWithoutScope(t *testing.T) { // AST-01 · AST-08: เส้น branding / bundle (ของตัวเองเสมอ)
 	tests := []struct {
-		name    string
-		scope   utils.JSONString
-		agentID string
-		want    assetCore.Target
-		wantErr string
+		name        string
+		scope       utils.JSONString
+		agentIDSent bool
+		want        assetCore.Target
+		wantErr     string
 	}{
-		{"agent_id อย่างเดียว", utils.JSONString{}, "12", assetCore.Target{Resolved: true, Scope: assetCore.ScopeAgent, AgentID: 12}, ""},
-		{"ส่ง scope AGENT ก็ผ่าน", str("AGENT"), "12", assetCore.Target{Resolved: true, Scope: assetCore.ScopeAgent, AgentID: 12}, ""},
-		{"ส่ง scope GLOBAL ไม่ได้", str("GLOBAL"), "12", assetCore.Target{}, "scope"},
-		{"ส่ง scope ที่ไม่ใช่ string", utils.JSONString{Present: true}, "12", assetCore.Target{}, "scope"},
-		{"ไม่ส่ง agent_id", utils.JSONString{}, "", assetCore.Target{}, "agent_id"},
-		{"agent_id = 0", utils.JSONString{}, "0", assetCore.Target{}, "agent_id"},
-		{"agent_id ไม่ใช่ตัวเลข", utils.JSONString{}, "x", assetCore.Target{}, "agent_id"},
+		{"ไม่ส่งอะไร", utils.JSONString{}, false, assetCore.Target{Scope: assetCore.ScopeAgent}, ""},
+		{"ส่ง scope AGENT ก็ผ่าน", str("AGENT"), false, assetCore.Target{Scope: assetCore.ScopeAgent}, ""},
+		{"ส่ง scope GLOBAL ไม่ได้", str("GLOBAL"), false, assetCore.Target{}, "scope"},
+		{"ส่ง scope ที่ไม่ใช่ string", utils.JSONString{Present: true}, false, assetCore.Target{}, "scope"},
+		{"ส่ง agent_id มา", utils.JSONString{}, true, assetCore.Target{}, "agent_id"},
 	}
 	for _, tt := range tests {
-		got, err := ResolveTarget(false, tt.scope, tt.agentID)
+		got, err := ResolveTarget(false, tt.scope, tt.agentIDSent)
 		checkResolve(t, tt.name, got, err, tt.want, tt.wantErr)
 	}
 }

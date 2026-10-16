@@ -50,39 +50,38 @@ func TestAssetThemeRestoresMissingGlobal(t *testing.T) { // AST-37 · lead GE10-
 	}
 }
 
-func TestAssetTargetCheckedBeforeBody(t *testing.T) { // 7.1: สิทธิ์ต่อเป้าหมาย (ขั้น 4) มาก่อนตรวจ body (ขั้น 5)
+func TestAssetTargetCheckedBeforeBody(t *testing.T) { // 7.1: สิทธิ์ต่อ scope (ขั้น 4) มาก่อนตรวจ body (ขั้น 5) · เป้าหมายจาก token
 	app := setup2(t)
 	testutil.NewFakeS3(t)
 	w := buildAssetWorld(t, app)
-	aid := w.agent.ID // agent01 อยู่สายล่างของ share01 — share01 ดูได้ แก้ไม่ได้
+	// ไม่มีสิทธิ์ในเส้นเขียน: Share Master เขียนของตัวเอง · บัญชีที่ไม่ใช่ Superadmin เขียน GLOBAL
 
 	// ไม่มีสิทธิ์ + body ผิด = error สิทธิ์ ไม่ใช่ 422
-	expect(t, assetCall(t, app, "theme/detail/update", scopeAgent(aid, "font_family", "noto"), w.shareTok), 200, codeNoPermission)
-	expect(t, assetCall(t, app, "used/update", scopeAgent(aid, "game_code", "scratch_card"), w.shareTok), 200, codeNoPermission)
-	expect(t, assetCall(t, app, "branding/detail/update", byAgent(aid, "site_theme", "x"), w.shareTok), 200, codeNoPermission)
-	expect(t, postForm(t, app, "files/upload", formAgent(aid, "game_code", "scratch_card"), nil, w.shareTok), 200, codeNoPermission)
+	expect(t, assetCall(t, app, "theme/detail/update", scopeOwn("font_family", "noto"), w.sm1Tok), 200, codeNoPermission)
+	expect(t, assetCall(t, app, "used/update", scopeOwn("game_code", "scratch_card"), w.sm1Tok), 200, codeNoPermission)
+	expect(t, assetCall(t, app, "branding/detail/update", own("site_theme", "x"), w.sm1Tok), 200, codeNoPermission)
+	expect(t, postForm(t, app, "files/upload", formOwn("game_code", "scratch_card"), nil, w.sm1Tok), 200, codeNoPermission)
 	expect(t, assetCall(t, app, "theme/detail/update", putTheme(themeBody("scratch_card"), scopeGlobal()), w.shareTok), 200, codeNoPermission)
-	// นอกสาย + body ผิด (เส้นอ่าน) = 402402
-	expect(t, assetCall(t, app, "used/list", scopeAgent(w.csm.ID), w.shareTok), 200, codeOutsideLine)
+	expect(t, assetCall(t, app, "used/update", scopeGlobal("game_code", "scratch_card"), w.shareTok), 200, codeNoPermission)
 
 	// มีสิทธิ์ + body ผิด = 422 ตามปกติ
-	expect(t, assetCall(t, app, "used/update", scopeAgent(w.share.ID, "game_code", "scratch_card"), w.shareTok), 200, 422)
-	expect(t, assetCall(t, app, "used/list", scopeAgent(aid), w.shareTok), 200, 422)
-	// ผิดที่ scope / agent_id / null (ขั้น 3) = 422 ก่อนตรวจสิทธิ์ แม้เป้าหมายจะอยู่นอกสาย
-	expect(t, assetCall(t, app, "used/list", map[string]any{"agent_id": w.csm.ID, "game_code": "scratch_card"}, w.shareTok), 200, 422)
-	expect(t, assetCall(t, app, "used/list", scopeAgent(w.csm.ID, "game_code", nil), w.shareTok), 200, 422)
+	expect(t, assetCall(t, app, "used/update", scopeOwn("game_code", "scratch_card"), w.shareTok), 200, 422)
+	expect(t, assetCall(t, app, "used/list", scopeOwn(), w.shareTok), 200, 422)
+	// ผิดที่ scope / agent_id / null (ขั้น 3) = 422 ก่อนตรวจสิทธิ์ แม้ผู้เรียกไม่มีสิทธิ์เขียน
+	expect(t, assetCall(t, app, "used/update", map[string]any{"agent_id": w.csm.ID, "game_code": "scratch_card"}, w.sm1Tok), 200, 422)
+	expect(t, assetCall(t, app, "theme/detail/update", map[string]any{"game_code": "scratch_card"}, w.sm1Tok), 200, 422)
+	expect(t, assetCall(t, app, "used/list", scopeOwn("game_code", nil), w.shareTok), 200, 422)
 }
 
 func TestAssetImageLimits(t *testing.T) { // AST-17 · lead A1 (กว้าง / สูง ≤ 4096 ทุกเส้นอัป) · lead A2 (อ่าน header ไม่ได้ = 405102)
 	app := setup2(t)
 	fake := testutil.NewFakeS3(t)
 	w := buildAssetWorld(t, app)
-	sid := w.share.ID
 	upFree := func(file []byte) testutil.Response { // coin_toss/background = ช่องที่ไม่มี allowed_sizes
-		return postForm(t, app, "files/upload", formAgent(sid, "game_code", "coin_toss", "asset_type", "background"), file, w.shareTok)
+		return postForm(t, app, "files/upload", formOwn("game_code", "coin_toss", "asset_type", "background"), file, w.shareTok)
 	}
 	logo := func(file []byte) testutil.Response {
-		return postForm(t, app, "branding/logo/upload", map[string]string{"agent_id": itoa(sid)}, file, w.shareTok)
+		return postForm(t, app, "branding/logo/upload", map[string]string{}, file, w.shareTok)
 	}
 	before := fake.Puts()
 
@@ -90,7 +89,7 @@ func TestAssetImageLimits(t *testing.T) { // AST-17 · lead A1 (กว้าง 
 	for name, r := range map[string]testutil.Response{
 		"ช่องไม่มีสเปก กว้าง 4097": upFree(pngOf(t, 4097, 1)),
 		"ช่องไม่มีสเปก สูง 4097":   upFree(pngOf(t, 1, 4097)),
-		"ช่องมีสเปก":               postForm(t, app, "files/upload", formAgent(sid, "game_code", "scratch_card", "asset_type", "icon_button"), pngOf(t, 4097, 32), w.shareTok),
+		"ช่องมีสเปก":               postForm(t, app, "files/upload", formOwn("game_code", "scratch_card", "asset_type", "icon_button"), pngOf(t, 4097, 32), w.shareTok),
 		"โลโก้":                    logo(pngOf(t, 4097, 1)),
 		"webp ใหญ่ (VP8X)":         upFree(webpExtended(5000, 10)),
 	} {
@@ -137,10 +136,9 @@ func TestAssetUploadCreatedAtMatchesList(t *testing.T) { // created_at ใน re
 	app := setup2(t)
 	testutil.NewFakeS3(t)
 	w := buildAssetWorld(t, app)
-	sid := w.share.ID
 
-	up := uploadScratch(t, app, w.shareTok, formAgent(sid), "icon_button")
-	r := assetCall(t, app, "files/list", scopeAgent(sid, "game_code", "scratch_card", "asset_type", "icon_button"), w.shareTok)
+	up := uploadScratch(t, app, w.shareTok, formOwn(), "icon_button")
+	r := assetCall(t, app, "files/list", scopeOwn("game_code", "scratch_card", "asset_type", "icon_button"), w.shareTok)
 	expect(t, r, 200, 200)
 	page := decode[struct {
 		Data []struct {
