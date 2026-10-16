@@ -110,3 +110,22 @@ nit 7 ข้อใน verify report ทำหรือไม่ก็ได้ �
   - ❌ Dockerfile (ไม่ build `seed_asset_global` / ไม่ COPY รูปเข้า image) · ❌ Job หลัง `migrate up` · ❌ หัวข้อ Job ใน DEPLOYMENT.md
 - **การรันยังเป็นแบบเดิม (AST-61)**: คนรันสคริปต์เองทีละ env ชี้ไปที่ `seed/global-assets` · DEPLOYMENT.md เขียนวิธีรันเอง + **ขอ lead ก่อนรันบน dev / uat / prod**
 - ยังไม่รันบน env ใด — รอ S3 / CloudFront ของ dev พร้อม
+
+## BO ใช้บัญชีจาก token + เส้นผู้เล่น GN23 (lead zerph 2026-10-16 · ข้อเสนอของ schneider)
+**เรื่อง 1 — BO asset ใช้บัญชีจาก token แทน `agent_id` (รับตามข้อเสนอ · แทน GR4 / GQ1 / GQ2 ส่วน "ชั้นบนดูของสายล่างได้")**
+- ทุกเส้น BO ของ asset (13 เส้นที่มี scope + `agent_id` · branding · bundle / preview) **ไม่รับ `agent_id` แล้ว** · เป้าหมาย = บัญชีจาก token (sub ใช้ของเจ้าของ)
+- เลือกได้แค่ `scope`: `AGENT` = ของตัวเอง · `GLOBAL` = ค่ากลาง (อ่านได้ทุกบัญชีที่มีสิทธิ์ `asset` · เขียนเฉพาะ Superadmin — AST-03) · **คงชื่อ scope `AGENT` / `GLOBAL`** (Q3)
+- **ชั้นบนดูของสายล่างไม่ได้อีก** (เช่น share01 ดูธีม / รูป / preview ของ agent01 ไม่ได้) · `402402` (นอกสาย) และกรณีแก้สายล่าง (`405301`) ไม่เกิดใน module นี้แล้ว · เหลือ "เขียน GLOBAL ไม่ใช่ Superadmin" และ "Share Master ตั้งของตัวเองไม่ได้ (ใช้ของ CSM — AV1)"
+- การไล่สาย (สายล่างที่ไม่ได้ตั้งได้ค่าของชั้นบน → GLOBAL — GR4) **คงเดิม** · เปลี่ยนแค่ว่าใครดูของใครได้
+- breaking change ของ API บน dev → แก้ spec (AST-02 – 05, 07 – 09, หัวข้อ 7.1, GN1 – GN22) · โค้ด · test · `docs/frontend/asset.md` · แจ้งหน้าบ้าน (Q2: lead ยืนยันกับหน้าบ้านว่าเริ่มต่อแล้วหรือยัง)
+
+**เรื่อง 2 — เส้นผู้เล่น bundle (GN23) (รับตามข้อเสนอ)**
+| # | เรื่อง | ผล |
+|---|---|---|
+| Q4 | path | `POST /api/v1/player/pr/asset/bundle` · body มีแค่ `game_code` · เป้าหมายจาก token เท่านั้น (ผู้สร้างตรง — AST-52) · ไม่รับ `agent_id` |
+| — | logic | service ตัวเดียวกับ preview ของ BO (แยกตัวสร้าง bundle ใช้ร่วม — AST-48) · bundle มี theme อยู่แล้ว ไม่ทำเส้น theme แยก |
+| Q5 | เกมที่ปิด (`status_game`) | ตอบรูป / ธีมตามปกติ (lobby แสดงเกมปิดอยู่แล้ว · Bet เช็คเกมปิดเอง — PA-60) |
+| Q6 | `inherited_from` ฝั่งผู้เล่น | **ไม่ส่ง** (ไม่เปิด username ชั้นบน) |
+| Q7 | cache | ยังไม่ทำ |
+
+ลำดับ: เรื่อง 1 → เรื่อง 2 · branch แยกจาก dev ล่าสุด · PR + integration ผ่าน → แจ้ง lead ก่อน merge
