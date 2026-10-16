@@ -57,7 +57,7 @@
 | RATE-08 | **บันทึก / ย้อนต้องยืนยัน passcode** (`RequirePasscode`) · ทุกเวอร์ชันเก็บ log คนแก้: `created_by` (username ณ เวลานั้น · sub = `owner@name`), `actor_type` / `actor_id`, `ip`, `request_id`, `created_at` · ตารางเวอร์ชันคือ log (ห้ามแก้ / ลบ) ดูได้ที่ `versions/list` |
 | RATE-09 | response แสดงค่าที่คำนวณ (`reach_percent`, `payout_percent`, `house_edge_percent`, `max_win_percent`, `avg_multiplier`, `per_ticket_percent` · `prizes[].payout_percent` (ปัดทีละแถว — ผลรวมอาจต่างจาก `payout_percent` ของใบได้ไม่เกิน 0.0001 · lead G-S2) · สรุปทั้งเกม `min_house_edge_percent` + `min_house_edge_step` + `max_payout_percent` — Coin / RPS) **ปัด 4 ตำแหน่ง** (`utils.Round4`) · คำนวณด้วยเลขแม่นยำแล้วค่อยปัด · **ยกเว้น `max_win_percent` ปัดลง** (ค่าที่แสดงต้องตั้งได้จริง — ปัดขึ้นแล้วกรอกค่านั้น house edge จะต่ำกว่า 1%) · หน้าบ้านปัดแสดงเอง |
 | RATE-09A | **ไม่มีค่าเริ่มต้น**: เกมที่ยังไม่เคยตั้งค่า = `version = 0` · เอนจิ้นต้อง**ไม่รับเดิมพัน**ของเกมนั้นจนกว่าจะบันทึกครั้งแรก (หัวข้อ 5.8 · RH1) · ค่าตัวอย่างสำหรับ tester อยู่ใน `docs/frontend/game_rate.md` |
-| RATE-35 | **`status` ต่อขั้น / ต่อแถวรางวัล** (Q10 · เสนอ — รอ lead): `steps[].status` (Coin / RPS) · `prizes[].status` (Scratch) boolean · ไม่ส่ง = `false` · `null` = `422` · backend เก็บ / คืนค่าเท่านั้น (หน้าบ้านใช้ล็อกตอนเกลี่ย %) ไม่เข้าสูตร / กฎ RATE-07 / engine · เป็นส่วนของค่า: เปลี่ยนอย่างเดียว = เวอร์ชันใหม่ (RATE-05C เทียบรวม `status`) · ย้อนเวอร์ชันคืน `status` · คืนใน RE2 / RE3 / RE6 · RE5 `changes` ไม่แสดง |
+| RATE-36 | **`status` ต่อขั้น / ต่อแถวรางวัล** (Q10 · เสนอ — รอ lead): `steps[].status` (Coin / RPS) · `prizes[].status` (Scratch) boolean · ไม่ส่ง = `false` · `null` = `422` · backend เก็บ / คืนค่าเท่านั้น (หน้าบ้านใช้ล็อกตอนเกลี่ย %) ไม่เข้าสูตร / กฎ RATE-07 / engine · เป็นส่วนของค่า: เปลี่ยนอย่างเดียว = เวอร์ชันใหม่ (RATE-05C เทียบรวม `status`) · ย้อนเวอร์ชันคืน `status` · คืนใน RE2 / RE3 / RE6 · RE5 `changes` ไม่แสดง |
 
 ### Coin Flip (`coin_toss`)
 
@@ -415,9 +415,9 @@ CREATE TABLE game_rate_prizes (              -- Scratch Card
 | RATE-31 | ตัวคูณซ้ำ 2 แถว · 0 แถว · 11 แถว | `422` |
 | RATE-32 | share รวม 99.5 · รวม 100.0001 | `406102` |
 | RATE-33 | W 50 กับตารางตัวอย่าง · W 50 กับตาราง `2×/100` (จ่ายคืน 100%) | `house_edge = 22.75` `max_win = 50` (สูตร 64.0776 เกินเพดาน) · `406101` |
-| RATE-35 | Coin ส่ง `status: true` ขั้น 5, 6, 9, 10 (ที่เหลือไม่ส่ง) → RE3 / RE2 / RE6 | คืน `status` ทุกขั้น (true เฉพาะ 4 ขั้นนั้น) · สูตรเท่าเดิม |
-| RATE-35 | ส่งชุดเดิมรวม `status` ซ้ำ · เปลี่ยน `status` อย่างเดียว · ย้อนเวอร์ชันที่ `status` ต่าง | `created: false` · เวอร์ชันใหม่ · `status` ของเวอร์ชันที่เลือกกลับมา |
-| RATE-35 | RPS ใส่ `status` · Scratch ใส่ `prizes[].status` | เก็บ / คืนเหมือน Coin · payout ของ Scratch เท่าเดิม |
+| RATE-36 | Coin ส่ง `status: true` ขั้น 5, 6, 9, 10 (ที่เหลือไม่ส่ง) → RE3 / RE2 / RE6 | คืน `status` ทุกขั้น (true เฉพาะ 4 ขั้นนั้น) · สูตรเท่าเดิม |
+| RATE-36 | ส่งชุดเดิมรวม `status` ซ้ำ · เปลี่ยน `status` อย่างเดียว · ย้อนเวอร์ชันที่ `status` ต่าง | `created: false` · เวอร์ชันใหม่ · `status` ของเวอร์ชันที่เลือกกลับมา |
+| RATE-36 | RPS ใส่ `status` · Scratch ใส่ `prizes[].status` | เก็บ / คืนเหมือน Coin · payout ของ Scratch เท่าเดิม |
 | RATE-08 | ไม่ส่ง passcode · passcode ผิด | `422` · `401204` |
 | RATE-09A | ระบบใหม่ ยังไม่เคยตั้ง | RE1 ทุกเกม `version = 0` · RE2 `steps = []` · `CurrentVersionService` = error |
 | RN2 | RE3 ค่าผ่าน · ขั้น 3 เกิน · share รวม 99 | `valid: true` · `valid: false` + issue `406101` · issue `406102` · ไม่มีเวอร์ชันใหม่ทุกกรณี |
